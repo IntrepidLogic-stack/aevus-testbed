@@ -1,0 +1,19 @@
+[Unit]
+Description=Aevus SCADA Intelligence API
+After=network.target influxdb.service
+Wants=influxdb.service
+
+[Service]
+Type=exec
+User=ubuntu
+Group=ubuntu
+WorkingDirectory=/home/ubuntu/aevus-testbed
+Environment=PATH=/home/ubuntu/aevus-testbed/.venv/bin:/usr/bin:/bin
+ExecStart=/home/ubuntu/aevus-testbed/.venv/bin/uvicorn src.main:app --host 127.0.0.1 --port 8000 --log-level info
+Restart=always
+RestartSec=5
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target

@@ -1,0 +1,39 @@
+# Aevus Testbed — Python Dependencies
+# Install: pip install -r requirements.txt
+
+# ── Core Framework ──
+fastapi>=0.115.0
+uvicorn[standard]>=0.32.0
+pydantic>=2.10.0
+pydantic-settings>=2.6.0
+python-dotenv>=1.0.0
+
+# ── Data Collection ──
+pysnmp>=6.2.0            # SNMP polling (Trio JR900, MikroTik, Catalyst 2960)
+pymodbus>=3.7.0          # Modbus TCP (SCADAPack 470, port 502)
+# dnp3-python            # DNP3 (SCADAPack 470, port 20000) — Phase 5, install manually when needed
+
+# ── Storage ──
+influxdb-client[async]>=1.46.0   # InfluxDB 2.x async client
+aiosqlite>=0.20.0                # Async SQLite
+
+# ── Scheduling ──
+apscheduler>=3.10.0      # Polling job scheduler
+
+# ── Processing / ML ──
+numpy>=1.26.0
+scikit-learn>=1.5.0      # Anomaly detection, prediction models
+pandas>=2.2.0            # Time-series manipulation
+
+# ── Logging ──
+structlog>=24.4.0        # Structured JSON logging
+
+# ── Dev / Test ──
+pytest>=8.3.0
+pytest-asyncio>=0.24.0
+httpx>=0.27.0            # Async test client for FastAPI
+ruff>=0.8.0              # Linter
+black>=24.10.0           # Formatter
+
+# ── WebSocket ──
+websockets>=14.0         # Already included via uvicorn[standard]

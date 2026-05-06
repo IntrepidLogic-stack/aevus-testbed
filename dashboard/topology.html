@@ -379,6 +379,8 @@ body {
       <span class="dot"></span>
       Lab Testbed — Partial
     </div>
+    <span id="wsStatus" style="font-family:var(--font-mono);font-size:10px;color:var(--status-warn)">WS: CONNECTING</span>
+    <span id="lastUpdateTime" style="font-family:var(--font-mono);font-size:10px;color:var(--text-muted)">Last update: —</span>
     <span style="font-size:12px;color:var(--text-muted)">Katy, TX</span>
   </div>
 </div>
@@ -392,23 +394,23 @@ body {
   </div>
   <div class="summary-card">
     <div class="label">Online</div>
-    <div class="value" style="color:var(--status-good)">4</div>
-    <div class="sub">MikroTik, SHOP-01, Pi, Catalyst</div>
+    <div class="value" style="color:var(--status-good)" id="count-online">4</div>
+    <div class="sub">Live from API</div>
   </div>
   <div class="summary-card">
     <div class="label">Link Up</div>
-    <div class="value" style="color:var(--status-warn)">1</div>
-    <div class="sub">Trio #1 (no IP)</div>
+    <div class="value" style="color:var(--status-warn)" id="count-linkup">1</div>
+    <div class="sub">L2 only, no IP</div>
   </div>
   <div class="summary-card">
     <div class="label">Offline</div>
-    <div class="value" style="color:var(--status-bad)">2</div>
-    <div class="sub">SCADAPack, Trio #2</div>
+    <div class="value" style="color:var(--status-bad)" id="count-offline">2</div>
+    <div class="sub">No response</div>
   </div>
   <div class="summary-card">
     <div class="label">Unknown</div>
-    <div class="value" style="color:var(--status-unknown)">1</div>
-    <div class="sub">Uplogix 5000</div>
+    <div class="value" style="color:var(--status-unknown)" id="count-unknown">1</div>
+    <div class="sub">No visibility</div>
   </div>
 </div>
 
@@ -566,12 +568,35 @@ body {
 </div>
 
 <script>
-// ── DEVICE DATA ──
+// ── API CONFIG ──
+const API_KEY = '8U7_JghqHK-nmG5bDwUx5w-A9uFg8F7tiVmvR9WJDyY';
+const API_BASE = '/api/v1';
+const POLL_INTERVAL = 30000; // 30 seconds
+let lastUpdate = null;
+let wsConnected = false;
+
+// ── ASSET ID → TOPOLOGY NODE MAPPING ──
+const assetToNode = {
+  'RAD-01': 'trio1',
+  'RAD-02': 'trio2',
+  'RTR-01': 'mikrotik',
+  'RTU-01': 'scadapack',
+  'SW-01':  'catalyst'
+};
+
+// ── API STATUS → TOPOLOGY STATUS MAPPING ──
+function mapApiStatus(apiStatus) {
+  const map = { good: 'online', warn: 'link-up', bad: 'offline', unknown: 'unknown', offline: 'offline' };
+  return map[apiStatus] || 'unknown';
+}
+
+// ── DEVICE DATA (static baseline, updated by API) ──
 const devices = {
   internet: {
     name: 'Internet',
     role: 'Spectrum Cable Modem',
     status: 'online',
+    apiId: null,
     details: [
       { key: 'Provider', val: 'Spectrum' },
       { key: 'Type', val: 'Cable Modem' },
@@ -583,6 +608,7 @@ const devices = {
     name: 'EC2 Cloud',
     role: 'AWS us-east-1',
     status: 'online',
+    apiId: null,
     details: [
       { key: 'IP', val: '54.211.59.53' },
       { key: 'Tunnel IP', val: '10.99.0.1' },
@@ -595,6 +621,7 @@ const devices = {
     name: 'MikroTik L009',
     role: 'Router / WAN Edge / WireGuard',
     status: 'online',
+    apiId: 'RTR-01',
     details: [
       { key: 'Model', val: 'L009UiGS-2HaxD-IN' },
       { key: 'IP', val: '192.168.88.1' },
@@ -616,6 +643,7 @@ const devices = {
     name: 'SHOP-01',
     role: 'Windows PC — Configuration Station',
     status: 'online',
+    apiId: null,
     details: [
       { key: 'IP', val: '192.168.88.253' },
       { key: 'MAC', val: '84:47:09:42:40:EC' },
@@ -632,6 +660,7 @@ const devices = {
     name: 'Cisco Catalyst 2960',
     role: 'L2 Switch — WS-C2960-24TC-L',
     status: 'online',
+    apiId: 'SW-01',
     details: [
       { key: 'IP', val: '192.168.88.2 (pending)' },
       { key: 'MAC', val: '68:BD:AB:61:AA:00' },
@@ -655,6 +684,7 @@ const devices = {
     name: 'Trio JR900 #1',
     role: 'Radio — RAD-01',
     status: 'link-up',
+    apiId: 'RAD-01',
     details: [
       { key: 'IP', val: '192.168.88.11 (pending)' },
       { key: 'MAC', val: '00:1F:EB:00:75:6F' },
@@ -671,6 +701,7 @@ const devices = {
     name: 'Trio JR900 #2',
     role: 'Radio — RAD-02',
     status: 'offline',
+    apiId: 'RAD-02',
     details: [
       { key: 'IP', val: '192.168.88.12 (pending)' },
       { key: 'MAC', val: 'TBD' },
@@ -686,6 +717,7 @@ const devices = {
     name: 'SCADAPack 470',
     role: 'RTU — RTU-01 (Schneider Electric)',
     status: 'offline',
+    apiId: 'RTU-01',
     details: [
       { key: 'IP (old)', val: '192.168.1.201' },
       { key: 'IP (target)', val: '192.168.88.21' },
@@ -702,6 +734,7 @@ const devices = {
     name: 'Uplogix 5000',
     role: 'Out-of-Band Management',
     status: 'unknown',
+    apiId: null,
     details: [
       { key: 'IP', val: '192.168.88.5 (pending)' },
       { key: 'MAC', val: 'TBD' },
@@ -718,6 +751,7 @@ const devices = {
     name: 'Raspberry Pi',
     role: 'Edge Collector — aevus-edge',
     status: 'online',
+    apiId: null,
     details: [
       { key: 'IP', val: '192.168.88.254' },
       { key: 'MAC', val: '2C:CF:67:34:E1:92' },
@@ -730,6 +764,200 @@ const devices = {
     ]
   }
 };
+
+// ── LIVE API FETCH ──
+async function fetchAssets() {
+  try {
+    const resp = await fetch(`${API_BASE}/assets`, {
+      headers: { 'X-API-Key': API_KEY }
+    });
+    if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+    const assets = await resp.json();
+    applyAssetUpdates(assets);
+    lastUpdate = new Date();
+    updateTimestamp();
+    console.log(`[Topology] Fetched ${assets.length} assets`);
+  } catch (err) {
+    console.error('[Topology] API fetch failed:', err);
+  }
+}
+
+function applyAssetUpdates(assets) {
+  const counts = { online: 0, 'link-up': 0, offline: 0, unknown: 0 };
+
+  assets.forEach(asset => {
+    const nodeKey = assetToNode[asset.id];
+    if (!nodeKey || !devices[nodeKey]) return;
+    const dev = devices[nodeKey];
+
+    // Map API status
+    const newStatus = mapApiStatus(asset.status);
+    dev.status = newStatus;
+
+    // Update health if present
+    if (asset.health !== null && asset.health !== undefined) {
+      // Update or add health in details
+      const healthIdx = dev.details.findIndex(d => d.key === 'Health');
+      const healthVal = `${asset.health}/100`;
+      if (healthIdx >= 0) dev.details[healthIdx].val = healthVal;
+      else dev.details.push({ key: 'Health', val: healthVal });
+    }
+
+    // Update last_seen
+    if (asset.last_seen) {
+      const ago = timeAgo(new Date(asset.last_seen));
+      const lsIdx = dev.details.findIndex(d => d.key === 'Last Seen');
+      if (lsIdx >= 0) dev.details[lsIdx].val = ago;
+      else dev.details.push({ key: 'Last Seen', val: ago });
+    }
+
+    // Update vitals in details
+    if (asset.vitals && asset.vitals.length) {
+      // Remove old vitals section marker
+      const vitIdx = dev.details.findIndex(d => d.key === '── Vitals ──');
+      if (vitIdx >= 0) {
+        // Remove from marker to end
+        dev.details.splice(vitIdx);
+      }
+      dev.details.push({ key: '── Vitals ──', val: '' });
+      asset.vitals.forEach(v => {
+        dev.details.push({ key: v.label, val: v.value });
+      });
+    }
+
+    // Update firmware
+    if (asset.firmware) {
+      const fwIdx = dev.details.findIndex(d => d.key === 'Firmware');
+      if (fwIdx >= 0) dev.details[fwIdx].val = asset.firmware;
+      else dev.details.unshift({ key: 'Firmware', val: asset.firmware });
+    }
+
+    // Update node DOM
+    updateNodeDOM(nodeKey, dev);
+  });
+
+  // Count all device statuses for summary bar
+  Object.values(devices).forEach(d => {
+    if (counts[d.status] !== undefined) counts[d.status]++;
+  });
+  // Internet + EC2 are always online, add to count
+  // They're already in the devices object
+
+  updateSummaryBar(counts);
+
+  // Re-render detail panel if one is selected
+  const selected = document.querySelector('.device-node.selected');
+  if (selected) showDetail(selected.dataset.device);
+}
+
+function updateNodeDOM(nodeKey, dev) {
+  const el = document.getElementById(`node-${nodeKey}`);
+  if (!el) return;
+
+  // Update status badge
+  const badge = el.querySelector('.node-status');
+  if (badge) {
+    const labels = { online: 'Online', 'link-up': 'Link Up', offline: 'Offline', unknown: 'Unknown' };
+    const classes = { online: 'online', 'link-up': 'link-up', offline: 'offline', unknown: 'unknown' };
+    badge.className = `node-status ${classes[dev.status] || 'unknown'}`;
+    badge.innerHTML = `<span class="sdot"></span>${labels[dev.status] || 'Unknown'}`;
+  }
+
+  // Pulse animation on update
+  el.style.transition = 'box-shadow 0.3s';
+  el.style.boxShadow = `0 0 12px ${dev.status === 'online' ? 'rgba(16,212,120,0.3)' : dev.status === 'link-up' ? 'rgba(251,191,36,0.3)' : 'rgba(239,68,68,0.2)'}`;
+  setTimeout(() => { el.style.boxShadow = ''; }, 1500);
+}
+
+function updateSummaryBar(counts) {
+  const onlineEl = document.getElementById('count-online');
+  const linkupEl = document.getElementById('count-linkup');
+  const offlineEl = document.getElementById('count-offline');
+  const unknownEl = document.getElementById('count-unknown');
+  if (onlineEl) onlineEl.textContent = counts.online;
+  if (linkupEl) linkupEl.textContent = counts['link-up'];
+  if (offlineEl) offlineEl.textContent = counts.offline;
+  if (unknownEl) unknownEl.textContent = counts.unknown;
+}
+
+function updateTimestamp() {
+  const el = document.getElementById('lastUpdateTime');
+  if (el && lastUpdate) {
+    el.textContent = `Last update: ${lastUpdate.toLocaleTimeString()}`;
+  }
+}
+
+function timeAgo(date) {
+  const secs = Math.floor((Date.now() - date.getTime()) / 1000);
+  if (secs < 60) return `${secs}s ago`;
+  if (secs < 3600) return `${Math.floor(secs/60)}m ago`;
+  if (secs < 86400) return `${Math.floor(secs/3600)}h ago`;
+  return `${Math.floor(secs/86400)}d ago`;
+}
+
+// ── WEBSOCKET ──
+function connectWebSocket() {
+  const protocol = location.protocol === 'https:' ? 'wss:' : 'ws:';
+  const wsUrl = `${protocol}//${location.host}/api/v1/ws`;
+  console.log(`[Topology] Connecting WebSocket: ${wsUrl}`);
+
+  const ws = new WebSocket(wsUrl);
+
+  ws.onopen = () => {
+    wsConnected = true;
+    console.log('[Topology] WebSocket connected');
+    const wsIndicator = document.getElementById('wsStatus');
+    if (wsIndicator) {
+      wsIndicator.textContent = 'WS: LIVE';
+      wsIndicator.style.color = 'var(--status-good)';
+    }
+  };
+
+  ws.onmessage = (event) => {
+    try {
+      const msg = JSON.parse(event.data);
+      console.log('[Topology] WS message:', msg.type);
+
+      if (msg.type === 'asset_update' && msg.data) {
+        applyAssetUpdates(Array.isArray(msg.data) ? msg.data : [msg.data]);
+      } else if (msg.type === 'health_update' && msg.data) {
+        // Health updates may contain asset-level health changes
+        applyAssetUpdates(Array.isArray(msg.data) ? msg.data : [msg.data]);
+      } else if (msg.type === 'alert' && msg.data) {
+        // Flash the affected node
+        const nodeKey = assetToNode[msg.data.asset_id];
+        if (nodeKey) {
+          const el = document.getElementById(`node-${nodeKey}`);
+          if (el) {
+            el.style.boxShadow = '0 0 20px rgba(239,68,68,0.5)';
+            setTimeout(() => { el.style.boxShadow = ''; }, 3000);
+          }
+        }
+      }
+
+      lastUpdate = new Date();
+      updateTimestamp();
+    } catch (err) {
+      console.error('[Topology] WS parse error:', err);
+    }
+  };
+
+  ws.onclose = () => {
+    wsConnected = false;
+    console.log('[Topology] WebSocket closed, reconnecting in 5s...');
+    const wsIndicator = document.getElementById('wsStatus');
+    if (wsIndicator) {
+      wsIndicator.textContent = 'WS: RECONNECTING';
+      wsIndicator.style.color = 'var(--status-warn)';
+    }
+    setTimeout(connectWebSocket, 5000);
+  };
+
+  ws.onerror = (err) => {
+    console.error('[Topology] WebSocket error:', err);
+    ws.close();
+  };
+}
 
 // ── CONNECTION DEFINITIONS ──
 const connections = [
@@ -861,6 +1089,15 @@ document.querySelectorAll('.device-node').forEach(node => {
 window.addEventListener('load', () => {
   drawConnections();
   window.addEventListener('resize', drawConnections);
+
+  // Initial API fetch
+  fetchAssets();
+
+  // Poll every 30s as fallback
+  setInterval(fetchAssets, POLL_INTERVAL);
+
+  // Connect WebSocket for real-time push
+  connectWebSocket();
 });
 </script>
 </body>

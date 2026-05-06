@@ -365,6 +365,112 @@
     }, 2000);
   }
 
+  // ── Live Drawer Enhancement ──
+
+  function enhanceDrawer() {
+    // Watch for drawer open via MutationObserver on the drawer element
+    const drawer = document.getElementById('asset-drawer');
+    if (!drawer) return;
+
+    const observer = new MutationObserver((mutations) => {
+      for (const mut of mutations) {
+        if (mut.attributeName === 'class' && drawer.classList.contains('open')) {
+          onDrawerOpened();
+          break;
+        }
+      }
+    });
+    observer.observe(drawer, { attributes: true });
+  }
+
+  async function onDrawerOpened() {
+    // Small delay to ensure drawer content is fully rendered
+    await new Promise(r => setTimeout(r, 100));
+
+    // Find which asset is shown by reading the Asset ID from the drawer
+    const content = document.getElementById('drawer-content');
+    if (!content) { console.warn('[Aevus] drawer-content not found'); return; }
+
+    const monoEls = content.querySelectorAll('.summary-value.mono');
+    let markerId = null;
+    for (const el of monoEls) {
+      const id = el.textContent.trim();
+      if (markers.find(m => m.id === id && m._live)) {
+        markerId = id;
+        break;
+      }
+    }
+    if (!markerId) { console.log('[Aevus] No live marker found in drawer'); return; }
+
+    // Already enhanced?
+    if (content.querySelector('.prediction-section')) return;
+
+    console.log(`[Aevus] Fetching prediction for ${markerId}`);
+    // Fetch prediction
+    const prediction = await fetchJSON(`/predictions/${markerId}`);
+    console.log('[Aevus] Prediction response:', prediction);
+
+    // Add LIVE badge to drawer header
+    const titleBlock = content.querySelector('.drawer-title-block');
+    if (titleBlock && !titleBlock.querySelector('.live-badge')) {
+      const badge = document.createElement('span');
+      badge.className = 'live-badge';
+      badge.style.cssText = 'display:inline-block;background:rgba(6,182,212,0.15);color:#06B6D4;font-size:9px;font-weight:700;padding:2px 6px;border-radius:3px;letter-spacing:1px;margin-left:8px;vertical-align:middle;';
+      badge.textContent = 'LIVE';
+      const title = titleBlock.querySelector('.drawer-title');
+      if (title) title.appendChild(badge);
+    }
+
+    // Inject prediction section before RECENT ACTIVITY
+    if (prediction && (prediction.risk_score !== undefined && prediction.risk_score !== null)) {
+      const sections = content.querySelectorAll('.drawer-section');
+      console.log(`[Aevus] Found ${sections.length} drawer-section elements`);
+      // Find RECENT ACTIVITY section
+      let recentSection = null;
+      for (const s of sections) {
+        const t = s.querySelector('.drawer-section-title');
+        if (t && t.textContent.includes('RECENT')) { recentSection = s; break; }
+      }
+
+      if (recentSection) {
+        console.log('[Aevus] Injecting prediction section');
+        const riskColor = prediction.risk_score >= 60 ? 'var(--status-bad)'
+          : prediction.risk_score >= 30 ? 'var(--status-warn)'
+          : 'var(--status-good)';
+
+        const driversHTML = prediction.primary_drivers
+          ? prediction.primary_drivers.map(d =>
+            `<div class="event-row"><span class="event-dot ${prediction.risk_score >= 30 ? 'warn' : 'good'}"></span><span class="event-content">${d}</span></div>`
+          ).join('')
+          : '';
+
+        const predHTML = `
+          <div class="drawer-section prediction-section">
+            <div class="drawer-section-title">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;margin-right:6px;vertical-align:-2px;opacity:0.7">
+                <path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"/>
+              </svg>
+              AI PREDICTION
+            </div>
+            <div style="display:flex;align-items:center;gap:16px;margin-bottom:12px;">
+              <div style="text-align:center;">
+                <div style="font-size:28px;font-weight:700;color:${riskColor};font-family:'JetBrains Mono',monospace;">${prediction.risk_score}</div>
+                <div style="font-size:9px;text-transform:uppercase;letter-spacing:1px;color:var(--text-muted);margin-top:2px;">Risk Score</div>
+              </div>
+              <div style="flex:1;">
+                <div class="summary-row"><span class="summary-label">Est. Failure</span><span class="summary-value" style="color:${riskColor}">${prediction.estimated_failure || '—'}</span></div>
+                <div class="summary-row"><span class="summary-label">Confidence</span><span class="summary-value">${prediction.confidence_interval || '—'}</span></div>
+              </div>
+            </div>
+            ${driversHTML ? `<div style="font-size:10px;text-transform:uppercase;letter-spacing:1px;color:var(--text-muted);margin-bottom:6px;">Risk Drivers</div><div class="event-list">${driversHTML}</div>` : ''}
+          </div>
+        `;
+
+        recentSection.insertAdjacentHTML('beforebegin', predHTML);
+      }
+    }
+  }
+
   // ── Init ──
 
   async function init() {
@@ -373,6 +479,7 @@
     await refreshAll();
     connectWebSocket();
     startFallbackPolling();
+    enhanceDrawer();
     console.log(`[Aevus API] Loaded ${liveAssets.length} live assets, ${liveAlerts.length} alerts`);
   }
 

@@ -287,7 +287,7 @@ async def root():
                 value=SESSION_TOKEN,
                 httponly=True,
                 samesite="strict",
-                secure=False,  # Set True when TLS is enabled
+                secure=True,  # TLS enabled
                 max_age=86400,
             )
         return resp

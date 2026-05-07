@@ -9,11 +9,15 @@ WebSocket connections require the API key as a query parameter: ?key=<api_key>
 from __future__ import annotations
 
 import secrets
-from fastapi import Request
+from typing import TYPE_CHECKING
+
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.responses import JSONResponse
 
 from src.config import settings
+
+if TYPE_CHECKING:
+    from fastapi import Request
 
 
 class APIKeyMiddleware(BaseHTTPMiddleware):

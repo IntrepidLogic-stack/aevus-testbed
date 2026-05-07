@@ -6,9 +6,10 @@ Manages connected dashboard clients and pushes real-time updates.
 from __future__ import annotations
 
 import json
+from typing import Any
+
 import structlog
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect
-from typing import Any
 
 logger = structlog.get_logger()
 router = APIRouter()

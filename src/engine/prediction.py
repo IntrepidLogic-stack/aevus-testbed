@@ -14,13 +14,15 @@ store, which is served by the /api/v1/predictions endpoint.
 from __future__ import annotations
 
 import math
-import structlog
-from datetime import datetime, timezone, timedelta
-from typing import Optional
+from datetime import datetime
+from typing import TYPE_CHECKING
 
-from src.config import settings
+import structlog
+
 from src.models.prediction import Prediction
-from src.storage.influx import InfluxStorage
+
+if TYPE_CHECKING:
+    from src.storage.influx import InfluxStorage
 
 logger = structlog.get_logger()
 
@@ -48,11 +50,11 @@ MONITORED_METRICS: dict[str, list[dict]] = {
 }
 
 # Analysis windows
-HISTORY_HOURS = 4         # How far back to query for anomaly detection
-TREND_HOURS = 2           # Window for trend extrapolation
-MIN_POINTS = 6            # Minimum data points needed for analysis
-Z_SCORE_WARN = 2.0        # Standard deviations for warning
-Z_SCORE_CRIT = 3.0        # Standard deviations for critical
+HISTORY_HOURS = 4  # How far back to query for anomaly detection
+TREND_HOURS = 2  # Window for trend extrapolation
+MIN_POINTS = 6  # Minimum data points needed for analysis
+Z_SCORE_WARN = 2.0  # Standard deviations for warning
+Z_SCORE_CRIT = 3.0  # Standard deviations for critical
 
 
 class PredictionEngine:
@@ -68,7 +70,7 @@ class PredictionEngine:
         """Return all current predictions sorted by risk score descending."""
         return sorted(self._predictions.values(), key=lambda p: p.risk_score, reverse=True)
 
-    def get_prediction(self, asset_id: str) -> Optional[Prediction]:
+    def get_prediction(self, asset_id: str) -> Prediction | None:
         """Get the current prediction for a specific asset."""
         return self._predictions.get(asset_id)
 
@@ -78,7 +80,7 @@ class PredictionEngine:
         asset_name: str,
         asset_type: str,
         location: str = "Lab Cabinet",
-    ) -> Optional[Prediction]:
+    ) -> Prediction | None:
         """Run full prediction analysis for a single asset.
 
         Queries InfluxDB for recent metric history, computes anomaly scores
@@ -182,7 +184,7 @@ class PredictionEngine:
         warn_threshold: float,
         crit_threshold: float,
         unit: str,
-    ) -> Optional[dict]:
+    ) -> dict | None:
         """Analyze a single metric for anomalies and trends.
 
         Returns a dict with:
@@ -214,7 +216,7 @@ class PredictionEngine:
         slope = self._linear_slope(recent)
 
         # ── Time-to-failure estimation ──
-        ttf_hours: Optional[float] = None
+        ttf_hours: float | None = None
         threshold_target = crit_threshold  # Predict time to critical
 
         if direction == "upper_bad" and slope > 0:

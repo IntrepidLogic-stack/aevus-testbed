@@ -9,8 +9,9 @@ human-readable vitals shown on the dashboard.
 
 from __future__ import annotations
 
-import structlog
 from typing import Literal
+
+import structlog
 
 from src.config import settings
 from src.models.telemetry import RawTelemetry, VitalSign
@@ -26,15 +27,15 @@ THRESHOLD_MAP: dict[str, dict] = {
     # --- Radio (Trio JR900) ---
     "rssi": {
         "direction": "lower_bad",
-        "warn": settings.threshold_rssi_warn,      # -80
-        "crit": settings.threshold_rssi_crit,       # -90
+        "warn": settings.threshold_rssi_warn,  # -80
+        "crit": settings.threshold_rssi_crit,  # -90
         "label": "RSSI",
         "fmt": "{:.0f}",
     },
     "snr": {
         "direction": "lower_bad",
-        "warn": settings.threshold_snr_warn,        # 15
-        "crit": settings.threshold_snr_crit,        # 10
+        "warn": settings.threshold_snr_warn,  # 15
+        "crit": settings.threshold_snr_crit,  # 10
         "label": "SNR",
         "fmt": "{:.1f}",
     },
@@ -75,19 +76,18 @@ THRESHOLD_MAP: dict[str, dict] = {
         "label": "MODULATION",
         "fmt": "{}",
     },
-
     # --- RTU (SCADAPack 470) ---
     "suction_pressure": {
         "direction": "upper_bad",
-        "warn": settings.threshold_suction_warn,     # 800
-        "crit": settings.threshold_suction_crit,     # 900
+        "warn": settings.threshold_suction_warn,  # 800
+        "crit": settings.threshold_suction_crit,  # 900
         "label": "SUCTION PRESSURE",
         "fmt": "{:.1f}",
     },
     "discharge_pressure": {
         "direction": "upper_bad",
-        "warn": settings.threshold_discharge_warn,   # 1200
-        "crit": settings.threshold_discharge_crit,   # 1400
+        "warn": settings.threshold_discharge_warn,  # 1200
+        "crit": settings.threshold_discharge_crit,  # 1400
         "label": "DISCHARGE PRESSURE",
         "fmt": "{:.1f}",
     },
@@ -108,8 +108,8 @@ THRESHOLD_MAP: dict[str, dict] = {
     },
     "battery_voltage": {
         "direction": "lower_bad",
-        "warn": settings.threshold_battery_warn,     # 12.0
-        "crit": settings.threshold_battery_crit,     # 11.5
+        "warn": settings.threshold_battery_warn,  # 12.0
+        "crit": settings.threshold_battery_crit,  # 11.5
         "label": "BATTERY",
         "fmt": "{:.1f}",
     },
@@ -125,8 +125,8 @@ THRESHOLD_MAP: dict[str, dict] = {
     },
     "vibration": {
         "direction": "upper_bad",
-        "warn": settings.threshold_vibration_warn,   # 4.5
-        "crit": settings.threshold_vibration_crit,   # 7.1
+        "warn": settings.threshold_vibration_warn,  # 4.5
+        "crit": settings.threshold_vibration_crit,  # 7.1
         "label": "VIBRATION",
         "fmt": "{:.2f}",
     },
@@ -135,7 +135,6 @@ THRESHOLD_MAP: dict[str, dict] = {
         "label": "RUN HOURS",
         "fmt": "{:,.0f}",
     },
-
     # --- RTU discrete alarms ---
     "compressor_running": {
         "direction": "info",
@@ -157,12 +156,11 @@ THRESHOLD_MAP: dict[str, dict] = {
         "label": "COMM FAULT",
         "fmt": "{}",
     },
-
     # --- Network (MikroTik / Catalyst) ---
     "cpu_load": {
         "direction": "upper_bad",
-        "warn": settings.threshold_cpu_warn,         # 70
-        "crit": settings.threshold_cpu_crit,         # 90
+        "warn": settings.threshold_cpu_warn,  # 70
+        "crit": settings.threshold_cpu_crit,  # 90
         "label": "CPU LOAD",
         "fmt": "{:.0f}",
     },
@@ -183,8 +181,8 @@ THRESHOLD_MAP: dict[str, dict] = {
     },
     "if_in_errors": {
         "direction": "upper_bad",
-        "warn": settings.threshold_if_errors_warn,   # 100
-        "crit": settings.threshold_if_errors_crit,   # 1000
+        "warn": settings.threshold_if_errors_warn,  # 100
+        "crit": settings.threshold_if_errors_crit,  # 1000
         "label": "RX ERRORS",
         "fmt": "{:,.0f}",
     },

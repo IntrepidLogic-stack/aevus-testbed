@@ -4,8 +4,9 @@ All equipment collectors inherit from this.
 """
 
 import abc
+from datetime import UTC, datetime
+
 import structlog
-from datetime import datetime, timezone
 
 from src.models.telemetry import RawTelemetry
 
@@ -38,7 +39,7 @@ class BaseCollector(abc.ABC):
 
     def _now(self) -> datetime:
         """Return current UTC timestamp."""
-        return datetime.now(timezone.utc)
+        return datetime.now(UTC)
 
     def _make_reading(
         self,

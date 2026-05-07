@@ -7,8 +7,6 @@ from __future__ import annotations
 
 from fastapi import APIRouter
 
-from src.models.prediction import Prediction
-
 router = APIRouter(prefix="/predictions", tags=["predictions"])
 
 

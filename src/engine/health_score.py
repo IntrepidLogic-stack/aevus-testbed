@@ -17,20 +17,22 @@ Status assignment:
 
 from __future__ import annotations
 
-import structlog
-from datetime import datetime, timezone, timedelta
-from typing import Literal, Optional
+from datetime import UTC, datetime
+from typing import TYPE_CHECKING, Literal
 
-from src.models.telemetry import VitalSign
+import structlog
+
+if TYPE_CHECKING:
+    from src.models.telemetry import VitalSign
 
 logger = structlog.get_logger()
 
 # How long without a poll before we start penalizing
-STALE_WARN_SECONDS = 120   # 2 minutes
-STALE_CRIT_SECONDS = 600   # 10 minutes
+STALE_WARN_SECONDS = 120  # 2 minutes
+STALE_CRIT_SECONDS = 600  # 10 minutes
 
 
-def _comm_score(last_seen: Optional[datetime], poll_interval: int) -> float:
+def _comm_score(last_seen: datetime | None, poll_interval: int) -> float:
     """Score communication reliability 0-100.
 
     Full marks if last_seen is within 2x poll_interval.
@@ -39,7 +41,7 @@ def _comm_score(last_seen: Optional[datetime], poll_interval: int) -> float:
     if last_seen is None:
         return 0.0
 
-    age = (datetime.now(timezone.utc) - last_seen).total_seconds()
+    age = (datetime.now(UTC) - last_seen).total_seconds()
     fresh_limit = poll_interval * 2.0
 
     if age <= fresh_limit:
@@ -66,7 +68,7 @@ def _vital_compliance_score(vitals: list[VitalSign]) -> float:
     return total / len(scored)
 
 
-def _predictive_risk_score(risk_score: Optional[int]) -> float:
+def _predictive_risk_score(risk_score: int | None) -> float:
     """Invert a 0-100 risk score so low risk = high health.
 
     If no prediction exists, assume moderate (70/100).
@@ -77,8 +79,8 @@ def _predictive_risk_score(risk_score: Optional[int]) -> float:
 
 
 def _maintenance_score(
-    firmware: Optional[str] = None,
-    run_hours: Optional[float] = None,
+    firmware: str | None = None,
+    run_hours: float | None = None,
 ) -> float:
     """Score maintenance currency 0-100.
 
@@ -101,11 +103,11 @@ def _maintenance_score(
 
 def compute_health(
     vitals: list[VitalSign],
-    last_seen: Optional[datetime] = None,
+    last_seen: datetime | None = None,
     poll_interval: int = 30,
-    risk_score: Optional[int] = None,
-    firmware: Optional[str] = None,
-    run_hours: Optional[float] = None,
+    risk_score: int | None = None,
+    firmware: str | None = None,
+    run_hours: float | None = None,
 ) -> int:
     """Compute composite health score 0-100.
 
@@ -125,12 +127,7 @@ def compute_health(
     predictive = _predictive_risk_score(risk_score)
     maintenance = _maintenance_score(firmware, run_hours)
 
-    weighted = (
-        comm * 0.35
-        + compliance * 0.30
-        + predictive * 0.20
-        + maintenance * 0.15
-    )
+    weighted = comm * 0.35 + compliance * 0.30 + predictive * 0.20 + maintenance * 0.15
 
     score = int(round(max(0.0, min(100.0, weighted))))
 
@@ -146,7 +143,7 @@ def compute_health(
     return score
 
 
-def health_status(score: Optional[int]) -> Literal["good", "warn", "bad", "unknown"]:
+def health_status(score: int | None) -> Literal["good", "warn", "bad", "unknown"]:
     """Map a health score to a status string."""
     if score is None or score == 0:
         return "unknown"

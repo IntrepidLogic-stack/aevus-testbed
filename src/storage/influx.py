@@ -5,15 +5,16 @@ Writes raw telemetry to InfluxDB 2.x and queries time-series data.
 
 from __future__ import annotations
 
-import structlog
-from datetime import datetime, timezone
-from typing import Optional
+from typing import TYPE_CHECKING
 
+import structlog
 from influxdb_client import InfluxDBClient, Point, WritePrecision
 from influxdb_client.client.write_api import SYNCHRONOUS
 
 from src.config import settings
-from src.models.telemetry import RawTelemetry
+
+if TYPE_CHECKING:
+    from src.models.telemetry import RawTelemetry
 
 logger = structlog.get_logger()
 
@@ -79,12 +80,14 @@ class InfluxStorage:
             results = []
             for table in tables:
                 for record in table.records:
-                    results.append({
-                        "metric": record.values.get("metric", ""),
-                        "value": record.get_value(),
-                        "unit": record.values.get("unit", ""),
-                        "time": record.get_time().isoformat(),
-                    })
+                    results.append(
+                        {
+                            "metric": record.values.get("metric", ""),
+                            "value": record.get_value(),
+                            "unit": record.values.get("unit", ""),
+                            "time": record.get_time().isoformat(),
+                        }
+                    )
             return results
         except Exception as e:
             self.log.error("influx_query_failed", error=str(e))
@@ -104,10 +107,12 @@ class InfluxStorage:
             results = []
             for table in tables:
                 for record in table.records:
-                    results.append({
-                        "time": record.get_time().isoformat(),
-                        "value": record.get_value(),
-                    })
+                    results.append(
+                        {
+                            "time": record.get_time().isoformat(),
+                            "value": record.get_value(),
+                        }
+                    )
             return results
         except Exception as e:
             self.log.error("influx_trend_query_failed", error=str(e))

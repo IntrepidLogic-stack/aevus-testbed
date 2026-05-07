@@ -10,37 +10,38 @@ from __future__ import annotations
 
 # Load AWS secrets before config reads env vars
 from src.secrets_loader import inject_secrets
+
 inject_secrets()
 
-import structlog
 from contextlib import asynccontextmanager
 from pathlib import Path
+
+import structlog
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
+from fastapi.staticfiles import StaticFiles
 
-from src.config import settings
-from src.storage.influx import InfluxStorage
-from src.storage.sqlite_db import SQLiteDB
-from src.engine.alert_engine import AlertEngine
-from src.scheduler import PollScheduler
+# API routers
+from src.api import (
+    alerts_router,
+    assets_router,
+    diagnostics_router,
+    health_router,
+    predictions_router,
+    ws_router,
+)
 from src.api.ws import ws_manager
 
 # Collectors
 from src.collectors.simulator import SimulatorCollector
-from src.collectors.snmp_router import SNMPNetworkCollector
 from src.collectors.snmp_edge import SNMPEdgeCollector
-
-# API routers
-from src.api import (
-    assets_router,
-    alerts_router,
-    health_router,
-    diagnostics_router,
-    predictions_router,
-    ws_router,
-)
+from src.collectors.snmp_router import SNMPNetworkCollector
+from src.config import settings
+from src.engine.alert_engine import AlertEngine
+from src.scheduler import PollScheduler
+from src.storage.influx import InfluxStorage
+from src.storage.sqlite_db import SQLiteDB
 
 logger = structlog.get_logger()
 
@@ -129,39 +130,69 @@ def _seed_assets() -> None:
 
     fleet = [
         Asset(
-            id="RAD-01", type="radio", name="Trio JR900 #1",
-            location="Lab Cabinet", vendor="Trio", model="JR900",
-            ip_address=settings.trio_radio_1_ip, protocol="snmp",
+            id="RAD-01",
+            type="radio",
+            name="Trio JR900 #1",
+            location="Lab Cabinet",
+            vendor="Trio",
+            model="JR900",
+            ip_address=settings.trio_radio_1_ip,
+            protocol="snmp",
             poll_interval=settings.poll_interval_radio,
         ),
         Asset(
-            id="RAD-02", type="radio", name="Trio JR900 #2",
-            location="Lab Cabinet", vendor="Trio", model="JR900",
-            ip_address=settings.trio_radio_2_ip, protocol="snmp",
+            id="RAD-02",
+            type="radio",
+            name="Trio JR900 #2",
+            location="Lab Cabinet",
+            vendor="Trio",
+            model="JR900",
+            ip_address=settings.trio_radio_2_ip,
+            protocol="snmp",
             poll_interval=settings.poll_interval_radio,
         ),
         Asset(
-            id="RTU-01", type="rtu", name="SCADAPack 470",
-            location="Lab Cabinet", vendor="Schneider", model="SCADAPack 470",
-            ip_address=settings.scadapack_ip, protocol="modbus",
+            id="RTU-01",
+            type="rtu",
+            name="SCADAPack 470",
+            location="Lab Cabinet",
+            vendor="Schneider",
+            model="SCADAPack 470",
+            ip_address=settings.scadapack_ip,
+            protocol="modbus",
             poll_interval=settings.poll_interval_rtu,
         ),
         Asset(
-            id="RTR-01", type="router", name="MikroTik L009",
-            location="Lab Cabinet", vendor="MikroTik", model="L009UiGS-2HaxD-IN",
-            ip_address=settings.mikrotik_ip, protocol="snmp",
+            id="RTR-01",
+            type="router",
+            name="MikroTik L009",
+            location="Lab Cabinet",
+            vendor="MikroTik",
+            model="L009UiGS-2HaxD-IN",
+            ip_address=settings.mikrotik_ip,
+            protocol="snmp",
             poll_interval=settings.poll_interval_router,
         ),
         Asset(
-            id="SW-01", type="switch", name="Catalyst 2960",
-            location="Lab Cabinet", vendor="Cisco", model="Catalyst 2960",
-            ip_address=settings.catalyst_ip, protocol="snmp",
+            id="SW-01",
+            type="switch",
+            name="Catalyst 2960",
+            location="Lab Cabinet",
+            vendor="Cisco",
+            model="Catalyst 2960",
+            ip_address=settings.catalyst_ip,
+            protocol="snmp",
             poll_interval=settings.poll_interval_switch,
         ),
         Asset(
-            id="EDGE-01", type="router", name="Raspberry Pi",
-            location="Lab Cabinet", vendor="Raspberry Pi", model="Pi 5",
-            ip_address=settings.edge_collector_ip, protocol="snmp",
+            id="EDGE-01",
+            type="router",
+            name="Raspberry Pi",
+            location="Lab Cabinet",
+            vendor="Raspberry Pi",
+            model="Pi 5",
+            ip_address=settings.edge_collector_ip,
+            protocol="snmp",
             poll_interval=30,
         ),
     ]
@@ -211,6 +242,7 @@ app = FastAPI(
 
 # API Key Authentication
 from src.api.auth import APIKeyMiddleware
+
 app.add_middleware(APIKeyMiddleware)
 
 # CORS

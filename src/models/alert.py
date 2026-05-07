@@ -2,9 +2,10 @@
 Aevus Testbed — Alert Data Model
 """
 
-from pydantic import BaseModel
 from datetime import datetime
-from typing import Optional, Literal
+from typing import Literal
+
+from pydantic import BaseModel
 
 
 class Alert(BaseModel):
@@ -15,8 +16,8 @@ class Alert(BaseModel):
     asset_id: str
     asset_name: str
     message: str
-    risk_score: Optional[int] = None  # 0-100
+    risk_score: int | None = None  # 0-100
     detected_at: datetime
-    acknowledged_at: Optional[datetime] = None
-    resolved_at: Optional[datetime] = None
+    acknowledged_at: datetime | None = None
+    resolved_at: datetime | None = None
     status: Literal["open", "acknowledged", "resolved"] = "open"

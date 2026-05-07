@@ -9,25 +9,36 @@ can avoid duplicate firing and auto-resolve when conditions clear.
 from __future__ import annotations
 
 import uuid
-import structlog
-from datetime import datetime, timezone
-from typing import Optional
+from datetime import UTC, datetime
+from typing import TYPE_CHECKING
 
-from src.config import settings
+import structlog
+
 from src.models.alert import Alert
-from src.models.telemetry import VitalSign
+
+if TYPE_CHECKING:
+    from src.models.telemetry import VitalSign
 
 logger = structlog.get_logger()
 
 # Metrics that should generate alerts when status is warn or bad
 ALERTABLE_METRICS = {
     # Radio
-    "RSSI", "SNR", "TEMPERATURE",
+    "RSSI",
+    "SNR",
+    "TEMPERATURE",
     # RTU
-    "SUCTION PRESSURE", "DISCHARGE PRESSURE", "BATTERY", "VIBRATION",
-    "HIGH PRESSURE ALARM", "LOW BATTERY ALARM", "COMM FAULT",
+    "SUCTION PRESSURE",
+    "DISCHARGE PRESSURE",
+    "BATTERY",
+    "VIBRATION",
+    "HIGH PRESSURE ALARM",
+    "LOW BATTERY ALARM",
+    "COMM FAULT",
     # Network
-    "CPU LOAD", "RX ERRORS", "TX ERRORS",
+    "CPU LOAD",
+    "RX ERRORS",
+    "TX ERRORS",
 }
 
 
@@ -61,7 +72,7 @@ class AlertEngine:
             List of new or state-changed alerts from this evaluation.
         """
         changes: list[Alert] = []
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
 
         # Track which (asset_id, label) pairs we see this cycle
         seen_keys: set[tuple[str, str]] = set()
@@ -132,9 +143,9 @@ class AlertEngine:
         self,
         asset_id: str,
         asset_name: str,
-        last_seen: Optional[datetime],
+        last_seen: datetime | None,
         poll_interval: int = 30,
-    ) -> Optional[Alert]:
+    ) -> Alert | None:
         """Generate an alert if an asset hasn't been seen recently.
 
         Returns a new alert or None.
@@ -142,7 +153,7 @@ class AlertEngine:
         if last_seen is None:
             return None
 
-        age = (datetime.now(timezone.utc) - last_seen).total_seconds()
+        age = (datetime.now(UTC) - last_seen).total_seconds()
         key = (asset_id, "OFFLINE")
 
         if age > poll_interval * 5:
@@ -154,7 +165,7 @@ class AlertEngine:
                     asset_id=asset_id,
                     asset_name=asset_name,
                     message=f"{asset_name} has not responded for {int(age)}s",
-                    detected_at=datetime.now(timezone.utc),
+                    detected_at=datetime.now(UTC),
                     status="open",
                 )
                 self._open_alerts[key] = alert
@@ -164,19 +175,19 @@ class AlertEngine:
             # Asset is back
             existing = self._open_alerts[key]
             existing.status = "resolved"
-            existing.resolved_at = datetime.now(timezone.utc)
+            existing.resolved_at = datetime.now(UTC)
             del self._open_alerts[key]
             self.log.info("asset_back_online", asset=asset_id)
             return existing
 
         return None
 
-    def acknowledge(self, alert_id: str) -> Optional[Alert]:
+    def acknowledge(self, alert_id: str) -> Alert | None:
         """Acknowledge an open alert by ID."""
-        for key, alert in self._open_alerts.items():
+        for _key, alert in self._open_alerts.items():
             if alert.id == alert_id and alert.status == "open":
                 alert.status = "acknowledged"
-                alert.acknowledged_at = datetime.now(timezone.utc)
+                alert.acknowledged_at = datetime.now(UTC)
                 self.log.info("alert_acknowledged", alert_id=alert_id)
                 return alert
         return None

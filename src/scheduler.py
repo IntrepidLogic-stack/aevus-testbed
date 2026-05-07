@@ -15,21 +15,21 @@ Pipeline per poll cycle:
 from __future__ import annotations
 
 import asyncio
-import structlog
-from datetime import datetime, timezone
-from typing import Optional, TYPE_CHECKING
+from datetime import UTC, datetime
+from typing import TYPE_CHECKING
 
-from src.collectors.base import BaseCollector
-from src.engine.normalizer import normalize_batch
-from src.engine.health_score import compute_health, health_status
-from src.engine.alert_engine import AlertEngine
-from src.engine.prediction import PredictionEngine
-from src.storage.influx import InfluxStorage
-from src.storage.sqlite_db import SQLiteDB
+import structlog
+
 from src.api.ws import ws_manager
+from src.engine.health_score import compute_health, health_status
+from src.engine.normalizer import normalize_batch
+from src.engine.prediction import PredictionEngine
 
 if TYPE_CHECKING:
-    from src.models.asset import Asset
+    from src.collectors.base import BaseCollector
+    from src.engine.alert_engine import AlertEngine
+    from src.storage.influx import InfluxStorage
+    from src.storage.sqlite_db import SQLiteDB
 
 logger = structlog.get_logger()
 
@@ -49,7 +49,7 @@ class PollScheduler:
         self.prediction_engine = PredictionEngine(influx)
         self._collectors: dict[str, BaseCollector] = {}
         self._tasks: dict[str, asyncio.Task] = {}
-        self._prediction_task: Optional[asyncio.Task] = None
+        self._prediction_task: asyncio.Task | None = None
         self.log = logger.bind(component="scheduler")
 
     def register(self, asset_id: str, collector: BaseCollector) -> None:
@@ -97,7 +97,7 @@ class PollScheduler:
         if not readings:
             return
 
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
 
         # 2. Write to InfluxDB
         self.influx.write_readings(readings)
@@ -106,10 +106,8 @@ class PollScheduler:
         vitals = normalize_batch(readings)
 
         # 4. Extract run_hours if present
-        run_hours = None
         for r in readings:
             if r.metric == "run_hours":
-                run_hours = r.value
                 break
 
         # 5. Health score (with prediction risk if available)
@@ -141,18 +139,24 @@ class PollScheduler:
             self.db.upsert_asset(asset)
 
         # 8. WebSocket broadcast
-        await ws_manager.broadcast("asset_update", {
-            "asset_id": asset_id,
-            "health": score,
-            "status": status,
-            "vitals": [v.model_dump() for v in vitals],
-            "timestamp": now.isoformat(),
-        })
+        await ws_manager.broadcast(
+            "asset_update",
+            {
+                "asset_id": asset_id,
+                "health": score,
+                "status": status,
+                "vitals": [v.model_dump() for v in vitals],
+                "timestamp": now.isoformat(),
+            },
+        )
 
         if alert_changes:
-            await ws_manager.broadcast("alert_update", {
-                "alerts": [a.model_dump(mode="json") for a in alert_changes],
-            })
+            await ws_manager.broadcast(
+                "alert_update",
+                {
+                    "alerts": [a.model_dump(mode="json") for a in alert_changes],
+                },
+            )
 
     async def _prediction_loop(self) -> None:
         """Run prediction analysis on all assets every 60 seconds."""
@@ -173,9 +177,12 @@ class PollScheduler:
                 # Broadcast predictions to dashboard
                 preds = self.prediction_engine.predictions
                 if preds:
-                    await ws_manager.broadcast("predictions_update", {
-                        "predictions": [p.model_dump() for p in preds],
-                    })
+                    await ws_manager.broadcast(
+                        "predictions_update",
+                        {
+                            "predictions": [p.model_dump() for p in preds],
+                        },
+                    )
 
             except asyncio.CancelledError:
                 break

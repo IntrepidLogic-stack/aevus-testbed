@@ -54,6 +54,11 @@ ignore = [
     "S603",   # subprocess OK for SNMP
     "S607",   # partial executable path OK for snmpget
     "E501",   # line length handled by formatter
+    "E402",   # import order OK for secrets_loader pattern
+    "A002",   # type param shadowing OK in FastAPI query params
+    "S104",   # binding all interfaces OK for server config
+    "S105",   # hardcoded passwords are defaults, real values from .env
+    "SIM105", # contextlib.suppress preference is style-only
 ]
 
 [tool.ruff.lint.per-file-ignores]

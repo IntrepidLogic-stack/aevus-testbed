@@ -8,47 +8,45 @@ Usage:
     readings = await collector.poll()
 """
 
-import random
 import math
-from datetime import datetime, timezone
+import random
 
 from src.collectors.base import BaseCollector
 from src.models.telemetry import RawTelemetry
 
-
 # Realistic value ranges per device type
 RADIO_PROFILES = {
-    "rssi":          {"base": -68.0, "drift": 5.0,  "unit": "dBm",   "noise": 2.0},
-    "snr":           {"base": 22.0,  "drift": 3.0,  "unit": "dB",    "noise": 1.5},
-    "tx_power":      {"base": 30.0,  "drift": 1.0,  "unit": "dBm",   "noise": 0.5},
-    "rx_packets":    {"base": 50000, "drift": 5000,  "unit": "count", "noise": 1000},
-    "tx_packets":    {"base": 48000, "drift": 5000,  "unit": "count", "noise": 1000},
-    "error_packets": {"base": 12,    "drift": 8,     "unit": "count", "noise": 5},
-    "temperature":   {"base": 42.0,  "drift": 8.0,   "unit": "°C",   "noise": 1.0},
-    "voltage":       {"base": 13.8,  "drift": 0.3,   "unit": "V",    "noise": 0.1},
+    "rssi": {"base": -68.0, "drift": 5.0, "unit": "dBm", "noise": 2.0},
+    "snr": {"base": 22.0, "drift": 3.0, "unit": "dB", "noise": 1.5},
+    "tx_power": {"base": 30.0, "drift": 1.0, "unit": "dBm", "noise": 0.5},
+    "rx_packets": {"base": 50000, "drift": 5000, "unit": "count", "noise": 1000},
+    "tx_packets": {"base": 48000, "drift": 5000, "unit": "count", "noise": 1000},
+    "error_packets": {"base": 12, "drift": 8, "unit": "count", "noise": 5},
+    "temperature": {"base": 42.0, "drift": 8.0, "unit": "°C", "noise": 1.0},
+    "voltage": {"base": 13.8, "drift": 0.3, "unit": "V", "noise": 0.1},
 }
 
 RTU_PROFILES = {
-    "suction_pressure":    {"base": 450.0,  "drift": 50.0,  "unit": "PSI",  "noise": 10.0},
-    "discharge_pressure":  {"base": 1050.0, "drift": 80.0,  "unit": "PSI",  "noise": 15.0},
-    "flow_rate":           {"base": 2.8,    "drift": 0.5,   "unit": "MCFD", "noise": 0.2},
-    "gas_temperature":     {"base": 145.0,  "drift": 15.0,  "unit": "°F",   "noise": 3.0},
-    "ambient_temperature": {"base": 88.0,   "drift": 12.0,  "unit": "°F",   "noise": 2.0},
-    "battery_voltage":     {"base": 13.2,   "drift": 0.5,   "unit": "VDC",  "noise": 0.1},
-    "solar_voltage":       {"base": 18.5,   "drift": 3.0,   "unit": "VDC",  "noise": 0.5},
-    "tank_level":          {"base": 36.0,   "drift": 12.0,  "unit": "in",   "noise": 1.0},
-    "vibration":           {"base": 2.8,    "drift": 1.5,   "unit": "mm/s", "noise": 0.5},
-    "run_hours":           {"base": 12450,  "drift": 0,     "unit": "hrs",  "noise": 0},
-    "compressor_running":  {"base": 1.0,    "drift": 0,     "unit": "bool", "noise": 0},
-    "high_pressure_alarm": {"base": 0.0,    "drift": 0,     "unit": "bool", "noise": 0},
-    "low_battery_alarm":   {"base": 0.0,    "drift": 0,     "unit": "bool", "noise": 0},
-    "communication_fault": {"base": 0.0,    "drift": 0,     "unit": "bool", "noise": 0},
+    "suction_pressure": {"base": 450.0, "drift": 50.0, "unit": "PSI", "noise": 10.0},
+    "discharge_pressure": {"base": 1050.0, "drift": 80.0, "unit": "PSI", "noise": 15.0},
+    "flow_rate": {"base": 2.8, "drift": 0.5, "unit": "MCFD", "noise": 0.2},
+    "gas_temperature": {"base": 145.0, "drift": 15.0, "unit": "°F", "noise": 3.0},
+    "ambient_temperature": {"base": 88.0, "drift": 12.0, "unit": "°F", "noise": 2.0},
+    "battery_voltage": {"base": 13.2, "drift": 0.5, "unit": "VDC", "noise": 0.1},
+    "solar_voltage": {"base": 18.5, "drift": 3.0, "unit": "VDC", "noise": 0.5},
+    "tank_level": {"base": 36.0, "drift": 12.0, "unit": "in", "noise": 1.0},
+    "vibration": {"base": 2.8, "drift": 1.5, "unit": "mm/s", "noise": 0.5},
+    "run_hours": {"base": 12450, "drift": 0, "unit": "hrs", "noise": 0},
+    "compressor_running": {"base": 1.0, "drift": 0, "unit": "bool", "noise": 0},
+    "high_pressure_alarm": {"base": 0.0, "drift": 0, "unit": "bool", "noise": 0},
+    "low_battery_alarm": {"base": 0.0, "drift": 0, "unit": "bool", "noise": 0},
+    "communication_fault": {"base": 0.0, "drift": 0, "unit": "bool", "noise": 0},
 }
 
 ROUTER_PROFILES = {
-    "cpu_load":      {"base": 15.0,  "drift": 10.0,    "unit": "%",     "noise": 3.0},
-    "memory_usage":  {"base": 45.0,  "drift": 10.0,    "unit": "%",     "noise": 2.0},
-    "uptime":        {"base": 720.0, "drift": 0,        "unit": "hrs",  "noise": 0},
+    "cpu_load": {"base": 15.0, "drift": 10.0, "unit": "%", "noise": 3.0},
+    "memory_usage": {"base": 45.0, "drift": 10.0, "unit": "%", "noise": 2.0},
+    "uptime": {"base": 720.0, "drift": 0, "unit": "hrs", "noise": 0},
 }
 
 DEVICE_PROFILES = {
@@ -121,9 +119,6 @@ class SimulatorCollector(BaseCollector):
         degradation_shift = 0.0
         if self.degradation > 0:
             # For negative-is-bad metrics (RSSI), push more negative
-            if base < 0:
-                degradation_shift = -abs(drift) * self.degradation * 2
-            else:
-                degradation_shift = abs(drift) * self.degradation * 1.5
+            degradation_shift = -abs(drift) * self.degradation * 2 if base < 0 else abs(drift) * self.degradation * 1.5
 
         return base + time_factor + noise_factor + degradation_shift

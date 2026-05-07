@@ -7,9 +7,7 @@ Register map per Aevus Live Testbed Setup Guide:
   10001-10004: Discrete inputs (alarm states)
 """
 
-import asyncio
 import struct
-from typing import Optional
 
 from pymodbus.client import AsyncModbusTcpClient
 
@@ -19,23 +17,23 @@ from src.models.telemetry import RawTelemetry
 # SCADAPack 470 Modbus Holding Register Map
 # Each Float32 spans 2 consecutive 16-bit registers
 HOLDING_REGISTERS = {
-    "suction_pressure":    {"address": 40001, "type": "float32", "unit": "PSI"},
-    "discharge_pressure":  {"address": 40003, "type": "float32", "unit": "PSI"},
-    "flow_rate":           {"address": 40005, "type": "float32", "unit": "MCFD"},
-    "gas_temperature":     {"address": 40007, "type": "float32", "unit": "°F"},
+    "suction_pressure": {"address": 40001, "type": "float32", "unit": "PSI"},
+    "discharge_pressure": {"address": 40003, "type": "float32", "unit": "PSI"},
+    "flow_rate": {"address": 40005, "type": "float32", "unit": "MCFD"},
+    "gas_temperature": {"address": 40007, "type": "float32", "unit": "°F"},
     "ambient_temperature": {"address": 40009, "type": "float32", "unit": "°F"},
-    "battery_voltage":     {"address": 40011, "type": "float32", "unit": "VDC"},
-    "solar_voltage":       {"address": 40013, "type": "float32", "unit": "VDC"},
-    "tank_level":          {"address": 40015, "type": "float32", "unit": "in"},
-    "vibration":           {"address": 40017, "type": "float32", "unit": "mm/s"},
-    "run_hours":           {"address": 40019, "type": "uint32",  "unit": "hrs"},
+    "battery_voltage": {"address": 40011, "type": "float32", "unit": "VDC"},
+    "solar_voltage": {"address": 40013, "type": "float32", "unit": "VDC"},
+    "tank_level": {"address": 40015, "type": "float32", "unit": "in"},
+    "vibration": {"address": 40017, "type": "float32", "unit": "mm/s"},
+    "run_hours": {"address": 40019, "type": "uint32", "unit": "hrs"},
 }
 
 # SCADAPack 470 Discrete Input Map
 DISCRETE_INPUTS = {
-    "compressor_running":  {"address": 10001, "description": "Compressor run status"},
+    "compressor_running": {"address": 10001, "description": "Compressor run status"},
     "high_pressure_alarm": {"address": 10002, "description": "High pressure shutdown"},
-    "low_battery_alarm":   {"address": 10003, "description": "Battery below threshold"},
+    "low_battery_alarm": {"address": 10003, "description": "Battery below threshold"},
     "communication_fault": {"address": 10004, "description": "Comm link status"},
 }
 
@@ -54,7 +52,7 @@ class SCADAPack470Collector(BaseCollector):
         super().__init__(asset_id, host, poll_interval)
         self.port = port
         self.slave_id = slave_id
-        self._client: Optional[AsyncModbusTcpClient] = None
+        self._client: AsyncModbusTcpClient | None = None
 
     async def _get_client(self) -> AsyncModbusTcpClient:
         """Get or create the Modbus TCP client connection."""

@@ -1,10 +1,9 @@
 """Tests for the stateful alert engine."""
 
-import pytest
-from datetime import datetime, timezone, timedelta
+from datetime import UTC, datetime, timedelta
 
+from src.engine.alert_engine import ALERTABLE_METRICS, AlertEngine
 from src.models.telemetry import VitalSign
-from src.engine.alert_engine import AlertEngine, ALERTABLE_METRICS
 
 
 def _vital(label: str, value: str, raw: float, status: str) -> VitalSign:
@@ -120,13 +119,13 @@ class TestAlertEngineOffline:
 
     def test_no_alert_when_fresh(self):
         engine = AlertEngine()
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         result = engine.evaluate_offline("RAD-01", "Trio #1", now, poll_interval=30)
         assert result is None
 
     def test_fires_when_stale(self):
         engine = AlertEngine()
-        old = datetime.now(timezone.utc) - timedelta(seconds=200)
+        old = datetime.now(UTC) - timedelta(seconds=200)
         result = engine.evaluate_offline("RAD-01", "Trio #1", old, poll_interval=30)
         assert result is not None
         assert result.severity == "critical"
@@ -134,17 +133,17 @@ class TestAlertEngineOffline:
 
     def test_no_duplicate_offline(self):
         engine = AlertEngine()
-        old = datetime.now(timezone.utc) - timedelta(seconds=200)
+        old = datetime.now(UTC) - timedelta(seconds=200)
         engine.evaluate_offline("RAD-01", "Trio #1", old, poll_interval=30)
         result = engine.evaluate_offline("RAD-01", "Trio #1", old, poll_interval=30)
         assert result is None
 
     def test_resolves_when_back(self):
         engine = AlertEngine()
-        old = datetime.now(timezone.utc) - timedelta(seconds=200)
+        old = datetime.now(UTC) - timedelta(seconds=200)
         engine.evaluate_offline("RAD-01", "Trio #1", old, poll_interval=30)
         # Now it's back
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         result = engine.evaluate_offline("RAD-01", "Trio #1", now, poll_interval=30)
         assert result is not None
         assert result.status == "resolved"

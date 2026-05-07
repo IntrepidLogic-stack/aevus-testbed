@@ -1,17 +1,16 @@
 """Tests for the composite health score engine."""
 
-import pytest
-from datetime import datetime, timezone, timedelta
+from datetime import UTC, datetime, timedelta
 
-from src.models.telemetry import VitalSign
 from src.engine.health_score import (
     _comm_score,
-    _vital_compliance_score,
-    _predictive_risk_score,
     _maintenance_score,
+    _predictive_risk_score,
+    _vital_compliance_score,
     compute_health,
     health_status,
 )
+from src.models.telemetry import VitalSign
 
 
 def _vital(label: str, status: str) -> VitalSign:
@@ -26,19 +25,19 @@ class TestCommScore:
         assert _comm_score(None, 30) == 0.0
 
     def test_fresh_reading(self):
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         assert _comm_score(now, 30) == 100.0
 
     def test_within_2x_poll(self):
-        now = datetime.now(timezone.utc) - timedelta(seconds=50)
+        now = datetime.now(UTC) - timedelta(seconds=50)
         assert _comm_score(now, 30) == 100.0
 
     def test_stale_reading(self):
-        old = datetime.now(timezone.utc) - timedelta(seconds=700)
+        old = datetime.now(UTC) - timedelta(seconds=700)
         assert _comm_score(old, 30) == 0.0
 
     def test_degraded_reading(self):
-        mid = datetime.now(timezone.utc) - timedelta(seconds=300)
+        mid = datetime.now(UTC) - timedelta(seconds=300)
         score = _comm_score(mid, 30)
         assert 0.0 < score < 100.0
 
@@ -124,13 +123,13 @@ class TestMaintenanceScore:
 class TestComputeHealth:
     def test_perfect_health(self):
         vitals = [_vital("RSSI", "good"), _vital("SNR", "good")]
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         score = compute_health(vitals, last_seen=now, poll_interval=30, risk_score=0)
         assert score >= 90
 
     def test_all_bad_vitals(self):
         vitals = [_vital("RSSI", "bad"), _vital("SNR", "bad")]
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         score = compute_health(vitals, last_seen=now, poll_interval=30)
         assert score < 70
 
@@ -141,13 +140,13 @@ class TestComputeHealth:
 
     def test_returns_int(self):
         vitals = [_vital("RSSI", "good")]
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         score = compute_health(vitals, last_seen=now)
         assert isinstance(score, int)
 
     def test_clamped_0_100(self):
         vitals = [_vital("RSSI", "good")]
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         score = compute_health(vitals, last_seen=now)
         assert 0 <= score <= 100
 

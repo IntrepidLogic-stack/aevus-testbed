@@ -1,8 +1,9 @@
 """Tests for the prediction engine."""
 
-import pytest
+from datetime import UTC, datetime, timedelta
 from unittest.mock import MagicMock
-from datetime import datetime, timezone, timedelta
+
+import pytest
 
 from src.engine.prediction import PredictionEngine
 
@@ -21,7 +22,7 @@ class TestPredictionEngine:
 
     def _make_trend(self, values, interval_minutes=5):
         """Build a fake trend data list from values."""
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         return [
             {
                 "time": (now - timedelta(minutes=interval_minutes * (len(values) - 1 - i))).isoformat(),
@@ -43,14 +44,16 @@ class TestPredictionEngine:
         # RSSI: -50 (good), SNR: -50 would be bad, so use values that are
         # unambiguously safe. We use per-metric mocking via side_effect.
         influx = MagicMock()
+
         def _trend(asset_id, metric, hours=4):
             safe = {"rssi": -55, "snr": 25, "temperature": 35, "error_packets": 5}
             val = safe.get(metric, 50)
-            now = datetime.now(timezone.utc)
+            now = datetime.now(UTC)
             return [
                 {"time": (now - timedelta(minutes=5 * (7 - i))).isoformat(), "value": val + (i % 2) * 0.5}
                 for i in range(8)
             ]
+
         influx.query_trend.side_effect = _trend
         engine = PredictionEngine(influx)
         result = await engine.analyze_asset("RAD-01", "Trio JR900 #1", "radio")
@@ -61,6 +64,7 @@ class TestPredictionEngine:
     async def test_degrading_rssi_higher_risk(self):
         """RSSI trending toward warning threshold should raise risk."""
         influx = MagicMock()
+
         def _trend(asset_id, metric, hours=4):
             if metric == "rssi":
                 vals = [-70, -72, -74, -76, -78, -79, -80, -81]
@@ -70,11 +74,11 @@ class TestPredictionEngine:
                 vals = [35, 35, 36, 35, 35, 36, 35, 35]  # stable good
             else:
                 vals = [5, 6, 5, 5, 6, 5, 5, 5]  # stable low
-            now = datetime.now(timezone.utc)
+            now = datetime.now(UTC)
             return [
-                {"time": (now - timedelta(minutes=5 * (7 - i))).isoformat(), "value": v}
-                for i, v in enumerate(vals)
+                {"time": (now - timedelta(minutes=5 * (7 - i))).isoformat(), "value": v} for i, v in enumerate(vals)
             ]
+
         influx.query_trend.side_effect = _trend
         engine = PredictionEngine(influx)
         result = await engine.analyze_asset("RAD-01", "Trio JR900 #1", "radio")
@@ -100,15 +104,26 @@ class TestPredictionEngine:
 
         # Manually inject predictions
         from src.models.prediction import Prediction
+
         engine._predictions["A"] = Prediction(
-            asset_id="A", asset_name="Low", asset_type="radio",
-            location="Lab", risk_score=10, estimated_failure="7 days",
-            confidence_interval="5-9 days", primary_drivers=["nominal"],
+            asset_id="A",
+            asset_name="Low",
+            asset_type="radio",
+            location="Lab",
+            risk_score=10,
+            estimated_failure="7 days",
+            confidence_interval="5-9 days",
+            primary_drivers=["nominal"],
         )
         engine._predictions["B"] = Prediction(
-            asset_id="B", asset_name="High", asset_type="radio",
-            location="Lab", risk_score=85, estimated_failure="2 hours",
-            confidence_interval="1-3 hours", primary_drivers=["RSSI critical"],
+            asset_id="B",
+            asset_name="High",
+            asset_type="radio",
+            location="Lab",
+            risk_score=85,
+            estimated_failure="2 hours",
+            confidence_interval="1-3 hours",
+            primary_drivers=["RSSI critical"],
         )
 
         preds = engine.predictions

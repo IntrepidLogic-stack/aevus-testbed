@@ -203,3 +203,72 @@ class TestAlertableMetrics:
         assert "HIGH PRESSURE ALARM" in ALERTABLE_METRICS
         assert "LOW BATTERY ALARM" in ALERTABLE_METRICS
         assert "COMM FAULT" in ALERTABLE_METRICS
+
+
+class TestAcknowledgeSQLiteFallback:
+    """Test that acknowledge falls back to SQLite when alert not in memory."""
+
+    def test_acknowledge_from_sqlite(self):
+        from datetime import UTC, datetime
+        from unittest.mock import MagicMock
+
+        from src.models.alert import Alert
+
+        engine = AlertEngine()
+        mock_db = MagicMock()
+        mock_alert = Alert(
+            id="ALT-DBONLY",
+            severity="warning",
+            asset_id="RTR-01",
+            asset_name="MikroTik L009",
+            message="test alert",
+            detected_at=datetime.now(UTC),
+            status="open",
+        )
+        mock_db.get_alert.return_value = mock_alert
+
+        # Alert is NOT in memory, but IS in SQLite
+        result = engine.acknowledge("ALT-DBONLY", db=mock_db)
+        assert result is not None
+        assert result.status == "acknowledged"
+        assert result.acknowledged_at is not None
+        mock_db.get_alert.assert_called_once_with("ALT-DBONLY")
+
+    def test_acknowledge_sqlite_already_acknowledged(self):
+        from datetime import UTC, datetime
+        from unittest.mock import MagicMock
+
+        from src.models.alert import Alert
+
+        engine = AlertEngine()
+        mock_db = MagicMock()
+        mock_alert = Alert(
+            id="ALT-ACKED",
+            severity="warning",
+            asset_id="RTR-01",
+            asset_name="MikroTik L009",
+            message="test alert",
+            detected_at=datetime.now(UTC),
+            status="acknowledged",
+        )
+        mock_db.get_alert.return_value = mock_alert
+
+        # Alert exists in DB but already acknowledged
+        result = engine.acknowledge("ALT-ACKED", db=mock_db)
+        assert result is None
+
+    def test_acknowledge_not_in_memory_or_db(self):
+        from unittest.mock import MagicMock
+
+        engine = AlertEngine()
+        mock_db = MagicMock()
+        mock_db.get_alert.return_value = None
+
+        result = engine.acknowledge("ALT-GHOST", db=mock_db)
+        assert result is None
+
+    def test_acknowledge_no_db_fallback(self):
+        """Without db param, only checks in-memory."""
+        engine = AlertEngine()
+        result = engine.acknowledge("ALT-MISSING")
+        assert result is None

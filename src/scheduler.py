@@ -127,6 +127,7 @@ class PollScheduler:
         is_simulated = isinstance(collector, SimulatorCollector)
         if is_simulated:
             status = "offline"
+            score = None
 
         # 6. Alert evaluation
         asset_name = asset.name if asset else asset_id

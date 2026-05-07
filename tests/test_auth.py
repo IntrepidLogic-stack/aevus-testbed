@@ -48,9 +48,7 @@ class TestAuthMiddleware:
         assert resp.status_code == 401
 
     def test_wrong_key_returns_401(self, unauthed_client):
-        resp = unauthed_client.get(
-            "/api/v1/assets", headers={"X-API-Key": "wrong-key"}
-        )
+        resp = unauthed_client.get("/api/v1/assets", headers={"X-API-Key": "wrong-key"})
         assert resp.status_code == 401
 
     def test_correct_key_passes(self, authed_client):

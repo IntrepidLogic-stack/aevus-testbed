@@ -34,7 +34,7 @@ class TestDeployWebhook:
         assert resp.status_code == 403
 
     def test_trigger_success(self, client):
-        with patch("src.api.deploy.settings") as mock_settings, patch("src.api.deploy._run_deploy") : # noqa: F841
+        with patch("src.api.deploy.settings") as mock_settings, patch("src.api.deploy._run_deploy"):  # noqa: F841
             mock_settings.deploy_secret = "test-deploy-secret"
             resp = client.post(
                 "/api/v1/deploy/trigger",

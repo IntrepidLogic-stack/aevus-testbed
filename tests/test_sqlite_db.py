@@ -21,9 +21,15 @@ def db():
 class TestAssetCRUD:
     def test_upsert_and_get(self, db):
         asset = Asset(
-            id="TEST-01", type="router", name="Test Router",
-            location="Lab", vendor="Test", model="T1",
-            ip_address="10.0.0.1", protocol="snmp", poll_interval=30,
+            id="TEST-01",
+            type="router",
+            name="Test Router",
+            location="Lab",
+            vendor="Test",
+            model="T1",
+            ip_address="10.0.0.1",
+            protocol="snmp",
+            poll_interval=30,
         )
         db.upsert_asset(asset)
         got = db.get_asset("TEST-01")
@@ -33,11 +39,19 @@ class TestAssetCRUD:
 
     def test_list_assets(self, db):
         for i in range(3):
-            db.upsert_asset(Asset(
-                id=f"A-{i}", type="radio", name=f"Radio {i}",
-                location="Lab", vendor="V", model="M",
-                ip_address=f"10.0.0.{i}", protocol="snmp", poll_interval=30,
-            ))
+            db.upsert_asset(
+                Asset(
+                    id=f"A-{i}",
+                    type="radio",
+                    name=f"Radio {i}",
+                    location="Lab",
+                    vendor="V",
+                    model="M",
+                    ip_address=f"10.0.0.{i}",
+                    protocol="snmp",
+                    poll_interval=30,
+                )
+            )
         assets = db.list_assets()
         assert len(assets) == 3
 
@@ -46,9 +60,15 @@ class TestAssetCRUD:
 
     def test_upsert_updates_existing(self, db):
         asset = Asset(
-            id="UPD-01", type="rtu", name="Original",
-            location="Lab", vendor="V", model="M",
-            ip_address="10.0.0.1", protocol="modbus", poll_interval=60,
+            id="UPD-01",
+            type="rtu",
+            name="Original",
+            location="Lab",
+            vendor="V",
+            model="M",
+            ip_address="10.0.0.1",
+            protocol="modbus",
+            poll_interval=60,
         )
         db.upsert_asset(asset)
         asset.health = 88
@@ -66,9 +86,13 @@ class TestAssetCRUD:
 class TestAlertCRUD:
     def test_save_and_get_alert(self, db):
         alert = Alert(
-            id="ALT-TEST01", severity="warning", asset_id="A-1",
-            asset_name="Test Asset", message="Test warning",
-            detected_at=datetime.now(UTC), status="open",
+            id="ALT-TEST01",
+            severity="warning",
+            asset_id="A-1",
+            asset_name="Test Asset",
+            message="Test warning",
+            detected_at=datetime.now(UTC),
+            status="open",
         )
         db.save_alert(alert)
         got = db.get_alert("ALT-TEST01")
@@ -78,25 +102,43 @@ class TestAlertCRUD:
 
     def test_list_alerts_filter_severity(self, db):
         for sev in ["critical", "warning", "warning"]:
-            db.save_alert(Alert(
-                id=f"ALT-{sev}-{id(sev)}", severity=sev, asset_id="A-1",
-                asset_name="Test", message=f"{sev} alert",
-                detected_at=datetime.now(UTC), status="open",
-            ))
+            db.save_alert(
+                Alert(
+                    id=f"ALT-{sev}-{id(sev)}",
+                    severity=sev,
+                    asset_id="A-1",
+                    asset_name="Test",
+                    message=f"{sev} alert",
+                    detected_at=datetime.now(UTC),
+                    status="open",
+                )
+            )
         crits = db.list_alerts(severity="critical")
         assert len(crits) == 1
 
     def test_list_alerts_filter_status(self, db):
-        db.save_alert(Alert(
-            id="ALT-OPEN", severity="warning", asset_id="A-1",
-            asset_name="T", message="open", detected_at=datetime.now(UTC),
-            status="open",
-        ))
-        db.save_alert(Alert(
-            id="ALT-RESOLVED", severity="warning", asset_id="A-1",
-            asset_name="T", message="resolved", detected_at=datetime.now(UTC),
-            status="resolved",
-        ))
+        db.save_alert(
+            Alert(
+                id="ALT-OPEN",
+                severity="warning",
+                asset_id="A-1",
+                asset_name="T",
+                message="open",
+                detected_at=datetime.now(UTC),
+                status="open",
+            )
+        )
+        db.save_alert(
+            Alert(
+                id="ALT-RESOLVED",
+                severity="warning",
+                asset_id="A-1",
+                asset_name="T",
+                message="resolved",
+                detected_at=datetime.now(UTC),
+                status="resolved",
+            )
+        )
         open_alerts = db.list_alerts(status="open")
         assert all(a.status == "open" for a in open_alerts)
 

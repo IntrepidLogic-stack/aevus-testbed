@@ -73,26 +73,10 @@ jobs:
             bandit-report.json
             safety-report.json
 
-  deploy:
-    name: Deploy to EC2
+  gate:
+    name: All Checks Passed
     runs-on: ubuntu-latest
     needs: [test, security]
-    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
-    environment: production
     steps:
-      - name: Deploy via SSH
-        uses: appleboy/ssh-action@v1
-        with:
-          host: ${{ secrets.EC2_HOST }}
-          username: ubuntu
-          key: ${{ secrets.EC2_SSH_KEY }}
-          script: |
-            cd /home/ubuntu/aevus-testbed
-            git fetch origin main
-            git reset --hard origin/main
-            source .venv/bin/activate
-            pip install -e ".[dev]" --quiet
-            sudo systemctl restart aevus
-            sleep 3
-            curl -sf http://localhost:8000/api/v1/health/ping || (echo "DEPLOY FAILED - health check failed" && sudo systemctl status aevus --no-pager && exit 1)
-            echo "Deploy successful at $(date)"
+      - name: Gate
+        run: echo "All CI checks passed — ready to deploy"

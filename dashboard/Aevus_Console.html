@@ -3457,113 +3457,114 @@ const killdeerSchematic = `
   <g id="asset-markers"></g>
 `;
 
-const killdeerMarkers = [
-  {
-    id: 'RTR-01', x: 550, y: 175, status: 'good', type: 'router',
-    name: 'MikroTik L009', location: 'Lab Cabinet',
-    health: 94, lastSeen: '30s ago',
-    vendor: 'MikroTik', model: 'L009UiGS-2HaxD-IN', firmware: 'v7.x',
-    vitals: [
-      { label: 'CPU LOAD', value: '2%', status: 'good' },
-      { label: 'MEMORY', value: '32%', status: 'good' },
-      { label: 'INTERFACES UP', value: '5', status: 'good' },
-      { label: 'UPTIME', value: '30+ days', status: 'good' },
-    ],
-    events: [
-      { time: '30s ago', type: 'good', message: 'SNMP poll successful' },
-      { time: '1h ago',  type: 'good', message: 'All interfaces stable' },
-      { time: '7d ago',  type: 'info', message: 'WireGuard tunnel established to EC2' },
-    ],
-  },
-  {
-    id: 'SW-01', x: 550, y: 275, status: 'good', type: 'switch',
-    name: 'Cisco Catalyst 2960', location: 'Lab Cabinet',
-    health: 88, lastSeen: '30s ago',
-    vendor: 'Cisco', model: 'Catalyst 2960', firmware: 'IOS 15.x',
-    vitals: [
-      { label: 'VLAN1 IN', value: '1.2 MB', status: 'good' },
-      { label: 'VLAN1 OUT', value: '0.8 MB', status: 'good' },
-      { label: 'PORTS ACTIVE', value: '3/24', status: 'good' },
-      { label: 'UPTIME', value: '12+ hrs', status: 'good' },
-    ],
-    events: [
-      { time: '30s ago', type: 'good', message: 'SNMP poll successful' },
-      { time: '2h ago',  type: 'info', message: 'Password recovery and full config completed' },
-    ],
-  },
-  {
-    id: 'EDGE-01', x: 810, y: 280, status: 'good', type: 'router',
-    name: 'Raspberry Pi 5', location: 'Lab Cabinet',
-    health: 91, lastSeen: '30s ago',
-    vendor: 'Raspberry Pi', model: 'Pi 5',
-    vitals: [
-      { label: 'CPU LOAD', value: '1%', status: 'good' },
-      { label: 'MEMORY', value: '16%', status: 'good' },
-      { label: 'LOAD AVG', value: '0.01', status: 'good' },
-      { label: 'UPTIME', value: '0.2 hrs', status: 'good' },
-    ],
-    events: [
-      { time: '30s ago', type: 'good', message: 'SNMP poll successful' },
-      { time: '1h ago',  type: 'info', message: 'SNMPD configured and live' },
-    ],
-  },
-  {
-    id: 'RAD-01', x: 170, y: 175, status: 'unknown', type: 'radio',
-    name: 'Trio JR900 #1', location: 'Lab Cabinet',
-    health: null, lastSeen: 'Never',
-    vendor: 'Trio', model: 'JR900',
-    vitals: [
-      { label: 'STATUS', value: 'L2 Only', status: '' },
-      { label: 'MAC', value: '00:1F:EB:00:75:6F', status: '' },
-    ],
-    events: [
-      { time: '—', type: 'warn', message: 'No IP assigned — needs serial console config' },
-    ],
-  },
-  {
-    id: 'RAD-02', x: 270, y: 330, status: 'offline', type: 'radio',
-    name: 'Trio JR900 #2', location: 'Lab Cabinet',
-    health: null, lastSeen: 'Never',
-    vendor: 'Trio', model: 'JR900',
-    vitals: [],
-    events: [
-      { time: '—', type: 'warn', message: 'Powered off — needs physical access' },
-    ],
-  },
-  {
-    id: 'RTU-01', x: 535, y: 360, status: 'offline', type: 'rtu',
-    name: 'SCADAPack 470', location: 'Lab Cabinet',
-    health: null, lastSeen: 'Never',
-    vendor: 'Schneider', model: 'SCADAPack 470',
-    vitals: [],
-    events: [
-      { time: '—', type: 'warn', message: 'Powered off — needs physical access' },
-    ],
-  },
-];
+// ── Killdeer Field: Schematic positions per asset (layout-specific) ──
+const KILLDEER_POSITIONS = {
+  'RTR-01':  { x: 550, y: 175 },
+  'SW-01':   { x: 550, y: 275 },
+  'EDGE-01': { x: 810, y: 280 },
+  'RAD-01':  { x: 170, y: 175 },
+  'RAD-02':  { x: 270, y: 330 },
+  'RTU-01':  { x: 430, y: 400 },
+};
 
-const killdeerAlerts = [
-  { sev: 'warning', time: 'now', asset: 'Trio JR900 #1', desc: 'No IP assigned — needs serial console configuration', score: null },
-  { sev: 'info',    time: 'now', asset: 'Trio JR900 #2', desc: 'Device powered off', score: null },
-  { sev: 'info',    time: 'now', asset: 'SCADAPack 470', desc: 'Device powered off', score: null },
-];
+// Alert sev values match CSS classes: critical, warning, info
 
-const killdeerPredictions = [
-  { sev: 'good', asset: 'MikroTik L009',       type: 'Router',  loc: 'Lab Cabinet', risk: 6,  days: '—' },
-  { sev: 'good', asset: 'Catalyst 2960',        type: 'Switch',  loc: 'Lab Cabinet', risk: 12, days: '—' },
-  { sev: 'good', asset: 'Raspberry Pi',         type: 'Router',  loc: 'Lab Cabinet', risk: 9,  days: '—' },
-  { sev: 'warn', asset: 'Trio JR900 #1',        type: 'Radio',   loc: 'Lab Cabinet', risk: 50, days: 'N/A' },
-  { sev: 'bad',  asset: 'SCADAPack 470',        type: 'RTU',     loc: 'Lab Cabinet', risk: 0,  days: 'N/A' },
-];
+function timeAgo(iso) {
+  if (!iso) return 'Never';
+  const sec = Math.floor((Date.now() - new Date(iso).getTime()) / 1000);
+  if (sec < 60) return sec + 's ago';
+  if (sec < 3600) return Math.floor(sec / 60) + 'm ago';
+  if (sec < 86400) return Math.floor(sec / 3600) + 'h ago';
+  return Math.floor(sec / 86400) + 'd ago';
+}
+
+async function fetchKilldeerLive() {
+  const hdrs = { 'X-API-Key': window.AEVUS_API_KEY };
+  try {
+    const [assetsResp, alertsResp, predsResp, summaryResp] = await Promise.all([
+      fetch('/api/v1/assets', { headers: hdrs }),
+      fetch('/api/v1/alerts?status=open&limit=50', { headers: hdrs }),
+      fetch('/api/v1/predictions', { headers: hdrs }),
+      fetch('/api/v1/health/summary', { headers: hdrs }),
+    ]);
+    const [assets, liveAlerts, preds, summary] = await Promise.all([
+      assetsResp.json(), alertsResp.json(), predsResp.json(), summaryResp.json(),
+    ]);
+
+    // ── Build markers from live assets ──
+    const liveMarkers = assets.map(a => {
+      const pos = KILLDEER_POSITIONS[a.id] || { x: 400, y: 300 };
+      return {
+        id: a.id, x: pos.x, y: pos.y,
+        status: a.status || 'unknown',
+        type: a.type,
+        name: a.name,
+        location: a.location,
+        health: a.health,
+        lastSeen: timeAgo(a.last_seen),
+        vendor: a.vendor, model: a.model, firmware: a.firmware || '—',
+        vitals: (a.vitals || []).slice(0, 6).map(v => ({
+          label: v.label, value: v.value, status: v.status || '',
+        })),
+        events: [],
+      };
+    });
+
+    // ── Build alerts ──
+    const liveAlertRows = liveAlerts.filter(a => a.status === 'open').map(a => ({
+      sev: a.severity,
+      time: timeAgo(a.detected_at),
+      asset: a.asset_name,
+      desc: a.message,
+      score: a.risk_score,
+    }));
+
+    // ── Build predictions ──
+    const livePredRows = preds.map(p => ({
+      sev: p.risk_score < 25 ? 'good' : p.risk_score < 60 ? 'warn' : 'bad',
+      asset: p.asset_name,
+      type: p.asset_type.charAt(0).toUpperCase() + p.asset_type.slice(1),
+      loc: p.location,
+      risk: p.risk_score,
+      days: p.estimated_failure || '—',
+    }));
+
+    // ── Build KPIs from summary ──
+    const openCount = liveAlertRows.length;
+    const critCount = liveAlerts.filter(a => a.severity === 'critical' && a.status === 'open').length;
+    const warnCount = liveAlerts.filter(a => a.severity === 'warning' && a.status === 'open').length;
+    const failingSoon = preds.filter(p => p.risk_score >= 60).length;
+
+    const liveKpi = {
+      assets: String(summary.total_assets || assets.length),
+      health: String(summary.avg_health || '—'),
+      predicted: String(failingSoon),
+      alertsActive: String(openCount),
+      critCount: String(critCount),
+      warnCount: String(warnCount),
+    };
+
+    return { markers: liveMarkers, alerts: liveAlertRows, predictions: livePredRows, kpi: liveKpi };
+  } catch (err) {
+    console.error('Failed to fetch live Killdeer data:', err);
+    return null;
+  }
+}
+
+// Fallback static data while API loads
+let killdeerMarkers = [];
+let killdeerAlerts = [];
+let killdeerPredictions = [];
 
 const killdeerData = {
   name: 'Killdeer Field',
   markers: killdeerMarkers,
   alerts: killdeerAlerts,
   predictions: killdeerPredictions,
-  kpi: { assets: '6', health: '91', predicted: '0', alertsActive: '3', critCount: '0', warnCount: '1' },
+  kpi: { assets: '6', health: '—', predicted: '0', alertsActive: '—', critCount: '0', warnCount: '0' },
   mapTabs: ['all', 'router', 'switch', 'radio', 'rtu'],
   schematic: killdeerSchematic,
+  live: true,
 };
 
 const SITES = {
@@ -3573,11 +3574,22 @@ const SITES = {
 
 let currentSite = 'north-field';
 
-function switchSite(siteKey) {
+async function switchSite(siteKey) {
   if (siteKey === currentSite) return;
   const site = SITES[siteKey];
   if (!site) return;
   currentSite = siteKey;
+
+  // Fetch live data for Killdeer Field
+  if (site.live) {
+    const live = await fetchKilldeerLive();
+    if (live) {
+      site.markers = live.markers;
+      site.alerts = live.alerts;
+      site.predictions = live.predictions;
+      site.kpi = live.kpi;
+    }
+  }
 
   // Update data
   markers = site.markers;

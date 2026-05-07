@@ -55,7 +55,7 @@ async def health_summary() -> dict:
 @router.get("/trend")
 async def health_trend(
     asset_id: str | None = Query(None),
-    metric: str = Query("suction_pressure"),
+    metric: str = Query("cpu_load"),
     hours: int = Query(24, ge=1, le=720),
 ) -> list[dict]:
     """Time-series trend data for a specific metric."""

@@ -1,0 +1,185 @@
+"""
+Aevus Testbed --- Polling Scheduler
+Runs collectors on configured intervals and feeds the processing pipeline.
+
+Pipeline per poll cycle:
+  1. Collector.safe_poll() -> list[RawTelemetry]
+  2. InfluxDB write (time-series storage)
+  3. Normalizer -> list[VitalSign]
+  4. Health score computation
+  5. Alert engine evaluation
+  6. SQLite asset update
+  7. WebSocket broadcast to dashboard clients
+"""
+
+from __future__ import annotations
+
+import asyncio
+import structlog
+from datetime import datetime, timezone
+from typing import Optional, TYPE_CHECKING
+
+from src.collectors.base import BaseCollector
+from src.engine.normalizer import normalize_batch
+from src.engine.health_score import compute_health, health_status
+from src.engine.alert_engine import AlertEngine
+from src.engine.prediction import PredictionEngine
+from src.storage.influx import InfluxStorage
+from src.storage.sqlite_db import SQLiteDB
+from src.api.ws import ws_manager
+
+if TYPE_CHECKING:
+    from src.models.asset import Asset
+
+logger = structlog.get_logger()
+
+
+class PollScheduler:
+    """Manages polling loops for all registered collectors."""
+
+    def __init__(
+        self,
+        db: SQLiteDB,
+        influx: InfluxStorage,
+        alert_engine: AlertEngine,
+    ) -> None:
+        self.db = db
+        self.influx = influx
+        self.alert_engine = alert_engine
+        self.prediction_engine = PredictionEngine(influx)
+        self._collectors: dict[str, BaseCollector] = {}
+        self._tasks: dict[str, asyncio.Task] = {}
+        self._prediction_task: Optional[asyncio.Task] = None
+        self.log = logger.bind(component="scheduler")
+
+    def register(self, asset_id: str, collector: BaseCollector) -> None:
+        """Register a collector for an asset."""
+        self._collectors[asset_id] = collector
+        self.log.info("collector_registered", asset_id=asset_id, type=type(collector).__name__)
+
+    async def start(self) -> None:
+        """Start polling loops for all registered collectors."""
+        for asset_id, collector in self._collectors.items():
+            task = asyncio.create_task(self._poll_loop(asset_id, collector))
+            self._tasks[asset_id] = task
+            self.log.info("poll_loop_started", asset_id=asset_id, interval=collector.poll_interval)
+
+        # Start prediction engine loop (runs every 60s)
+        self._prediction_task = asyncio.create_task(self._prediction_loop())
+        self.log.info("prediction_loop_started", interval=60)
+
+    async def stop(self) -> None:
+        """Cancel all polling loops."""
+        if self._prediction_task:
+            self._prediction_task.cancel()
+            self.log.info("prediction_loop_stopped")
+        for asset_id, task in self._tasks.items():
+            task.cancel()
+            self.log.info("poll_loop_stopped", asset_id=asset_id)
+        self._tasks.clear()
+
+    async def _poll_loop(self, asset_id: str, collector: BaseCollector) -> None:
+        """Continuous polling loop for a single collector."""
+        while True:
+            try:
+                await self._poll_cycle(asset_id, collector)
+            except asyncio.CancelledError:
+                break
+            except Exception as e:
+                self.log.error("poll_cycle_error", asset_id=asset_id, error=str(e))
+
+            await asyncio.sleep(collector.poll_interval)
+
+    async def _poll_cycle(self, asset_id: str, collector: BaseCollector) -> None:
+        """Execute one poll cycle: collect -> store -> normalize -> score -> alert -> push."""
+        # 1. Collect
+        readings = await collector.safe_poll()
+        if not readings:
+            return
+
+        now = datetime.now(timezone.utc)
+
+        # 2. Write to InfluxDB
+        self.influx.write_readings(readings)
+
+        # 3. Normalize
+        vitals = normalize_batch(readings)
+
+        # 4. Extract run_hours if present
+        run_hours = None
+        for r in readings:
+            if r.metric == "run_hours":
+                run_hours = r.value
+                break
+
+        # 5. Health score (with prediction risk if available)
+        asset = self.db.get_asset(asset_id)
+        prediction = self.prediction_engine.get_prediction(asset_id)
+        risk_score = prediction.risk_score if prediction else None
+        score = compute_health(
+            vitals=vitals,
+            last_seen=now,
+            poll_interval=collector.poll_interval,
+            risk_score=risk_score,
+        )
+        status = health_status(score)
+
+        # 6. Alert evaluation
+        asset_name = asset.name if asset else asset_id
+        alert_changes = self.alert_engine.evaluate(asset_id, asset_name, vitals)
+
+        # Persist alert changes
+        for alert in alert_changes:
+            self.db.save_alert(alert)
+
+        # 7. Update asset in SQLite
+        if asset:
+            asset.vitals = vitals
+            asset.health = score
+            asset.status = status
+            asset.last_seen = now
+            self.db.upsert_asset(asset)
+
+        # 8. WebSocket broadcast
+        await ws_manager.broadcast("asset_update", {
+            "asset_id": asset_id,
+            "health": score,
+            "status": status,
+            "vitals": [v.model_dump() for v in vitals],
+            "timestamp": now.isoformat(),
+        })
+
+        if alert_changes:
+            await ws_manager.broadcast("alert_update", {
+                "alerts": [a.model_dump(mode="json") for a in alert_changes],
+            })
+
+    async def _prediction_loop(self) -> None:
+        """Run prediction analysis on all assets every 60 seconds."""
+        # Wait for initial data to accumulate
+        await asyncio.sleep(30)
+
+        while True:
+            try:
+                assets = self.db.list_assets()
+                for asset in assets:
+                    await self.prediction_engine.analyze_asset(
+                        asset_id=asset.id,
+                        asset_name=asset.name,
+                        asset_type=asset.type,
+                        location=asset.location,
+                    )
+
+                # Broadcast predictions to dashboard
+                preds = self.prediction_engine.predictions
+                if preds:
+                    await ws_manager.broadcast("predictions_update", {
+                        "predictions": [p.model_dump() for p in preds],
+                    })
+
+            except asyncio.CancelledError:
+                break
+            except Exception as e:
+                self.log.error("prediction_loop_error", error=str(e))
+
+            await asyncio.sleep(60)

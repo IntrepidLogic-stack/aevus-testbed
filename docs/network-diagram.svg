@@ -1,0 +1,144 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1000" height="800" viewBox="0 0 1000 800">
+  <defs>
+    <style>
+      .device-label { font-family: 'Segoe UI', Arial, sans-serif; font-size: 13px; fill: #ffffff; font-weight: 600; }
+      .device-ip { font-family: 'Segoe UI', Arial, sans-serif; font-size: 10px; fill: #a0a0b8; }
+      .device-role { font-family: 'Segoe UI', Arial, sans-serif; font-size: 9px; fill: #8080a0; }
+      .port-label { font-family: 'Courier New', monospace; font-size: 8px; fill: #9090b0; }
+      .legend-text { font-family: 'Segoe UI', Arial, sans-serif; font-size: 10px; fill: #c0c0d0; }
+      .warn-label { font-family: 'Segoe UI', Arial, sans-serif; font-size: 8px; fill: #ff4444; font-weight: 700; }
+      .cloud-label { font-family: 'Segoe UI', Arial, sans-serif; font-size: 12px; fill: #60a5fa; font-weight: 600; }
+      .cloud-ip { font-family: 'Segoe UI', Arial, sans-serif; font-size: 9px; fill: #8ab4f8; }
+    </style>
+  </defs>
+
+  <!-- Background -->
+  <rect width="1000" height="800" fill="#0f0f23" rx="8"/>
+
+  <!-- Title -->
+  <text x="500" y="28" text-anchor="middle" font-family="'Segoe UI', Arial, sans-serif" font-size="16" fill="#e0e0f0" font-weight="700">Aevus Testbed Cabinet — Network Diagram</text>
+
+  <!-- ============ CLOUD / EC2 ============ -->
+  <ellipse cx="720" cy="70" rx="70" ry="25" fill="none" stroke="#60a5fa" stroke-width="1.8" stroke-dasharray="4,3"/>
+  <text x="720" y="67" text-anchor="middle" class="cloud-label">EC2</text>
+  <text x="720" y="80" text-anchor="middle" class="cloud-ip">10.99.0.1</text>
+
+  <!-- ============ INTERNET ============ -->
+  <ellipse cx="380" cy="70" rx="80" ry="25" fill="none" stroke="#606080" stroke-width="1.8"/>
+  <text x="380" y="67" text-anchor="middle" class="device-label" fill="#c0c0d0">Internet</text>
+  <text x="380" y="80" text-anchor="middle" class="device-role">Spectrum Cable Modem</text>
+
+  <!-- Internet → MikroTik line -->
+  <line x1="380" y1="95" x2="380" y2="140" stroke="#606080" stroke-width="1.8"/>
+  <text x="365" y="120" class="port-label">ether1</text>
+  <text x="395" y="132" class="warn-label">DO NOT TOUCH</text>
+
+  <!-- ============ MIKROTIK ============ -->
+  <rect x="290" y="140" width="180" height="55" rx="8" fill="#0f0f23" stroke="#00d4aa" stroke-width="1.8"/>
+  <text x="380" y="158" text-anchor="middle" class="device-label">MikroTik L009</text>
+  <text x="380" y="172" text-anchor="middle" class="device-ip">192.168.88.1</text>
+  <text x="380" y="184" text-anchor="middle" class="device-role">Router</text>
+
+  <!-- WireGuard tunnel: MikroTik → EC2 -->
+  <path d="M470,155 Q580,100 720,95" fill="none" stroke="#60a5fa" stroke-width="1.8" stroke-dasharray="6,4"/>
+  <text x="570" y="108" class="port-label" fill="#60a5fa">WireGuard</text>
+
+  <!-- ============ CONNECTIONS FROM MIKROTIK ============ -->
+
+  <!-- MikroTik ether3 → SHOP-01 NIC -->
+  <line x1="320" y1="195" x2="150" y2="290" stroke="#ff6b6b" stroke-width="1.8"/>
+  <text x="200" y="232" class="port-label">MikroTik ether3</text>
+  <text x="200" y="244" class="port-label">→ SHOP-01 NIC</text>
+
+  <!-- MikroTik ether4 → Trio JR900 #1 Ethernet port -->
+  <line x1="350" y1="195" x2="150" y2="420" stroke="#ffd93d" stroke-width="1.8"/>
+  <text x="215" y="295" class="port-label">MikroTik ether4</text>
+  <text x="215" y="307" class="port-label">→ Trio #1 ETH</text>
+
+  <!-- MikroTik ether5 → Catalyst Gi0/1 -->
+  <line x1="440" y1="195" x2="560" y2="290" stroke="#4a9eff" stroke-width="1.8"/>
+  <text x="488" y="232" class="port-label">MikroTik ether5</text>
+  <text x="488" y="244" class="port-label">→ Catalyst Gi0/1</text>
+
+  <!-- ============ SHOP-01 ============ -->
+  <rect x="50" y="290" width="180" height="55" rx="8" fill="#0f0f23" stroke="#ff6b6b" stroke-width="1.8"/>
+  <text x="140" y="308" text-anchor="middle" class="device-label">SHOP-01</text>
+  <text x="140" y="322" text-anchor="middle" class="device-ip">192.168.88.253</text>
+  <text x="140" y="334" text-anchor="middle" class="device-role">Windows PC</text>
+
+  <!-- ============ TRIO JR900 #1 ============ -->
+  <rect x="50" y="400" width="180" height="55" rx="8" fill="#0f0f23" stroke="#ffd93d" stroke-width="1.8"/>
+  <text x="140" y="418" text-anchor="middle" class="device-label">Trio JR900 #1 / RAD-01</text>
+  <text x="140" y="432" text-anchor="middle" class="device-ip">192.168.88.11</text>
+  <text x="140" y="444" text-anchor="middle" class="device-role">Radio</text>
+
+  <!-- ============ CISCO CATALYST 2960 ============ -->
+  <rect x="470" y="290" width="200" height="55" rx="8" fill="#0f0f23" stroke="#4a9eff" stroke-width="1.8"/>
+  <text x="570" y="308" text-anchor="middle" class="device-label">Cisco Catalyst 2960</text>
+  <text x="570" y="322" text-anchor="middle" class="device-ip">192.168.88.2</text>
+  <text x="570" y="334" text-anchor="middle" class="device-role">L2 Switch</text>
+
+  <!-- Console line: Catalyst CONSOLE → SHOP-01 COM6 -->
+  <line x1="470" y1="330" x2="230" y2="330" stroke="#606080" stroke-width="1.2" stroke-dasharray="3,3"/>
+  <text x="350" y="320" text-anchor="middle" class="port-label">Catalyst CONSOLE (RJ45)</text>
+  <text x="350" y="332" text-anchor="middle" class="port-label">→ SHOP-01 USB COM6</text>
+
+  <!-- ============ CONNECTIONS FROM CATALYST ============ -->
+
+  <!-- Fa0/1 → Trio JR900 #2 (DASHED — plug in during visit) -->
+  <line x1="500" y1="345" x2="360" y2="530" stroke="#ffd93d" stroke-width="1.8" stroke-dasharray="8,4"/>
+  <text x="400" y="430" class="port-label">Catalyst Fa0/1</text>
+  <text x="400" y="442" class="port-label">→ Trio #2 ETH</text>
+
+  <!-- Fa0/2 → SCADAPack (DASHED) -->
+  <line x1="540" y1="345" x2="540" y2="530" stroke="#ff8c42" stroke-width="1.8" stroke-dasharray="8,4"/>
+  <text x="548" y="430" class="port-label">Catalyst Fa0/2</text>
+  <text x="548" y="442" class="port-label">→ SCADAPack ETH1</text>
+
+  <!-- Fa0/3 → Uplogix (DASHED) -->
+  <line x1="590" y1="345" x2="710" y2="530" stroke="#c084fc" stroke-width="1.8" stroke-dasharray="8,4"/>
+  <text x="660" y="430" class="port-label">Catalyst Fa0/3</text>
+  <text x="660" y="442" class="port-label">→ Uplogix MGMT</text>
+
+  <!-- Fa0/4 → Raspberry Pi (SOLID) -->
+  <line x1="640" y1="345" x2="880" y2="530" stroke="#34d399" stroke-width="1.8"/>
+  <text x="780" y="430" class="port-label">Catalyst Fa0/4</text>
+  <text x="780" y="442" class="port-label">→ Pi ETH0</text>
+
+  <!-- ============ TRIO JR900 #2 ============ -->
+  <rect x="270" y="530" width="180" height="55" rx="8" fill="#0f0f23" stroke="#ffd93d" stroke-width="1.8"/>
+  <text x="360" y="548" text-anchor="middle" class="device-label">Trio JR900 #2 / RAD-02</text>
+  <text x="360" y="562" text-anchor="middle" class="device-ip">192.168.88.12</text>
+  <text x="360" y="574" text-anchor="middle" class="device-role">Radio</text>
+
+  <!-- ============ SCADAPACK 470 ============ -->
+  <rect x="470" y="530" width="170" height="55" rx="8" fill="#0f0f23" stroke="#ff8c42" stroke-width="1.8"/>
+  <text x="555" y="548" text-anchor="middle" class="device-label">SCADAPack 470 / RTU-01</text>
+  <text x="555" y="562" text-anchor="middle" class="device-ip">192.168.88.21</text>
+  <text x="555" y="574" text-anchor="middle" class="device-role">RTU</text>
+
+  <!-- ============ UPLOGIX 5000 ============ -->
+  <rect x="660" y="530" width="150" height="55" rx="8" fill="#0f0f23" stroke="#c084fc" stroke-width="1.8"/>
+  <text x="735" y="548" text-anchor="middle" class="device-label">Uplogix 5000</text>
+  <text x="735" y="562" text-anchor="middle" class="device-ip">192.168.88.5</text>
+  <text x="735" y="574" text-anchor="middle" class="device-role">OOB Mgmt</text>
+
+  <!-- ============ RASPBERRY PI ============ -->
+  <rect x="830" y="530" width="150" height="55" rx="8" fill="#0f0f23" stroke="#34d399" stroke-width="1.8"/>
+  <text x="905" y="548" text-anchor="middle" class="device-label">Raspberry Pi</text>
+  <text x="905" y="562" text-anchor="middle" class="device-ip">192.168.88.254</text>
+  <text x="905" y="574" text-anchor="middle" class="device-role">Edge Collector</text>
+
+  <!-- Uplogix Serial Port 1 → Catalyst Console (future OOB) -->
+  <path d="M735,585 L735,620 L570,620 L570,585" fill="none" stroke="#808090" stroke-width="1" stroke-dasharray="3,3"/>
+  <text x="652" y="635" text-anchor="middle" class="port-label">Uplogix Serial 1 → Catalyst CONSOLE</text>
+  <text x="652" y="647" text-anchor="middle" class="port-label">(RJ45-to-DB9, future OOB mgmt)</text>
+
+  <!-- ============ LEGEND ============ -->
+  <rect x="750" y="700" width="220" height="70" rx="6" fill="#16162a" stroke="#303050" stroke-width="1"/>
+  <text x="860" y="718" text-anchor="middle" class="legend-text" font-weight="600">Legend</text>
+  <line x1="770" y1="735" x2="820" y2="735" stroke="#a0a0b8" stroke-width="1.8"/>
+  <text x="830" y="739" class="legend-text">Existing</text>
+  <line x1="770" y1="755" x2="820" y2="755" stroke="#a0a0b8" stroke-width="1.8" stroke-dasharray="8,4"/>
+  <text x="830" y="759" class="legend-text">Plug in during visit</text>
+</svg>

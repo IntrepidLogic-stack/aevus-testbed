@@ -1,0 +1,136 @@
+"""
+Aevus Testbed — Raspberry Pi Edge Collector SNMP
+Polls the Raspberry Pi (IntrepidRAS) via SNMP v2c for system health metrics.
+Uses standard HOST-RESOURCES-MIB and UCD-SNMP-MIB OIDs.
+"""
+
+import asyncio
+import subprocess
+from typing import Optional
+
+from src.collectors.base import BaseCollector
+from src.models.telemetry import RawTelemetry
+
+SYSTEM_OIDS = {
+    "sys_descr": "1.3.6.1.2.1.1.1.0",
+    "sys_name": "1.3.6.1.2.1.1.5.0",
+    "sys_uptime": "1.3.6.1.2.1.1.3.0",
+}
+
+HOST_RESOURCE_OIDS = {
+    "cpu_load_1min": "1.3.6.1.4.1.2021.10.1.3.1",
+    "cpu_load_5min": "1.3.6.1.4.1.2021.10.1.3.2",
+    "mem_total": "1.3.6.1.4.1.2021.4.5.0",
+    "mem_avail": "1.3.6.1.4.1.2021.4.6.0",
+    "cpu_idle": "1.3.6.1.4.1.2021.11.11.0",
+}
+
+
+class SNMPEdgeCollector(BaseCollector):
+    """Collects system metrics from the Raspberry Pi edge collector via SNMP."""
+
+    def __init__(self, asset_id: str, host: str, community: str = "aevus_ro", poll_interval: int = 30):
+        super().__init__(asset_id, host, poll_interval)
+        self.community = community
+
+    async def is_reachable(self) -> bool:
+        value = await self._snmp_get(SYSTEM_OIDS["sys_descr"])
+        return value is not None
+
+    async def poll(self) -> list[RawTelemetry]:
+        readings: list[RawTelemetry] = []
+
+        # CPU usage (100 - idle)
+        cpu_idle = await self._snmp_get(HOST_RESOURCE_OIDS["cpu_idle"])
+        if cpu_idle is not None:
+            try:
+                usage = 100.0 - float(cpu_idle)
+                readings.append(self._make_reading(
+                    metric="cpu_load", value=round(usage, 1), unit="%",
+                    source="snmp", oid=HOST_RESOURCE_OIDS["cpu_idle"],
+                ))
+            except (ValueError, TypeError):
+                self.log.debug("cpu_parse_error", raw=cpu_idle)
+
+        # Load average 1min
+        load1 = await self._snmp_get(HOST_RESOURCE_OIDS["cpu_load_1min"])
+        if load1 is not None:
+            try:
+                readings.append(self._make_reading(
+                    metric="load_avg_1m", value=float(load1), unit="",
+                    source="snmp", oid=HOST_RESOURCE_OIDS["cpu_load_1min"],
+                ))
+            except (ValueError, TypeError):
+                self.log.debug("load_parse_error", raw=load1)
+
+        # Load average 5min
+        load5 = await self._snmp_get(HOST_RESOURCE_OIDS["cpu_load_5min"])
+        if load5 is not None:
+            try:
+                readings.append(self._make_reading(
+                    metric="load_avg_5m", value=float(load5), unit="",
+                    source="snmp", oid=HOST_RESOURCE_OIDS["cpu_load_5min"],
+                ))
+            except (ValueError, TypeError):
+                self.log.debug("load5_parse_error", raw=load5)
+
+        # Memory usage
+        mem_total = await self._snmp_get(HOST_RESOURCE_OIDS["mem_total"])
+        mem_avail = await self._snmp_get(HOST_RESOURCE_OIDS["mem_avail"])
+        if mem_total and mem_avail:
+            try:
+                total = float(mem_total)
+                avail = float(mem_avail)
+                if total > 0:
+                    pct = ((total - avail) / total) * 100
+                    readings.append(self._make_reading(
+                        metric="memory_usage", value=round(pct, 1), unit="%",
+                        source="snmp",
+                    ))
+            except (ValueError, TypeError):
+                self.log.debug("mem_parse_error", total=mem_total, avail=mem_avail)
+
+        # Uptime — handle multiple formats
+        uptime_raw = await self._snmp_get(SYSTEM_OIDS["sys_uptime"])
+        if uptime_raw is not None:
+            try:
+                if "(" in uptime_raw:
+                    ticks = float(uptime_raw.split("(")[1].split(")")[0])
+                else:
+                    # Format like "0:0:09:33.30" — parse d:h:m:s
+                    parts = uptime_raw.replace(" ", "").split(":")
+                    if len(parts) >= 4:
+                        days = float(parts[0])
+                        hrs = float(parts[1])
+                        mins = float(parts[2])
+                        secs = float(parts[3])
+                        ticks = ((days * 86400 + hrs * 3600 + mins * 60 + secs) * 100)
+                    else:
+                        ticks = float(uptime_raw)
+                hours = ticks / 360000.0
+                readings.append(self._make_reading(
+                    metric="uptime", value=round(hours, 2), unit="hrs",
+                    source="snmp", oid=SYSTEM_OIDS["sys_uptime"],
+                ))
+            except (ValueError, IndexError, TypeError):
+                self.log.debug("uptime_parse_error", raw=uptime_raw)
+
+        return readings
+
+    async def _snmp_get(self, oid: str) -> Optional[str]:
+        return await asyncio.to_thread(self._snmp_get_sync, oid)
+
+    def _snmp_get_sync(self, oid: str) -> Optional[str]:
+        try:
+            result = subprocess.run(
+                ["snmpget", "-v2c", "-c", self.community, "-t", "5", "-r", "1", "-Oqv", self.host, oid],
+                capture_output=True, text=True, timeout=10,
+            )
+            if result.returncode != 0 or not result.stdout.strip():
+                return None
+            raw = result.stdout.strip()
+            if ": " in raw:
+                raw = raw.split(": ", 1)[1]
+            return raw.strip('"')
+        except (subprocess.TimeoutExpired, FileNotFoundError):
+            return None

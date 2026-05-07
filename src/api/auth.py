@@ -22,6 +22,10 @@ class APIKeyMiddleware(BaseHTTPMiddleware):
     async def dispatch(self, request: Request, call_next):
         path = request.url.path
 
+        # Skip auth for health ping (monitoring)
+        if path == "/api/v1/health/ping":
+            return await call_next(request)
+
         # Skip auth for non-API paths (dashboard, static files, root, docs)
         if not path.startswith("/api/"):
             return await call_next(request)

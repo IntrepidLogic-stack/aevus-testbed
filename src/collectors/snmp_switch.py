@@ -16,18 +16,16 @@ from src.models.telemetry import RawTelemetry
 # Cisco-specific OIDs
 CISCO_OIDS = {
     # CISCO-PROCESS-MIB: CPU utilization
-    "cpu_5sec": "1.3.6.1.4.1.9.9.109.1.1.1.1.6.1",    # cpmCPUTotal5secRev
-    "cpu_1min": "1.3.6.1.4.1.9.9.109.1.1.1.1.7.1",    # cpmCPUTotal1minRev
-    "cpu_5min": "1.3.6.1.4.1.9.9.109.1.1.1.1.8.1",    # cpmCPUTotal5minRev
-
+    "cpu_5sec": "1.3.6.1.4.1.9.9.109.1.1.1.1.6.1",  # cpmCPUTotal5secRev
+    "cpu_1min": "1.3.6.1.4.1.9.9.109.1.1.1.1.7.1",  # cpmCPUTotal1minRev
+    "cpu_5min": "1.3.6.1.4.1.9.9.109.1.1.1.1.8.1",  # cpmCPUTotal5minRev
     # CISCO-MEMORY-POOL-MIB: Memory pools
-    "mem_used": "1.3.6.1.4.1.9.9.48.1.1.1.5.1",       # ciscoMemoryPoolUsed (Processor)
-    "mem_free": "1.3.6.1.4.1.9.9.48.1.1.1.6.1",       # ciscoMemoryPoolFree (Processor)
-    "mem_io_used": "1.3.6.1.4.1.9.9.48.1.1.1.5.2",    # ciscoMemoryPoolUsed (I/O)
-    "mem_io_free": "1.3.6.1.4.1.9.9.48.1.1.1.6.2",    # ciscoMemoryPoolFree (I/O)
-
+    "mem_used": "1.3.6.1.4.1.9.9.48.1.1.1.5.1",  # ciscoMemoryPoolUsed (Processor)
+    "mem_free": "1.3.6.1.4.1.9.9.48.1.1.1.6.1",  # ciscoMemoryPoolFree (Processor)
+    "mem_io_used": "1.3.6.1.4.1.9.9.48.1.1.1.5.2",  # ciscoMemoryPoolUsed (I/O)
+    "mem_io_free": "1.3.6.1.4.1.9.9.48.1.1.1.6.2",  # ciscoMemoryPoolFree (I/O)
     # ENTITY-MIB: Hardware info
-    "env_temp": "1.3.6.1.4.1.9.9.13.1.3.1.3.1",       # ciscoEnvMonTemperatureValue
+    "env_temp": "1.3.6.1.4.1.9.9.13.1.3.1.3.1",  # ciscoEnvMonTemperatureValue
 }
 
 # Standard MIB-II for interface stats (same as router collector)

@@ -26,6 +26,7 @@ from fastapi.staticfiles import StaticFiles
 from src.api import (
     alerts_router,
     assets_router,
+    deploy_router,
     diagnostics_router,
     health_router,
     integrations_router,
@@ -260,6 +261,7 @@ app.add_middleware(
 app.include_router(assets_router, prefix="/api/v1")
 app.include_router(alerts_router, prefix="/api/v1")
 app.include_router(health_router, prefix="/api/v1")
+app.include_router(deploy_router, prefix="/api/v1")
 app.include_router(diagnostics_router, prefix="/api/v1")
 app.include_router(predictions_router, prefix="/api/v1")
 app.include_router(reports_router, prefix="/api/v1")

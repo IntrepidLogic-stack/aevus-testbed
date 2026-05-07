@@ -53,6 +53,7 @@ async def test_is_reachable_false(collector):
 @pytest.mark.asyncio
 async def test_poll_cpu_memory(collector):
     """Test polling returns CPU and memory readings."""
+
     async def mock_get(oid):
         return {
             CISCO_OIDS["cpu_5min"]: "12",
@@ -62,7 +63,10 @@ async def test_poll_cpu_memory(collector):
             CISCO_OIDS["env_temp"]: "35",
         }.get(oid)
 
-    with patch.object(collector, "_snmp_get", side_effect=mock_get), patch.object(collector, "_poll_interfaces", new_callable=AsyncMock, return_value=[]):
+    with (
+        patch.object(collector, "_snmp_get", side_effect=mock_get),
+        patch.object(collector, "_poll_interfaces", new_callable=AsyncMock, return_value=[]),
+    ):
         readings = await collector.poll()
 
     metrics = [r.metric for r in readings]
@@ -80,6 +84,9 @@ async def test_poll_cpu_memory(collector):
 @pytest.mark.asyncio
 async def test_poll_handles_missing_data(collector):
     """Test poll gracefully handles missing SNMP responses."""
-    with patch.object(collector, "_snmp_get", new_callable=AsyncMock, return_value=None), patch.object(collector, "_poll_interfaces", new_callable=AsyncMock, return_value=[]):
+    with (
+        patch.object(collector, "_snmp_get", new_callable=AsyncMock, return_value=None),
+        patch.object(collector, "_poll_interfaces", new_callable=AsyncMock, return_value=[]),
+    ):
         readings = await collector.poll()
     assert readings == []

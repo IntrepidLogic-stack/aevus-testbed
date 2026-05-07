@@ -80,3 +80,15 @@ jobs:
     steps:
       - name: Gate
         run: echo "All CI checks passed — ready to deploy"
+
+  deploy:
+    name: Deploy to EC2
+    needs: gate
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Trigger deploy webhook
+        env:
+          DEPLOY_SECRET: ${{ secrets.DEPLOY_SECRET }}
+        run: |
+          curl -sf -X POST -H "X-Deploy-Secret: ${DEPLOY_SECRET}" https://aevus.intrepidlogic.io/api/v1/deploy/trigger

@@ -24,14 +24,16 @@ async def fleet_health_report(
 
     asset_rows = []
     for a in assets:
-        asset_rows.append({
-            "id": a.id,
-            "name": a.name,
-            "type": a.type,
-            "status": a.status,
-            "health": a.health,
-            "last_seen": a.last_seen.isoformat() if a.last_seen else None,
-        })
+        asset_rows.append(
+            {
+                "id": a.id,
+                "name": a.name,
+                "type": a.type,
+                "status": a.status,
+                "health": a.health,
+                "last_seen": a.last_seen.isoformat() if a.last_seen else None,
+            }
+        )
 
     scores = [a.health for a in assets if a.health is not None]
     return {

@@ -45,6 +45,7 @@ class Settings(BaseSettings):
     api_port: int = 8000
     api_reload: bool = True
     cors_origins: str = "https://aevus.intrepidlogic.io"
+    deploy_secret: str = ""
     api_key: str = ""  # Set in .env — required for API access
     api_key_header: str = "X-API-Key"
 

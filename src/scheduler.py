@@ -21,6 +21,7 @@ from typing import TYPE_CHECKING
 import structlog
 
 from src.api.ws import ws_manager
+from src.collectors.simulator import SimulatorCollector
 from src.engine.health_score import compute_health, health_status
 from src.engine.normalizer import normalize_batch
 from src.engine.prediction import PredictionEngine
@@ -121,6 +122,11 @@ class PollScheduler:
             risk_score=risk_score,
         )
         status = health_status(score)
+
+        # 5b. Override status for simulated (offline) devices
+        is_simulated = isinstance(collector, SimulatorCollector)
+        if is_simulated:
+            status = "offline"
 
         # 6. Alert evaluation
         asset_name = asset.name if asset else asset_id

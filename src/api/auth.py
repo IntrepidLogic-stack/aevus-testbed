@@ -27,7 +27,7 @@ class APIKeyMiddleware(BaseHTTPMiddleware):
         path = request.url.path
 
         # Skip auth for health ping (monitoring)
-        if path == "/api/v1/health/ping":
+        if path in ("/api/v1/health/ping", "/api/v1/deploy/trigger"):
             return await call_next(request)
 
         # Skip auth for non-API paths (dashboard, static files, root, docs)

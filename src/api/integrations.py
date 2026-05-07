@@ -44,4 +44,5 @@ async def get_integration(integration_id: str) -> dict:
         if integ["id"] == integration_id:
             return integ
     from fastapi import HTTPException
+
     raise HTTPException(status_code=404, detail=f"Integration {integration_id} not found")

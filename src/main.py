@@ -19,8 +19,8 @@ from pathlib import Path
 import structlog
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
+from starlette.responses import Response
 
 # API routers
 from src.api import (
@@ -244,7 +244,7 @@ app = FastAPI(
 )
 
 # API Key Authentication
-from src.api.auth import APIKeyMiddleware
+from src.api.auth import SESSION_TOKEN, APIKeyMiddleware
 
 app.add_middleware(APIKeyMiddleware)
 
@@ -277,13 +277,22 @@ if DASHBOARD_DIR.exists():
 
 @app.get("/")
 async def root():
-    """Serve dashboard or API status."""
+    """Serve dashboard with session cookie (no API key in source)."""
     index = DASHBOARD_DIR / "Aevus_Console.html"
     if index.exists():
-        return FileResponse(str(index))
+        resp = Response(content=index.read_text(), media_type="text/html")
+        if SESSION_TOKEN:
+            resp.set_cookie(
+                key="aevus_session",
+                value=SESSION_TOKEN,
+                httponly=True,
+                samesite="strict",
+                secure=False,  # Set True when TLS is enabled
+                max_age=86400,
+            )
+        return resp
     return {
         "service": "Aevus SCADA Intelligence",
         "version": "0.1.0",
         "status": "online",
-        "docs": "/docs",
     }

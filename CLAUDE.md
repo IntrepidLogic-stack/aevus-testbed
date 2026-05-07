@@ -27,10 +27,10 @@
 
 ```
 aevus-testbed/
-├── CLAUDE.md                    ← you are here
+├── CLAUDE.md
 ├── README.md
 ├── .env                         ← secrets (gitignored)
-├── .env.example                 ← template
+├── .env.example
 ├── requirements.txt
 ├── pyproject.toml
 │
@@ -38,65 +38,74 @@ aevus-testbed/
 │   ├── __init__.py
 │   ├── main.py                  ← FastAPI app entry point
 │   ├── config.py                ← Settings from .env
+│   ├── scheduler.py             ← APScheduler polling loops
+│   ├── il9000.py                ← IL-9000 safety interlock
+│   ├── secrets_loader.py        ← AWS Secrets Manager integration
 │   │
-│   ├── models/                  ← Pydantic models (asset, alert, prediction, vital)
+│   ├── models/
 │   │   ├── __init__.py
 │   │   ├── asset.py
 │   │   ├── alert.py
 │   │   ├── prediction.py
 │   │   └── telemetry.py
 │   │
-│   ├── collectors/              ← Equipment-specific polling modules
+│   ├── collectors/
 │   │   ├── __init__.py
 │   │   ├── base.py              ← Abstract collector interface
-│   │   ├── snmp_radio.py        ← Trio JR900 radios via SNMP v2c
-│   │   ├── snmp_switch.py       ← Cisco Catalyst 2960 via SNMP
-│   │   ├── snmp_router.py       ← MikroTik L009 via SNMP
-│   │   ├── modbus_rtu.py        ← SCADAPack 470 via Modbus TCP
-│   │   ├── dnp3_outstation.py   ← SCADAPack 470 via DNP3 TCP
+│   │   ├── simulator.py         ← Simulated data for offline devices
+│   │   ├── snmp_radio.py        ← Trio JR900 (staged, needs serial config)
+│   │   ├── snmp_switch.py       ← Cisco Catalyst 2960 (Cisco OIDs)
+│   │   ├── snmp_router.py       ← MikroTik L009
+│   │   ├── snmp_edge.py         ← Raspberry Pi edge collector
+│   │   └── modbus_rtu.py        ← SCADAPack 470 via Modbus TCP
 │   │
-│   ├── engine/                  ← Processing pipeline
+│   ├── engine/
 │   │   ├── __init__.py
-│   │   ├── health_score.py      ← Composite health computation (see formula below)
-│   │   ├── alert_engine.py      ← Threshold monitoring → alert generation
+│   │   ├── health_score.py      ← Composite health computation
+│   │   ├── alert_engine.py      ← Threshold monitoring + alerts
 │   │   ├── prediction.py        ← Time-series anomaly detection
-│   │   └── normalizer.py        ← Raw telemetry → normalized asset vitals
+│   │   └── normalizer.py        ← Raw telemetry -> normalized vitals
 │   │
-│   ├── storage/                 ← Database layer
+│   ├── storage/
 │   │   ├── __init__.py
-│   │   ├── influx.py            ← InfluxDB client (telemetry writes/queries)
-│   │   ├── sqlite_db.py         ← Asset registry, alerts, config
-│   │   └── migrations/
+│   │   ├── influx.py            ← InfluxDB client
+│   │   └── sqlite_db.py         ← Asset registry, alerts, config
 │   │
-│   ├── api/                     ← FastAPI routes
-│   │   ├── __init__.py
-│   │   ├── assets.py            ← GET /assets, GET /assets/{id}
-│   │   ├── alerts.py            ← GET /alerts, POST /alerts/{id}/acknowledge
-│   │   ├── health.py            ← GET /health/summary, GET /health/trend
-│   │   ├── diagnostics.py       ← GET /diagnostics/fleet, GET /diagnostics/signals
-│   │   ├── predictions.py       ← GET /predictions
-│   │   └── ws.py                ← WebSocket endpoint for real-time push
-│   │
-│   └── scheduler.py             ← APScheduler job setup (polling intervals)
+│   └── api/
+│       ├── __init__.py
+│       ├── auth.py              ← API key + session cookie middleware
+│       ├── assets.py
+│       ├── alerts.py
+│       ├── health.py
+│       ├── diagnostics.py
+│       ├── predictions.py
+│       ├── reports.py           ← Fleet health + alert reports
+│       ├── integrations.py      ← Connected system status
+│       ├── deploy.py            ← CI/CD webhook trigger
+│       └── ws.py                ← WebSocket real-time push
 │
 ├── dashboard/
-│   ├── Aevus_Console.html       ← Existing prototype (to be wired to API)
-│   └── api-client.js            ← JS module: fetch + WebSocket client
+│   └── Aevus_Console.html       ← Dashboard (served at /, session cookie auth)
 │
 ├── tests/
-│   ├── test_collectors.py
-│   ├── test_health_score.py
+│   ├── test_api.py
+│   ├── test_auth.py
 │   ├── test_alert_engine.py
-│   └── test_api.py
+│   ├── test_base_collector.py
+│   ├── test_collectors.py
+│   ├── test_deploy.py
+│   ├── test_health_score.py
+│   ├── test_il9000.py
+│   ├── test_integrations.py
+│   ├── test_normalizer.py
+│   ├── test_prediction.py
+│   ├── test_reports.py
+│   ├── test_snmp_switch.py
+│   └── test_sqlite_db.py
 │
-├── scripts/
-│   ├── discover_devices.py      ← SNMP walk to find all devices on the lab network
-│   ├── seed_assets.py           ← Populate SQLite asset registry from lab inventory
-│   └── simulate_telemetry.py    ← Generate fake telemetry for testing without hardware
-│
-└── docs/
-    ├── BRAND_SYSTEM_v2.md
-    └── TESTBED_HANDOFF.md       ← Full context from the collateral conversation
+└── .github/
+    └── workflows/
+        └── ci.yml               ← Lint + Test + Security + Deploy
 ```
 
 ## HARD SAFETY RULE — IL-9000

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import hashlib
 from unittest.mock import patch
 
 import pytest
@@ -75,3 +76,16 @@ class TestAuthMiddleware:
         resp = no_auth_client.get("/api/v1/assets")
         assert resp.status_code == 200
 
+    def test_valid_session_cookie_passes(self, unauthed_client):
+        """Dashboard session cookie should authenticate requests."""
+        token = hashlib.sha256(b"aevus-session:real-secret-key").hexdigest()[:48]
+        with patch("src.api.auth.SESSION_TOKEN", token):
+            unauthed_client.cookies.set("aevus_session", token)
+            resp = unauthed_client.get("/api/v1/assets")
+        assert resp.status_code == 200
+
+    def test_invalid_session_cookie_rejected(self, unauthed_client):
+        """Bad session cookie should not authenticate."""
+        unauthed_client.cookies.set("aevus_session", "bad-token-value")
+        resp = unauthed_client.get("/api/v1/assets")
+        assert resp.status_code == 401

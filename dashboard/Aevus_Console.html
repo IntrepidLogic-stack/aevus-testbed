@@ -3479,13 +3479,13 @@ function timeAgo(iso) {
 }
 
 async function fetchKilldeerLive() {
-  const hdrs = { 'X-API-Key': window.AEVUS_API_KEY };
+  // Auth via session cookie (httpOnly, set by server)
   try {
     const [assetsResp, alertsResp, predsResp, summaryResp] = await Promise.all([
-      fetch('/api/v1/assets', { headers: hdrs }),
-      fetch('/api/v1/alerts?status=open&limit=50', { headers: hdrs }),
-      fetch('/api/v1/predictions', { headers: hdrs }),
-      fetch('/api/v1/health/summary', { headers: hdrs }),
+      fetch('/api/v1/assets', { credentials: "same-origin" }),
+      fetch('/api/v1/alerts?status=open&limit=50', { credentials: "same-origin" }),
+      fetch('/api/v1/predictions', { credentials: "same-origin" }),
+      fetch('/api/v1/health/summary', { credentials: "same-origin" }),
     ]);
     const [assets, liveAlerts, preds, summary] = await Promise.all([
       assetsResp.json(), alertsResp.json(), predsResp.json(), summaryResp.json(),
@@ -3764,7 +3764,7 @@ document.addEventListener('click', () => {
 
 })();
 </script>
-<script>window.AEVUS_API_KEY='8U7_JghqHK-nmG5bDwUx5w-A9uFg8F7tiVmvR9WJDyY';</script>
+
 <script src="/dashboard/api-client.js"></script>
 </body>
 </html>

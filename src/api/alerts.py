@@ -28,7 +28,7 @@ async def acknowledge_alert(alert_id: str) -> Alert:
     """Acknowledge an open alert."""
     from src.main import app_state
 
-    alert = app_state.alert_engine.acknowledge(alert_id)
+    alert = app_state.alert_engine.acknowledge(alert_id, db=app_state.db)
     if alert is None:
         raise HTTPException(status_code=404, detail=f"Alert {alert_id} not found or already acknowledged")
 

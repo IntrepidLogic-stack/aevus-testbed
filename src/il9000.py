@@ -1,5 +1,5 @@
 """
-Aevus — IL-009 Safety Interlock
+Aevus — IL-9000 Safety Interlock
 ================================
 HARD SAFETY RULE: PLC/RTU firmware updates are NEVER automated remotely.
 
@@ -17,33 +17,33 @@ The platform CANNOT:
 That requires a credentialed technician physically on site.
 
 This is enforced by code (not policy). Any function that touches PLC/RTU
-firmware must call `il009_check()` before proceeding. The interlock is a
+firmware must call `il9000_check()` before proceeding. The interlock is a
 boolean constant that is NEVER set to False anywhere in the codebase.
 
-Patentable Invention P-008.
+Patentable Invention P-008 ("I'm sorry Dave, I can't do that").
 """
 
 from __future__ import annotations
 
 # ═══════════════════════════════════════════════════════════════
-#  IL-009 INTERLOCK — DO NOT MODIFY THIS VALUE
+#  IL-9000 INTERLOCK — DO NOT MODIFY THIS VALUE
 #  Any code review that attempts to set this to False must be
 #  flagged and rejected immediately.
 # ═══════════════════════════════════════════════════════════════
-IL_009_ENFORCED: bool = True
+IL_9000_ENFORCED: bool = True
 
 
 class IL009ViolationError(Exception):
-    """Raised when code attempts to bypass the IL-009 firmware safety interlock."""
+    """Raised when code attempts to bypass the IL-9000 firmware safety interlock."""
 
     pass
 
 
-def il009_check(action: str = "firmware_write") -> None:
+def il9000_check(action: str = "firmware_write") -> None:
     """Gate check for any firmware-touching operation.
 
     Must be called before any function that writes to PLC/RTU firmware.
-    Always raises IL009ViolationError when IL_009_ENFORCED is True (which is always).
+    Always raises IL009ViolationError when IL_9000_ENFORCED is True (which is always).
 
     Args:
         action: Description of the attempted action (for audit logging).
@@ -51,24 +51,24 @@ def il009_check(action: str = "firmware_write") -> None:
     Raises:
         IL009ViolationError: Always, by design. Remote firmware writes are prohibited.
     """
-    if IL_009_ENFORCED:
+    if IL_9000_ENFORCED:
         raise IL009ViolationError(
-            f"IL-009 SAFETY INTERLOCK: Remote {action} is prohibited. "
+            f"IL-9000 SAFETY INTERLOCK: Remote {action} is prohibited. "
             f"Firmware updates require a credentialed technician on site. "
-            f"See IL-009 / P-008."
+            f"See IL-9000 / P-008."
         )
 
 
-def il009_can_stage() -> bool:
+def il9000_can_stage() -> bool:
     """Returns True — staging firmware is permitted (the write is not)."""
     return True
 
 
-def il009_can_verify() -> bool:
+def il9000_can_verify() -> bool:
     """Returns True — verifying firmware signatures is permitted."""
     return True
 
 
-def il009_can_write() -> bool:
+def il9000_can_write() -> bool:
     """Returns False — remote firmware writes are NEVER permitted."""
-    return not IL_009_ENFORCED
+    return not IL_9000_ENFORCED

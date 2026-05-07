@@ -62,7 +62,16 @@ async def health_trend(
     from src.main import app_state
 
     if asset_id is None:
-        return []
+        # Fleet aggregate: return trends across all assets
+        assets = app_state.db.list_assets()
+        all_points: list[dict] = []
+        for asset in assets:
+            points = app_state.influx.query_trend(asset.id, metric, hours)
+            for p in points:
+                p["asset_id"] = asset.id
+            all_points.extend(points)
+        all_points.sort(key=lambda p: p.get("time", ""))
+        return all_points
     return app_state.influx.query_trend(asset_id, metric, hours)
 
 

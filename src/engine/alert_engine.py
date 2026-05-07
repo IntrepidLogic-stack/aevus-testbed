@@ -182,14 +182,29 @@ class AlertEngine:
 
         return None
 
-    def acknowledge(self, alert_id: str) -> Alert | None:
-        """Acknowledge an open alert by ID."""
+    def acknowledge(self, alert_id: str, db=None) -> Alert | None:
+        """Acknowledge an open alert by ID.
+
+        Checks in-memory alerts first, then falls back to SQLite
+        so alerts survive service restarts.
+        """
+        # Check in-memory first
         for _key, alert in self._open_alerts.items():
             if alert.id == alert_id and alert.status == "open":
                 alert.status = "acknowledged"
                 alert.acknowledged_at = datetime.now(UTC)
                 self.log.info("alert_acknowledged", alert_id=alert_id)
                 return alert
+
+        # Fallback: check persistent storage
+        if db is not None:
+            alert = db.get_alert(alert_id)
+            if alert is not None and alert.status == "open":
+                alert.status = "acknowledged"
+                alert.acknowledged_at = datetime.now(UTC)
+                self.log.info("alert_acknowledged", alert_id=alert_id, source="sqlite")
+                return alert
+
         return None
 
     @staticmethod

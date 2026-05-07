@@ -28,7 +28,9 @@ from src.api import (
     assets_router,
     diagnostics_router,
     health_router,
+    integrations_router,
     predictions_router,
+    reports_router,
     ws_router,
 )
 from src.api.ws import ws_manager
@@ -37,6 +39,7 @@ from src.api.ws import ws_manager
 from src.collectors.simulator import SimulatorCollector
 from src.collectors.snmp_edge import SNMPEdgeCollector
 from src.collectors.snmp_router import SNMPNetworkCollector
+from src.collectors.snmp_switch import SNMPSwitchCollector
 from src.config import settings
 from src.engine.alert_engine import AlertEngine
 from src.scheduler import PollScheduler
@@ -87,13 +90,12 @@ def _register_collectors() -> None:
     app_state.scheduler.register("RTR-01", mikrotik)
     logger.info("registered_live_collector", asset="RTR-01", type="snmp_router")
 
-    # Cisco Catalyst 2960 — live SNMP
-    catalyst = SNMPNetworkCollector(
+    # Cisco Catalyst 2960 — live SNMP (Cisco-specific OIDs)
+    catalyst = SNMPSwitchCollector(
         asset_id="SW-01",
         host=settings.catalyst_ip,
         community=settings.snmp_community,
         poll_interval=settings.poll_interval_switch,
-        device_type="switch",
     )
     app_state.scheduler.register("SW-01", catalyst)
     logger.info("registered_live_collector", asset="SW-01", type="snmp_switch")
@@ -260,6 +262,8 @@ app.include_router(alerts_router, prefix="/api/v1")
 app.include_router(health_router, prefix="/api/v1")
 app.include_router(diagnostics_router, prefix="/api/v1")
 app.include_router(predictions_router, prefix="/api/v1")
+app.include_router(reports_router, prefix="/api/v1")
+app.include_router(integrations_router, prefix="/api/v1")
 app.include_router(ws_router, prefix="/api/v1")
 
 

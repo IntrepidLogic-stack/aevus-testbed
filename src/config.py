@@ -82,8 +82,8 @@ class Settings(BaseSettings):
     threshold_if_errors_warn: float = 100.0
     threshold_if_errors_crit: float = 1000.0
 
-    # ── IL-009 Safety Interlock ──
-    il_009_enforced: bool = True  # NEVER set to False
+    # ── IL-9000 Safety Interlock ──
+    il_9000_enforced: bool = True  # NEVER set to False
 
 
 # Singleton

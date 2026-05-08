@@ -97,6 +97,7 @@
       case 'alerts': isRefresh ? renderAlertsList() : renderAlertsPage(); break;
       case 'diagnostics': renderDiagnosticsPage(); break;
       case 'trends': if (!isRefresh) await renderTrendsPage(); break;
+      case 'cabinet': renderCabinetPage(); break;
       case 'reports': renderReportsPage(); break;
       case 'settings': renderSettingsPage(); break;
     }
@@ -406,6 +407,194 @@
   // ═══════════════════════════════════════
   // PAGE: SETTINGS
   // ═══════════════════════════════════════
+
+
+  // ── Network Cabinet Page ──────────────────────────────────────
+  function renderCabinetPage() {
+    const el = document.getElementById('cabinet-content');
+    if (!el) return;
+
+    const assets = liveAssets || [];
+
+    // Summary bar
+    const totalDevices = assets.length;
+    const onlineDevices = assets.filter(a => a.status === 'good' || a.status === 'warn').length;
+    const offlineDevices = assets.filter(a => a.status === 'offline').length;
+
+    // Count total ports and link-up ports across all devices
+    let totalPorts = 0;
+    let upPorts = 0;
+    let downPorts = 0;
+    for (const a of assets) {
+      const vs = a.vitals || [];
+      for (const v of vs) {
+        if (v.label && v.label.endsWith('OPER STATUS')) {
+          totalPorts++;
+          if (v.raw_value === 1) upPorts++;
+          else if (v.raw_value === 2) downPorts++;
+        }
+      }
+    }
+
+    let h = '';
+
+    // Summary cards
+    h += '<div class="cab-summary-bar">';
+    h += cabSummaryCard('Devices Online', onlineDevices + '/' + totalDevices, 'var(--status-good)', '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="2" y="2" width="20" height="8" rx="2"/><rect x="2" y="14" width="20" height="8" rx="2"/><circle cx="6" cy="6" r="1"/><circle cx="6" cy="18" r="1"/></svg>');
+    h += cabSummaryCard('Ports Active', upPorts + '/' + totalPorts, 'var(--accent)', '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>');
+    h += cabSummaryCard('Ports Down', String(downPorts), downPorts > 0 ? 'var(--status-bad)' : 'var(--status-good)', '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>');
+    h += cabSummaryCard('Offline', String(offlineDevices), offlineDevices > 0 ? 'var(--status-warn)' : 'var(--text-muted)', '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><line x1="1" y1="1" x2="23" y2="23"/><path d="M16.72 11.06A10.94 10.94 0 0 1 19 12.55"/><path d="M5 12.55a10.94 10.94 0 0 1 5.17-2.39"/><path d="M10.71 5.05A16 16 0 0 1 22.56 9"/><path d="M1.42 9a15.91 15.91 0 0 1 4.7-2.88"/><path d="M8.53 16.11a6 6 0 0 1 6.95 0"/><line x1="12" y1="20" x2="12.01" y2="20"/></svg>');
+    h += '</div>';
+
+    // Legend
+    h += '<div class="cab-legend">';
+    h += '<div class="cab-legend-item"><div class="cab-legend-dot" style="background:var(--status-good);box-shadow:0 0 6px var(--status-good);"></div> Link Up</div>';
+    h += '<div class="cab-legend-item"><div class="cab-legend-dot" style="background:var(--status-bad);box-shadow:0 0 6px var(--status-bad);"></div> Link Down</div>';
+    h += '<div class="cab-legend-item"><div class="cab-legend-dot" style="background:var(--text-muted);opacity:0.3;"></div> No Cable</div>';
+    h += '</div>';
+
+    // Device cards
+    h += '<div class="cabinet-grid">';
+
+    // Render each device
+    const deviceOrder = ['SW-01', 'RTR-01', 'RTU-01', 'EDGE-01', 'RAD-01', 'RAD-02'];
+    for (const id of deviceOrder) {
+      const a = assets.find(x => x.id === id);
+      if (!a) continue;
+      h += renderCabinetDevice(a);
+    }
+
+    h += '</div>';
+
+    el.innerHTML = h;
+  }
+
+  function cabSummaryCard(label, value, color, icon) {
+    return '<div class="cab-summary-card"><div class="cab-summary-icon" style="background:' + color + '20;color:' + color + ';">' + icon + '</div><div class="cab-summary-text"><div class="cab-summary-val" style="color:' + color + ';">' + value + '</div><div class="cab-summary-label">' + label + '</div></div></div>';
+  }
+
+  function renderCabinetDevice(asset) {
+    const vs = asset.vitals || [];
+    const isOnline = asset.status === 'good' || asset.status === 'warn';
+    const badgeClass = isOnline ? 'online' : 'offline';
+    const badgeText = isOnline ? 'ONLINE' : 'OFFLINE';
+
+    let h = '<div class="cab-device">';
+    h += '<div class="cab-device-header"><div class="cab-device-title">';
+    h += '<div><div class="cab-device-name">' + asset.name + '</div>';
+    h += '<div class="cab-device-model">' + asset.id + ' &middot; ' + (asset.ip_address || '') + ' &middot; ' + (protocolMap[asset.protocol] || asset.protocol || '') + '</div></div>';
+    h += '</div>';
+    h += '<div style="display:flex;align-items:center;gap:10px;">';
+    if (asset.health != null) {
+      const hc = hClass(asset.status, asset.health);
+      const hCol = hc === 'good' ? 'var(--status-good)' : hc === 'warn' ? 'var(--status-warn)' : hc === 'bad' ? 'var(--status-bad)' : 'var(--text-muted)';
+      h += '<div style="font-size:22px;font-weight:700;font-family:var(--font-mono);color:' + hCol + ';">' + asset.health + '</div>';
+    }
+    h += '<div class="cab-device-badge ' + badgeClass + '">' + badgeText + '</div>';
+    h += '</div></div>';
+
+    h += '<div class="cab-device-body">';
+
+    // Parse ports and stats from vitals
+    const ports = [];
+    const stats = [];
+    const portTraffic = {};
+
+    for (const v of vs) {
+      const lbl = v.label || '';
+      if (lbl.endsWith('OPER STATUS')) {
+        const portName = lbl.replace(' OPER STATUS', '').trim().replace(/^"/g, '');
+        ports.push({ name: portName, status: v.raw_value, value: v.value });
+      } else if (lbl.endsWith('IN OCTETS') || lbl.endsWith('OUT OCTETS')) {
+        const portName = lbl.replace(' IN OCTETS', '').replace(' OUT OCTETS', '').trim().replace(/^"/g, '');
+        if (!portTraffic[portName]) portTraffic[portName] = {};
+        if (lbl.endsWith('IN OCTETS')) portTraffic[portName].rx = v.raw_value;
+        else portTraffic[portName].tx = v.raw_value;
+      } else if (lbl.endsWith('IN ERRORS') || lbl.endsWith('OUT ERRORS')) {
+        // skip for port grid
+      } else {
+        stats.push(v);
+      }
+    }
+
+    // Port grid
+    if (ports.length > 0) {
+      h += '<div class="cab-ports-title">PORT STATUS (' + ports.length + ' interfaces)</div>';
+      h += '<div class="cab-port-grid">';
+      for (const p of ports) {
+        let cls = 'notMonitored';
+        const traffic = portTraffic[p.name] || {};
+        const hasTraffic = (traffic.rx || 0) > 0 || (traffic.tx || 0) > 0;
+
+        if (p.status === 1) cls = 'up';
+        else if (p.status === 2) {
+          cls = hasTraffic ? 'down' : 'unused';
+        }
+        else if (p.status === 6) cls = 'unused'; // notPresent
+
+        // Short name for display
+        let shortName = p.name.replace(/^"/g, '');
+        shortName = shortName.replace(/fastethernet0\//gi, 'Fa');
+        shortName = shortName.replace(/gigabitethernet0\//gi, 'Gi');
+        shortName = shortName.replace(/^ether/i, 'E');
+        shortName = shortName.replace(/^wifi/i, 'Wi');
+        shortName = shortName.replace(/^sfp/i, 'SFP');
+        shortName = shortName.replace(/^bridgelocal$/i, 'BR');
+        shortName = shortName.replace(/^wg-aevus$/i, 'WG');
+        shortName = shortName.replace(/^vlan/i, 'V');
+        shortName = shortName.replace(/^null0$/i, 'Nu');
+        if (shortName.toLowerCase() === 'lo') shortName = 'Lo';
+
+        // Tooltip with traffic
+        let tip = p.name + ' — ' + (p.status === 1 ? 'UP' : p.status === 2 ? 'DOWN' : 'N/A');
+        if (traffic.rx != null) tip += '\\nRX: ' + formatBytes(traffic.rx);
+        if (traffic.tx != null) tip += '\\nTX: ' + formatBytes(traffic.tx);
+
+        h += '<div class="cab-port ' + cls + '" title="' + tip + '"><div class="cab-port-label">' + shortName + '</div><div class="cab-port-dot"></div></div>';
+      }
+      h += '</div>';
+    }
+
+    // Key stats
+    if (stats.length > 0) {
+      h += '<div class="cab-ports-title">DEVICE TELEMETRY</div>';
+      h += '<div class="cab-stats">';
+      for (const s of stats) {
+        // Skip some noisy ones
+        if (s.label === 'UPTIME' && s.raw_value) {
+          const hrs = parseFloat(s.raw_value);
+          const days = Math.floor(hrs / 24);
+          const remHrs = Math.floor(hrs % 24);
+          h += '<div class="cab-stat"><div class="cab-stat-label">' + s.label + '</div><div class="cab-stat-value">' + days + 'd ' + remHrs + 'h</div></div>';
+        } else {
+          let displayVal;
+          if (s.unit === 'bool') {
+            displayVal = s.value;
+          } else {
+            const raw = parseFloat(s.raw_value);
+            displayVal = isNaN(raw) ? s.value : (raw % 1 === 0 ? raw.toFixed(0) : raw.toFixed(1));
+          }
+          const statusColor = s.status === 'good' ? 'var(--status-good)' : s.status === 'warn' ? 'var(--status-warn)' : s.status === 'bad' ? 'var(--status-bad)' : 'var(--text-primary)';
+          const unitDisplay = s.unit === 'bool' ? '' : (s.unit || '');
+          h += '<div class="cab-stat"><div class="cab-stat-label">' + s.label + '</div><div class="cab-stat-value" style="color:' + statusColor + ';">' + displayVal + ' <span class="cab-stat-unit">' + unitDisplay + '</span></div></div>';
+        }
+      }
+      h += '</div>';
+    }
+
+    h += '</div></div>';
+    return h;
+  }
+
+  function formatBytes(bytes) {
+    if (bytes === 0) return '0 B';
+    const k = 1024;
+    const sizes = ['B', 'KB', 'MB', 'GB', 'TB'];
+    const i = Math.floor(Math.log(bytes) / Math.log(k));
+    return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + ' ' + sizes[i];
+  }
+
+
   function renderSettingsPage() {
     const el = document.getElementById('settings-content');
     el.innerHTML = `

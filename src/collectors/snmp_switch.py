@@ -159,7 +159,7 @@ class SNMPSwitchCollector(BaseCollector):
         return readings
 
     async def _poll_interfaces(self) -> list[RawTelemetry]:
-        """Walk interface table for traffic and error counters."""
+        """Walk interface table for traffic, error counters, and link status."""
         readings: list[RawTelemetry] = []
         if_walk = await asyncio.to_thread(self._snmp_walk_sync, INTERFACE_OIDS["if_descr"])
 
@@ -185,6 +185,20 @@ class SNMPSwitchCollector(BaseCollector):
                                 oid=f"{base_oid}.{if_index}",
                             )
                         )
+
+            # Interface operational status (1=up, 2=down, 3=testing)
+            status_val = await self._snmp_get(f"{INTERFACE_OIDS['if_oper_status']}.{if_index}")
+            if status_val is not None:
+                with contextlib.suppress(ValueError):
+                    readings.append(
+                        self._make_reading(
+                            metric=f"{if_name_clean}_oper_status",
+                            value=float(status_val),
+                            unit="",
+                            source="snmp",
+                            oid=f"{INTERFACE_OIDS['if_oper_status']}.{if_index}",
+                        )
+                    )
 
         return readings
 

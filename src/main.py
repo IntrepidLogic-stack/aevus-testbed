@@ -41,6 +41,7 @@ from src.collectors.simulator import SimulatorCollector
 from src.collectors.snmp_edge import SNMPEdgeCollector
 from src.collectors.snmp_router import SNMPNetworkCollector
 from src.collectors.snmp_switch import SNMPSwitchCollector
+from src.collectors.modbus_rtu import SCADAPack470Collector
 from src.config import settings
 from src.engine.alert_engine import AlertEngine
 from src.scheduler import PollScheduler
@@ -120,11 +121,16 @@ def _register_collectors() -> None:
         app_state.scheduler.register(asset_id, sim)
         logger.info("registered_simulator", asset=asset_id, reason="no_ip_assigned")
 
-    # SCADAPack 470 — powered off
-    rtu_sim = SimulatorCollector("RTU-01", device_type="rtu")
-    rtu_sim.poll_interval = settings.poll_interval_rtu
-    app_state.scheduler.register("RTU-01", rtu_sim)
-    logger.info("registered_simulator", asset="RTU-01", reason="powered_off")
+    # SCADAPack 470 — live Modbus TCP
+    scadapack = SCADAPack470Collector(
+        asset_id="RTU-01",
+        host=settings.scadapack_ip,
+        port=settings.modbus_port,
+        slave_id=settings.modbus_slave_id,
+        poll_interval=settings.poll_interval_rtu,
+    )
+    app_state.scheduler.register("RTU-01", scadapack)
+    logger.info("registered_modbus_collector", asset="RTU-01", host=settings.scadapack_ip)
 
 
 def _seed_assets() -> None:

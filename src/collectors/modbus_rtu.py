@@ -75,7 +75,6 @@ class SCADAPack470Collector(BaseCollector):
             result = await client.read_holding_registers(
                 address=0,  # 40001 in Modbus protocol = offset 0
                 count=2,
-                slave=self.slave_id,
             )
             return not result.isError()
         except Exception:
@@ -90,7 +89,6 @@ class SCADAPack470Collector(BaseCollector):
         result = await client.read_holding_registers(
             address=0,
             count=20,
-            slave=self.slave_id,
         )
         if result.isError():
             self.log.error("modbus_read_failed", error=str(result))
@@ -125,7 +123,6 @@ class SCADAPack470Collector(BaseCollector):
         disc_result = await client.read_discrete_inputs(
             address=0,
             count=4,
-            slave=self.slave_id,
         )
         if not disc_result.isError():
             for i, (metric, spec) in enumerate(DISCRETE_INPUTS.items()):

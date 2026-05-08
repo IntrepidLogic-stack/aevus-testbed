@@ -3724,6 +3724,11 @@ async function switchSite(siteKey) {
   renderAlerts();
   renderPredictions();
 
+  // Render SCADA panels (from api-client.js)
+  if (typeof window.renderScadaPanels === 'function') {
+    window.renderScadaPanels();
+  }
+
   // Update dropdown active states
   document.querySelectorAll('.site-dropdown-item, .topbar-site-dropdown .site-dropdown-item').forEach(item => {
     item.classList.toggle('active', item.dataset.site === siteKey);

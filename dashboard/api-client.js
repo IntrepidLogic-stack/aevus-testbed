@@ -629,6 +629,7 @@
     renderProcessPanels();
     renderCommTable();
   }
+  window.renderScadaPanels = renderScadaPanels;
 
   // Patch into the refresh cycle
   const _origRefreshAll = refreshAll;

@@ -480,7 +480,7 @@
   function renderFleetStrip() {
     const el = document.getElementById('scada-fleet-strip');
     if (!el || liveAssets.length === 0) return;
-    el.style.display = '';
+    el.style.display = 'grid';
 
     const protocolMap = { snmp: 'SNMP v2c', modbus: 'Modbus TCP', simulator: 'SIM' };
 
@@ -515,7 +515,7 @@
   function renderProcessPanels() {
     const el = document.getElementById('scada-process-grid');
     if (!el || liveAssets.length === 0) return;
-    el.style.display = '';
+    el.style.display = 'block';
 
     // Group: RTU process data vs Network infrastructure
     const rtuAssets = liveAssets.filter(a => a.type === 'rtu');
@@ -588,7 +588,7 @@
   function renderCommTable() {
     const el = document.getElementById('scada-comm-panel');
     if (!el || liveAssets.length === 0) return;
-    el.style.display = '';
+    el.style.display = 'block';
 
     el.innerHTML = `
       <div class="pp-title"><span class="live-dot"></span> COMMUNICATION STATUS</div>

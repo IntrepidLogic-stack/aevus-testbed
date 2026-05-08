@@ -15,6 +15,8 @@
   let liveAssets = [], liveAlerts = [], healthSummary = {}, predictions = [];
   let trendData = [], currentTrendMetric = 'cpu_load';
   let currentAlertFilter = 'all';
+  let currentAssetFilter = 'all';
+  let pageInitialized = {};
 
   // ── API ──
   async function fetchJSON(path) {
@@ -87,14 +89,14 @@
     navigateTo(initial);
   }
 
-  async function renderPage(page) {
+  async function renderPage(page, isRefresh) {
     switch(page) {
       case 'overview': renderOverview(); break;
-      case 'assets': renderAssetsPage(); break;
+      case 'assets': isRefresh ? renderAssetsTable(currentAssetFilter) : renderAssetsPage(); break;
       case 'health': renderHealthPage(); break;
-      case 'alerts': renderAlertsPage(); break;
+      case 'alerts': isRefresh ? renderAlertsList() : renderAlertsPage(); break;
       case 'diagnostics': renderDiagnosticsPage(); break;
-      case 'trends': await renderTrendsPage(); break;
+      case 'trends': if (!isRefresh) await renderTrendsPage(); break;
       case 'reports': renderReportsPage(); break;
       case 'settings': renderSettingsPage(); break;
     }
@@ -231,6 +233,7 @@
     fb.querySelectorAll('.filter-btn').forEach(b => b.addEventListener('click', () => {
       fb.querySelectorAll('.filter-btn').forEach(x => x.classList.remove('active'));
       b.classList.add('active');
+      currentAssetFilter = b.dataset.type;
       renderAssetsTable(b.dataset.type);
     }));
     renderAssetsTable('all');
@@ -446,10 +449,10 @@
         if (msg.type === 'asset_update') {
           const d = msg.data, idx = liveAssets.findIndex(a=>a.id===d.asset_id);
           if (idx>=0) { liveAssets[idx].health=d.health; liveAssets[idx].status=d.status; if(d.vitals) liveAssets[idx].vitals=d.vitals; liveAssets[idx].last_seen=d.timestamp; }
-          fetchHealthSummary().then(()=> { const page = location.hash.replace('#','')||'overview'; renderPage(page); });
+          fetchHealthSummary().then(()=> { const page = location.hash.replace('#','')||'overview'; renderPage(page, true); });
         } else if (msg.type === 'alert_update' && msg.data?.alerts) {
           for(const a of msg.data.alerts) { const i=liveAlerts.findIndex(x=>x.id===a.id); if(i>=0) liveAlerts[i]=a; else liveAlerts.unshift(a); }
-          const page = location.hash.replace('#','')||'overview'; renderPage(page);
+          const page = location.hash.replace('#','')||'overview'; renderPage(page, true);
         }
       } catch(err) {}
     };
@@ -463,7 +466,7 @@
   async function refreshAll() {
     await Promise.all([fetchAssets(), fetchAlerts(), fetchHealthSummary(), fetchPredictions()]);
     const page = location.hash.replace('#','')||'overview';
-    renderPage(page);
+    renderPage(page, true);
   }
 
   // ── Connection Indicator ──

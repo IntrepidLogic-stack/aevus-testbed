@@ -2804,6 +2804,8 @@ body {
 (function(){
 'use strict';
 
+window.AEVUS_API_KEY = '8U7_JghqHK-nmG5bDwUx5w-A9uFg8F7tiVmvR9WJDyY';
+
 // Expose key vars globally so api-client.js can inject live data
 window.markers = null;      // Set below after definition
 window.renderMarkers = null; // Set below after definition
@@ -3565,10 +3567,10 @@ async function fetchKilldeerLive() {
   // Auth via session cookie (httpOnly, set by server)
   try {
     const [assetsResp, alertsResp, predsResp, summaryResp] = await Promise.all([
-      fetch('/api/v1/assets', { credentials: "same-origin" }),
-      fetch('/api/v1/alerts?status=open&limit=50', { credentials: "same-origin" }),
-      fetch('/api/v1/predictions', { credentials: "same-origin" }),
-      fetch('/api/v1/health/summary', { credentials: "same-origin" }),
+      fetch('/api/v1/assets', { credentials: 'same-origin', headers: {'X-API-Key': window.AEVUS_API_KEY} }),
+      fetch('/api/v1/alerts?status=open&limit=50', { credentials: 'same-origin', headers: {'X-API-Key': window.AEVUS_API_KEY} }),
+      fetch('/api/v1/predictions', { credentials: 'same-origin', headers: {'X-API-Key': window.AEVUS_API_KEY} }),
+      fetch('/api/v1/health/summary', { credentials: 'same-origin', headers: {'X-API-Key': window.AEVUS_API_KEY} }),
     ]);
     const [assets, liveAlerts, preds, summary] = await Promise.all([
       assetsResp.json(), alertsResp.json(), predsResp.json(), summaryResp.json(),

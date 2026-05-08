@@ -16,6 +16,7 @@ class VitalSign(BaseModel):
     raw_value: float  # numeric for computation
     unit: str  # "dBm", "PSI", "MCFD", "%"
     status: str = ""  # "good", "warn", "bad", or ""
+    group: str = ""  # compressor, well, production, safety, power, etc.
 
 
 class RawTelemetry(BaseModel):
@@ -29,3 +30,4 @@ class RawTelemetry(BaseModel):
     source: str  # "snmp", "modbus", "dnp3", "simulator"
     oid: str | None = None  # SNMP OID if applicable
     modbus_register: int | None = None  # Modbus register if applicable
+    group: str = ""  # Logical group: compressor, well, production, safety, power, etc.

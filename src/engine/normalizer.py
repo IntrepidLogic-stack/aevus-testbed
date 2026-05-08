@@ -156,6 +156,168 @@ THRESHOLD_MAP: dict[str, dict] = {
         "label": "COMM FAULT",
         "fmt": "{}",
     },
+    # --- RTU expanded: compressor ---
+    "motor_current": {
+        "direction": "upper_bad",
+        "warn": 110.0,
+        "crit": 130.0,
+        "label": "MOTOR CURRENT",
+        "fmt": "{:.1f}",
+    },
+    "compressor_rpm": {
+        "direction": "info",
+        "label": "COMPRESSOR RPM",
+        "fmt": "{:,.0f}",
+    },
+    "interstage_temp": {
+        "direction": "upper_bad",
+        "warn": 250.0,
+        "crit": 300.0,
+        "label": "INTERSTAGE TEMP",
+        "fmt": "{:.1f}",
+    },
+    "oil_pressure": {
+        "direction": "lower_bad",
+        "warn": 35.0,
+        "crit": 25.0,
+        "label": "OIL PRESSURE",
+        "fmt": "{:.1f}",
+    },
+    "coolant_temp": {
+        "direction": "upper_bad",
+        "warn": 210.0,
+        "crit": 230.0,
+        "label": "COOLANT TEMP",
+        "fmt": "{:.1f}",
+    },
+    "compressor_loaded": {
+        "direction": "info",
+        "label": "COMPRESSOR LOADED",
+        "fmt": "{}",
+    },
+    "high_temp_alarm": {
+        "direction": "bool_bad",
+        "label": "HIGH TEMP ALARM",
+        "fmt": "{}",
+    },
+    "low_oil_pressure": {
+        "direction": "bool_bad",
+        "label": "LOW OIL PRESSURE",
+        "fmt": "{}",
+    },
+    # --- RTU expanded: well ---
+    "casing_pressure": {
+        "direction": "upper_bad",
+        "warn": 400.0,
+        "crit": 500.0,
+        "label": "CASING PRESSURE",
+        "fmt": "{:.1f}",
+    },
+    "tubing_pressure": {
+        "direction": "upper_bad",
+        "warn": 350.0,
+        "crit": 450.0,
+        "label": "TUBING PRESSURE",
+        "fmt": "{:.1f}",
+    },
+    "oil_production_rate": {
+        "direction": "info",
+        "label": "OIL PRODUCTION",
+        "fmt": "{:.1f}",
+    },
+    "water_cut": {
+        "direction": "upper_bad",
+        "warn": 40.0,
+        "crit": 60.0,
+        "label": "WATER CUT",
+        "fmt": "{:.1f}",
+    },
+    "choke_position": {
+        "direction": "info",
+        "label": "CHOKE POSITION",
+        "fmt": "{:.0f}",
+    },
+    # --- RTU expanded: production ---
+    "separator_pressure": {
+        "direction": "upper_bad",
+        "warn": 175.0,
+        "crit": 200.0,
+        "label": "SEPARATOR PRESS",
+        "fmt": "{:.1f}",
+    },
+    "separator_level": {
+        "direction": "upper_bad",
+        "warn": 80.0,
+        "crit": 90.0,
+        "label": "SEPARATOR LEVEL",
+        "fmt": "{:.0f}",
+    },
+    "separator_diff_press": {
+        "direction": "upper_bad",
+        "warn": 8.0,
+        "crit": 12.0,
+        "label": "SEPARATOR DIFF",
+        "fmt": "{:.1f}",
+    },
+    "oil_tank_level": {
+        "direction": "upper_bad",
+        "warn": 110.0,
+        "crit": 130.0,
+        "label": "OIL TANK LEVEL",
+        "fmt": "{:.1f}",
+    },
+    "water_tank_level": {
+        "direction": "upper_bad",
+        "warn": 90.0,
+        "crit": 110.0,
+        "label": "WATER TANK LEVEL",
+        "fmt": "{:.1f}",
+    },
+    "lact_meter_rate": {
+        "direction": "info",
+        "label": "LACT METER",
+        "fmt": "{:.1f}",
+    },
+    "flare_active": {
+        "direction": "info",
+        "label": "FLARE STATUS",
+        "fmt": "{}",
+    },
+    "tank_high_level": {
+        "direction": "bool_bad",
+        "label": "TANK HIGH LEVEL",
+        "fmt": "{}",
+    },
+    # --- RTU expanded: safety ---
+    "h2s_level": {
+        "direction": "upper_bad",
+        "warn": 5.0,
+        "crit": 10.0,
+        "label": "H2S",
+        "fmt": "{:.1f}",
+    },
+    "lel_level": {
+        "direction": "upper_bad",
+        "warn": 10.0,
+        "crit": 20.0,
+        "label": "LEL",
+        "fmt": "{:.1f}",
+    },
+    "esd_activated": {
+        "direction": "bool_bad",
+        "label": "ESD STATUS",
+        "fmt": "{}",
+    },
+    "h2s_alarm": {
+        "direction": "bool_bad",
+        "label": "H2S ALARM",
+        "fmt": "{}",
+    },
+    "lel_alarm": {
+        "direction": "bool_bad",
+        "label": "LEL ALARM",
+        "fmt": "{}",
+    },
     # --- Network (MikroTik / Catalyst) ---
     "cpu_load": {
         "direction": "upper_bad",
@@ -239,6 +401,7 @@ def normalize_reading(reading: RawTelemetry) -> VitalSign:
             raw_value=reading.value,
             unit=reading.unit,
             status="",
+            group=reading.group,
         )
 
     # Format display value
@@ -249,6 +412,10 @@ def normalize_reading(reading: RawTelemetry) -> VitalSign:
         display = "ACTIVE" if reading.value >= 1.0 else "OK"
     elif reading.metric == "compressor_running":
         display = "RUNNING" if reading.value >= 1.0 else "STOPPED"
+    elif reading.metric == "compressor_loaded":
+        display = "LOADED" if reading.value >= 1.0 else "UNLOADED"
+    elif reading.metric == "flare_active":
+        display = "LIT" if reading.value >= 1.0 else "OUT"
     else:
         try:
             display = f"{fmt.format(reading.value)} {reading.unit}"
@@ -268,6 +435,7 @@ def normalize_reading(reading: RawTelemetry) -> VitalSign:
         raw_value=reading.value,
         unit=reading.unit,
         status=status,
+        group=reading.group,
     )
 
 

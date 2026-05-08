@@ -480,8 +480,6 @@
     document.getElementById('drawer-name').innerHTML = asset.name + ' ' + statusPill(asset.status, asset.health);
     document.getElementById('drawer-meta').textContent = asset.id + ' · ' + (asset.vendor||'') + ' ' + (asset.model||'') + ' · ' + (asset.location||'');
 
-    const vitals = (asset.vitals||[]).filter(v => v.unit !== 'bool');
-    const discrete = (asset.vitals||[]).filter(v => v.unit === 'bool');
     const assetAlerts = liveAlerts.filter(a => a.asset_id === assetId).slice(0, 10);
 
     let h = '';
@@ -499,28 +497,52 @@
         <div class="drawer-summary-item"><div class="drawer-summary-label">Type</div><div class="drawer-summary-val" style="text-transform:capitalize;">${asset.type||'—'}</div></div>
       </div></div>`;
 
-    // Live Telemetry
-    if (vitals.length > 0) {
-      h += `<div class="drawer-section"><div class="drawer-section-title"><span class="live-dot"></span> LIVE TELEMETRY</div><div class="drawer-vitals-grid">`;
-      for (const v of vitals) {
-        const raw = parseFloat(v.raw_value);
-        const dv = isNaN(raw) ? v.value : (raw % 1 === 0 ? raw.toFixed(0) : raw.toFixed(1));
-        h += `<div class="drawer-vital ${v.status||''}"><div class="drawer-vital-label">${v.label}</div><div class="drawer-vital-value">${dv}<span class="drawer-vital-unit">${v.unit||''}</span></div></div>`;
-      }
-      h += `</div></div>`;
+    // Group vitals by category
+    const groupLabels = {
+      compressor: {title: 'COMPRESSOR', icon: '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="3"/><path d="M12 1v4M12 19v4M4.22 4.22l2.83 2.83M16.95 16.95l2.83 2.83M1 12h4M19 12h4M4.22 19.78l2.83-2.83M16.95 7.05l2.83-2.83"/></svg>'},
+      well: {title: 'WELLHEAD', icon: '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 2v20M8 6h8M6 10h12M8 14h8"/></svg>'},
+      production: {title: 'PRODUCTION / TANKS', icon: '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="3" y1="15" x2="21" y2="15"/><line x1="3" y1="9" x2="21" y2="9"/></svg>'},
+      power: {title: 'POWER', icon: '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.8"><polyline points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>'},
+      safety: {title: 'SAFETY / GAS DETECTION', icon: '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>'},
+      environment: {title: 'ENVIRONMENT', icon: '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M14 14.76V3.5a2.5 2.5 0 0 0-5 0v11.26a4.5 4.5 0 1 0 5 0z"/></svg>'},
+      system: {title: 'SYSTEM', icon: '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>'},
+      rf: {title: 'RF / RADIO', icon: '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M5 12.55a11 11 0 0 1 14.08 0"/><path d="M1.42 9a16 16 0 0 1 21.16 0"/><path d="M8.53 16.11a6 6 0 0 1 6.95 0"/><circle cx="12" cy="20" r="1"/></svg>'},
+      traffic: {title: 'TRAFFIC', icon: '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.8"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>'},
+    };
+    const allVitals = asset.vitals || [];
+    const groups = {};
+    for (const v of allVitals) {
+      const g = v.group || 'system';
+      if (!groups[g]) groups[g] = {analog: [], discrete: []};
+      if (v.unit === 'bool') groups[g].discrete.push(v);
+      else groups[g].analog.push(v);
     }
-
-    // Discrete Inputs
-    if (discrete.length > 0) {
-      h += `<div class="drawer-section"><div class="drawer-section-title">
-        <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
-        DISCRETE INPUTS</div>`;
-      for (const v of discrete) {
-        const isOk = v.value==='OK'||v.value==='STOPPED'||v.raw_value===0;
-        const dc = v.status==='good'?'var(--status-good)':isOk?'var(--text-muted)':'var(--status-bad)';
-        h += `<div class="drawer-discrete-row"><div class="drawer-discrete-dot" style="background:${dc};"></div><div class="drawer-discrete-label">${v.label}</div><div class="drawer-discrete-val" style="color:${dc};">${v.value}</div></div>`;
+    const groupOrder = ['compressor','well','production','safety','power','environment','rf','traffic','system'];
+    for (const gk of groupOrder) {
+      const gd = groups[gk];
+      if (!gd) continue;
+      const gl = groupLabels[gk] || {title: gk.toUpperCase(), icon: ''};
+      const hasAnalog = gd.analog.length > 0;
+      const hasDiscrete = gd.discrete.length > 0;
+      if (!hasAnalog && !hasDiscrete) continue;
+      h += '<div class="drawer-section"><div class="drawer-section-title">' + gl.icon + ' <span class="live-dot"></span> ' + gl.title + '</div>';
+      if (hasAnalog) {
+        h += '<div class="drawer-vitals-grid">';
+        for (const v of gd.analog) {
+          const raw = parseFloat(v.raw_value);
+          const dv = isNaN(raw) ? v.value : (raw % 1 === 0 ? raw.toFixed(0) : raw.toFixed(1));
+          h += '<div class="drawer-vital ' + (v.status||'') + '"><div class="drawer-vital-label">' + v.label + '</div><div class="drawer-vital-value">' + dv + '<span class="drawer-vital-unit">' + (v.unit||'') + '</span></div></div>';
+        }
+        h += '</div>';
       }
-      h += `</div>`;
+      if (hasDiscrete) {
+        for (const v of gd.discrete) {
+          const isOk = v.value==='OK'||v.value==='STOPPED'||v.raw_value===0;
+          const dc = v.status==='good'?'var(--status-good)':isOk?'var(--text-muted)':'var(--status-bad)';
+          h += '<div class="drawer-discrete-row"><div class="drawer-discrete-dot" style="background:' + dc + ';"></div><div class="drawer-discrete-label">' + v.label + '</div><div class="drawer-discrete-val" style="color:' + dc + ';">' + v.value + '</div></div>';
+        }
+      }
+      h += '</div>';
     }
 
     // AI Prediction placeholder

@@ -49,6 +49,7 @@ class BaseCollector(abc.ABC):
         source: str = "snmp",
         oid: str | None = None,
         modbus_register: int | None = None,
+        group: str = "",
     ) -> RawTelemetry:
         """Helper to create a RawTelemetry object."""
         return RawTelemetry(
@@ -60,6 +61,7 @@ class BaseCollector(abc.ABC):
             source=source,
             oid=oid,
             modbus_register=modbus_register,
+            group=group,
         )
 
     async def safe_poll(self) -> list[RawTelemetry]:

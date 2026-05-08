@@ -517,42 +517,24 @@
       }
     }
 
-    // Port grid
-    if (ports.length > 0) {
-      h += '<div class="cab-ports-title">PORT STATUS (' + ports.length + ' interfaces)</div>';
-      h += '<div class="cab-port-grid">';
-      for (const p of ports) {
-        let cls = 'notMonitored';
-        const traffic = portTraffic[p.name] || {};
-        const hasTraffic = (traffic.rx || 0) > 0 || (traffic.tx || 0) > 0;
+    // Build port lookup for wireframe chassis
+    const portMap = {};
+    for (const p of ports) {
+      const cleanName = p.name.replace(/^"/g, '').toUpperCase();
+      portMap[cleanName] = p;
+    }
 
-        if (p.status === 1) cls = 'up';
-        else if (p.status === 2) {
-          cls = hasTraffic ? 'down' : 'unused';
-        }
-        else if (p.status === 6) cls = 'unused'; // notPresent
-
-        // Short name for display
-        let shortName = p.name.replace(/^"/g, '');
-        shortName = shortName.replace(/fastethernet0\//gi, 'Fa');
-        shortName = shortName.replace(/gigabitethernet0\//gi, 'Gi');
-        shortName = shortName.replace(/^ether/i, 'E');
-        shortName = shortName.replace(/^wifi/i, 'Wi');
-        shortName = shortName.replace(/^sfp/i, 'SFP');
-        shortName = shortName.replace(/^bridgelocal$/i, 'BR');
-        shortName = shortName.replace(/^wg-aevus$/i, 'WG');
-        shortName = shortName.replace(/^vlan/i, 'V');
-        shortName = shortName.replace(/^null0$/i, 'Nu');
-        if (shortName.toLowerCase() === 'lo') shortName = 'Lo';
-
-        // Tooltip with traffic
-        let tip = p.name + ' — ' + (p.status === 1 ? 'UP' : p.status === 2 ? 'DOWN' : 'N/A');
-        if (traffic.rx != null) tip += '\\nRX: ' + formatBytes(traffic.rx);
-        if (traffic.tx != null) tip += '\\nTX: ' + formatBytes(traffic.tx);
-
-        h += '<div class="cab-port ' + cls + '" title="' + tip + '"><div class="cab-port-label">' + shortName + '</div><div class="cab-port-dot"></div></div>';
-      }
-      h += '</div>';
+    // Render device-specific wireframe chassis
+    if (asset.id === 'SW-01') {
+      h += renderCiscoChassis(portMap, portTraffic);
+    } else if (asset.id === 'RTR-01') {
+      h += renderMikroTikChassis(portMap, portTraffic);
+    } else if (asset.id === 'RTU-01') {
+      h += renderSCADAPakChassis(asset);
+    } else if (asset.id === 'RAD-01' || asset.id === 'RAD-02') {
+      h += renderRadioChassis(asset);
+    } else if (asset.id === 'EDGE-01') {
+      h += renderEdgeChassis(asset);
     }
 
     // Key stats
@@ -585,6 +567,365 @@
     h += '</div></div>';
     return h;
   }
+
+
+  // ── Cisco Catalyst 2960 Wireframe ──────────────────────
+  function renderCiscoChassis(portMap, portTraffic) {
+    let h = '';
+    h += '<div class="chassis">';
+    h += '<div class="chassis-screw tl"></div><div class="chassis-screw tr"></div><div class="chassis-screw bl"></div><div class="chassis-screw br"></div>';
+    h += '<div class="chassis-label">CISCO SYSTEMS</div>';
+    h += '<div class="chassis-model-label">Catalyst 2960-24TT-L</div>';
+
+    // Vent slots on right
+    h += '<div class="chassis-vent">';
+    for (let i = 0; i < 6; i++) h += '<div class="chassis-vent-slot"></div>';
+    h += '</div>';
+
+    h += '<div class="chassis-ports-area">';
+
+    // Console port
+    h += '<div style="display:flex;flex-direction:column;align-items:center;gap:1px;margin-right:6px;">';
+    h += '<div class="chassis-inner-label">CON</div>';
+    h += '<div class="wf-aux">RJ45</div>';
+    h += '</div>';
+
+    h += '<div class="port-section-divider"></div>';
+
+    // 24 FastEthernet ports in 12 columns x 2 rows (top=odd, bottom=even)
+    h += '<div style="display:flex;flex-direction:column;gap:1px;">';
+    h += '<div class="chassis-inner-label" style="margin-left:2px;">10/100 ETHERNET</div>';
+    h += '<div style="display:flex;gap:0;">';
+
+    for (let col = 0; col < 12; col++) {
+      const topNum = col * 2 + 1;   // 1,3,5,...23
+      const botNum = col * 2 + 2;   // 2,4,6,...24
+      const topKey = 'FASTETHERNET0/' + topNum;
+      const botKey = 'FASTETHERNET0/' + botNum;
+
+      h += '<div class="port-pair-col">';
+      h += wfPort(topKey, topNum, portMap, portTraffic);
+      h += wfPort(botKey, botNum, portMap, portTraffic);
+      h += '</div>';
+    }
+
+    h += '</div></div>';
+
+    // Uplink section — 2 GigE ports
+    h += '<div class="uplink-section">';
+    h += '<div style="display:flex;flex-direction:column;gap:1px;">';
+    h += '<div class="chassis-inner-label">UPLINK</div>';
+    h += '<div style="display:flex;gap:0;">';
+
+    h += '<div class="port-pair-col">';
+    h += wfPort('GIGABITETHERNET0/1', 'G1', portMap, portTraffic);
+    h += wfPort('GIGABITETHERNET0/2', 'G2', portMap, portTraffic);
+    h += '</div>';
+
+    h += '</div></div></div>';
+
+    // System LEDs row
+    h += '<div style="display:flex;gap:8px;margin-left:8px;align-items:center;">';
+    h += '<div style="display:flex;flex-direction:column;align-items:center;gap:1px;">';
+    h += '<div class="chassis-inner-label">SYST</div>';
+    h += '<div class="rtu-led on"></div>';
+    h += '</div>';
+    h += '<div style="display:flex;flex-direction:column;align-items:center;gap:1px;">';
+    h += '<div class="chassis-inner-label">STAT</div>';
+    h += '<div class="rtu-led on"></div>';
+    h += '</div>';
+    h += '</div>';
+
+    h += '</div>'; // chassis-ports-area
+    h += '</div>'; // chassis
+    return h;
+  }
+
+  // ── MikroTik L009 Wireframe ────────────────────────────
+  function renderMikroTikChassis(portMap, portTraffic) {
+    let h = '';
+    h += '<div class="chassis">';
+    h += '<div class="chassis-screw tl"></div><div class="chassis-screw tr"></div><div class="chassis-screw bl"></div><div class="chassis-screw br"></div>';
+    h += '<div class="chassis-label">MikroTik</div>';
+    h += '<div class="chassis-model-label">RouterOS &bull; L009</div>';
+
+    h += '<div class="chassis-ports-area">';
+
+    // Power barrel
+    h += '<div style="display:flex;flex-direction:column;align-items:center;gap:1px;margin-right:4px;">';
+    h += '<div class="chassis-inner-label">DC</div>';
+    h += '<div class="wf-aux" style="border-radius:50%;width:16px;height:16px;"></div>';
+    h += '</div>';
+
+    h += '<div class="port-section-divider"></div>';
+
+    // 8 Ethernet ports in a row
+    h += '<div style="display:flex;flex-direction:column;gap:1px;">';
+    h += '<div class="chassis-inner-label">ETHERNET</div>';
+    h += '<div class="port-bank">';
+    for (let i = 1; i <= 8; i++) {
+      h += wfPort('ETHER' + i, i, portMap, portTraffic);
+    }
+    h += '</div></div>';
+
+    h += '<div class="port-section-divider"></div>';
+
+    // SFP cage
+    h += '<div style="display:flex;flex-direction:column;gap:1px;">';
+    h += '<div class="chassis-inner-label">SFP</div>';
+    const sfpData = portMap['SFP1'];
+    const sfpCls = sfpData ? (sfpData.status === 1 ? 'up' : sfpData.status === 6 ? 'unused' : 'unused') : 'unused';
+    h += '<div class="wf-port sfp ' + sfpCls + '" title="SFP1">SFP</div>';
+    h += '</div>';
+
+    h += '<div class="port-section-divider"></div>';
+
+    // Reset button
+    h += '<div style="display:flex;flex-direction:column;align-items:center;gap:1px;">';
+    h += '<div class="chassis-inner-label">RST</div>';
+    h += '<div class="wf-aux" style="border-radius:50%;width:12px;height:12px;font-size:5px;">&#x25CF;</div>';
+    h += '</div>';
+
+    // Virtual interfaces indicator
+    h += '<div style="display:flex;flex-direction:column;gap:1px;margin-left:12px;">';
+    h += '<div class="chassis-inner-label">VIRTUAL</div>';
+    h += '<div class="port-bank">';
+    h += wfPort('LO', 'Lo', portMap, portTraffic);
+    h += wfPort('BRIDGELOCAL', 'BR', portMap, portTraffic);
+    h += wfPort('WG-AEVUS', 'WG', portMap, portTraffic);
+    h += '</div></div>';
+
+    h += '</div>'; // chassis-ports-area
+    h += '</div>'; // chassis
+    return h;
+  }
+
+  // ── SCADAPack 470 Wireframe ────────────────────────────
+  function renderSCADAPakChassis(asset) {
+    let h = '';
+    h += '<div class="chassis rtu-chassis">';
+    h += '<div class="chassis-screw tl"></div><div class="chassis-screw tr"></div><div class="chassis-screw bl"></div><div class="chassis-screw br"></div>';
+    h += '<div class="chassis-label">SCHNEIDER ELECTRIC</div>';
+    h += '<div class="chassis-model-label">SCADAPack 470</div>';
+
+    h += '<div class="chassis-ports-area">';
+
+    // DIN rail mount indicator
+    h += '<div style="display:flex;flex-direction:column;align-items:center;gap:1px;margin-right:4px;">';
+    h += '<div class="chassis-inner-label">DIN</div>';
+    h += '<div style="width:6px;height:36px;background:rgba(59,130,246,0.15);border-radius:2px;border:1px solid rgba(59,130,246,0.2);"></div>';
+    h += '</div>';
+
+    h += '<div class="port-section-divider" style="border-color:rgba(59,130,246,0.15);"></div>';
+
+    // Power terminals
+    h += '<div style="display:flex;flex-direction:column;gap:1px;">';
+    h += '<div class="chassis-inner-label">POWER</div>';
+    h += '<div class="rtu-terminal-block">';
+    h += '<div class="rtu-terminal"><div class="rtu-terminal-screw"></div></div>';
+    h += '<div class="rtu-terminal"><div class="rtu-terminal-screw"></div></div>';
+    h += '<div class="rtu-terminal" style="border-color:rgba(16,185,129,0.3);"><div class="rtu-terminal-screw" style="border-color:rgba(16,185,129,0.3);"></div></div>';
+    h += '</div></div>';
+
+    h += '<div class="port-section-divider" style="border-color:rgba(59,130,246,0.15);"></div>';
+
+    // RS-232/485 serial
+    h += '<div style="display:flex;flex-direction:column;gap:1px;">';
+    h += '<div class="chassis-inner-label">SERIAL</div>';
+    h += '<div class="rtu-terminal-block">';
+    for (let i = 0; i < 6; i++) {
+      h += '<div class="rtu-terminal"><div class="rtu-terminal-screw"></div></div>';
+    }
+    h += '</div></div>';
+
+    h += '<div class="port-section-divider" style="border-color:rgba(59,130,246,0.15);"></div>';
+
+    // Ethernet port
+    h += '<div style="display:flex;flex-direction:column;gap:1px;">';
+    h += '<div class="chassis-inner-label">ETHERNET</div>';
+    const isOnline = asset.status === 'good' || asset.status === 'warn';
+    h += '<div class="wf-port ' + (isOnline ? 'up' : 'down') + '" title="Modbus TCP" style="height:20px;">ETH</div>';
+    h += '</div>';
+
+    h += '<div class="port-section-divider" style="border-color:rgba(59,130,246,0.15);"></div>';
+
+    // Analog/Digital I/O terminal blocks
+    h += '<div style="display:flex;flex-direction:column;gap:1px;">';
+    h += '<div class="chassis-inner-label">ANALOG I/O</div>';
+    h += '<div class="rtu-terminal-block">';
+    for (let i = 0; i < 10; i++) {
+      h += '<div class="rtu-terminal"><div class="rtu-terminal-screw"></div></div>';
+    }
+    h += '</div></div>';
+
+    h += '<div class="port-section-divider" style="border-color:rgba(59,130,246,0.15);"></div>';
+
+    h += '<div style="display:flex;flex-direction:column;gap:1px;">';
+    h += '<div class="chassis-inner-label">DISCRETE I/O</div>';
+    h += '<div class="rtu-terminal-block">';
+    for (let i = 0; i < 8; i++) {
+      h += '<div class="rtu-terminal"><div class="rtu-terminal-screw"></div></div>';
+    }
+    h += '</div></div>';
+
+    // Status LEDs
+    h += '<div style="display:flex;flex-direction:column;gap:3px;margin-left:12px;">';
+    h += '<div class="chassis-inner-label">STATUS</div>';
+    h += '<div style="display:flex;gap:4px;">';
+    h += '<div class="rtu-led ' + (isOnline ? 'on' : 'off') + '" title="RUN"></div>';
+    h += '<div class="rtu-led on" title="PWR"></div>';
+    h += '<div class="rtu-led ' + (isOnline ? 'on' : 'off') + '" title="COM"></div>';
+    h += '</div></div>';
+
+    h += '</div>'; // chassis-ports-area
+    h += '</div>'; // chassis
+    return h;
+  }
+
+  // ── Trio JR900 Radio Wireframe ─────────────────────────
+  function renderRadioChassis(asset) {
+    const isOnline = asset.status === 'good' || asset.status === 'warn';
+    let h = '';
+    h += '<div class="chassis radio-chassis">';
+    h += '<div class="chassis-screw tl"></div><div class="chassis-screw tr"></div><div class="chassis-screw bl"></div><div class="chassis-screw br"></div>';
+    h += '<div class="chassis-label">TRIO DATACOM</div>';
+    h += '<div class="chassis-model-label">JR900</div>';
+
+    h += '<div class="chassis-ports-area">';
+
+    // Antenna N-type connector
+    h += '<div style="display:flex;flex-direction:column;align-items:center;gap:1px;">';
+    h += '<div class="chassis-inner-label">ANT</div>';
+    h += '<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="rgba(168,85,247,0.5)" stroke-width="1.5"><circle cx="12" cy="12" r="8"/><circle cx="12" cy="12" r="3"/><circle cx="12" cy="12" r="1" fill="rgba(168,85,247,0.5)"/></svg>';
+    h += '</div>';
+
+    h += '<div class="port-section-divider" style="border-color:rgba(168,85,247,0.15);"></div>';
+
+    // Power
+    h += '<div style="display:flex;flex-direction:column;align-items:center;gap:1px;">';
+    h += '<div class="chassis-inner-label">PWR</div>';
+    h += '<div class="rtu-terminal-block">';
+    h += '<div class="rtu-terminal" style="border-color:rgba(168,85,247,0.2);"><div class="rtu-terminal-screw" style="border-color:rgba(168,85,247,0.3);"></div></div>';
+    h += '<div class="rtu-terminal" style="border-color:rgba(168,85,247,0.2);"><div class="rtu-terminal-screw" style="border-color:rgba(168,85,247,0.3);"></div></div>';
+    h += '</div></div>';
+
+    h += '<div class="port-section-divider" style="border-color:rgba(168,85,247,0.15);"></div>';
+
+    // Serial port
+    h += '<div style="display:flex;flex-direction:column;align-items:center;gap:1px;">';
+    h += '<div class="chassis-inner-label">SERIAL</div>';
+    h += '<div class="wf-aux" style="width:32px;">DB9</div>';
+    h += '</div>';
+
+    h += '<div class="port-section-divider" style="border-color:rgba(168,85,247,0.15);"></div>';
+
+    // Ethernet
+    h += '<div style="display:flex;flex-direction:column;align-items:center;gap:1px;">';
+    h += '<div class="chassis-inner-label">ETH</div>';
+    h += '<div class="wf-port ' + (isOnline ? 'up' : 'down') + '" title="Ethernet" style="height:20px;">RJ45</div>';
+    h += '</div>';
+
+    // LEDs
+    h += '<div style="display:flex;flex-direction:column;gap:3px;margin-left:12px;">';
+    h += '<div class="chassis-inner-label">STATUS</div>';
+    h += '<div style="display:flex;gap:4px;">';
+    h += '<div class="rtu-led ' + (isOnline ? 'on' : 'off') + '" title="PWR"></div>';
+    h += '<div class="rtu-led ' + (isOnline ? 'on' : 'off') + '" title="LINK"></div>';
+    h += '<div class="rtu-led off" title="TX"></div>';
+    h += '<div class="rtu-led off" title="RX"></div>';
+    h += '</div></div>';
+
+    h += '</div>'; // chassis-ports-area
+    h += '</div>'; // chassis
+    return h;
+  }
+
+  // ── Raspberry Pi Edge Wireframe ────────────────────────
+  function renderEdgeChassis(asset) {
+    const isOnline = asset.status === 'good' || asset.status === 'warn';
+    let h = '';
+    h += '<div class="chassis edge-chassis">';
+    h += '<div class="chassis-screw tl"></div><div class="chassis-screw tr"></div><div class="chassis-screw bl"></div><div class="chassis-screw br"></div>';
+    h += '<div class="chassis-label">RASPBERRY PI</div>';
+    h += '<div class="chassis-model-label">Model 4B</div>';
+
+    h += '<div class="chassis-ports-area">';
+
+    // USB-C power
+    h += '<div style="display:flex;flex-direction:column;align-items:center;gap:1px;">';
+    h += '<div class="chassis-inner-label">PWR</div>';
+    h += '<div class="wf-aux" style="width:18px;border-radius:4px;">C</div>';
+    h += '</div>';
+
+    h += '<div class="port-section-divider" style="border-color:rgba(236,72,153,0.15);"></div>';
+
+    // HDMI ports
+    h += '<div style="display:flex;flex-direction:column;align-items:center;gap:1px;">';
+    h += '<div class="chassis-inner-label">HDMI</div>';
+    h += '<div style="display:flex;gap:2px;">';
+    h += '<div class="wf-aux" style="width:20px;font-size:5px;">H0</div>';
+    h += '<div class="wf-aux" style="width:20px;font-size:5px;">H1</div>';
+    h += '</div></div>';
+
+    h += '<div class="port-section-divider" style="border-color:rgba(236,72,153,0.15);"></div>';
+
+    // Ethernet
+    h += '<div style="display:flex;flex-direction:column;align-items:center;gap:1px;">';
+    h += '<div class="chassis-inner-label">ETH</div>';
+    h += '<div class="wf-port ' + (isOnline ? 'up' : 'down') + '" title="Ethernet" style="height:20px;">RJ45</div>';
+    h += '</div>';
+
+    h += '<div class="port-section-divider" style="border-color:rgba(236,72,153,0.15);"></div>';
+
+    // USB ports
+    h += '<div style="display:flex;flex-direction:column;align-items:center;gap:1px;">';
+    h += '<div class="chassis-inner-label">USB</div>';
+    h += '<div style="display:flex;gap:2px;">';
+    h += '<div class="port-pair-col">';
+    h += '<div class="wf-aux" style="width:20px;font-size:5px;">3.0</div>';
+    h += '<div class="wf-aux" style="width:20px;font-size:5px;">3.0</div>';
+    h += '</div>';
+    h += '<div class="port-pair-col">';
+    h += '<div class="wf-aux" style="width:20px;font-size:5px;">2.0</div>';
+    h += '<div class="wf-aux" style="width:20px;font-size:5px;">2.0</div>';
+    h += '</div>';
+    h += '</div></div>';
+
+    // LED indicators
+    h += '<div style="display:flex;flex-direction:column;gap:3px;margin-left:12px;">';
+    h += '<div class="chassis-inner-label">LED</div>';
+    h += '<div style="display:flex;gap:4px;">';
+    h += '<div class="rtu-led on" title="PWR" style="background:var(--status-bad);box-shadow:0 0 6px var(--status-bad);"></div>';
+    h += '<div class="rtu-led ' + (isOnline ? 'on' : 'off') + '" title="ACT"></div>';
+    h += '</div></div>';
+
+    h += '</div>'; // chassis-ports-area
+    h += '</div>'; // chassis
+    return h;
+  }
+
+  // ── Port helper ────────────────────────────────────────
+  function wfPort(key, label, portMap, portTraffic) {
+    const cleanKey = key.replace(/^"/g, '').toUpperCase();
+    const p = portMap[cleanKey];
+    const traffic = portTraffic[cleanKey] || portTraffic[key] || {};
+    let cls = 'unused';
+    let tipStatus = 'N/A';
+
+    if (p) {
+      const hasTraffic = (traffic.rx || 0) > 0 || (traffic.tx || 0) > 0;
+      if (p.status === 1) { cls = 'up'; tipStatus = 'UP'; }
+      else if (p.status === 2) { cls = hasTraffic ? 'down' : 'unused'; tipStatus = 'DOWN'; }
+      else if (p.status === 6) { cls = 'unused'; tipStatus = 'NOT PRESENT'; }
+    }
+
+    let tip = cleanKey + ' — ' + tipStatus;
+    if (traffic.rx != null) tip += '\nRX: ' + formatBytes(traffic.rx);
+    if (traffic.tx != null) tip += '\nTX: ' + formatBytes(traffic.tx);
+
+    return '<div class="wf-port ' + cls + '" title="' + tip + '">' + label + '</div>';
+  }
+
 
   function formatBytes(bytes) {
     if (bytes === 0) return '0 B';

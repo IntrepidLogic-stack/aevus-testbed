@@ -107,6 +107,65 @@ body {
   padding: 24px;
   min-height: calc(100vh - var(--topbar-h));
 }
+
+/* ── Device Wireframe Chassis ─────────────────────────────── */
+.chassis { position: relative; border: 2px solid var(--border); border-radius: 6px; background: linear-gradient(180deg, rgba(30,40,55,0.9) 0%, rgba(20,28,40,0.95) 100%); padding: 12px; margin-bottom: 16px; }
+.chassis-label { position: absolute; top: 6px; left: 12px; font-size: 9px; color: var(--text-muted); font-family: var(--font-mono); letter-spacing: 1px; text-transform: uppercase; }
+.chassis-model-label { position: absolute; top: 6px; right: 12px; font-size: 9px; color: rgba(16,185,129,0.5); font-family: var(--font-mono); }
+.chassis-screw { position: absolute; width: 8px; height: 8px; border-radius: 50%; border: 1px solid rgba(255,255,255,0.08); background: rgba(255,255,255,0.03); }
+.chassis-screw.tl { top: 4px; left: 4px; }
+.chassis-screw.tr { top: 4px; right: 4px; }
+.chassis-screw.bl { bottom: 4px; left: 4px; }
+.chassis-screw.br { bottom: 4px; right: 4px; }
+.chassis-vent { position: absolute; right: 12px; top: 50%; transform: translateY(-50%); display: flex; flex-direction: column; gap: 2px; }
+.chassis-vent-slot { width: 20px; height: 2px; background: rgba(255,255,255,0.04); border-radius: 1px; }
+
+/* Port rows for switch/router chassis */
+.port-bank { display: flex; gap: 2px; align-items: center; padding: 0; }
+.port-pair-col { display: flex; flex-direction: column; gap: 2px; }
+.port-section { display: flex; gap: 2px; align-items: center; }
+.port-section-divider { width: 1px; height: 46px; background: rgba(255,255,255,0.06); margin: 0 4px; }
+.port-section-label { font-size: 7px; color: var(--text-muted); font-family: var(--font-mono); text-align: center; padding: 0 2px; writing-mode: vertical-rl; text-orientation: mixed; letter-spacing: 0.5px; }
+
+/* Individual port in wireframe */
+.wf-port { width: 28px; height: 20px; border-radius: 2px; display: flex; align-items: center; justify-content: center; font-size: 7px; font-weight: 600; font-family: var(--font-mono); border: 1px solid var(--border); cursor: default; position: relative; transition: all 0.2s; }
+.wf-port.up { background: rgba(16,185,129,0.15); border-color: rgba(16,185,129,0.4); color: var(--status-good); }
+.wf-port.down { background: rgba(239,68,68,0.12); border-color: rgba(239,68,68,0.35); color: var(--status-bad); }
+.wf-port.unused { background: rgba(255,255,255,0.02); border-color: rgba(255,255,255,0.06); color: rgba(255,255,255,0.15); }
+.wf-port.up::after { content: ''; position: absolute; top: 2px; right: 2px; width: 4px; height: 4px; border-radius: 50%; background: var(--status-good); box-shadow: 0 0 4px var(--status-good); }
+.wf-port.down::after { content: ''; position: absolute; top: 2px; right: 2px; width: 4px; height: 4px; border-radius: 50%; background: var(--status-bad); box-shadow: 0 0 4px var(--status-bad); }
+.wf-port.sfp { width: 28px; height: 42px; border-radius: 3px; border: 1px dashed rgba(255,255,255,0.1); }
+
+/* Console / power / aux ports */
+.wf-aux { width: 28px; height: 20px; border-radius: 2px; display: flex; align-items: center; justify-content: center; font-size: 6px; font-family: var(--font-mono); color: rgba(255,255,255,0.2); border: 1px solid rgba(255,255,255,0.06); background: rgba(255,255,255,0.01); }
+
+/* Uplink section for Cisco */
+.uplink-section { display: flex; gap: 2px; align-items: center; margin-left: 6px; padding-left: 6px; border-left: 1px solid rgba(255,255,255,0.06); }
+
+/* RTU chassis (SCADAPack) */
+.rtu-chassis { border-color: rgba(59,130,246,0.3); }
+.rtu-chassis .chassis-label { color: rgba(59,130,246,0.5); }
+.rtu-terminal-block { display: flex; gap: 3px; padding: 6px 0; }
+.rtu-terminal { width: 14px; height: 18px; border-radius: 2px; border: 1px solid rgba(59,130,246,0.2); background: rgba(59,130,246,0.05); display: flex; align-items: center; justify-content: center; }
+.rtu-terminal-screw { width: 6px; height: 6px; border-radius: 50%; border: 1px solid rgba(59,130,246,0.3); background: rgba(59,130,246,0.08); }
+.rtu-port-row { display: flex; gap: 4px; align-items: center; }
+.rtu-led { width: 6px; height: 6px; border-radius: 50%; }
+.rtu-led.on { background: var(--status-good); box-shadow: 0 0 6px var(--status-good); }
+.rtu-led.off { background: rgba(255,255,255,0.1); }
+
+/* Radio chassis (Trio JR900) */
+.radio-chassis { border-color: rgba(168,85,247,0.3); }
+.radio-chassis .chassis-label { color: rgba(168,85,247,0.5); }
+.radio-antenna { display: flex; flex-direction: column; align-items: center; }
+.radio-antenna-icon { width: 20px; height: 30px; }
+
+/* Edge device (Raspberry Pi) */
+.edge-chassis { border-color: rgba(236,72,153,0.3); }
+.edge-chassis .chassis-label { color: rgba(236,72,153,0.5); }
+
+.chassis-ports-area { display: flex; align-items: center; gap: 6px; padding-top: 20px; }
+.chassis-inner-label { font-size: 7px; color: var(--text-muted); font-family: var(--font-mono); margin-bottom: 2px; }
+
 .cabinet-grid { display: grid; grid-template-columns: 1fr; gap: 20px; }
 .cab-device { background: var(--bg-card); border: 1px solid var(--border); border-radius: 12px; overflow: hidden; }
 .cab-device-header { display: flex; align-items: center; justify-content: space-between; padding: 16px 20px; border-bottom: 1px solid var(--border); }

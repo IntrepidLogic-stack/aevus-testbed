@@ -233,7 +233,7 @@
         model: asset.model,
         firmware: asset.firmware || '',
         vitals: vitals.length > 0 ? vitals : [{ label: 'STATUS', value: 'Awaiting data', status: '' }],
-        events: events.length > 0 ? events : [{ time: 'now', type: 'info', message: 'Simulator active' }],
+        events: events.length > 0 ? events : [{ time: 'now', type: 'info', message: 'Awaiting events' }],
       });
     }
 

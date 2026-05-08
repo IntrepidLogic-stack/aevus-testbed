@@ -296,6 +296,7 @@
       liveAssets[idx].last_seen = data.timestamp;
     }
     injectLiveMarkers();
+    renderScadaPanels();
     fetchHealthSummary().then(updateKPIs);
   }
 
@@ -334,6 +335,7 @@
     updateKPIs();
     renderLiveAlerts();
     injectLiveMarkers();
+    renderScadaPanels();
   }
 
   // ── Connection Indicator ──
@@ -470,6 +472,166 @@
       }
     }
   }
+
+
+
+  // ── SCADA Engineer Dashboard Panels ──
+
+  function renderFleetStrip() {
+    const el = document.getElementById('scada-fleet-strip');
+    if (!el || liveAssets.length === 0) return;
+    el.style.display = '';
+
+    const protocolMap = { snmp: 'SNMP v2c', modbus: 'Modbus TCP', simulator: 'SIM' };
+
+    el.innerHTML = liveAssets.map(a => {
+      const hClass = a.status === 'good' ? 'good' : a.status === 'warning' ? 'warn' : a.status === 'critical' ? 'bad' : a.status === 'offline' ? 'offline' : 'offline';
+      const hVal = a.health != null ? a.health : '—';
+      const proto = protocolMap[a.protocol] || a.protocol || '—';
+      const seen = a.last_seen ? timeAgo(a.last_seen) : 'never';
+      return `
+        <div class="fleet-card" data-asset="${a.id}">
+          <div class="fc-header">
+            <div>
+              <div class="fc-name">${a.name}</div>
+              <div class="fc-id">${a.id} · ${a.vendor || ''} ${a.model || ''}</div>
+            </div>
+            <div class="fc-health ${hClass}">${hVal}</div>
+          </div>
+          <div class="fc-status">
+            <span class="fc-dot ${hClass}"></span>
+            <span class="fc-status-text">${a.status || 'unknown'}</span>
+            <span class="fc-meta">· ${seen}</span>
+          </div>
+          <div>
+            <span class="fc-protocol">${proto}</span>
+            <span class="fc-meta" style="margin-left:6px;">${a.ip_address || ''}</span>
+          </div>
+        </div>
+      `;
+    }).join('');
+  }
+
+  function renderProcessPanels() {
+    const el = document.getElementById('scada-process-grid');
+    if (!el || liveAssets.length === 0) return;
+    el.style.display = '';
+
+    // Group: RTU process data vs Network infrastructure
+    const rtuAssets = liveAssets.filter(a => a.type === 'rtu');
+    const netAssets = liveAssets.filter(a => ['router','switch','edge'].includes(a.type));
+
+    let html = '';
+
+    // RTU Panel — Process Values
+    for (const rtu of rtuAssets) {
+      const vitals = rtu.vitals || [];
+      const processVitals = vitals.filter(v => !['bool'].includes(v.unit));
+      const discreteVitals = vitals.filter(v => v.unit === 'bool');
+
+      html += `<div class="process-panel">
+        <div class="pp-title"><span class="live-dot"></span> ${rtu.name} — PROCESS VALUES</div>
+        <div class="vitals-grid">
+          ${processVitals.map(v => {
+            const st = v.status || '';
+            const rawNum = parseFloat(v.raw_value);
+            const displayVal = isNaN(rawNum) ? v.value : (rawNum % 1 === 0 ? rawNum.toFixed(0) : rawNum.toFixed(1));
+            return `<div class="vital-item ${st}">
+              <div class="vi-label">${v.label}</div>
+              <div class="vi-value">${displayVal}<span class="vi-unit">${v.unit || ''}</span></div>
+            </div>`;
+          }).join('')}
+        </div>
+        ${discreteVitals.length > 0 ? `
+        <div style="margin-top:12px;">
+          <div style="font-size:9px;text-transform:uppercase;letter-spacing:0.8px;color:var(--text-muted);margin-bottom:8px;">DISCRETE INPUTS</div>
+          <div style="display:flex;gap:10px;flex-wrap:wrap;">
+            ${discreteVitals.map(v => {
+              const isOk = v.value === 'OK' || v.value === 'STOPPED' || v.raw_value === 0;
+              const color = v.status === 'good' ? 'var(--status-good)' : isOk ? 'var(--text-muted)' : 'var(--status-bad)';
+              return `<div style="display:flex;align-items:center;gap:5px;font-size:11px;">
+                <span style="width:6px;height:6px;border-radius:50%;background:${color};"></span>
+                <span style="color:var(--text-secondary);">${v.label}</span>
+                <span style="font-family:var(--font-mono);color:${color};">${v.value}</span>
+              </div>`;
+            }).join('')}
+          </div>
+        </div>` : ''}
+      </div>`;
+    }
+
+    // Network Infrastructure Panel
+    if (netAssets.length > 0) {
+      html += `<div class="process-panel">
+        <div class="pp-title"><span class="live-dot"></span> NETWORK INFRASTRUCTURE</div>
+        <div class="vitals-grid">`;
+
+      for (const net of netAssets) {
+        const vitals = (net.vitals || []).slice(0, 6);
+        html += vitals.map(v => {
+          const st = v.status || '';
+          const rawNum = parseFloat(v.raw_value);
+          const displayVal = isNaN(rawNum) ? v.value : (rawNum % 1 === 0 ? rawNum.toFixed(0) : rawNum.toFixed(1));
+          return `<div class="vital-item ${st}">
+            <div class="vi-label">${net.id} ${v.label}</div>
+            <div class="vi-value">${displayVal}<span class="vi-unit">${v.unit || ''}</span></div>
+          </div>`;
+        }).join('');
+      }
+
+      html += `</div></div>`;
+    }
+
+    el.innerHTML = html;
+  }
+
+  function renderCommTable() {
+    const el = document.getElementById('scada-comm-panel');
+    if (!el || liveAssets.length === 0) return;
+    el.style.display = '';
+
+    el.innerHTML = `
+      <div class="pp-title"><span class="live-dot"></span> COMMUNICATION STATUS</div>
+      <table class="comm-table">
+        <thead>
+          <tr>
+            <th>ASSET</th>
+            <th>PROTOCOL</th>
+            <th>IP ADDRESS</th>
+            <th>STATUS</th>
+            <th>HEALTH</th>
+            <th>POLL RATE</th>
+            <th>LAST SEEN</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${liveAssets.map(a => {
+            const hClass = a.status === 'good' ? 'good' : a.status === 'offline' ? 'offline' : 'warn';
+            const dotColor = hClass === 'good' ? 'var(--status-good)' : hClass === 'offline' ? 'var(--status-offline)' : 'var(--status-warn)';
+            const protocolMap = { snmp: 'SNMP v2c', modbus: 'Modbus TCP', simulator: 'Simulator' };
+            return `<tr>
+              <td><strong>${a.id}</strong> <span style="color:var(--text-muted);font-size:11px;">${a.name}</span></td>
+              <td class="mono">${protocolMap[a.protocol] || a.protocol || '—'}</td>
+              <td class="mono">${a.ip_address || '—'}</td>
+              <td><span class="ct-status"><span class="ct-dot" style="background:${dotColor};"></span>${a.status || 'unknown'}</span></td>
+              <td class="mono" style="color:${dotColor};">${a.health != null ? a.health : '—'}</td>
+              <td class="mono">${a.poll_interval || '—'}s</td>
+              <td class="mono">${a.last_seen ? timeAgo(a.last_seen) : '—'}</td>
+            </tr>`;
+          }).join('')}
+        </tbody>
+      </table>
+    `;
+  }
+
+  function renderScadaPanels() {
+    renderFleetStrip();
+    renderProcessPanels();
+    renderCommTable();
+  }
+
+  // Patch into the refresh cycle
+  const _origRefreshAll = refreshAll;
 
   // ── Init ──
 

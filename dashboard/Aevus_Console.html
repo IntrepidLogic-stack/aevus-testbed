@@ -1605,6 +1605,80 @@ body {
   .row-2 { grid-template-columns: 1fr; }
   .row-2 > .panel:nth-child(3) { grid-column: auto; }
 }
+
+/* ───────────── LIVE SCADA PANELS ───────────── */
+.scada-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 16px; }
+.scada-fleet { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 10px; margin-bottom: 16px; }
+
+.fleet-card {
+  background: var(--bg-card); border: 1px solid var(--border-subtle); border-radius: var(--radius-md);
+  padding: 14px 16px; display: flex; flex-direction: column; gap: 8px; cursor: pointer;
+  transition: border-color 0.2s, box-shadow 0.2s;
+}
+.fleet-card:hover { border-color: var(--accent-dim); box-shadow: 0 0 12px var(--accent-glow); }
+.fleet-card .fc-header { display: flex; align-items: center; justify-content: space-between; }
+.fleet-card .fc-name { font-weight: 600; font-size: 13px; color: var(--text-primary); }
+.fleet-card .fc-id { font-family: var(--font-mono); font-size: 10px; color: var(--text-muted); }
+.fleet-card .fc-health { font-family: var(--font-mono); font-size: 22px; font-weight: 700; }
+.fleet-card .fc-health.good { color: var(--status-good); }
+.fleet-card .fc-health.warn { color: var(--status-warn); }
+.fleet-card .fc-health.bad { color: var(--status-bad); }
+.fleet-card .fc-health.offline { color: var(--status-offline); }
+.fleet-card .fc-status { display: flex; align-items: center; gap: 6px; }
+.fleet-card .fc-dot { width: 7px; height: 7px; border-radius: 50%; }
+.fleet-card .fc-dot.good { background: var(--status-good); box-shadow: 0 0 6px rgba(16,212,120,0.5); }
+.fleet-card .fc-dot.warn { background: var(--status-warn); }
+.fleet-card .fc-dot.bad { background: var(--status-bad); animation: pulse-bad 1.5s infinite; }
+.fleet-card .fc-dot.offline { background: var(--status-offline); }
+.fleet-card .fc-dot.unknown { background: var(--status-unknown); }
+.fleet-card .fc-status-text { font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px; color: var(--text-muted); }
+.fleet-card .fc-meta { font-size: 10px; color: var(--text-faint); }
+.fleet-card .fc-protocol { font-family: var(--font-mono); font-size: 9px; padding: 2px 6px; border-radius: 3px; background: rgba(6,182,212,0.1); color: var(--accent); display: inline-block; }
+
+@keyframes pulse-bad { 0%,100% { opacity: 1; } 50% { opacity: 0.4; } }
+
+.process-panel {
+  background: var(--bg-card); border: 1px solid var(--border-subtle); border-radius: var(--radius-md);
+  padding: 16px; overflow: hidden;
+}
+.process-panel .pp-title {
+  font-size: 11px; font-weight: 600; letter-spacing: 1.2px; text-transform: uppercase;
+  color: var(--text-muted); margin-bottom: 12px; display: flex; align-items: center; gap: 8px;
+}
+.process-panel .pp-title .live-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--status-good); animation: pulse-good 2s infinite; }
+@keyframes pulse-good { 0%,100% { box-shadow: 0 0 0 0 rgba(16,212,120,0.4); } 50% { box-shadow: 0 0 0 4px rgba(16,212,120,0); } }
+
+.vitals-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 8px; }
+.vital-item {
+  background: var(--bg-elevated); border-radius: var(--radius-sm); padding: 10px 12px;
+  border-left: 3px solid transparent;
+}
+.vital-item.good { border-left-color: var(--status-good); }
+.vital-item.warn { border-left-color: var(--status-warn); }
+.vital-item.bad { border-left-color: var(--status-bad); }
+.vital-item .vi-label { font-size: 9px; text-transform: uppercase; letter-spacing: 0.8px; color: var(--text-muted); margin-bottom: 4px; }
+.vital-item .vi-value { font-family: var(--font-mono); font-size: 18px; font-weight: 600; color: var(--text-primary); }
+.vital-item .vi-unit { font-size: 11px; color: var(--text-muted); margin-left: 2px; }
+.vital-item.good .vi-value { color: var(--status-good); }
+.vital-item.warn .vi-value { color: var(--status-warn); }
+.vital-item.bad .vi-value { color: var(--status-bad); }
+
+.comm-table { width: 100%; border-collapse: collapse; }
+.comm-table th {
+  font-size: 9px; text-transform: uppercase; letter-spacing: 0.8px; color: var(--text-muted);
+  text-align: left; padding: 6px 10px; border-bottom: 1px solid var(--border-subtle);
+}
+.comm-table td { font-size: 12px; padding: 8px 10px; border-bottom: 1px solid var(--border-subtle); }
+.comm-table td.mono { font-family: var(--font-mono); font-size: 11px; }
+.comm-table .ct-status { display: inline-flex; align-items: center; gap: 5px; }
+.comm-table .ct-dot { width: 6px; height: 6px; border-radius: 50%; }
+
+.scada-section-title {
+  font-size: 11px; font-weight: 600; letter-spacing: 1.2px; text-transform: uppercase;
+  color: var(--accent); margin: 20px 0 12px; padding-bottom: 8px;
+  border-bottom: 1px solid var(--border-subtle);
+}
+
 </style>
 </head>
 <body>
@@ -1817,6 +1891,15 @@ body {
           </div>
         </div>
       </div>
+
+      <!-- LIVE FLEET STATUS (injected by SCADA engine) -->
+      <div id="scada-fleet-strip" class="scada-fleet" style="display:none;"></div>
+
+      <!-- LIVE PROCESS DATA -->
+      <div id="scada-process-grid" class="scada-grid" style="display:none;"></div>
+
+      <!-- COMMUNICATION STATUS -->
+      <div id="scada-comm-panel" class="process-panel" style="display:none; margin-bottom:16px;"></div>
 
       <!-- ROW 1: Map + Active Alerts -->
       <div class="row-1">

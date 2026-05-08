@@ -153,7 +153,7 @@
     el.style.display = 'grid';
     el.innerHTML = liveAssets.map(a => {
       const hc = hClass(a.status, a.health);
-      return `<div class="fleet-card" onclick="location.hash='#assets'">
+      return `<div class="fleet-card" onclick="window.openAssetDrawer('${a.id}')">
         <div class="fc-header"><div><div class="fc-name">${a.name}</div><div class="fc-id">${a.id} · ${a.vendor||''} ${a.model||''}</div></div><div class="fc-health ${hc}">${a.health!=null?a.health:'—'}</div></div>
         <div class="fc-status"><span class="fc-dot ${hc}"></span><span class="fc-status-text">${a.status||'unknown'}</span><span class="fc-meta">· ${timeAgo(a.last_seen)}</span></div>
         <div><span class="fc-protocol">${protocolMap[a.protocol]||a.protocol||'—'}</span><span class="fc-meta" style="margin-left:6px;">${a.ip_address||''}</span></div>
@@ -244,7 +244,7 @@
     const filtered = typeFilter === 'all' ? liveAssets : liveAssets.filter(a => a.type === typeFilter);
     wrap.innerHTML = `<table class="data-table"><thead><tr><th>ID</th><th>Name</th><th>Type</th><th>Status</th><th>Health</th><th>Protocol</th><th>IP Address</th><th>Last Seen</th><th>Vitals</th></tr></thead><tbody>${filtered.map(a => {
       const topVitals = (a.vitals||[]).slice(0,3).map(v=>v.label+': '+v.value).join(' · ');
-      return `<tr><td class="mono" style="color:var(--accent);font-weight:600;">${a.id}</td><td style="font-weight:500;color:var(--text-primary);">${a.name}</td><td class="mono">${a.type}</td><td>${statusPill(a.status,a.health)}</td><td><div class="health-bar-wrap"><div class="health-bar"><div class="health-bar-fill ${hClass(a.status,a.health)}" style="width:${a.health||0}%"></div></div><span class="health-bar-val" style="color:var(--status-${hClass(a.status,a.health)==='good'?'good':hClass(a.status,a.health)==='warn'?'warn':hClass(a.status,a.health)==='bad'?'bad':'offline'});">${a.health!=null?a.health:'—'}</span></div></td><td class="mono">${protocolMap[a.protocol]||a.protocol||'—'}</td><td class="mono">${a.ip_address||'—'}</td><td class="mono">${timeAgo(a.last_seen)}</td><td style="font-size:10px;color:var(--text-muted);max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${topVitals||'—'}</td></tr>`;
+      return `<tr style="cursor:pointer;" onclick="window.openAssetDrawer('${a.id}')"><td class="mono" style="color:var(--accent);font-weight:600;">${a.id}</td><td style="font-weight:500;color:var(--text-primary);">${a.name}</td><td class="mono">${a.type}</td><td>${statusPill(a.status,a.health)}</td><td><div class="health-bar-wrap"><div class="health-bar"><div class="health-bar-fill ${hClass(a.status,a.health)}" style="width:${a.health||0}%"></div></div><span class="health-bar-val" style="color:var(--status-${hClass(a.status,a.health)==='good'?'good':hClass(a.status,a.health)==='warn'?'warn':hClass(a.status,a.health)==='bad'?'bad':'offline'});">${a.health!=null?a.health:'—'}</span></div></td><td class="mono">${protocolMap[a.protocol]||a.protocol||'—'}</td><td class="mono">${a.ip_address||'—'}</td><td class="mono">${timeAgo(a.last_seen)}</td><td style="font-size:10px;color:var(--text-muted);max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${topVitals||'—'}</td></tr>`;
     }).join('')}</tbody></table>`;
   }
 
@@ -324,7 +324,7 @@
 
     document.getElementById('diag-comm-wrap').innerHTML = `<div style="background:var(--bg-card);border:1px solid var(--border);border-radius:12px;padding:20px;">
       <table class="data-table" style="border:none;"><thead><tr><th>Asset</th><th>Protocol</th><th>IP</th><th>Port</th><th>Status</th><th>Poll Rate</th><th>Last Contact</th></tr></thead><tbody>${liveAssets.map(a => {
-        return `<tr><td class="mono" style="color:var(--accent);font-weight:600;">${a.id}</td><td class="mono">${protocolMap[a.protocol]||a.protocol||'—'}</td><td class="mono">${a.ip_address||'—'}</td><td class="mono">${a.protocol==='modbus'?'5020':a.protocol==='snmp'?'161':'—'}</td><td>${statusPill(a.status,a.health)}</td><td class="mono">${a.poll_interval||'—'}s</td><td class="mono">${timeAgo(a.last_seen)}</td></tr>`;
+        return `<tr style="cursor:pointer;" onclick="window.openAssetDrawer('${a.id}')"><td class="mono" style="color:var(--accent);font-weight:600;">${a.id}</td><td class="mono">${protocolMap[a.protocol]||a.protocol||'—'}</td><td class="mono">${a.ip_address||'—'}</td><td class="mono">${a.protocol==='modbus'?'5020':a.protocol==='snmp'?'161':'—'}</td><td>${statusPill(a.status,a.health)}</td><td class="mono">${a.poll_interval||'—'}s</td><td class="mono">${timeAgo(a.last_seen)}</td></tr>`;
       }).join('')}</tbody></table></div>`;
   }
 
@@ -436,6 +436,141 @@
     `;
   }
 
+
+  // ═══════════════════════════════════════
+  // ASSET DETAIL DRAWER
+  // ═══════════════════════════════════════
+  let drawerOpen = false;
+  let drawerAssetId = null;
+
+  function openAssetDrawer(assetId) {
+    drawerAssetId = assetId;
+    drawerOpen = true;
+    document.getElementById('drawer-overlay').classList.add('open');
+    document.getElementById('asset-drawer').classList.add('open');
+    renderDrawerContent(assetId);
+    fetchJSON('/predictions/' + assetId).then(pred => {
+      if (pred) renderDrawerPrediction(pred);
+    });
+  }
+  window.openAssetDrawer = openAssetDrawer;
+
+  function closeAssetDrawer() {
+    drawerOpen = false;
+    drawerAssetId = null;
+    document.getElementById('drawer-overlay').classList.remove('open');
+    document.getElementById('asset-drawer').classList.remove('open');
+  }
+  window.closeAssetDrawer = closeAssetDrawer;
+
+  document.addEventListener('keydown', e => { if (e.key === 'Escape' && drawerOpen) closeAssetDrawer(); });
+  setTimeout(() => {
+    const cb = document.getElementById('drawer-close-btn');
+    if (cb) cb.addEventListener('click', closeAssetDrawer);
+    const ov = document.getElementById('drawer-overlay');
+    if (ov) ov.addEventListener('click', closeAssetDrawer);
+  }, 200);
+
+  function renderDrawerContent(assetId) {
+    const asset = liveAssets.find(a => a.id === assetId);
+    if (!asset) return;
+    const hc = hClass(asset.status, asset.health);
+    const hCol = hc==='good'?'var(--status-good)':hc==='warn'?'var(--status-warn)':hc==='bad'?'var(--status-bad)':'var(--status-offline)';
+
+    document.getElementById('drawer-name').innerHTML = asset.name + ' ' + statusPill(asset.status, asset.health);
+    document.getElementById('drawer-meta').textContent = asset.id + ' · ' + (asset.vendor||'') + ' ' + (asset.model||'') + ' · ' + (asset.location||'');
+
+    const vitals = (asset.vitals||[]).filter(v => v.unit !== 'bool');
+    const discrete = (asset.vitals||[]).filter(v => v.unit === 'bool');
+    const assetAlerts = liveAlerts.filter(a => a.asset_id === assetId).slice(0, 10);
+
+    let h = '';
+
+    // Summary
+    h += `<div class="drawer-section"><div class="drawer-section-title">
+      <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="9" y1="9" x2="15" y2="9"/><line x1="9" y1="15" x2="15" y2="15"/></svg>
+      DEVICE SUMMARY</div>
+      <div class="drawer-summary-grid">
+        <div class="drawer-summary-item"><div class="drawer-summary-label">Health Score</div><div class="drawer-summary-val" style="color:${hCol};font-size:24px;">${asset.health!=null?asset.health:'—'}</div></div>
+        <div class="drawer-summary-item"><div class="drawer-summary-label">Protocol</div><div class="drawer-summary-val">${protocolMap[asset.protocol]||asset.protocol||'—'}</div></div>
+        <div class="drawer-summary-item"><div class="drawer-summary-label">IP Address</div><div class="drawer-summary-val">${asset.ip_address||'—'}</div></div>
+        <div class="drawer-summary-item"><div class="drawer-summary-label">Poll Interval</div><div class="drawer-summary-val">${asset.poll_interval||'—'}s</div></div>
+        <div class="drawer-summary-item"><div class="drawer-summary-label">Last Seen</div><div class="drawer-summary-val">${timeAgo(asset.last_seen)}</div></div>
+        <div class="drawer-summary-item"><div class="drawer-summary-label">Type</div><div class="drawer-summary-val" style="text-transform:capitalize;">${asset.type||'—'}</div></div>
+      </div></div>`;
+
+    // Live Telemetry
+    if (vitals.length > 0) {
+      h += `<div class="drawer-section"><div class="drawer-section-title"><span class="live-dot"></span> LIVE TELEMETRY</div><div class="drawer-vitals-grid">`;
+      for (const v of vitals) {
+        const raw = parseFloat(v.raw_value);
+        const dv = isNaN(raw) ? v.value : (raw % 1 === 0 ? raw.toFixed(0) : raw.toFixed(1));
+        h += `<div class="drawer-vital ${v.status||''}"><div class="drawer-vital-label">${v.label}</div><div class="drawer-vital-value">${dv}<span class="drawer-vital-unit">${v.unit||''}</span></div></div>`;
+      }
+      h += `</div></div>`;
+    }
+
+    // Discrete Inputs
+    if (discrete.length > 0) {
+      h += `<div class="drawer-section"><div class="drawer-section-title">
+        <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+        DISCRETE INPUTS</div>`;
+      for (const v of discrete) {
+        const isOk = v.value==='OK'||v.value==='STOPPED'||v.raw_value===0;
+        const dc = v.status==='good'?'var(--status-good)':isOk?'var(--text-muted)':'var(--status-bad)';
+        h += `<div class="drawer-discrete-row"><div class="drawer-discrete-dot" style="background:${dc};"></div><div class="drawer-discrete-label">${v.label}</div><div class="drawer-discrete-val" style="color:${dc};">${v.value}</div></div>`;
+      }
+      h += `</div>`;
+    }
+
+    // AI Prediction placeholder
+    h += `<div class="drawer-section" id="drawer-pred-section" style="display:none;"></div>`;
+
+    // Alerts
+    h += `<div class="drawer-section"><div class="drawer-section-title">
+      <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+      ALERTS (${assetAlerts.length})</div>`;
+    if (assetAlerts.length === 0) {
+      h += `<div style="text-align:center;padding:16px;color:var(--text-muted);font-size:12px;">No alerts for this asset</div>`;
+    } else {
+      for (const a of assetAlerts) {
+        const sev = a.severity||'info';
+        const sc = sev==='critical'?'var(--status-bad)':sev==='warning'?'var(--status-warn)':'var(--accent)';
+        h += `<div style="display:flex;align-items:flex-start;gap:10px;padding:10px;border-radius:8px;background:var(--bg-card);border:1px solid var(--border);border-left:3px solid ${sc};margin-bottom:8px;">
+          <div style="flex:1;"><div style="display:flex;align-items:center;gap:6px;margin-bottom:3px;">
+            <span class="severity-badge ${sev}">${sev.toUpperCase()}</span>
+            <span style="font-size:10px;color:var(--text-muted);font-family:var(--font-mono);">${timeAgo(a.detected_at)}</span>
+          </div><div style="font-size:11px;color:var(--text-secondary);">${a.message}</div></div></div>`;
+      }
+    }
+    h += `</div>`;
+
+    document.getElementById('drawer-body').innerHTML = h;
+  }
+
+  function renderDrawerPrediction(pred) {
+    const sec = document.getElementById('drawer-pred-section');
+    if (!sec || !pred) return;
+    sec.style.display = 'block';
+    const rc = pred.risk_score >= 60 ? 'var(--status-bad)' : pred.risk_score >= 30 ? 'var(--status-warn)' : 'var(--status-good)';
+    sec.innerHTML = `<div class="drawer-section-title">
+      <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"/></svg>
+      AI PREDICTION</div>
+      <div style="display:flex;align-items:center;gap:16px;margin-bottom:12px;">
+        <div style="font-family:var(--font-mono);font-size:36px;font-weight:700;color:${rc};">${pred.risk_score}</div>
+        <div style="font-size:12px;color:var(--text-muted);">Risk Score</div>
+      </div>
+      <div class="drawer-summary-grid" style="margin-bottom:12px;">
+        <div class="drawer-summary-item"><div class="drawer-summary-label">Est. Failure</div><div class="drawer-summary-val" style="color:${rc};">${pred.estimated_failure||'—'}</div></div>
+        <div class="drawer-summary-item"><div class="drawer-summary-label">Confidence</div><div class="drawer-summary-val">${pred.confidence_interval||'—'}</div></div>
+      </div>
+      ${pred.primary_drivers && pred.primary_drivers.length > 0 ? '<div style="font-size:9px;text-transform:uppercase;letter-spacing:1px;color:var(--text-muted);margin-bottom:8px;">Risk Drivers</div>' + pred.primary_drivers.map(d => '<div style="display:flex;align-items:center;gap:6px;font-size:12px;color:var(--text-secondary);padding:4px 0;"><span style="width:4px;height:4px;border-radius:50%;background:var(--accent);flex-shrink:0;"></span>' + d + '</div>').join('') : ''}`;
+  }
+
+  function refreshDrawerIfOpen() {
+    if (drawerOpen && drawerAssetId) renderDrawerContent(drawerAssetId);
+  }
+
   // ═══════════════════════════════════════
   // WEBSOCKET
   // ═══════════════════════════════════════
@@ -449,7 +584,7 @@
         if (msg.type === 'asset_update') {
           const d = msg.data, idx = liveAssets.findIndex(a=>a.id===d.asset_id);
           if (idx>=0) { liveAssets[idx].health=d.health; liveAssets[idx].status=d.status; if(d.vitals) liveAssets[idx].vitals=d.vitals; liveAssets[idx].last_seen=d.timestamp; }
-          fetchHealthSummary().then(()=> { const page = location.hash.replace('#','')||'overview'; renderPage(page, true); });
+          fetchHealthSummary().then(()=> { const page = location.hash.replace('#','')||'overview'; renderPage(page, true); refreshDrawerIfOpen(); });
         } else if (msg.type === 'alert_update' && msg.data?.alerts) {
           for(const a of msg.data.alerts) { const i=liveAlerts.findIndex(x=>x.id===a.id); if(i>=0) liveAlerts[i]=a; else liveAlerts.unshift(a); }
           const page = location.hash.replace('#','')||'overview'; renderPage(page, true);

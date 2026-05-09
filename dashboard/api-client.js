@@ -579,27 +579,45 @@
 
     // Vent slots on right
     h += '<div class="chassis-vent">';
-    for (let i = 0; i < 6; i++) h += '<div class="chassis-vent-slot"></div>';
+    for (let i = 0; i < 8; i++) h += '<div class="chassis-vent-slot"></div>';
     h += '</div>';
 
     h += '<div class="chassis-ports-area">';
 
-    // Console port
-    h += '<div style="display:flex;flex-direction:column;align-items:center;gap:1px;margin-right:6px;">';
-    h += '<div class="chassis-inner-label">CON</div>';
-    h += '<div class="wf-aux">RJ45</div>';
+    // System LEDs — vertical column on far left
+    h += '<div style="display:flex;flex-direction:column;align-items:center;gap:6px;margin-right:8px;">';
+    const ledNames = ['SYST','STAT','DUPLX','SPEED'];
+    for (const ln of ledNames) {
+      h += '<div style="display:flex;flex-direction:column;align-items:center;gap:2px;">';
+      h += '<div class="chassis-inner-label" style="margin-bottom:0;">' + ln + '</div>';
+      h += '<div class="rtu-led on" style="width:6px;height:6px;"></div>';
+      h += '</div>';
+    }
     h += '</div>';
 
     h += '<div class="port-section-divider"></div>';
 
-    // 24 FastEthernet ports in 12 columns x 2 rows (top=odd, bottom=even)
-    h += '<div style="display:flex;flex-direction:column;gap:1px;">';
+    // Console port
+    h += '<div style="display:flex;flex-direction:column;align-items:center;gap:2px;margin-right:6px;">';
+    h += '<div class="chassis-inner-label">CONSOLE</div>';
+    h += '<div class="wf-aux" style="border-color:rgba(59,130,246,0.3);color:rgba(59,130,246,0.4);">CON</div>';
+    h += '</div>';
+
+    h += '<div class="port-section-divider"></div>';
+
+    // 24 FastEthernet ports: 3 groups of 8 with dividers
+    h += '<div style="display:flex;flex-direction:column;gap:2px;">';
     h += '<div class="chassis-inner-label" style="margin-left:2px;">10/100 ETHERNET</div>';
-    h += '<div style="display:flex;gap:0;">';
+    h += '<div style="display:flex;gap:0;align-items:center;">';
 
     for (let col = 0; col < 12; col++) {
-      const topNum = col * 2 + 1;   // 1,3,5,...23
-      const botNum = col * 2 + 2;   // 2,4,6,...24
+      // Insert group dividers after port 8 (col 4) and port 16 (col 8)
+      if (col === 4 || col === 8) {
+        h += '<div style="width:2px;height:60px;background:rgba(255,255,255,0.08);margin:0 5px;border-radius:1px;"></div>';
+      }
+
+      const topNum = col * 2 + 1;
+      const botNum = col * 2 + 2;
       const topKey = 'FASTETHERNET0/' + topNum;
       const botKey = 'FASTETHERNET0/' + botNum;
 
@@ -611,11 +629,17 @@
 
     h += '</div></div>';
 
+    // MODE button between main ports and uplinks
+    h += '<div style="display:flex;flex-direction:column;align-items:center;gap:2px;margin:0 6px;">';
+    h += '<div class="chassis-inner-label">MODE</div>';
+    h += '<div class="wf-aux" style="width:28px;height:20px;border-radius:10px;font-size:7px;border-color:rgba(255,255,255,0.12);">&#x25CF;</div>';
+    h += '</div>';
+
     // Uplink section — 2 GigE ports
     h += '<div class="uplink-section">';
-    h += '<div style="display:flex;flex-direction:column;gap:1px;">';
-    h += '<div class="chassis-inner-label">UPLINK</div>';
-    h += '<div style="display:flex;gap:0;">';
+    h += '<div style="display:flex;flex-direction:column;gap:2px;">';
+    h += '<div class="chassis-inner-label">GIG UPLINK</div>';
+    h += '<div style="display:flex;gap:3px;">';
 
     h += '<div class="port-pair-col">';
     h += wfPort('GIGABITETHERNET0/1', 'G1', portMap, portTraffic);
@@ -623,18 +647,6 @@
     h += '</div>';
 
     h += '</div></div></div>';
-
-    // System LEDs row
-    h += '<div style="display:flex;gap:8px;margin-left:8px;align-items:center;">';
-    h += '<div style="display:flex;flex-direction:column;align-items:center;gap:1px;">';
-    h += '<div class="chassis-inner-label">SYST</div>';
-    h += '<div class="rtu-led on"></div>';
-    h += '</div>';
-    h += '<div style="display:flex;flex-direction:column;align-items:center;gap:1px;">';
-    h += '<div class="chassis-inner-label">STAT</div>';
-    h += '<div class="rtu-led on"></div>';
-    h += '</div>';
-    h += '</div>';
 
     h += '</div>'; // chassis-ports-area
     h += '</div>'; // chassis
@@ -647,20 +659,21 @@
     h += '<div class="chassis">';
     h += '<div class="chassis-screw tl"></div><div class="chassis-screw tr"></div><div class="chassis-screw bl"></div><div class="chassis-screw br"></div>';
     h += '<div class="chassis-label">MikroTik</div>';
-    h += '<div class="chassis-model-label">RouterOS &bull; L009</div>';
+    h += '<div class="chassis-model-label">RouterOS &bull; L009UiGS+</div>';
 
     h += '<div class="chassis-ports-area">';
 
-    // Power barrel
-    h += '<div style="display:flex;flex-direction:column;align-items:center;gap:1px;margin-right:4px;">';
-    h += '<div class="chassis-inner-label">DC</div>';
-    h += '<div class="wf-aux" style="border-radius:50%;width:16px;height:16px;"></div>';
-    h += '</div>';
+    // DC barrel jack
+    h += '<div style="display:flex;flex-direction:column;align-items:center;gap:2px;margin-right:4px;">';
+    h += '<div class="chassis-inner-label">DC IN</div>';
+    h += '<div class="wf-aux" style="border-radius:50%;width:22px;height:22px;border-width:2px;">';
+    h += '<div style="width:6px;height:6px;border-radius:50%;border:1px solid rgba(255,255,255,0.1);"></div>';
+    h += '</div></div>';
 
     h += '<div class="port-section-divider"></div>';
 
-    // 8 Ethernet ports in a row
-    h += '<div style="display:flex;flex-direction:column;gap:1px;">';
+    // 8 Ethernet ports in a single row, each labeled 1-8
+    h += '<div style="display:flex;flex-direction:column;gap:2px;">';
     h += '<div class="chassis-inner-label">ETHERNET</div>';
     h += '<div class="port-bank">';
     for (let i = 1; i <= 8; i++) {
@@ -670,30 +683,33 @@
 
     h += '<div class="port-section-divider"></div>';
 
-    // SFP cage
-    h += '<div style="display:flex;flex-direction:column;gap:1px;">';
-    h += '<div class="chassis-inner-label">SFP</div>';
+    // SFP+ cage — taller than regular ports
+    h += '<div style="display:flex;flex-direction:column;gap:2px;">';
+    h += '<div class="chassis-inner-label">SFP+</div>';
     const sfpData = portMap['SFP1'];
-    const sfpCls = sfpData ? (sfpData.status === 1 ? 'up' : sfpData.status === 6 ? 'unused' : 'unused') : 'unused';
-    h += '<div class="wf-port sfp ' + sfpCls + '" title="SFP1">SFP</div>';
+    const sfpCls = sfpData ? (sfpData.status === 1 ? 'up' : 'unused') : 'unused';
+    h += '<div class="wf-port sfp ' + sfpCls + '" title="SFP-SFPPLUS1">SFP+</div>';
     h += '</div>';
 
     h += '<div class="port-section-divider"></div>';
 
-    // Reset button
-    h += '<div style="display:flex;flex-direction:column;align-items:center;gap:1px;">';
+    // Reset pinhole
+    h += '<div style="display:flex;flex-direction:column;align-items:center;gap:2px;">';
     h += '<div class="chassis-inner-label">RST</div>';
-    h += '<div class="wf-aux" style="border-radius:50%;width:12px;height:12px;font-size:5px;">&#x25CF;</div>';
+    h += '<div class="wf-aux" style="border-radius:50%;width:14px;height:14px;font-size:6px;">&#x25CB;</div>';
     h += '</div>';
 
-    // Virtual interfaces indicator
-    h += '<div style="display:flex;flex-direction:column;gap:1px;margin-left:12px;">';
-    h += '<div class="chassis-inner-label">VIRTUAL</div>';
-    h += '<div class="port-bank">';
-    h += wfPort('LO', 'Lo', portMap, portTraffic);
-    h += wfPort('BRIDGELOCAL', 'BR', portMap, portTraffic);
-    h += wfPort('WG-AEVUS', 'WG', portMap, portTraffic);
-    h += '</div></div>';
+    // Power LED, USR LED
+    h += '<div style="display:flex;flex-direction:column;gap:4px;margin-left:10px;">';
+    h += '<div style="display:flex;align-items:center;gap:4px;">';
+    h += '<div class="rtu-led on"></div>';
+    h += '<div class="chassis-inner-label" style="margin-bottom:0;">PWR</div>';
+    h += '</div>';
+    h += '<div style="display:flex;align-items:center;gap:4px;">';
+    h += '<div class="rtu-led off"></div>';
+    h += '<div class="chassis-inner-label" style="margin-bottom:0;">USR</div>';
+    h += '</div>';
+    h += '</div>';
 
     h += '</div>'; // chassis-ports-area
     h += '</div>'; // chassis
@@ -702,80 +718,144 @@
 
   // ── SCADAPack 470 Wireframe ────────────────────────────
   function renderSCADAPakChassis(asset) {
+    const isOnline = asset.status === 'good' || asset.status === 'warn';
+    const greenBorder = 'rgba(34,197,94,0.4)';
+    const greenBg = 'rgba(34,197,94,0.08)';
+    const greenScrew = 'rgba(34,197,94,0.5)';
     let h = '';
     h += '<div class="chassis rtu-chassis">';
     h += '<div class="chassis-screw tl"></div><div class="chassis-screw tr"></div><div class="chassis-screw bl"></div><div class="chassis-screw br"></div>';
     h += '<div class="chassis-label">SCHNEIDER ELECTRIC</div>';
     h += '<div class="chassis-model-label">SCADAPack 470</div>';
 
-    h += '<div class="chassis-ports-area">';
+    h += '<div class="chassis-ports-area" style="flex-wrap:wrap;">';
 
-    // DIN rail mount indicator
-    h += '<div style="display:flex;flex-direction:column;align-items:center;gap:1px;margin-right:4px;">';
-    h += '<div class="chassis-inner-label">DIN</div>';
-    h += '<div style="width:6px;height:36px;background:rgba(59,130,246,0.15);border-radius:2px;border:1px solid rgba(59,130,246,0.2);"></div>';
-    h += '</div>';
-
-    h += '<div class="port-section-divider" style="border-color:rgba(59,130,246,0.15);"></div>';
-
-    // Power terminals
-    h += '<div style="display:flex;flex-direction:column;gap:1px;">';
+    // Power terminals (V+, V-, GND) — green terminal blocks
+    h += '<div style="display:flex;flex-direction:column;gap:2px;">';
     h += '<div class="chassis-inner-label">POWER</div>';
     h += '<div class="rtu-terminal-block">';
-    h += '<div class="rtu-terminal"><div class="rtu-terminal-screw"></div></div>';
-    h += '<div class="rtu-terminal"><div class="rtu-terminal-screw"></div></div>';
-    h += '<div class="rtu-terminal" style="border-color:rgba(16,185,129,0.3);"><div class="rtu-terminal-screw" style="border-color:rgba(16,185,129,0.3);"></div></div>';
+    const pwrLabels = ['V+','V-','GND'];
+    for (const pl of pwrLabels) {
+      h += '<div class="rtu-terminal" style="border-color:' + greenBorder + ';background:' + greenBg + ';">';
+      h += '<div class="rtu-terminal-screw" style="border-color:' + greenScrew + ';background:rgba(34,197,94,0.12);"></div>';
+      h += '</div>';
+    }
+    h += '</div>';
+    h += '<div style="display:flex;gap:3px;margin-top:2px;">';
+    for (const pl of pwrLabels) {
+      h += '<div style="width:20px;text-align:center;font-size:7px;color:rgba(34,197,94,0.6);font-family:var(--font-mono);">' + pl + '</div>';
+    }
     h += '</div></div>';
 
     h += '<div class="port-section-divider" style="border-color:rgba(59,130,246,0.15);"></div>';
 
-    // RS-232/485 serial
-    h += '<div style="display:flex;flex-direction:column;gap:1px;">';
+    // COM1, COM2 serial ports (RS-232/485)
+    h += '<div style="display:flex;flex-direction:column;gap:2px;">';
     h += '<div class="chassis-inner-label">SERIAL</div>';
-    h += '<div class="rtu-terminal-block">';
-    for (let i = 0; i < 6; i++) {
-      h += '<div class="rtu-terminal"><div class="rtu-terminal-screw"></div></div>';
+    h += '<div style="display:flex;gap:4px;">';
+    for (let c = 1; c <= 2; c++) {
+      h += '<div style="display:flex;flex-direction:column;align-items:center;gap:2px;">';
+      h += '<div class="wf-aux" style="width:40px;height:24px;border-color:rgba(59,130,246,0.25);font-size:8px;color:rgba(59,130,246,0.4);">COM' + c + '</div>';
+      h += '</div>';
     }
     h += '</div></div>';
 
     h += '<div class="port-section-divider" style="border-color:rgba(59,130,246,0.15);"></div>';
 
     // Ethernet port
-    h += '<div style="display:flex;flex-direction:column;gap:1px;">';
+    h += '<div style="display:flex;flex-direction:column;gap:2px;">';
     h += '<div class="chassis-inner-label">ETHERNET</div>';
-    const isOnline = asset.status === 'good' || asset.status === 'warn';
-    h += '<div class="wf-port ' + (isOnline ? 'up' : 'down') + '" title="Modbus TCP" style="height:20px;">ETH</div>';
+    h += '<div class="wf-port ' + (isOnline ? 'up' : 'down') + '" title="Modbus TCP">ETH</div>';
     h += '</div>';
 
     h += '<div class="port-section-divider" style="border-color:rgba(59,130,246,0.15);"></div>';
 
-    // Analog/Digital I/O terminal blocks
-    h += '<div style="display:flex;flex-direction:column;gap:1px;">';
-    h += '<div class="chassis-inner-label">ANALOG I/O</div>';
+    // 8 Analog Inputs (AI1-AI8)
+    h += '<div style="display:flex;flex-direction:column;gap:2px;">';
+    h += '<div class="chassis-inner-label">ANALOG IN</div>';
     h += '<div class="rtu-terminal-block">';
-    for (let i = 0; i < 10; i++) {
-      h += '<div class="rtu-terminal"><div class="rtu-terminal-screw"></div></div>';
+    for (let i = 1; i <= 8; i++) {
+      h += '<div class="rtu-terminal" style="border-color:' + greenBorder + ';background:' + greenBg + ';">';
+      h += '<div class="rtu-terminal-screw" style="border-color:' + greenScrew + ';background:rgba(34,197,94,0.12);"></div>';
+      h += '</div>';
+    }
+    h += '</div>';
+    h += '<div style="display:flex;gap:3px;margin-top:1px;">';
+    for (let i = 1; i <= 8; i++) {
+      h += '<div style="width:20px;text-align:center;font-size:6px;color:rgba(34,197,94,0.5);font-family:var(--font-mono);">AI' + i + '</div>';
     }
     h += '</div></div>';
 
     h += '<div class="port-section-divider" style="border-color:rgba(59,130,246,0.15);"></div>';
 
-    h += '<div style="display:flex;flex-direction:column;gap:1px;">';
-    h += '<div class="chassis-inner-label">DISCRETE I/O</div>';
+    // 4 Analog Outputs (AO1-AO4)
+    h += '<div style="display:flex;flex-direction:column;gap:2px;">';
+    h += '<div class="chassis-inner-label">ANALOG OUT</div>';
     h += '<div class="rtu-terminal-block">';
-    for (let i = 0; i < 8; i++) {
-      h += '<div class="rtu-terminal"><div class="rtu-terminal-screw"></div></div>';
+    for (let i = 1; i <= 4; i++) {
+      h += '<div class="rtu-terminal" style="border-color:' + greenBorder + ';background:' + greenBg + ';">';
+      h += '<div class="rtu-terminal-screw" style="border-color:' + greenScrew + ';background:rgba(34,197,94,0.12);"></div>';
+      h += '</div>';
+    }
+    h += '</div>';
+    h += '<div style="display:flex;gap:3px;margin-top:1px;">';
+    for (let i = 1; i <= 4; i++) {
+      h += '<div style="width:20px;text-align:center;font-size:6px;color:rgba(34,197,94,0.5);font-family:var(--font-mono);">AO' + i + '</div>';
     }
     h += '</div></div>';
 
-    // Status LEDs
-    h += '<div style="display:flex;flex-direction:column;gap:3px;margin-left:12px;">';
-    h += '<div class="chassis-inner-label">STATUS</div>';
-    h += '<div style="display:flex;gap:4px;">';
-    h += '<div class="rtu-led ' + (isOnline ? 'on' : 'off') + '" title="RUN"></div>';
-    h += '<div class="rtu-led on" title="PWR"></div>';
-    h += '<div class="rtu-led ' + (isOnline ? 'on' : 'off') + '" title="COM"></div>';
+    h += '<div class="port-section-divider" style="border-color:rgba(59,130,246,0.15);"></div>';
+
+    // 8 Digital Inputs (DI1-DI8)
+    h += '<div style="display:flex;flex-direction:column;gap:2px;">';
+    h += '<div class="chassis-inner-label">DIGITAL IN</div>';
+    h += '<div class="rtu-terminal-block">';
+    for (let i = 1; i <= 8; i++) {
+      h += '<div class="rtu-terminal" style="border-color:' + greenBorder + ';background:' + greenBg + ';">';
+      h += '<div class="rtu-terminal-screw" style="border-color:' + greenScrew + ';background:rgba(34,197,94,0.12);"></div>';
+      h += '</div>';
+    }
+    h += '</div>';
+    h += '<div style="display:flex;gap:3px;margin-top:1px;">';
+    for (let i = 1; i <= 8; i++) {
+      h += '<div style="width:20px;text-align:center;font-size:6px;color:rgba(34,197,94,0.5);font-family:var(--font-mono);">DI' + i + '</div>';
+    }
     h += '</div></div>';
+
+    h += '<div class="port-section-divider" style="border-color:rgba(59,130,246,0.15);"></div>';
+
+    // 4 Digital Outputs (DO1-DO4)
+    h += '<div style="display:flex;flex-direction:column;gap:2px;">';
+    h += '<div class="chassis-inner-label">DIGITAL OUT</div>';
+    h += '<div class="rtu-terminal-block">';
+    for (let i = 1; i <= 4; i++) {
+      h += '<div class="rtu-terminal" style="border-color:' + greenBorder + ';background:' + greenBg + ';">';
+      h += '<div class="rtu-terminal-screw" style="border-color:' + greenScrew + ';background:rgba(34,197,94,0.12);"></div>';
+      h += '</div>';
+    }
+    h += '</div>';
+    h += '<div style="display:flex;gap:3px;margin-top:1px;">';
+    for (let i = 1; i <= 4; i++) {
+      h += '<div style="width:20px;text-align:center;font-size:6px;color:rgba(34,197,94,0.5);font-family:var(--font-mono);">DO' + i + '</div>';
+    }
+    h += '</div></div>';
+
+    // Status LEDs: RUN, PWR, COM, ERR
+    h += '<div style="display:flex;flex-direction:column;gap:4px;margin-left:12px;">';
+    h += '<div class="chassis-inner-label">STATUS</div>';
+    const rtuLeds = [
+      {n:'RUN', on: isOnline},
+      {n:'PWR', on: true},
+      {n:'COM', on: isOnline},
+      {n:'ERR', on: false}
+    ];
+    for (const led of rtuLeds) {
+      h += '<div style="display:flex;align-items:center;gap:4px;">';
+      h += '<div class="rtu-led ' + (led.on ? 'on' : 'off') + '"' + (led.n === 'ERR' && !led.on ? ' style="background:rgba(239,68,68,0.15);"' : '') + '></div>';
+      h += '<div style="font-size:7px;color:var(--text-muted);font-family:var(--font-mono);">' + led.n + '</div>';
+      h += '</div>';
+    }
+    h += '</div>';
 
     h += '</div>'; // chassis-ports-area
     h += '</div>'; // chassis
@@ -793,47 +873,76 @@
 
     h += '<div class="chassis-ports-area">';
 
-    // Antenna N-type connector
-    h += '<div style="display:flex;flex-direction:column;align-items:center;gap:1px;">';
+    // N-type antenna connector (larger SVG ~36px)
+    h += '<div style="display:flex;flex-direction:column;align-items:center;gap:2px;">';
     h += '<div class="chassis-inner-label">ANT</div>';
-    h += '<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="rgba(168,85,247,0.5)" stroke-width="1.5"><circle cx="12" cy="12" r="8"/><circle cx="12" cy="12" r="3"/><circle cx="12" cy="12" r="1" fill="rgba(168,85,247,0.5)"/></svg>';
+    h += '<svg width="36" height="36" viewBox="0 0 36 36" fill="none" stroke="rgba(168,85,247,0.5)" stroke-width="1.5">';
+    h += '<circle cx="18" cy="18" r="14"/>';
+    h += '<circle cx="18" cy="18" r="8"/>';
+    h += '<circle cx="18" cy="18" r="3"/>';
+    h += '<circle cx="18" cy="18" r="1" fill="rgba(168,85,247,0.5)"/>';
+    h += '</svg>';
     h += '</div>';
 
     h += '<div class="port-section-divider" style="border-color:rgba(168,85,247,0.15);"></div>';
 
-    // Power
-    h += '<div style="display:flex;flex-direction:column;align-items:center;gap:1px;">';
+    // Green power terminal block (V+, V-)
+    h += '<div style="display:flex;flex-direction:column;align-items:center;gap:2px;">';
     h += '<div class="chassis-inner-label">PWR</div>';
     h += '<div class="rtu-terminal-block">';
-    h += '<div class="rtu-terminal" style="border-color:rgba(168,85,247,0.2);"><div class="rtu-terminal-screw" style="border-color:rgba(168,85,247,0.3);"></div></div>';
-    h += '<div class="rtu-terminal" style="border-color:rgba(168,85,247,0.2);"><div class="rtu-terminal-screw" style="border-color:rgba(168,85,247,0.3);"></div></div>';
+    h += '<div class="rtu-terminal" style="border-color:rgba(34,197,94,0.4);background:rgba(34,197,94,0.08);"><div class="rtu-terminal-screw" style="border-color:rgba(34,197,94,0.5);background:rgba(34,197,94,0.12);"></div></div>';
+    h += '<div class="rtu-terminal" style="border-color:rgba(34,197,94,0.4);background:rgba(34,197,94,0.08);"><div class="rtu-terminal-screw" style="border-color:rgba(34,197,94,0.5);background:rgba(34,197,94,0.12);"></div></div>';
+    h += '</div>';
+    h += '<div style="display:flex;gap:3px;">';
+    h += '<div style="width:20px;text-align:center;font-size:7px;color:rgba(34,197,94,0.6);font-family:var(--font-mono);">V+</div>';
+    h += '<div style="width:20px;text-align:center;font-size:7px;color:rgba(34,197,94,0.6);font-family:var(--font-mono);">V-</div>';
     h += '</div></div>';
 
     h += '<div class="port-section-divider" style="border-color:rgba(168,85,247,0.15);"></div>';
 
-    // Serial port
-    h += '<div style="display:flex;flex-direction:column;align-items:center;gap:1px;">';
+    // DB9 serial port — D-shaped trapezoid
+    h += '<div style="display:flex;flex-direction:column;align-items:center;gap:2px;">';
     h += '<div class="chassis-inner-label">SERIAL</div>';
-    h += '<div class="wf-aux" style="width:32px;">DB9</div>';
+    h += '<svg width="44" height="28" viewBox="0 0 44 28" fill="none">';
+    h += '<path d="M6,2 L38,2 C40,2 42,4 42,6 L40,22 C40,24 38,26 36,26 L8,26 C6,26 4,24 4,22 L2,6 C2,4 4,2 6,2 Z" stroke="rgba(168,85,247,0.4)" stroke-width="1.5" fill="rgba(168,85,247,0.05)"/>';
+    h += '<text x="22" y="17" text-anchor="middle" fill="rgba(168,85,247,0.5)" font-size="8" font-family="var(--font-mono)">DB9</text>';
+    h += '</svg>';
     h += '</div>';
 
     h += '<div class="port-section-divider" style="border-color:rgba(168,85,247,0.15);"></div>';
 
-    // Ethernet
-    h += '<div style="display:flex;flex-direction:column;align-items:center;gap:1px;">';
+    // 2x RJ45 serial ports (Serial A, Serial B)
+    h += '<div style="display:flex;flex-direction:column;gap:2px;">';
+    h += '<div class="chassis-inner-label">SERIAL A/B</div>';
+    h += '<div style="display:flex;gap:3px;">';
+    h += '<div class="wf-aux" style="width:42px;border-color:rgba(168,85,247,0.2);color:rgba(168,85,247,0.35);font-size:8px;">SER-A</div>';
+    h += '<div class="wf-aux" style="width:42px;border-color:rgba(168,85,247,0.2);color:rgba(168,85,247,0.35);font-size:8px;">SER-B</div>';
+    h += '</div></div>';
+
+    h += '<div class="port-section-divider" style="border-color:rgba(168,85,247,0.15);"></div>';
+
+    // Ethernet RJ45
+    h += '<div style="display:flex;flex-direction:column;gap:2px;">';
     h += '<div class="chassis-inner-label">ETH</div>';
-    h += '<div class="wf-port ' + (isOnline ? 'up' : 'down') + '" title="Ethernet" style="height:20px;">RJ45</div>';
+    h += '<div class="wf-port ' + (isOnline ? 'up' : 'down') + '" title="Ethernet">RJ45</div>';
     h += '</div>';
 
-    // LEDs
-    h += '<div style="display:flex;flex-direction:column;gap:3px;margin-left:12px;">';
+    // LEDs: PWR, LINK, TX, RX
+    h += '<div style="display:flex;flex-direction:column;gap:4px;margin-left:12px;">';
     h += '<div class="chassis-inner-label">STATUS</div>';
-    h += '<div style="display:flex;gap:4px;">';
-    h += '<div class="rtu-led ' + (isOnline ? 'on' : 'off') + '" title="PWR"></div>';
-    h += '<div class="rtu-led ' + (isOnline ? 'on' : 'off') + '" title="LINK"></div>';
-    h += '<div class="rtu-led off" title="TX"></div>';
-    h += '<div class="rtu-led off" title="RX"></div>';
-    h += '</div></div>';
+    const radioLeds = [
+      {n:'PWR', on: isOnline},
+      {n:'LINK', on: isOnline},
+      {n:'TX', on: false},
+      {n:'RX', on: false}
+    ];
+    for (const led of radioLeds) {
+      h += '<div style="display:flex;align-items:center;gap:4px;">';
+      h += '<div class="rtu-led ' + (led.on ? 'on' : 'off') + '"></div>';
+      h += '<div style="font-size:7px;color:var(--text-muted);font-family:var(--font-mono);">' + led.n + '</div>';
+      h += '</div>';
+    }
+    h += '</div>';
 
     h += '</div>'; // chassis-ports-area
     h += '</div>'; // chassis
@@ -852,52 +961,78 @@
     h += '<div class="chassis-ports-area">';
 
     // USB-C power
-    h += '<div style="display:flex;flex-direction:column;align-items:center;gap:1px;">';
+    h += '<div style="display:flex;flex-direction:column;align-items:center;gap:2px;">';
     h += '<div class="chassis-inner-label">PWR</div>';
-    h += '<div class="wf-aux" style="width:18px;border-radius:4px;">C</div>';
+    h += '<div class="wf-aux" style="width:24px;height:14px;border-radius:6px;font-size:7px;border-color:rgba(236,72,153,0.3);color:rgba(236,72,153,0.4);">USB-C</div>';
     h += '</div>';
 
     h += '<div class="port-section-divider" style="border-color:rgba(236,72,153,0.15);"></div>';
 
-    // HDMI ports
-    h += '<div style="display:flex;flex-direction:column;align-items:center;gap:1px;">';
+    // 2x micro-HDMI ports
+    h += '<div style="display:flex;flex-direction:column;align-items:center;gap:2px;">';
     h += '<div class="chassis-inner-label">HDMI</div>';
-    h += '<div style="display:flex;gap:2px;">';
-    h += '<div class="wf-aux" style="width:20px;font-size:5px;">H0</div>';
-    h += '<div class="wf-aux" style="width:20px;font-size:5px;">H1</div>';
+    h += '<div style="display:flex;gap:3px;">';
+    h += '<div class="wf-aux" style="width:28px;height:16px;font-size:7px;border-color:rgba(236,72,153,0.2);color:rgba(236,72,153,0.3);">H0</div>';
+    h += '<div class="wf-aux" style="width:28px;height:16px;font-size:7px;border-color:rgba(236,72,153,0.2);color:rgba(236,72,153,0.3);">H1</div>';
     h += '</div></div>';
 
     h += '<div class="port-section-divider" style="border-color:rgba(236,72,153,0.15);"></div>';
 
-    // Ethernet
-    h += '<div style="display:flex;flex-direction:column;align-items:center;gap:1px;">';
+    // CSI camera connector (thin slot)
+    h += '<div style="display:flex;flex-direction:column;align-items:center;gap:2px;">';
+    h += '<div class="chassis-inner-label">CSI</div>';
+    h += '<div style="width:36px;height:6px;border:1px solid rgba(236,72,153,0.2);border-radius:1px;background:rgba(236,72,153,0.04);"></div>';
+    h += '</div>';
+
+    h += '<div class="port-section-divider" style="border-color:rgba(236,72,153,0.15);"></div>';
+
+    // Ethernet RJ45 with activity LEDs
+    h += '<div style="display:flex;flex-direction:column;align-items:center;gap:2px;">';
     h += '<div class="chassis-inner-label">ETH</div>';
-    h += '<div class="wf-port ' + (isOnline ? 'up' : 'down') + '" title="Ethernet" style="height:20px;">RJ45</div>';
-    h += '</div>';
+    h += '<div style="position:relative;">';
+    h += '<div class="wf-port ' + (isOnline ? 'up' : 'down') + '" title="Ethernet" style="height:32px;">RJ45</div>';
+    h += '<div style="position:absolute;top:-2px;left:2px;display:flex;gap:2px;">';
+    h += '<div style="width:4px;height:4px;border-radius:50;background:' + (isOnline ? 'rgba(245,158,11,0.8)' : 'rgba(255,255,255,0.1)') + ';"></div>';
+    h += '<div style="width:4px;height:4px;border-radius:50%;background:' + (isOnline ? 'var(--status-good)' : 'rgba(255,255,255,0.1)') + ';"></div>';
+    h += '</div></div></div>';
 
     h += '<div class="port-section-divider" style="border-color:rgba(236,72,153,0.15);"></div>';
 
-    // USB ports
-    h += '<div style="display:flex;flex-direction:column;align-items:center;gap:1px;">';
+    // USB ports: 2x USB 3.0 (blue border) stacked, 2x USB 2.0 (gray border) stacked
+    h += '<div style="display:flex;flex-direction:column;align-items:center;gap:2px;">';
     h += '<div class="chassis-inner-label">USB</div>';
-    h += '<div style="display:flex;gap:2px;">';
+    h += '<div style="display:flex;gap:4px;">';
     h += '<div class="port-pair-col">';
-    h += '<div class="wf-aux" style="width:20px;font-size:5px;">3.0</div>';
-    h += '<div class="wf-aux" style="width:20px;font-size:5px;">3.0</div>';
+    h += '<div class="wf-aux" style="width:28px;height:18px;font-size:7px;border-color:rgba(59,130,246,0.5);color:rgba(59,130,246,0.5);">3.0</div>';
+    h += '<div class="wf-aux" style="width:28px;height:18px;font-size:7px;border-color:rgba(59,130,246,0.5);color:rgba(59,130,246,0.5);">3.0</div>';
     h += '</div>';
     h += '<div class="port-pair-col">';
-    h += '<div class="wf-aux" style="width:20px;font-size:5px;">2.0</div>';
-    h += '<div class="wf-aux" style="width:20px;font-size:5px;">2.0</div>';
+    h += '<div class="wf-aux" style="width:28px;height:18px;font-size:7px;border-color:rgba(255,255,255,0.12);color:rgba(255,255,255,0.2);">2.0</div>';
+    h += '<div class="wf-aux" style="width:28px;height:18px;font-size:7px;border-color:rgba(255,255,255,0.12);color:rgba(255,255,255,0.2);">2.0</div>';
     h += '</div>';
     h += '</div></div>';
 
-    // LED indicators
-    h += '<div style="display:flex;flex-direction:column;gap:3px;margin-left:12px;">';
-    h += '<div class="chassis-inner-label">LED</div>';
-    h += '<div style="display:flex;gap:4px;">';
-    h += '<div class="rtu-led on" title="PWR" style="background:var(--status-bad);box-shadow:0 0 6px var(--status-bad);"></div>';
-    h += '<div class="rtu-led ' + (isOnline ? 'on' : 'off') + '" title="ACT"></div>';
+    h += '<div class="port-section-divider" style="border-color:rgba(236,72,153,0.15);"></div>';
+
+    // GPIO 40-pin header (thin long rectangle on top edge)
+    h += '<div style="display:flex;flex-direction:column;align-items:center;gap:2px;">';
+    h += '<div class="chassis-inner-label">GPIO</div>';
+    h += '<div style="width:80px;height:10px;border:1px solid rgba(236,72,153,0.25);border-radius:2px;background:rgba(236,72,153,0.04);display:flex;align-items:center;justify-content:center;">';
+    h += '<div style="font-size:6px;color:rgba(236,72,153,0.35);font-family:var(--font-mono);">40-PIN</div>';
     h += '</div></div>';
+
+    // LED indicators: PWR (red), ACT (green)
+    h += '<div style="display:flex;flex-direction:column;gap:4px;margin-left:10px;">';
+    h += '<div class="chassis-inner-label">LED</div>';
+    h += '<div style="display:flex;align-items:center;gap:4px;">';
+    h += '<div class="rtu-led on" title="PWR" style="background:var(--status-bad);box-shadow:0 0 6px var(--status-bad);"></div>';
+    h += '<div style="font-size:7px;color:var(--text-muted);font-family:var(--font-mono);">PWR</div>';
+    h += '</div>';
+    h += '<div style="display:flex;align-items:center;gap:4px;">';
+    h += '<div class="rtu-led ' + (isOnline ? 'on' : 'off') + '" title="ACT"></div>';
+    h += '<div style="font-size:7px;color:var(--text-muted);font-family:var(--font-mono);">ACT</div>';
+    h += '</div>';
+    h += '</div>';
 
     h += '</div>'; // chassis-ports-area
     h += '</div>'; // chassis

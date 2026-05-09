@@ -340,48 +340,192 @@
   // ═══════════════════════════════════════
   // PAGE: TRENDS
   // ═══════════════════════════════════════
+
+  // SCADA metric categories with domain-specific colors
+  const TREND_CATEGORIES = [
+    {
+      id: 'process', label: 'Process',
+      color: '#10B981', colorDim: 'rgba(16,185,129,0.12)', borderColor: 'rgba(16,185,129,0.3)',
+      icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>',
+      metrics: [
+        { key: 'suction_pressure', label: 'Suction Press', unit: 'PSI', asset: 'RTU-01' },
+        { key: 'discharge_pressure', label: 'Discharge Press', unit: 'PSI', asset: 'RTU-01' },
+        { key: 'casing_pressure', label: 'Casing Press', unit: 'PSI', asset: 'RTU-01' },
+        { key: 'tubing_pressure', label: 'Tubing Press', unit: 'PSI', asset: 'RTU-01' },
+        { key: 'flow_rate', label: 'Flow Rate', unit: 'MCFD', asset: 'RTU-01' },
+        { key: 'oil_production', label: 'Oil Production', unit: 'BOPD', asset: 'RTU-01' },
+      ]
+    },
+    {
+      id: 'mechanical', label: 'Mechanical',
+      color: '#F59E0B', colorDim: 'rgba(245,158,11,0.12)', borderColor: 'rgba(245,158,11,0.3)',
+      icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>',
+      metrics: [
+        { key: 'vibration', label: 'Vibration', unit: 'mm/s', asset: 'RTU-01' },
+        { key: 'motor_current', label: 'Motor Current', unit: 'A', asset: 'RTU-01' },
+        { key: 'compressor_rpm', label: 'Compressor RPM', unit: 'RPM', asset: 'RTU-01' },
+        { key: 'oil_pressure', label: 'Oil Pressure', unit: 'PSI', asset: 'RTU-01' },
+        { key: 'run_hours', label: 'Run Hours', unit: 'hrs', asset: 'RTU-01' },
+      ]
+    },
+    {
+      id: 'thermal', label: 'Thermal',
+      color: '#EF4444', colorDim: 'rgba(239,68,68,0.12)', borderColor: 'rgba(239,68,68,0.3)',
+      icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M14 14.76V3.5a2.5 2.5 0 0 0-5 0v11.26a4.5 4.5 0 1 0 5 0z"/></svg>',
+      metrics: [
+        { key: 'gas_temp', label: 'Gas Temp', unit: '°F', asset: 'RTU-01' },
+        { key: 'interstage_temp', label: 'Interstage', unit: '°F', asset: 'RTU-01' },
+        { key: 'coolant_temp', label: 'Coolant', unit: '°F', asset: 'RTU-01' },
+        { key: 'ambient_temp', label: 'Ambient', unit: '°F', asset: 'RTU-01' },
+      ]
+    },
+    {
+      id: 'power', label: 'Power & Levels',
+      color: '#A855F7', colorDim: 'rgba(168,85,247,0.12)', borderColor: 'rgba(168,85,247,0.3)',
+      icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/></svg>',
+      metrics: [
+        { key: 'battery_voltage', label: 'Battery', unit: 'VDC', asset: 'RTU-01' },
+        { key: 'solar_voltage', label: 'Solar', unit: 'VDC', asset: 'RTU-01' },
+        { key: 'separator_level', label: 'Separator Lvl', unit: '%', asset: 'RTU-01' },
+        { key: 'oil_tank_level', label: 'Oil Tank Lvl', unit: 'in', asset: 'RTU-01' },
+        { key: 'water_tank_level', label: 'Water Tank Lvl', unit: 'in', asset: 'RTU-01' },
+      ]
+    },
+    {
+      id: 'network', label: 'Network & Comm',
+      color: '#3B82F6', colorDim: 'rgba(59,130,246,0.12)', borderColor: 'rgba(59,130,246,0.3)',
+      icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M5 12.55a11 11 0 0 1 14 0"/><path d="M1.42 9a16 16 0 0 1 21.16 0"/><path d="M8.53 16.11a6 6 0 0 1 6.95 0"/><line x1="12" y1="20" x2="12.01" y2="20"/></svg>',
+      metrics: [
+        { key: 'cpu_load', label: 'CPU Load', unit: '%', asset: null },
+        { key: 'memory', label: 'Memory', unit: '%', asset: null },
+        { key: 'rssi', label: 'Radio RSSI', unit: 'dBm', asset: null },
+        { key: 'snr', label: 'Radio SNR', unit: 'dB', asset: null },
+      ]
+    },
+    {
+      id: 'safety', label: 'Safety & Gas',
+      color: '#06B6D4', colorDim: 'rgba(6,182,212,0.12)', borderColor: 'rgba(6,182,212,0.3)',
+      icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>',
+      metrics: [
+        { key: 'h2s', label: 'H₂S', unit: 'PPM', asset: 'RTU-01' },
+        { key: 'lel', label: 'LEL', unit: '%LEL', asset: 'RTU-01' },
+        { key: 'water_cut', label: 'Water Cut', unit: '%', asset: 'RTU-01' },
+      ]
+    },
+  ];
+
+  let currentTrendCategory = 'process';
+  let trendChartData = {}; // { metricKey: [ {time,value,asset_id} ] }
+
   async function renderTrendsPage() {
-    const metrics = ['cpu_load','memory','uptime'];
     const bar = document.getElementById('trend-metric-bar');
-    bar.innerHTML = metrics.map(m => `<button class="filter-btn ${m===currentTrendMetric?'active':''}" data-metric="${m}">${m.replace(/_/g,' ').toUpperCase()}</button>`).join('');
+    bar.innerHTML = TREND_CATEGORIES.map(cat =>
+      `<button class="filter-btn ${cat.id===currentTrendCategory?'active':''}" data-cat="${cat.id}" style="${cat.id===currentTrendCategory ? 'background:'+cat.colorDim+';color:'+cat.color+';border-color:'+cat.borderColor : ''}">${cat.icon}<span style="margin-left:4px;">${cat.label}</span></button>`
+    ).join('');
     bar.querySelectorAll('.filter-btn').forEach(b => b.addEventListener('click', async () => {
-      currentTrendMetric = b.dataset.metric;
-      bar.querySelectorAll('.filter-btn').forEach(x => x.classList.remove('active'));
+      currentTrendCategory = b.dataset.cat;
+      bar.querySelectorAll('.filter-btn').forEach(x => { x.classList.remove('active'); x.style.background=''; x.style.color=''; x.style.borderColor=''; });
       b.classList.add('active');
-      await fetchTrend(currentTrendMetric);
-      renderTrendChart();
+      const cat = TREND_CATEGORIES.find(c=>c.id===currentTrendCategory);
+      if(cat){ b.style.background=cat.colorDim; b.style.color=cat.color; b.style.borderColor=cat.borderColor; }
+      await loadCategoryTrends();
+      renderTrendCharts();
     }));
-    await fetchTrend(currentTrendMetric);
-    renderTrendChart();
+    await loadCategoryTrends();
+    renderTrendCharts();
   }
 
-  function renderTrendChart() {
+  async function loadCategoryTrends() {
+    const cat = TREND_CATEGORIES.find(c => c.id === currentTrendCategory);
+    if (!cat) return;
+    trendChartData = {};
+    const promises = cat.metrics.map(async m => {
+      const assetParam = m.asset ? `&asset_id=${m.asset}` : '';
+      const d = await fetchJSON(`/health/trend?metric=${m.key}&hours=24${assetParam}`);
+      if (d && d.length > 0) trendChartData[m.key] = d;
+    });
+    await Promise.all(promises);
+  }
+
+  function renderTrendCharts() {
     const wrap = document.getElementById('trend-chart-wrap');
-    if (!trendData || trendData.length === 0) {
-      wrap.innerHTML = '<div class="chart-container"><div class="chart-title">No data for this metric</div></div>';
+    const cat = TREND_CATEGORIES.find(c => c.id === currentTrendCategory);
+    if (!cat) return;
+
+    const metricsWithData = cat.metrics.filter(m => trendChartData[m.key] && trendChartData[m.key].length > 0);
+    if (metricsWithData.length === 0) {
+      wrap.innerHTML = `<div style="background:var(--bg-card);border:1px solid var(--border);border-radius:var(--card-radius);padding:40px;text-align:center;">
+        <div style="color:var(--text-muted);font-size:13px;">No trend data available for ${cat.label} metrics</div>
+        <div style="color:var(--text-muted);font-size:11px;margin-top:4px;">Data populates as the system collects samples</div>
+      </div>`;
       return;
     }
-    // Group by asset
-    const byAsset = {};
-    trendData.forEach(d => { if (!byAsset[d.asset_id]) byAsset[d.asset_id] = []; byAsset[d.asset_id].push(d); });
 
-    let html = '';
-    for (const [assetId, points] of Object.entries(byAsset)) {
-      const maxVal = Math.max(...points.map(p => p.value), 1);
-      const bars = points.slice(-60).map(p => {
-        const h = Math.max(2, (p.value / maxVal) * 100);
-        return `<div class="bar-col" style="height:${h}%" title="${p.value} at ${new Date(p.time).toLocaleTimeString()}"></div>`;
-      }).join('');
-      const first = new Date(points[0].time).toLocaleTimeString('en-US',{hour:'2-digit',minute:'2-digit'});
-      const last = new Date(points[points.length-1].time).toLocaleTimeString('en-US',{hour:'2-digit',minute:'2-digit'});
-      const avg = (points.reduce((s,p)=>s+p.value,0)/points.length).toFixed(1);
-
-      html += `<div class="chart-container">
-        <div class="chart-title">${assetId} — ${currentTrendMetric.replace(/_/g,' ').toUpperCase()} <span style="float:right;color:var(--text-secondary);font-size:10px;">Avg: ${avg} · ${points.length} samples</span></div>
-        <div class="bar-chart">${bars}</div>
-        <div class="chart-labels"><span>${first}</span><span>${last}</span></div>
+    // KPI summary row for the category
+    let html = `<div class="stat-grid" style="grid-template-columns:repeat(${Math.min(metricsWithData.length, 6)},1fr);margin-bottom:20px;">`;
+    for (const m of metricsWithData) {
+      const points = trendChartData[m.key];
+      const latest = points[points.length - 1].value;
+      const avg = (points.reduce((s,p) => s + p.value, 0) / points.length);
+      const min = Math.min(...points.map(p => p.value));
+      const max = Math.max(...points.map(p => p.value));
+      const displayVal = latest % 1 === 0 ? latest.toFixed(0) : latest.toFixed(1);
+      html += `<div class="stat-card" style="border-top:2px solid ${cat.color};">
+        <div class="stat-card-label">${m.label}</div>
+        <div class="stat-card-value" style="color:${cat.color};">${displayVal} <span style="font-size:11px;color:var(--text-muted);">${m.unit}</span></div>
+        <div class="stat-card-sub">Avg ${avg.toFixed(1)} · Min ${min.toFixed(1)} · Max ${max.toFixed(1)}</div>
       </div>`;
     }
+    html += '</div>';
+
+    // Chart grid — 2 columns
+    html += '<div style="display:grid;grid-template-columns:repeat(2,1fr);gap:16px;">';
+    for (const m of metricsWithData) {
+      const points = trendChartData[m.key];
+      // Group by asset
+      const byAsset = {};
+      points.forEach(p => {
+        const aid = p.asset_id || 'RTU-01';
+        if (!byAsset[aid]) byAsset[aid] = [];
+        byAsset[aid].push(p);
+      });
+
+      for (const [assetId, assetPoints] of Object.entries(byAsset)) {
+        const maxVal = Math.max(...assetPoints.map(p => p.value), 0.01);
+        const minVal = Math.min(...assetPoints.map(p => p.value));
+        const range = maxVal - minVal || 1;
+        const avg = (assetPoints.reduce((s,p) => s + p.value, 0) / assetPoints.length);
+        const latest = assetPoints[assetPoints.length - 1].value;
+        const latestDisplay = latest % 1 === 0 ? latest.toFixed(0) : latest.toFixed(1);
+
+        const bars = assetPoints.slice(-72).map(p => {
+          const pct = Math.max(3, ((p.value - minVal) / range) * 100);
+          const barColor = cat.color;
+          return `<div class="bar-col" style="height:${pct}%;background:${barColor};opacity:0.7;" title="${p.value.toFixed(2)} ${m.unit} at ${new Date(p.time).toLocaleTimeString()}"></div>`;
+        }).join('');
+
+        const first = assetPoints.length > 0 ? new Date(assetPoints[0].time).toLocaleTimeString('en-US',{hour:'2-digit',minute:'2-digit'}) : '';
+        const last = assetPoints.length > 0 ? new Date(assetPoints[assetPoints.length-1].time).toLocaleTimeString('en-US',{hour:'2-digit',minute:'2-digit'}) : '';
+        const assetLabel = m.asset ? '' : ` · ${assetId}`;
+
+        html += `<div class="chart-container" style="border-top:2px solid ${cat.color};">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
+            <div>
+              <div style="font-size:13px;font-weight:600;color:var(--text-primary);">${m.label}${assetLabel}</div>
+              <div style="font-size:10px;color:var(--text-muted);margin-top:2px;">24h trend · ${assetPoints.length} samples · Avg ${avg.toFixed(1)} ${m.unit}</div>
+            </div>
+            <div style="text-align:right;">
+              <div style="font-family:var(--font-mono);font-size:22px;font-weight:700;color:${cat.color};">${latestDisplay}</div>
+              <div style="font-size:10px;color:var(--text-muted);">${m.unit} · LIVE</div>
+            </div>
+          </div>
+          <div class="bar-chart" style="height:100px;">${bars}</div>
+          <div class="chart-labels"><span>${first}</span><span>${last}</span></div>
+        </div>`;
+      }
+    }
+    html += '</div>';
+
     wrap.innerHTML = html;
   }
 

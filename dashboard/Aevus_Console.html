@@ -488,11 +488,13 @@ body {
 /* ── Filter Bar ── */
 .filter-bar { display: flex; gap: 8px; margin-bottom: 20px; flex-wrap: wrap; }
 .filter-btn {
+  display:inline-flex; align-items:center; gap:4px;
   font-size: 11px; font-weight: 600; padding: 6px 16px; border-radius: 20px;
   border: 1px solid var(--border-light); background: rgba(255,255,255,0.03); color: var(--text-secondary);
   cursor: pointer; transition: all 0.2s ease; font-family: var(--font-body);
   backdrop-filter: blur(8px);
 }
+.filter-btn svg { width:14px; height:14px; flex-shrink:0; }
 .filter-btn:hover { background: rgba(59,130,246,0.06); color: var(--text-primary); border-color: rgba(59,130,246,0.15); }
 .filter-btn.active { background: rgba(59,130,246,0.12); color: var(--accent-light); border-color: rgba(59,130,246,0.3); }
 
@@ -835,7 +837,7 @@ body {
 </section>
 
 <section class="page-section" data-page="trends">
-  <div class="page-header"><div class="page-title">Trends</div><div class="page-subtitle">Time-series data for monitored metrics</div></div>
+  <div class="page-header"><div class="page-title">Trends</div><div class="page-subtitle">24-hour process, mechanical, and infrastructure trend analysis</div></div>
   <div class="filter-bar" id="trend-metric-bar"></div>
   <div id="trend-chart-wrap"></div>
 </section>
@@ -876,6 +878,6 @@ body {
     if (el) el.textContent = new Date().toLocaleTimeString('en-US', { hour12: false });
   }, 1000);
 </script>
-<script src="/dashboard/api-client.js?v=4"></script>
+<script src="/dashboard/api-client.js?v=5"></script>
 </body>
 </html>

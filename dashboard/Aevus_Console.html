@@ -508,8 +508,8 @@ body {
   box-shadow: var(--shadow-card);
  padding: 20px; margin-bottom: 24px; }
 .chart-title { font-size: 11px; text-transform: uppercase; letter-spacing: 1px; color: var(--text-muted); font-weight: 600; margin-bottom: 16px; }
-.bar-chart { display: flex; align-items: flex-end; gap: 2px; height: 120px; padding: 0 4px; }
-.bar-col { flex: 1; min-width: 3px; border-radius: 2px 2px 0 0; background: var(--accent); opacity: 0.7; transition: opacity 0.15s, height 0.3s ease; }
+.bar-chart { display: flex; align-items: flex-end; gap: 1px; height: 120px; padding: 0 4px; }
+.bar-col { flex: 1; min-width: 6px; border-radius: 2px 2px 0 0; background: var(--accent); opacity: 0.7; transition: opacity 0.15s, height 0.3s ease; }
 .bar-col:hover { opacity: 1; }
 .chart-labels { display: flex; justify-content: space-between; margin-top: 6px; font-size: 9px; color: var(--text-muted); font-family: var(--font-mono); }
 
@@ -837,9 +837,27 @@ body {
 </section>
 
 <section class="page-section" data-page="trends">
-  <div class="page-header"><div class="page-title">Trends</div><div class="page-subtitle">24-hour process, mechanical, and infrastructure trend analysis</div></div>
+  <div class="page-header">
+    <div style="display:flex;justify-content:space-between;align-items:flex-start;">
+      <div><div class="page-title">Trends</div><div class="page-subtitle">Process, mechanical, and infrastructure trend analysis</div></div>
+      <div style="display:flex;gap:8px;align-items:center;">
+        <div id="trend-time-bar" style="display:flex;gap:4px;"></div>
+      </div>
+    </div>
+    <div style="margin-top:14px;display:flex;gap:10px;align-items:center;">
+      <div style="position:relative;flex:1;max-width:380px;">
+        <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="var(--text-muted)" stroke-width="1.8" style="position:absolute;left:12px;top:50%;transform:translateY(-50%);pointer-events:none;"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+        <input id="trend-search" type="text" placeholder="Search metrics... (e.g. pressure, vibration, battery)" style="width:100%;padding:8px 12px 8px 36px;border-radius:10px;border:1px solid var(--border-light);background:var(--bg-card);color:var(--text-primary);font-size:12px;font-family:var(--font-body);outline:none;transition:border-color 0.2s;" onfocus="this.style.borderColor='var(--accent)'" onblur="this.style.borderColor='var(--border-light)'">
+        <div id="trend-search-results" style="display:none;position:absolute;top:100%;left:0;right:0;z-index:50;margin-top:4px;max-height:280px;overflow-y:auto;background:var(--bg-card-solid);border:1px solid var(--border-light);border-radius:10px;box-shadow:0 8px 32px rgba(0,0,0,0.4);"></div>
+      </div>
+    </div>
+  </div>
   <div class="filter-bar" id="trend-metric-bar"></div>
   <div id="trend-chart-wrap"></div>
+  <!-- Detail overlay for clicked data point -->
+  <div id="trend-detail-overlay" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.5);backdrop-filter:blur(4px);z-index:200;" onclick="window.closeTrendDetail()">
+    <div id="trend-detail-panel" style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:560px;max-width:90vw;max-height:80vh;overflow-y:auto;background:var(--bg-card-solid);border:1px solid var(--border-light);border-radius:var(--card-radius);box-shadow:0 16px 64px rgba(0,0,0,0.5);padding:28px;" onclick="event.stopPropagation()"></div>
+  </div>
 </section>
 
 <!-- ━━━ PAGE: REPORTS ━━━ -->
@@ -878,6 +896,6 @@ body {
     if (el) el.textContent = new Date().toLocaleTimeString('en-US', { hour12: false });
   }, 1000);
 </script>
-<script src="/dashboard/api-client.js?v=5"></script>
+<script src="/dashboard/api-client.js?v=7"></script>
 </body>
 </html>

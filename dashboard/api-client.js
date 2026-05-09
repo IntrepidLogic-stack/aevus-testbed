@@ -338,10 +338,9 @@
   }
 
   // ═══════════════════════════════════════
-  // PAGE: TRENDS
+  // PAGE: TRENDS (Interactive)
   // ═══════════════════════════════════════
 
-  // SCADA metric categories with domain-specific colors
   const TREND_CATEGORIES = [
     {
       id: 'process', label: 'Process',
@@ -415,15 +414,111 @@
   ];
 
   let currentTrendCategory = 'process';
-  let trendChartData = {}; // { metricKey: [ {time,value,asset_id} ] }
+  let trendHours = 24;
+  let trendChartData = {};
+  let focusedMetric = null; // when user clicks a KPI or search result
 
-  async function renderTrendsPage() {
+  // ── All metrics flat for search ──
+  function getAllMetrics() {
+    const all = [];
+    for (const cat of TREND_CATEGORIES) {
+      for (const m of cat.metrics) {
+        all.push({ ...m, category: cat.id, catLabel: cat.label, color: cat.color, colorDim: cat.colorDim, borderColor: cat.borderColor });
+      }
+    }
+    return all;
+  }
+
+  // ── Search ──
+  function initTrendSearch() {
+    const input = document.getElementById('trend-search');
+    const results = document.getElementById('trend-search-results');
+    if (!input || !results) return;
+    
+    input.addEventListener('input', () => {
+      const q = input.value.trim().toLowerCase();
+      if (q.length < 2) { results.style.display = 'none'; return; }
+      const all = getAllMetrics();
+      const matches = all.filter(m =>
+        m.label.toLowerCase().includes(q) ||
+        m.key.toLowerCase().includes(q) ||
+        m.unit.toLowerCase().includes(q) ||
+        m.catLabel.toLowerCase().includes(q)
+      );
+      if (matches.length === 0) {
+        results.style.display = 'block';
+        results.innerHTML = '<div style="padding:14px;color:var(--text-muted);font-size:12px;">No metrics matching "' + q + '"</div>';
+        return;
+      }
+      results.style.display = 'block';
+      results.innerHTML = matches.map(m =>
+        '<div class="trend-search-item" data-key="' + m.key + '" data-cat="' + m.category + '" style="padding:10px 14px;cursor:pointer;display:flex;align-items:center;gap:10px;border-bottom:1px solid var(--border);transition:background 0.15s;" onmouseenter="this.style.background=\'var(--bg-card-hover)\'" onmouseleave="this.style.background=\'transparent\'">' +
+          '<div style="width:4px;height:28px;border-radius:2px;background:' + m.color + ';flex-shrink:0;"></div>' +
+          '<div style="flex:1;">' +
+            '<div style="font-size:12px;font-weight:600;color:var(--text-primary);">' + m.label + '</div>' +
+            '<div style="font-size:10px;color:var(--text-muted);">' + m.catLabel + ' · ' + m.unit + (m.asset ? ' · ' + m.asset : ' · All assets') + '</div>' +
+          '</div>' +
+          '<div style="font-family:var(--font-mono);font-size:10px;color:' + m.color + ';padding:2px 8px;border-radius:4px;background:' + m.colorDim + ';">' + m.key + '</div>' +
+        '</div>'
+      ).join('');
+
+      results.querySelectorAll('.trend-search-item').forEach(el => {
+        el.addEventListener('click', () => {
+          const key = el.dataset.key;
+          const catId = el.dataset.cat;
+          input.value = '';
+          results.style.display = 'none';
+          // Switch category and focus the metric
+          currentTrendCategory = catId;
+          focusedMetric = key;
+          renderTrendsPageContent();
+        });
+      });
+    });
+
+    // Close dropdown on outside click
+    document.addEventListener('click', (e) => {
+      if (!input.contains(e.target) && !results.contains(e.target)) {
+        results.style.display = 'none';
+      }
+    });
+  }
+
+  // ── Time range selector ──
+  function renderTimeBar() {
+    const bar = document.getElementById('trend-time-bar');
+    if (!bar) return;
+    const ranges = [
+      { h: 1, label: '1H' },
+      { h: 6, label: '6H' },
+      { h: 12, label: '12H' },
+      { h: 24, label: '24H' },
+      { h: 72, label: '3D' },
+      { h: 168, label: '7D' },
+    ];
+    bar.innerHTML = ranges.map(r =>
+      '<button class="filter-btn' + (r.h === trendHours ? ' active' : '') + '" data-hours="' + r.h + '" style="padding:5px 12px;font-size:10px;' + (r.h === trendHours ? 'background:var(--accent-dim);color:var(--accent-light);border-color:rgba(59,130,246,0.3);' : '') + '">' + r.label + '</button>'
+    ).join('');
+    bar.querySelectorAll('.filter-btn').forEach(b => b.addEventListener('click', async () => {
+      trendHours = parseInt(b.dataset.hours);
+      bar.querySelectorAll('.filter-btn').forEach(x => { x.classList.remove('active'); x.style.background=''; x.style.color=''; x.style.borderColor=''; });
+      b.classList.add('active');
+      b.style.background = 'var(--accent-dim)'; b.style.color = 'var(--accent-light)'; b.style.borderColor = 'rgba(59,130,246,0.3)';
+      await loadCategoryTrends();
+      renderTrendCharts();
+    }));
+  }
+
+  // ── Category bar ──
+  function renderCategoryBar() {
     const bar = document.getElementById('trend-metric-bar');
+    if (!bar) return;
     bar.innerHTML = TREND_CATEGORIES.map(cat =>
-      `<button class="filter-btn ${cat.id===currentTrendCategory?'active':''}" data-cat="${cat.id}" style="${cat.id===currentTrendCategory ? 'background:'+cat.colorDim+';color:'+cat.color+';border-color:'+cat.borderColor : ''}">${cat.icon}<span style="margin-left:4px;">${cat.label}</span></button>`
+      '<button class="filter-btn ' + (cat.id===currentTrendCategory?'active':'') + '" data-cat="' + cat.id + '" style="' + (cat.id===currentTrendCategory ? 'background:'+cat.colorDim+';color:'+cat.color+';border-color:'+cat.borderColor : '') + '">' + cat.icon + '<span style="margin-left:4px;">' + cat.label + '</span></button>'
     ).join('');
     bar.querySelectorAll('.filter-btn').forEach(b => b.addEventListener('click', async () => {
       currentTrendCategory = b.dataset.cat;
+      focusedMetric = null;
       bar.querySelectorAll('.filter-btn').forEach(x => { x.classList.remove('active'); x.style.background=''; x.style.color=''; x.style.borderColor=''; });
       b.classList.add('active');
       const cat = TREND_CATEGORIES.find(c=>c.id===currentTrendCategory);
@@ -431,6 +526,16 @@
       await loadCategoryTrends();
       renderTrendCharts();
     }));
+  }
+
+  async function renderTrendsPage() {
+    renderTimeBar();
+    initTrendSearch();
+    await renderTrendsPageContent();
+  }
+
+  async function renderTrendsPageContent() {
+    renderCategoryBar();
     await loadCategoryTrends();
     renderTrendCharts();
   }
@@ -440,8 +545,8 @@
     if (!cat) return;
     trendChartData = {};
     const promises = cat.metrics.map(async m => {
-      const assetParam = m.asset ? `&asset_id=${m.asset}` : '';
-      const d = await fetchJSON(`/health/trend?metric=${m.key}&hours=24${assetParam}`);
+      const assetParam = m.asset ? '&asset_id=' + m.asset : '';
+      const d = await fetchJSON('/health/trend?metric=' + m.key + '&hours=' + trendHours + assetParam);
       if (d && d.length > 0) trendChartData[m.key] = d;
     });
     await Promise.all(promises);
@@ -450,86 +555,243 @@
   function renderTrendCharts() {
     const wrap = document.getElementById('trend-chart-wrap');
     const cat = TREND_CATEGORIES.find(c => c.id === currentTrendCategory);
-    if (!cat) return;
+    if (!cat || !wrap) return;
 
-    const metricsWithData = cat.metrics.filter(m => trendChartData[m.key] && trendChartData[m.key].length > 0);
+    let metricsWithData = cat.metrics.filter(m => trendChartData[m.key] && trendChartData[m.key].length > 0);
+    
+    // If a focused metric, show it first/highlighted
+    const focusedM = focusedMetric ? cat.metrics.find(m => m.key === focusedMetric) : null;
+
     if (metricsWithData.length === 0) {
-      wrap.innerHTML = `<div style="background:var(--bg-card);border:1px solid var(--border);border-radius:var(--card-radius);padding:40px;text-align:center;">
-        <div style="color:var(--text-muted);font-size:13px;">No trend data available for ${cat.label} metrics</div>
-        <div style="color:var(--text-muted);font-size:11px;margin-top:4px;">Data populates as the system collects samples</div>
-      </div>`;
+      wrap.innerHTML = '<div style="background:var(--bg-card);border:1px solid var(--border);border-radius:var(--card-radius);padding:40px;text-align:center;"><div style="color:var(--text-muted);font-size:13px;">No trend data for ' + cat.label + ' in the last ' + trendHours + 'h</div></div>';
       return;
     }
 
-    // KPI summary row for the category
-    let html = `<div class="stat-grid" style="grid-template-columns:repeat(${Math.min(metricsWithData.length, 6)},1fr);margin-bottom:20px;">`;
+    const rangeLabel = trendHours <= 1 ? '1 hour' : trendHours <= 24 ? trendHours + 'h' : (trendHours/24) + ' day' + (trendHours>24?'s':'');
+    let html = '';
+
+    // KPI summary row — clickable cards
+    html += '<div class="stat-grid" style="grid-template-columns:repeat(' + Math.min(metricsWithData.length, 6) + ',1fr);margin-bottom:20px;">';
     for (const m of metricsWithData) {
       const points = trendChartData[m.key];
       const latest = points[points.length - 1].value;
-      const avg = (points.reduce((s,p) => s + p.value, 0) / points.length);
+      const avg = points.reduce((s,p) => s + p.value, 0) / points.length;
       const min = Math.min(...points.map(p => p.value));
       const max = Math.max(...points.map(p => p.value));
       const displayVal = latest % 1 === 0 ? latest.toFixed(0) : latest.toFixed(1);
-      html += `<div class="stat-card" style="border-top:2px solid ${cat.color};">
-        <div class="stat-card-label">${m.label}</div>
-        <div class="stat-card-value" style="color:${cat.color};">${displayVal} <span style="font-size:11px;color:var(--text-muted);">${m.unit}</span></div>
-        <div class="stat-card-sub">Avg ${avg.toFixed(1)} · Min ${min.toFixed(1)} · Max ${max.toFixed(1)}</div>
-      </div>`;
+      const isFocused = focusedMetric === m.key;
+      const focusStyle = isFocused ? 'box-shadow:0 0 0 2px ' + cat.color + ',var(--shadow-card);transform:scale(1.02);' : '';
+
+      html += '<div class="stat-card" style="border-top:2px solid ' + cat.color + ';cursor:pointer;transition:all 0.2s;' + focusStyle + '" onclick="window.focusTrendMetric(\'' + m.key + '\')" onmouseenter="this.style.borderColor=\'' + cat.color + '\';this.style.boxShadow=\'0 0 0 1px ' + cat.color + ',var(--shadow-card)\'" onmouseleave="this.style.boxShadow=\'' + (isFocused ? '0 0 0 2px ' + cat.color + ',var(--shadow-card)' : 'var(--shadow-card)') + '\'">';
+      html += '<div class="stat-card-label">' + m.label + '</div>';
+      html += '<div class="stat-card-value" style="color:' + cat.color + ';">' + displayVal + ' <span style="font-size:11px;color:var(--text-muted);">' + m.unit + '</span></div>';
+      html += '<div class="stat-card-sub">Avg ' + avg.toFixed(1) + ' · Min ' + min.toFixed(1) + ' · Max ' + max.toFixed(1) + '</div>';
+      html += '</div>';
     }
     html += '</div>';
 
-    // Chart grid — 2 columns
-    html += '<div style="display:grid;grid-template-columns:repeat(2,1fr);gap:16px;">';
-    for (const m of metricsWithData) {
-      const points = trendChartData[m.key];
-      // Group by asset
-      const byAsset = {};
-      points.forEach(p => {
-        const aid = p.asset_id || 'RTU-01';
-        if (!byAsset[aid]) byAsset[aid] = [];
-        byAsset[aid].push(p);
-      });
+    // If focused metric, show expanded single chart first
+    if (focusedM && trendChartData[focusedM.key]) {
+      html += renderExpandedChart(focusedM, cat);
+    }
 
-      for (const [assetId, assetPoints] of Object.entries(byAsset)) {
-        const maxVal = Math.max(...assetPoints.map(p => p.value), 0.01);
-        const minVal = Math.min(...assetPoints.map(p => p.value));
-        const range = maxVal - minVal || 1;
-        const avg = (assetPoints.reduce((s,p) => s + p.value, 0) / assetPoints.length);
-        const latest = assetPoints[assetPoints.length - 1].value;
-        const latestDisplay = latest % 1 === 0 ? latest.toFixed(0) : latest.toFixed(1);
-
-        const bars = assetPoints.slice(-72).map(p => {
-          const pct = Math.max(3, ((p.value - minVal) / range) * 100);
-          const barColor = cat.color;
-          return `<div class="bar-col" style="height:${pct}%;background:${barColor};opacity:0.7;" title="${p.value.toFixed(2)} ${m.unit} at ${new Date(p.time).toLocaleTimeString()}"></div>`;
-        }).join('');
-
-        const first = assetPoints.length > 0 ? new Date(assetPoints[0].time).toLocaleTimeString('en-US',{hour:'2-digit',minute:'2-digit'}) : '';
-        const last = assetPoints.length > 0 ? new Date(assetPoints[assetPoints.length-1].time).toLocaleTimeString('en-US',{hour:'2-digit',minute:'2-digit'}) : '';
-        const assetLabel = m.asset ? '' : ` · ${assetId}`;
-
-        html += `<div class="chart-container" style="border-top:2px solid ${cat.color};">
-          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
-            <div>
-              <div style="font-size:13px;font-weight:600;color:var(--text-primary);">${m.label}${assetLabel}</div>
-              <div style="font-size:10px;color:var(--text-muted);margin-top:2px;">24h trend · ${assetPoints.length} samples · Avg ${avg.toFixed(1)} ${m.unit}</div>
-            </div>
-            <div style="text-align:right;">
-              <div style="font-family:var(--font-mono);font-size:22px;font-weight:700;color:${cat.color};">${latestDisplay}</div>
-              <div style="font-size:10px;color:var(--text-muted);">${m.unit} · LIVE</div>
-            </div>
-          </div>
-          <div class="bar-chart" style="height:100px;">${bars}</div>
-          <div class="chart-labels"><span>${first}</span><span>${last}</span></div>
-        </div>`;
+    // Chart grid — 2 columns (skip focused if already shown expanded)
+    const chartMetrics = focusedM ? metricsWithData.filter(m => m.key !== focusedM.key) : metricsWithData;
+    if (chartMetrics.length > 0) {
+      if (focusedM) html += '<div class="section-title" style="margin-top:20px;">Other ' + cat.label + ' Metrics</div>';
+      html += '<div style="display:grid;grid-template-columns:repeat(2,1fr);gap:16px;">';
+      for (const m of chartMetrics) {
+        html += renderCompactChart(m, cat);
       }
+      html += '</div>';
     }
-    html += '</div>';
 
     wrap.innerHTML = html;
+    // Scroll focused chart into view
+    if (focusedM) {
+      const expanded = document.getElementById('expanded-chart');
+      if (expanded) expanded.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }
   }
 
-  // ═══════════════════════════════════════
+  // Expanded single-metric chart (when focused)
+  function renderExpandedChart(m, cat) {
+    const points = trendChartData[m.key];
+    const byAsset = {};
+    points.forEach(p => { const aid = p.asset_id || 'RTU-01'; if (!byAsset[aid]) byAsset[aid] = []; byAsset[aid].push(p); });
+
+    let html = '';
+    for (const [assetId, assetPoints] of Object.entries(byAsset)) {
+      const maxVal = Math.max(...assetPoints.map(p => p.value), 0.01);
+      const minVal = Math.min(...assetPoints.map(p => p.value));
+      const range = maxVal - minVal || 1;
+      const avg = assetPoints.reduce((s,p) => s + p.value, 0) / assetPoints.length;
+      const latest = assetPoints[assetPoints.length - 1].value;
+      const latestDisplay = latest % 1 === 0 ? latest.toFixed(0) : latest.toFixed(1);
+      const assetLabel = m.asset ? '' : ' · ' + assetId;
+
+      // Build interactive bars — each bar has onclick for detail
+      const displayPoints = assetPoints.slice(-120);
+      const bars = displayPoints.map((p, i) => {
+        const pct = Math.max(3, ((p.value - minVal) / range) * 100);
+        const ts = new Date(p.time);
+        const timeStr = ts.toLocaleTimeString('en-US', { hour:'2-digit', minute:'2-digit', second:'2-digit' });
+        const dateStr = ts.toLocaleDateString('en-US', { month:'short', day:'numeric' });
+        return '<div class="bar-col" style="height:' + pct + '%;background:' + cat.color + ';opacity:0.75;cursor:pointer;" title="' + p.value.toFixed(2) + ' ' + m.unit + ' at ' + timeStr + '" onclick="window.showTrendDetail(\'' + m.key + '\',\'' + m.label + '\',\'' + m.unit + '\',\'' + cat.color + '\',' + i + ',\'' + assetId + '\')" onmouseenter="this.style.opacity=1;this.style.boxShadow=\'0 0 8px ' + cat.color + '\'" onmouseleave="this.style.opacity=0.75;this.style.boxShadow=\'none\'"></div>';
+      }).join('');
+
+      const first = displayPoints.length > 0 ? new Date(displayPoints[0].time).toLocaleTimeString('en-US',{hour:'2-digit',minute:'2-digit'}) : '';
+      const last = displayPoints.length > 0 ? new Date(displayPoints[displayPoints.length-1].time).toLocaleTimeString('en-US',{hour:'2-digit',minute:'2-digit'}) : '';
+
+      html += '<div id="expanded-chart" class="chart-container" style="border:1px solid ' + cat.borderColor + ';box-shadow:0 0 20px ' + cat.colorDim + ';">';
+      html += '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;">';
+      html += '<div>';
+      html += '<div style="font-size:16px;font-weight:700;color:var(--text-primary);display:flex;align-items:center;gap:8px;">' + m.label + assetLabel;
+      html += ' <span style="font-size:10px;padding:2px 8px;border-radius:4px;background:' + cat.colorDim + ';color:' + cat.color + ';">FOCUSED</span>';
+      html += ' <button style="font-size:10px;padding:2px 8px;border-radius:4px;background:rgba(255,255,255,0.05);color:var(--text-muted);border:1px solid var(--border);cursor:pointer;" onclick="window.focusTrendMetric(null)">Clear</button>';
+      html += '</div>';
+      html += '<div style="font-size:11px;color:var(--text-muted);margin-top:2px;">' + trendHours + 'h trend · ' + assetPoints.length + ' samples · Click any bar for details</div>';
+      html += '</div>';
+      html += '<div style="text-align:right;">';
+      html += '<div style="font-family:var(--font-mono);font-size:32px;font-weight:700;color:' + cat.color + ';">' + latestDisplay + '</div>';
+      html += '<div style="font-size:11px;color:var(--text-muted);">' + m.unit + ' · LIVE</div>';
+      html += '</div></div>';
+
+      // Stats row
+      html += '<div style="display:flex;gap:16px;margin:12px 0;padding:10px 0;border-top:1px solid var(--border);border-bottom:1px solid var(--border);">';
+      html += '<div style="flex:1;text-align:center;"><div style="font-size:9px;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.5px;">Average</div><div style="font-family:var(--font-mono);font-size:16px;font-weight:600;color:var(--text-primary);">' + avg.toFixed(2) + '</div></div>';
+      html += '<div style="flex:1;text-align:center;"><div style="font-size:9px;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.5px;">Minimum</div><div style="font-family:var(--font-mono);font-size:16px;font-weight:600;color:var(--status-good);">' + minVal.toFixed(2) + '</div></div>';
+      html += '<div style="flex:1;text-align:center;"><div style="font-size:9px;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.5px;">Maximum</div><div style="font-family:var(--font-mono);font-size:16px;font-weight:600;color:var(--status-bad);">' + maxVal.toFixed(2) + '</div></div>';
+      html += '<div style="flex:1;text-align:center;"><div style="font-size:9px;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.5px;">Spread</div><div style="font-family:var(--font-mono);font-size:16px;font-weight:600;color:var(--text-secondary);">' + range.toFixed(2) + '</div></div>';
+      html += '<div style="flex:1;text-align:center;"><div style="font-size:9px;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.5px;">Samples</div><div style="font-family:var(--font-mono);font-size:16px;font-weight:600;color:var(--text-secondary);">' + assetPoints.length + '</div></div>';
+      html += '</div>';
+
+      html += '<div class="bar-chart" style="height:160px;">' + bars + '</div>';
+      html += '<div class="chart-labels"><span>' + first + '</span><span>' + last + '</span></div>';
+      html += '</div>';
+    }
+    return html;
+  }
+
+  // Compact chart for grid view
+  function renderCompactChart(m, cat) {
+    const points = trendChartData[m.key];
+    if (!points) return '';
+    const byAsset = {};
+    points.forEach(p => { const aid = p.asset_id || 'RTU-01'; if (!byAsset[aid]) byAsset[aid] = []; byAsset[aid].push(p); });
+
+    let html = '';
+    for (const [assetId, assetPoints] of Object.entries(byAsset)) {
+      const maxVal = Math.max(...assetPoints.map(p => p.value), 0.01);
+      const minVal = Math.min(...assetPoints.map(p => p.value));
+      const range = maxVal - minVal || 1;
+      const avg = assetPoints.reduce((s,p) => s + p.value, 0) / assetPoints.length;
+      const latest = assetPoints[assetPoints.length - 1].value;
+      const latestDisplay = latest % 1 === 0 ? latest.toFixed(0) : latest.toFixed(1);
+      const assetLabel = m.asset ? '' : ' · ' + assetId;
+
+      const displayPoints = assetPoints.slice(-72);
+      const bars = displayPoints.map((p, i) => {
+        const pct = Math.max(3, ((p.value - minVal) / range) * 100);
+        return '<div class="bar-col" style="height:' + pct + '%;background:' + cat.color + ';opacity:0.7;cursor:pointer;" title="' + p.value.toFixed(2) + ' ' + m.unit + '" onclick="window.focusTrendMetric(\'' + m.key + '\')" onmouseenter="this.style.opacity=1" onmouseleave="this.style.opacity=0.7"></div>';
+      }).join('');
+
+      const first = displayPoints.length > 0 ? new Date(displayPoints[0].time).toLocaleTimeString('en-US',{hour:'2-digit',minute:'2-digit'}) : '';
+      const last = displayPoints.length > 0 ? new Date(displayPoints[displayPoints.length-1].time).toLocaleTimeString('en-US',{hour:'2-digit',minute:'2-digit'}) : '';
+
+      html += '<div class="chart-container" style="border-top:2px solid ' + cat.color + ';cursor:pointer;" onclick="window.focusTrendMetric(\'' + m.key + '\')">';
+      html += '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">';
+      html += '<div>';
+      html += '<div style="font-size:13px;font-weight:600;color:var(--text-primary);">' + m.label + assetLabel + '</div>';
+      html += '<div style="font-size:10px;color:var(--text-muted);margin-top:2px;">' + assetPoints.length + ' samples · Avg ' + avg.toFixed(1) + ' ' + m.unit + '</div>';
+      html += '</div>';
+      html += '<div style="text-align:right;">';
+      html += '<div style="font-family:var(--font-mono);font-size:22px;font-weight:700;color:' + cat.color + ';">' + latestDisplay + '</div>';
+      html += '<div style="font-size:10px;color:var(--text-muted);">' + m.unit + '</div>';
+      html += '</div></div>';
+      html += '<div class="bar-chart" style="height:100px;">' + bars + '</div>';
+      html += '<div class="chart-labels"><span>' + first + '</span><span>' + last + '</span></div>';
+      html += '</div>';
+    }
+    return html;
+  }
+
+  // ── Focus a metric (from KPI click or search) ──
+  window.focusTrendMetric = function(key) {
+    focusedMetric = key === focusedMetric ? null : key;
+    renderTrendCharts();
+  };
+
+  // ── Detail overlay for a clicked bar ──
+  window.showTrendDetail = function(metricKey, label, unit, color, barIdx, assetId) {
+    const points = trendChartData[metricKey];
+    if (!points) return;
+    const assetPoints = points.filter(p => (p.asset_id || 'RTU-01') === assetId);
+    const displayPoints = assetPoints.slice(-120);
+    const p = displayPoints[barIdx];
+    if (!p) return;
+
+    const ts = new Date(p.time);
+    const avg = assetPoints.reduce((s,x) => s + x.value, 0) / assetPoints.length;
+    const deviation = p.value - avg;
+    const deviationPct = avg !== 0 ? ((deviation / avg) * 100).toFixed(1) : '0';
+    const devColor = Math.abs(parseFloat(deviationPct)) > 10 ? 'var(--status-warn)' : 'var(--status-good)';
+
+    // Find neighboring points for rate of change
+    const prevIdx = barIdx > 0 ? barIdx - 1 : null;
+    const prevP = prevIdx !== null ? displayPoints[prevIdx] : null;
+    const rateOfChange = prevP ? (p.value - prevP.value) : null;
+    const rateLabel = rateOfChange !== null ? (rateOfChange >= 0 ? '+' : '') + rateOfChange.toFixed(2) + ' ' + unit : 'N/A';
+    const rateColor = rateOfChange === null ? 'var(--text-muted)' : rateOfChange > 0 ? 'var(--status-warn)' : rateOfChange < 0 ? 'var(--status-good)' : 'var(--text-muted)';
+
+    const panel = document.getElementById('trend-detail-panel');
+    panel.innerHTML =
+      '<div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:20px;">' +
+        '<div>' +
+          '<div style="font-size:18px;font-weight:700;color:var(--text-primary);">' + label + '</div>' +
+          '<div style="font-size:12px;color:var(--text-muted);margin-top:2px;">' + assetId + ' · ' + ts.toLocaleDateString('en-US', { weekday:'short', month:'short', day:'numeric', year:'numeric' }) + '</div>' +
+        '</div>' +
+        '<button style="width:28px;height:28px;border-radius:6px;border:1px solid var(--border);background:transparent;color:var(--text-muted);cursor:pointer;display:flex;align-items:center;justify-content:center;" onclick="window.closeTrendDetail()"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>' +
+      '</div>' +
+
+      '<div style="text-align:center;padding:20px 0;border-top:1px solid var(--border);border-bottom:1px solid var(--border);margin-bottom:20px;">' +
+        '<div style="font-family:var(--font-mono);font-size:48px;font-weight:700;color:' + color + ';">' + p.value.toFixed(2) + '</div>' +
+        '<div style="font-size:13px;color:var(--text-muted);">' + unit + ' at ' + ts.toLocaleTimeString('en-US', { hour:'2-digit', minute:'2-digit', second:'2-digit' }) + '</div>' +
+      '</div>' +
+
+      '<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:20px;">' +
+        '<div style="text-align:center;padding:12px;border-radius:8px;background:var(--bg-card);border:1px solid var(--border);">' +
+          '<div style="font-size:9px;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.5px;">Deviation from Avg</div>' +
+          '<div style="font-family:var(--font-mono);font-size:18px;font-weight:700;color:' + devColor + ';">' + (deviation >= 0 ? '+' : '') + deviation.toFixed(2) + '</div>' +
+          '<div style="font-size:10px;color:' + devColor + ';">' + deviationPct + '% from mean</div>' +
+        '</div>' +
+        '<div style="text-align:center;padding:12px;border-radius:8px;background:var(--bg-card);border:1px solid var(--border);">' +
+          '<div style="font-size:9px;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.5px;">Rate of Change</div>' +
+          '<div style="font-family:var(--font-mono);font-size:18px;font-weight:700;color:' + rateColor + ';">' + rateLabel + '</div>' +
+          '<div style="font-size:10px;color:var(--text-muted);">vs previous sample</div>' +
+        '</div>' +
+        '<div style="text-align:center;padding:12px;border-radius:8px;background:var(--bg-card);border:1px solid var(--border);">' +
+          '<div style="font-size:9px;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.5px;">Period Average</div>' +
+          '<div style="font-family:var(--font-mono);font-size:18px;font-weight:700;color:var(--text-primary);">' + avg.toFixed(2) + '</div>' +
+          '<div style="font-size:10px;color:var(--text-muted);">' + unit + ' over ' + trendHours + 'h</div>' +
+        '</div>' +
+      '</div>' +
+
+      '<div style="font-size:11px;color:var(--text-muted);">' +
+        '<div style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid var(--border);"><span>Metric Key</span><span class="mono" style="color:var(--text-primary);">' + metricKey + '</span></div>' +
+        '<div style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid var(--border);"><span>Asset</span><span class="mono" style="color:var(--accent);">' + assetId + '</span></div>' +
+        '<div style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid var(--border);"><span>Timestamp (UTC)</span><span class="mono" style="color:var(--text-primary);">' + ts.toISOString() + '</span></div>' +
+        '<div style="display:flex;justify-content:space-between;padding:6px 0;"><span>Sample Index</span><span class="mono" style="color:var(--text-primary);">' + (barIdx + 1) + ' of ' + displayPoints.length + '</span></div>' +
+      '</div>';
+
+    document.getElementById('trend-detail-overlay').style.display = 'block';
+  };
+
+  window.closeTrendDetail = function() {
+    document.getElementById('trend-detail-overlay').style.display = 'none';
+  };
+
+    // ═══════════════════════════════════════
   // PAGE: REPORTS
   // ═══════════════════════════════════════
   function renderReportsPage() {

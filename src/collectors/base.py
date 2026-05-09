@@ -4,6 +4,7 @@ All equipment collectors inherit from this.
 """
 
 import abc
+import time
 from datetime import UTC, datetime
 
 import structlog
@@ -22,6 +23,9 @@ class BaseCollector(abc.ABC):
         self.poll_interval = poll_interval
         self.last_poll: datetime | None = None
         self.consecutive_failures: int = 0
+        self.poll_count: int = 0
+        self.poll_success_count: int = 0
+        self.last_poll_duration_ms: float = 0.0
         self.log = logger.bind(collector=self.__class__.__name__, asset_id=asset_id, host=host)
 
     @abc.abstractmethod
@@ -65,18 +69,26 @@ class BaseCollector(abc.ABC):
         )
 
     async def safe_poll(self) -> list[RawTelemetry]:
-        """Poll with error handling and failure tracking."""
+        """Poll with error handling, failure tracking, and duration measurement."""
+        self.poll_count += 1
+        start = time.monotonic()
         try:
             readings = await self.poll()
+            elapsed_ms = (time.monotonic() - start) * 1000.0
+            self.last_poll_duration_ms = elapsed_ms
             self.last_poll = self._now()
             self.consecutive_failures = 0
-            self.log.info("poll_success", readings=len(readings))
+            self.poll_success_count += 1
+            self.log.info("poll_success", readings=len(readings), duration_ms=round(elapsed_ms, 1))
             return readings
         except Exception as e:
+            elapsed_ms = (time.monotonic() - start) * 1000.0
+            self.last_poll_duration_ms = elapsed_ms
             self.consecutive_failures += 1
             self.log.error(
                 "poll_failed",
                 error=str(e),
                 consecutive_failures=self.consecutive_failures,
+                duration_ms=round(elapsed_ms, 1),
             )
             return []

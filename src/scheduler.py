@@ -7,9 +7,10 @@ Pipeline per poll cycle:
   2. InfluxDB write (time-series storage)
   3. Normalizer -> list[VitalSign]
   4. Health score computation
-  5. Alert engine evaluation
-  6. SQLite asset update
-  7. WebSocket broadcast to dashboard clients
+  5. Alert engine evaluation + notification
+  6. Comm quality tracking
+  7. SQLite asset update
+  8. WebSocket broadcast to dashboard clients
 """
 
 from __future__ import annotations
@@ -22,6 +23,7 @@ import structlog
 
 from src.api.ws import ws_manager
 from src.collectors.simulator import SimulatorCollector
+from src.config import settings
 from src.engine.health_score import compute_health, health_status
 from src.engine.normalizer import normalize_batch
 from src.engine.prediction import PredictionEngine
@@ -29,6 +31,10 @@ from src.engine.prediction import PredictionEngine
 if TYPE_CHECKING:
     from src.collectors.base import BaseCollector
     from src.engine.alert_engine import AlertEngine
+    from src.engine.comm_quality import CommQualityEngine
+    from src.engine.correlator import CorrelationEngine
+    from src.engine.notifier import NotificationEngine
+    from src.engine.weather import WeatherEngine
     from src.storage.influx import InfluxStorage
     from src.storage.sqlite_db import SQLiteDB
 
@@ -43,14 +49,23 @@ class PollScheduler:
         db: SQLiteDB,
         influx: InfluxStorage,
         alert_engine: AlertEngine,
+        notifier: NotificationEngine | None = None,
+        weather_engine: WeatherEngine | None = None,
+        comm_quality_engine: CommQualityEngine | None = None,
+        correlator: CorrelationEngine | None = None,
     ) -> None:
         self.db = db
         self.influx = influx
         self.alert_engine = alert_engine
+        self.notifier = notifier
+        self.weather_engine = weather_engine
+        self.comm_quality_engine = comm_quality_engine
+        self.correlator = correlator
         self.prediction_engine = PredictionEngine(influx)
         self._collectors: dict[str, BaseCollector] = {}
         self._tasks: dict[str, asyncio.Task] = {}
         self._prediction_task: asyncio.Task | None = None
+        self._weather_task: asyncio.Task | None = None
         self.log = logger.bind(component="scheduler")
 
     def register(self, asset_id: str, collector: BaseCollector) -> None:
@@ -69,11 +84,19 @@ class PollScheduler:
         self._prediction_task = asyncio.create_task(self._prediction_loop())
         self.log.info("prediction_loop_started", interval=60)
 
+        # Start weather polling loop
+        if self.weather_engine:
+            self._weather_task = asyncio.create_task(self._weather_loop())
+            self.log.info("weather_loop_started", interval=settings.weather_poll_interval)
+
     async def stop(self) -> None:
         """Cancel all polling loops."""
         if self._prediction_task:
             self._prediction_task.cancel()
             self.log.info("prediction_loop_stopped")
+        if self._weather_task:
+            self._weather_task.cancel()
+            self.log.info("weather_loop_stopped")
         for asset_id, task in self._tasks.items():
             task.cancel()
             self.log.info("poll_loop_stopped", asset_id=asset_id)
@@ -93,7 +116,7 @@ class PollScheduler:
 
     async def _poll_cycle(self, asset_id: str, collector: BaseCollector) -> None:
         """Execute one poll cycle: collect -> store -> normalize -> score -> alert -> push."""
-        # 1. Collect
+        # 1. Collect (safe_poll now tracks poll_count, success_count, duration)
         readings = await collector.safe_poll()
         if not readings:
             return
@@ -137,7 +160,25 @@ class PollScheduler:
         for alert in alert_changes:
             self.db.save_alert(alert)
 
-        # 7. Update asset in SQLite
+        # 6b. Send notifications for new alerts
+        if self.notifier and alert_changes:
+            for alert in alert_changes:
+                if alert.status == "open":
+                    try:
+                        await self.notifier.notify(alert)
+                    except Exception as e:
+                        self.log.error("notification_error", error=str(e))
+
+        # 7. Comm quality tracking
+        if self.comm_quality_engine:
+            self.comm_quality_engine.calculate(
+                asset_id=asset_id,
+                poll_count=collector.poll_count,
+                poll_success_count=collector.poll_success_count,
+                last_poll_duration_ms=collector.last_poll_duration_ms,
+            )
+
+        # 8. Update asset in SQLite
         if asset:
             asset.vitals = vitals
             asset.health = score
@@ -145,7 +186,7 @@ class PollScheduler:
             asset.last_seen = now
             self.db.upsert_asset(asset)
 
-        # 8. WebSocket broadcast
+        # 9. WebSocket broadcast
         await ws_manager.broadcast(
             "asset_update",
             {
@@ -166,19 +207,26 @@ class PollScheduler:
             )
 
     async def _prediction_loop(self) -> None:
-        """Run prediction analysis on all assets every 60 seconds."""
+        """Run prediction analysis and cross-domain correlation every 60 seconds."""
         # Wait for initial data to accumulate
         await asyncio.sleep(30)
 
         while True:
             try:
                 assets = self.db.list_assets()
+
+                # Get current weather for battery-solar analysis
+                weather_data = None
+                if self.weather_engine:
+                    weather_data = self.weather_engine.current
+
                 for asset in assets:
                     await self.prediction_engine.analyze_asset(
                         asset_id=asset.id,
                         asset_name=asset.name,
                         asset_type=asset.type,
                         location=asset.location,
+                        weather=weather_data,
                     )
 
                 # Broadcast predictions to dashboard
@@ -191,9 +239,44 @@ class PollScheduler:
                         },
                     )
 
+                # Run cross-domain correlation
+                if self.correlator and self.comm_quality_engine:
+                    comm_scores = self.comm_quality_engine.scores
+                    correlations = await self.correlator.correlate(
+                        assets=assets,
+                        weather=weather_data,
+                        comm_quality=comm_scores,
+                    )
+                    if correlations:
+                        await ws_manager.broadcast(
+                            "correlations_update",
+                            {
+                                "correlations": [c.model_dump(mode="json") for c in correlations],
+                            },
+                        )
+
             except asyncio.CancelledError:
                 break
             except Exception as e:
                 self.log.error("prediction_loop_error", error=str(e))
 
             await asyncio.sleep(60)
+
+    async def _weather_loop(self) -> None:
+        """Poll weather data at configured interval."""
+        while True:
+            try:
+                if self.weather_engine:
+                    weather = await self.weather_engine.poll()
+                    # Broadcast weather to dashboard
+                    from dataclasses import asdict
+                    data = asdict(weather)
+                    if data.get("fetched_at"):
+                        data["fetched_at"] = data["fetched_at"].isoformat()
+                    await ws_manager.broadcast("weather_update", data)
+            except asyncio.CancelledError:
+                break
+            except Exception as e:
+                self.log.error("weather_loop_error", error=str(e))
+
+            await asyncio.sleep(settings.weather_poll_interval)

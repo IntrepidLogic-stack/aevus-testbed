@@ -86,6 +86,24 @@ class Settings(BaseSettings):
     # ── IL-9000 Safety Interlock ──
     il_9000_enforced: bool = True  # NEVER set to False
 
+    # ── Notification Engine ──
+    smtp_host: str = "localhost"
+    smtp_port: int = 587
+    smtp_user: str = ""
+    smtp_password: str = ""
+    smtp_from: str = "aevus@intrepidlogic.io"
+    notification_email_to: str = ""
+    notification_sms_to: str = ""
+    twilio_account_sid: str = ""
+    twilio_auth_token: str = ""
+    twilio_from_number: str = ""
+    notifications_enabled: bool = False
+
+    # ── Weather + Daylight ──
+    site_latitude: float = 47.35
+    site_longitude: float = -102.74
+    weather_poll_interval: int = 900
+
 
 # Singleton
 settings = Settings()

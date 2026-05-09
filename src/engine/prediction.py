@@ -6,6 +6,7 @@ Techniques:
   - Rolling z-score: flags readings that deviate >2σ from recent history
   - Linear trend extrapolation: estimates time until a metric crosses a threshold
   - Multi-metric risk aggregation: combines per-metric risks into asset risk score
+  - Battery-solar analysis: correlates battery/solar trends with weather data
 
 The engine runs periodically (default: every 60s) and updates the prediction
 store, which is served by the /api/v1/predictions endpoint.
@@ -22,6 +23,7 @@ import structlog
 from src.models.prediction import Prediction
 
 if TYPE_CHECKING:
+    from src.models.weather import WeatherData
     from src.storage.influx import InfluxStorage
 
 logger = structlog.get_logger()
@@ -39,6 +41,7 @@ MONITORED_METRICS: dict[str, list[dict]] = {
         {"metric": "discharge_pressure", "direction": "upper_bad", "warn": 1200, "crit": 1400, "unit": "PSI"},
         {"metric": "battery_voltage", "direction": "lower_bad", "warn": 12.0, "crit": 11.5, "unit": "VDC"},
         {"metric": "vibration", "direction": "upper_bad", "warn": 4.5, "crit": 7.1, "unit": "mm/s"},
+        {"metric": "battery_solar", "direction": "custom", "warn": 0, "crit": 0, "unit": "composite"},
     ],
     "router": [
         {"metric": "cpu_load", "direction": "upper_bad", "warn": 70, "crit": 90, "unit": "%"},
@@ -80,6 +83,7 @@ class PredictionEngine:
         asset_name: str,
         asset_type: str,
         location: str = "Lab Cabinet",
+        weather: WeatherData | None = None,
     ) -> Prediction | None:
         """Run full prediction analysis for a single asset.
 
@@ -98,14 +102,18 @@ class PredictionEngine:
         min_ttf_hours: float = float("inf")
 
         for mdef in metric_defs:
-            result = self._analyze_metric(
-                asset_id=asset_id,
-                metric=mdef["metric"],
-                direction=mdef["direction"],
-                warn_threshold=mdef["warn"],
-                crit_threshold=mdef["crit"],
-                unit=mdef["unit"],
-            )
+            # Handle battery_solar composite metric
+            if mdef["metric"] == "battery_solar":
+                result = self._analyze_battery_solar(asset_id, weather)
+            else:
+                result = self._analyze_metric(
+                    asset_id=asset_id,
+                    metric=mdef["metric"],
+                    direction=mdef["direction"],
+                    warn_threshold=mdef["warn"],
+                    crit_threshold=mdef["crit"],
+                    unit=mdef["unit"],
+                )
             if result is None:
                 continue
 
@@ -176,6 +184,99 @@ class PredictionEngine:
 
         return prediction
 
+    def _analyze_battery_solar(
+        self, asset_id: str, weather: WeatherData | None
+    ) -> dict | None:
+        """Analyze battery + solar trends correlated with weather.
+
+        Detects:
+          - Battery declining during daylight (panel issue)
+          - Battery declining faster than expected at night
+          - Predicts hours until critical threshold accounting for solar recharge
+        """
+        battery_data = self.influx.query_trend(asset_id, "battery_voltage", hours=HISTORY_HOURS)
+        solar_data = self.influx.query_trend(asset_id, "solar_voltage", hours=HISTORY_HOURS)
+
+        if not battery_data or len(battery_data) < MIN_POINTS:
+            return None
+
+        battery_values = [d["value"] for d in battery_data if d["value"] is not None]
+        if len(battery_values) < MIN_POINTS:
+            return None
+
+        battery_slope = self._linear_slope(battery_values)
+        latest_battery = battery_values[-1]
+        crit_threshold = 11.5  # VDC
+
+        risk = 0.0
+        ttf_hours: float | None = None
+        driver_parts: list[str] = []
+
+        # Check solar data if available
+        solar_values = []
+        if solar_data:
+            solar_values = [d["value"] for d in solar_data if d["value"] is not None]
+
+        is_daylight = weather.is_daylight if weather else True
+        solar_factor = weather.solar_production_factor if weather else 0.5
+        daylight_hours = weather.daylight_hours if weather else 12.0
+
+        # Battery declining during daylight = panel issue
+        if battery_slope < -0.01 and is_daylight and solar_factor > 0.3:
+            risk += 40
+            driver_parts.append("battery declining during peak solar — possible panel issue")
+
+        # Battery declining faster than expected at night
+        if battery_slope < -0.05 and not is_daylight:
+            risk += 30
+            driver_parts.append("battery draining faster than expected overnight")
+
+        # Predict hours to critical
+        if battery_slope < 0:
+            gap = latest_battery - crit_threshold
+            if gap > 0:
+                interval_hours = self._estimate_interval_hours(battery_data)
+                points_to_crit = gap / abs(battery_slope)
+                raw_ttf = points_to_crit * interval_hours
+
+                # Account for solar recharge cycle if weather available
+                if weather and not is_daylight:
+                    # How many hours until sunrise + recharge?
+                    # Rough: if ttf > hours_until_daylight, solar may save it
+                    hours_of_night_left = max(0, 24 - daylight_hours) / 2
+                    if raw_ttf > hours_of_night_left:
+                        # Battery may survive until solar kicks in
+                        raw_ttf = raw_ttf * 1.5  # Extend estimate
+                    else:
+                        risk += 20
+                        driver_parts.append("may not survive until sunrise")
+
+                ttf_hours = raw_ttf
+            else:
+                ttf_hours = 0
+                risk += 40
+                driver_parts.append("battery below critical threshold")
+
+        # Low solar output during daytime
+        if solar_values and is_daylight:
+            latest_solar = solar_values[-1]
+            if latest_solar < 5.0 and solar_factor > 0.3:
+                risk += 15
+                driver_parts.append(f"low solar output ({latest_solar:.1f}V) despite daylight")
+
+        risk = int(round(max(0.0, min(100.0, risk))))
+        if not driver_parts:
+            driver_parts = ["battery/solar nominal"]
+
+        return {
+            "risk": risk,
+            "ttf_hours": ttf_hours,
+            "driver_label": "; ".join(driver_parts).capitalize(),
+            "z_score": 0,
+            "slope": battery_slope,
+            "latest": latest_battery,
+        }
+
     def _analyze_metric(
         self,
         asset_id: str,
@@ -223,7 +324,6 @@ class PredictionEngine:
             # Value rising toward threshold
             gap = threshold_target - latest
             if gap > 0:
-                # Estimate data point interval from timestamps
                 interval_hours = self._estimate_interval_hours(data)
                 points_to_threshold = gap / slope if slope > 0 else float("inf")
                 ttf_hours = points_to_threshold * interval_hours
@@ -284,11 +384,11 @@ class PredictionEngine:
             driver_parts.append("adverse trend")
         if risk > 30:
             if direction == "upper_bad":
-                driver_parts.append(f"{metric.replace('_', ' ')} elevated ({latest:.1f} {unit})")
+                driver_parts.append(f"{metric.replace(_,  )} elevated ({latest:.1f} {unit})")
             else:
-                driver_parts.append(f"{metric.replace('_', ' ')} degraded ({latest:.1f} {unit})")
+                driver_parts.append(f"{metric.replace(_,  )} degraded ({latest:.1f} {unit})")
 
-        driver_label = "; ".join(driver_parts) if driver_parts else f"{metric.replace('_', ' ')} nominal"
+        driver_label = "; ".join(driver_parts) if driver_parts else f"{metric.replace(_,  )} nominal"
 
         return {
             "risk": risk,
@@ -301,11 +401,7 @@ class PredictionEngine:
 
     @staticmethod
     def _linear_slope(values: list[float]) -> float:
-        """Compute the slope of a simple linear regression.
-
-        Uses index as x-axis (0, 1, 2, ...).
-        Returns the change in value per data point.
-        """
+        """Compute the slope of a simple linear regression."""
         n = len(values)
         if n < 2:
             return 0.0

@@ -26,12 +26,15 @@ from starlette.responses import Response
 from src.api import (
     alerts_router,
     assets_router,
+    commands_router,
+    correlations_router,
     deploy_router,
     diagnostics_router,
     health_router,
     integrations_router,
     predictions_router,
     reports_router,
+    weather_router,
     ws_router,
 )
 from src.api.ws import ws_manager
@@ -44,6 +47,11 @@ from src.collectors.snmp_switch import SNMPSwitchCollector
 from src.collectors.modbus_rtu import SCADAPack470Collector
 from src.config import settings
 from src.engine.alert_engine import AlertEngine
+from src.engine.commander import Commander
+from src.engine.comm_quality import CommQualityEngine
+from src.engine.correlator import CorrelationEngine
+from src.engine.notifier import NotificationEngine
+from src.engine.weather import WeatherEngine
 from src.scheduler import PollScheduler
 from src.storage.influx import InfluxStorage
 from src.storage.sqlite_db import SQLiteDB
@@ -58,10 +66,19 @@ class AppState:
         self.db = SQLiteDB()
         self.influx = InfluxStorage()
         self.alert_engine = AlertEngine()
+        self.notifier = NotificationEngine()
+        self.weather_engine = WeatherEngine()
+        self.comm_quality_engine = CommQualityEngine()
+        self.correlator = CorrelationEngine()
+        self.commander = Commander()
         self.scheduler = PollScheduler(
             db=self.db,
             influx=self.influx,
             alert_engine=self.alert_engine,
+            notifier=self.notifier,
+            weather_engine=self.weather_engine,
+            comm_quality_engine=self.comm_quality_engine,
+            correlator=self.correlator,
         )
 
     @property
@@ -273,6 +290,9 @@ app.include_router(predictions_router, prefix="/api/v1")
 app.include_router(reports_router, prefix="/api/v1")
 app.include_router(integrations_router, prefix="/api/v1")
 app.include_router(ws_router, prefix="/api/v1")
+app.include_router(weather_router, prefix="/api/v1")
+app.include_router(commands_router, prefix="/api/v1")
+app.include_router(correlations_router, prefix="/api/v1")
 
 
 # Serve dashboard static files

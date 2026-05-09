@@ -14,6 +14,7 @@
   let ws = null, pollTimer = null;
   let liveAssets = [], liveAlerts = [], healthSummary = {}, predictions = [];
   let trendData = [], currentTrendMetric = 'cpu_load';
+  let weatherData = null, correlations = [], commandLog = [];
   let currentAlertFilter = 'all';
   let currentAssetFilter = 'all';
   let pageInitialized = {};
@@ -35,6 +36,10 @@
     const d = await fetchJSON(`/health/trend?metric=${metric}&hours=24`);
     if (d) trendData = d;
   }
+
+  async function fetchWeather() { const d = await fetchJSON('/weather'); if (d) weatherData = d; }
+  async function fetchCorrelations() { const d = await fetchJSON('/correlations'); if (d) correlations = d; }
+  async function fetchCommandLog() { const d = await fetchJSON('/commands/log?limit=20'); if (d) commandLog = d; }
 
   function timeAgo(iso) {
     if (!iso) return '—';
@@ -98,6 +103,7 @@
       case 'diagnostics': renderDiagnosticsPage(); break;
       case 'trends': if (!isRefresh) await renderTrendsPage(); break;
       case 'cabinet': renderCabinetPage(); break;
+      case 'operations': renderOperationsPage(); break;
       case 'reports': renderReportsPage(); break;
       case 'settings': renderSettingsPage(); break;
     }
@@ -108,6 +114,8 @@
   // ═══════════════════════════════════════
   function renderOverview() {
     updateKPIs();
+    renderWeatherStrip();
+    renderCorrelationsOverview();
     renderFleetStrip();
     renderProcessPanels();
     renderCommTable();
@@ -404,8 +412,160 @@
     `;
   }
 
+
+  // ═══════════════════════════════════════
+  // WEATHER STRIP (Overview)
+  // ═══════════════════════════════════════
+  function renderWeatherStrip() {
+    const el = document.getElementById('weather-strip');
+    if (!el || !weatherData) return;
+    el.style.display = 'grid';
+    const w = weatherData;
+    const condIcon = w.condition === 'clear' || w.condition === 'mostly_clear'
+      ? '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>'
+      : '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M18 10h-1.26A8 8 0 1 0 9 20h9a5 5 0 0 0 0-10z"/></svg>';
+    const condLabel = (w.condition || '').replace(/_/g, ' ');
+    const solarPct = Math.round((w.solar_production_factor || 0) * 100);
+    const solarCol = solarPct > 60 ? 'var(--status-good)' : solarPct > 30 ? 'var(--status-warn)' : 'var(--text-muted)';
+
+    el.innerHTML = `
+      <div class="kpi-tile"><div class="weather-tile"><div class="weather-icon" style="background:rgba(245,158,11,0.12);color:#F59E0B;">${condIcon}</div><div><div class="weather-val">${w.temp_f != null ? Math.round(w.temp_f) + '°' : '—'}</div><div class="weather-label">${condLabel}</div></div></div></div>
+      <div class="kpi-tile"><div class="weather-tile"><div class="weather-icon" style="background:rgba(59,130,246,0.12);color:var(--accent);"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M9.59 4.59A2 2 0 1 1 11 8H2m10.59 11.41A2 2 0 1 0 14 16H2m15.73-8.27A2.5 2.5 0 1 1 19.5 12H2"/></svg></div><div><div class="weather-val">${w.wind_mph != null ? Math.round(w.wind_mph) : '—'}<span style="font-size:12px;color:var(--text-muted);"> mph</span></div><div class="weather-label">Wind${w.wind_gust_mph ? ' · Gust ' + Math.round(w.wind_gust_mph) : ''}</div></div></div></div>
+      <div class="kpi-tile"><div class="weather-tile"><div class="weather-icon" style="background:rgba(16,185,129,0.12);color:var(--status-good);"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/></svg></div><div><div class="weather-val" style="color:${solarCol};">${solarPct}%</div><div class="weather-label">Solar Factor</div><div class="solar-bar" style="width:80px;"><div class="solar-bar-fill" style="width:${solarPct}%;"></div></div></div></div></div>
+      <div class="kpi-tile"><div class="weather-tile"><div class="weather-icon" style="background:rgba(168,85,247,0.12);color:#A855F7;"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M17 18a5 5 0 0 0-10 0"/><line x1="12" y1="9" x2="12" y2="2"/><line x1="4.22" y1="10.22" x2="5.64" y2="11.64"/><line x1="1" y1="18" x2="3" y2="18"/><line x1="21" y1="18" x2="23" y2="18"/><line x1="18.36" y1="11.64" x2="19.78" y2="10.22"/></svg></div><div><div class="weather-val">${w.daylight_hours ? w.daylight_hours.toFixed(1) : '—'}<span style="font-size:12px;color:var(--text-muted);"> hrs</span></div><div class="weather-label">${w.is_daylight ? '☀ Daylight' : '🌙 Night'}</div></div></div></div>
+      <div class="kpi-tile"><div class="weather-tile"><div class="weather-icon" style="background:rgba(6,182,212,0.12);color:#06B6D4;"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 2.69l5.66 5.66a8 8 0 1 1-11.31 0z"/></svg></div><div><div class="weather-val">${w.precip_in != null ? w.precip_in.toFixed(2) : '0'}<span style="font-size:12px;color:var(--text-muted);"> in</span></div><div class="weather-label">Precipitation</div></div></div></div>
+    `;
+  }
+
+  // ═══════════════════════════════════════
+  // CORRELATIONS (Overview)
+  // ═══════════════════════════════════════
+  function renderCorrelationsOverview() {
+    const el = document.getElementById('correlations-panel');
+    if (!el) return;
+    if (!correlations || correlations.length === 0) {
+      el.style.display = 'none';
+      return;
+    }
+    el.style.display = 'block';
+    el.innerHTML = '<div class="section-title">Cross-Domain Correlations</div>' +
+      correlations.slice(0, 5).map(c => {
+        const sev = c.severity || 'low';
+        return '<div class="corr-card ' + sev + '">' +
+          '<span class="corr-severity ' + sev + '">' + sev + '</span>' +
+          '<div style="flex:1;"><div style="font-size:13px;font-weight:600;color:var(--text-primary);">' + (c.pattern || c.type || '—') + '</div>' +
+          '<div style="font-size:11px;color:var(--text-muted);margin-top:2px;">' + (c.message || '') + '</div>' +
+          '<div style="font-size:10px;color:var(--text-muted);margin-top:2px;">Assets: ' + ((c.assets || []).join(', ') || '—') + '</div></div>' +
+          '<div style="font-size:10px;color:var(--text-muted);font-family:var(--font-mono);">' + timeAgo(c.detected_at) + '</div>' +
+          '</div>';
+      }).join('');
+  }
+
+  // ═══════════════════════════════════════
+  // PAGE: OPERATIONS
+  // ═══════════════════════════════════════
+  async function renderOperationsPage() {
+    await Promise.all([fetchWeather(), fetchCorrelations(), fetchCommandLog()]);
+    renderOpsWeather();
+    renderOpsCommands();
+    renderOpsCommandLog();
+    renderOpsCorrelations();
+  }
+
+  function renderOpsWeather() {
+    const el = document.getElementById('ops-weather-detail');
+    if (!el) return;
+    const w = weatherData;
+    if (!w) { el.innerHTML = '<div style="color:var(--text-muted);font-size:12px;">Weather data not available</div>'; return; }
+    const solarPct = Math.round((w.solar_production_factor || 0) * 100);
+    const solarCol = solarPct > 60 ? 'var(--status-good)' : solarPct > 30 ? 'var(--status-warn)' : 'var(--text-muted)';
+    el.innerHTML = `<div class="stat-grid" style="grid-template-columns:repeat(6,1fr);">
+      <div class="stat-card"><div class="stat-card-label">Temperature</div><div class="stat-card-value" style="color:#F59E0B;">${w.temp_f != null ? Math.round(w.temp_f) + '°F' : '—'}</div><div class="stat-card-sub">${(w.condition||'').replace(/_/g,' ')}</div></div>
+      <div class="stat-card"><div class="stat-card-label">Wind Speed</div><div class="stat-card-value" style="color:var(--accent);">${w.wind_mph != null ? Math.round(w.wind_mph) : '—'} <span style="font-size:12px;">mph</span></div><div class="stat-card-sub">Gust: ${w.wind_gust_mph ? Math.round(w.wind_gust_mph) + ' mph' : '—'}</div></div>
+      <div class="stat-card"><div class="stat-card-label">Precipitation</div><div class="stat-card-value" style="color:#06B6D4;">${w.precip_in != null ? w.precip_in.toFixed(2) : '0'} <span style="font-size:12px;">in</span></div></div>
+      <div class="stat-card"><div class="stat-card-label">Solar Factor</div><div class="stat-card-value" style="color:${solarCol};">${solarPct}%</div><div class="solar-bar" style="width:100%;margin-top:6px;"><div class="solar-bar-fill" style="width:${solarPct}%;"></div></div></div>
+      <div class="stat-card"><div class="stat-card-label">Daylight</div><div class="stat-card-value">${w.daylight_hours ? w.daylight_hours.toFixed(1) : '—'} <span style="font-size:12px;">hrs</span></div><div class="stat-card-sub">${w.is_daylight ? '☀ Currently daylight' : '🌙 Currently night'}</div></div>
+      <div class="stat-card"><div class="stat-card-label">Sun Times</div><div class="stat-card-value" style="font-size:14px;">${w.sunrise || '—'}</div><div class="stat-card-sub">Sunset: ${w.sunset || '—'}</div></div>
+    </div>`;
+  }
+
+  function renderOpsCommands() {
+    const el = document.getElementById('ops-command-panel');
+    if (!el) return;
+    const rtu = liveAssets.find(a => a.type === 'rtu') || { id: 'RTU-01' };
+    const commands = [
+      { cmd: 'start_motor', label: 'Start Motor', icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><polygon points="5 3 19 12 5 21 5 3"/></svg>' },
+      { cmd: 'stop_motor', label: 'Stop Motor', icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/></svg>' },
+      { cmd: 'open_valve', label: 'Open Valve', icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 2v4m0 12v4M4.93 4.93l2.83 2.83m8.48 8.48l2.83 2.83M2 12h4m12 0h4M4.93 19.07l2.83-2.83m8.48-8.48l2.83-2.83"/></svg>' },
+      { cmd: 'close_valve', label: 'Close Valve', icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>' },
+    ];
+    el.innerHTML = '<div style="margin-bottom:10px;font-size:11px;color:var(--text-muted);display:flex;align-items:center;gap:6px;"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="var(--status-good)" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg> IL-9000 Safety Interlock: <span style="color:var(--status-good);font-weight:600;">ACTIVE</span></div>' +
+      '<div style="font-size:10px;color:var(--text-muted);margin-bottom:12px;">Target: ' + rtu.id + ' · All commands are simulated</div>' +
+      commands.map(c =>
+        '<button class="cmd-btn" onclick="window.executeCommand(\'' + rtu.id + '\',\'' + c.cmd + '\')">' + c.icon + '<span>' + c.label + '</span></button>'
+      ).join('');
+  }
+
+  window.executeCommand = async function(assetId, command) {
+    if (!confirm('Execute ' + command.replace(/_/g,' ') + ' on ' + assetId + '?\n\nIL-9000 safety check will run.')) return;
+    try {
+      const h = { 'Content-Type': 'application/json' };
+      if (API_KEY) h['X-API-Key'] = API_KEY;
+      const r = await fetch(API + '/commands', {
+        method: 'POST', headers: h,
+        body: JSON.stringify({ asset_id: assetId, command: command, confirm: true })
+      });
+      const d = await r.json();
+      if (r.ok) {
+        alert('Command executed:\n' + (d.result || 'OK'));
+        fetchCommandLog().then(() => renderOpsCommandLog());
+      } else {
+        alert('Command failed:\n' + (d.detail || JSON.stringify(d)));
+      }
+    } catch (e) { alert('Error: ' + e.message); }
+  };
+
+  function renderOpsCommandLog() {
+    const el = document.getElementById('ops-command-log');
+    if (!el) return;
+    if (!commandLog || commandLog.length === 0) {
+      el.innerHTML = '<div style="color:var(--text-muted);font-size:12px;padding:12px;">No commands executed yet</div>';
+      return;
+    }
+    el.innerHTML = commandLog.slice(0, 15).map(c => {
+      const isOk = (c.result || '').startsWith('simulated');
+      return '<div class="cmd-log-row">' +
+        '<span class="mono" style="color:var(--accent);min-width:50px;">' + (c.asset_id || '') + '</span>' +
+        '<span style="color:var(--text-primary);font-weight:500;min-width:90px;">' + (c.command || '').replace(/_/g, ' ') + '</span>' +
+        '<span class="cmd-result ' + (isOk ? 'ok' : 'fail') + '">' + (isOk ? 'OK' : 'REJECTED') + '</span>' +
+        '<span style="color:var(--text-muted);font-size:10px;margin-left:auto;font-family:var(--font-mono);">' + timeAgo(c.timestamp) + '</span>' +
+        '</div>';
+    }).join('');
+  }
+
+  function renderOpsCorrelations() {
+    const el = document.getElementById('ops-correlations-detail');
+    if (!el) return;
+    if (!correlations || correlations.length === 0) {
+      el.innerHTML = '<div style="background:var(--bg-card);border:1px solid var(--border);border-radius:var(--card-radius);padding:24px;text-align:center;color:var(--text-muted);font-size:13px;">No active cross-domain correlations — all systems nominal</div>';
+      return;
+    }
+    el.innerHTML = correlations.map(c => {
+      const sev = c.severity || 'low';
+      return '<div class="corr-card ' + sev + '">' +
+        '<span class="corr-severity ' + sev + '">' + sev + '</span>' +
+        '<div style="flex:1;"><div style="font-size:14px;font-weight:600;color:var(--text-primary);">' + (c.pattern || c.type || '') + '</div>' +
+        '<div style="font-size:12px;color:var(--text-secondary);margin-top:4px;">' + (c.message || '') + '</div>' +
+        '<div style="font-size:11px;color:var(--text-muted);margin-top:4px;">Affected: ' + ((c.assets || []).join(', ') || '—') + '</div></div>' +
+        '<div style="text-align:right;"><div style="font-size:10px;color:var(--text-muted);font-family:var(--font-mono);">' + timeAgo(c.detected_at) + '</div>' +
+        '<div style="font-size:10px;color:var(--text-muted);margin-top:2px;">' + (c.type || '') + '</div></div>' +
+        '</div>';
+    }).join('');
+  }
+
   // ═══════════════════════════════════════
   // PAGE: SETTINGS
+
   // ═══════════════════════════════════════
 
 
@@ -1286,7 +1446,7 @@
   function startPolling() { if(!pollTimer) pollTimer=setInterval(refreshAll,POLL_INTERVAL); }
 
   async function refreshAll() {
-    await Promise.all([fetchAssets(), fetchAlerts(), fetchHealthSummary(), fetchPredictions()]);
+    await Promise.all([fetchAssets(), fetchAlerts(), fetchHealthSummary(), fetchPredictions(), fetchWeather(), fetchCorrelations()]);
     const page = location.hash.replace('#','')||'overview';
     renderPage(page, true);
   }

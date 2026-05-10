@@ -1090,25 +1090,25 @@
 
     function rssiArc(rssi, label, x) {
       var pct = Math.max(0, Math.min(100, (rssi - (-100)) / ((-20) - (-100)) * 100));
-      var angle = (pct / 100) * 180;
-      var rad = angle * Math.PI / 180;
-      var r = 45;
-      var cx = x, cy = 60;
-      var x1 = cx - r, y1 = cy;
-      var x2 = cx + r * Math.cos(Math.PI - rad), y2 = cy - r * Math.sin(Math.PI - rad);
-      var large = angle > 90 ? 1 : 0;
       var color = pct > 60 ? '#10b981' : pct > 30 ? '#f59e0b' : '#ef4444';
-      return '<g>' +
-        '<path d="M' + (cx-r) + ' ' + cy + ' A ' + r + ' ' + r + ' 0 0 1 ' + (cx+r) + ' ' + cy + '" fill="none" stroke="rgba(255,255,255,0.08)" stroke-width="8" stroke-linecap="round"/>' +
-        '<path d="M' + x1 + ' ' + y1 + ' A ' + r + ' ' + r + ' 0 ' + large + ' 1 ' + x2.toFixed(1) + ' ' + y2.toFixed(1) + '" fill="none" stroke="' + color + '" stroke-width="8" stroke-linecap="round"/>' +
-        '<text x="' + cx + '" y="' + (cy-8) + '" text-anchor="middle" fill="' + color + '" font-size="16" font-weight="700" font-family="monospace">' + rssi + '</text>' +
-        '<text x="' + cx + '" y="' + (cy+6) + '" text-anchor="middle" fill="rgba(255,255,255,0.4)" font-size="9">dBm</text>' +
-        '<text x="' + cx + '" y="' + (cy+22) + '" text-anchor="middle" fill="rgba(255,255,255,0.7)" font-size="10" font-weight="600">' + label + '</text>' +
+      var r = 45;
+      var cx = x, cy = 65;
+      var circumference = Math.PI * r;
+      var filled = circumference * (pct / 100);
+      var gap = circumference - filled;
+      return '<g transform="translate(' + cx + ',' + cy + ')">' +
+        '<path d="M-' + r + ',0 A' + r + ',' + r + ' 0 0,1 ' + r + ',0" fill="none" stroke="rgba(255,255,255,0.08)" stroke-width="10" stroke-linecap="round"/>' +
+        '<path d="M-' + r + ',0 A' + r + ',' + r + ' 0 0,1 ' + r + ',0" fill="none" stroke="' + color + '" stroke-width="10" stroke-linecap="round" stroke-dasharray="' + filled.toFixed(1) + ' ' + gap.toFixed(1) + '"/>' +
+        '<text x="0" y="-12" text-anchor="middle" fill="' + color + '" font-size="22" font-weight="700" font-family="monospace">' + rssi + '</text>' +
+        '<text x="0" y="4" text-anchor="middle" fill="rgba(255,255,255,0.4)" font-size="10">dBm</text>' +
+        '<text x="0" y="24" text-anchor="middle" fill="rgba(255,255,255,0.7)" font-size="11" font-weight="600">' + label + '</text>' +
+        '<text x="-' + r + '" y="14" text-anchor="middle" fill="rgba(255,255,255,0.3)" font-size="8">-100</text>' +
+        '<text x="' + r + '" y="14" text-anchor="middle" fill="rgba(255,255,255,0.3)" font-size="8">-20</text>' +
       '</g>';
     }
 
     el.innerHTML =
-      '<svg viewBox="0 0 400 100" width="100%" style="max-height:120px;">' +
+      '<svg viewBox="0 0 400 110" width="100%" style="max-height:140px;">' +
         rssiArc(r1rssi, 'RAD-01 RSSI', 100) +
         rssiArc(r2rssi, 'RAD-02 RSSI', 300) +
       '</svg>' +

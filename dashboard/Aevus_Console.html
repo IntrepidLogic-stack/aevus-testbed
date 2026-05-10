@@ -712,6 +712,115 @@ body {
     .wx-layer-btn.active { background:rgba(59,130,246,0.15);border-color:var(--accent);color:var(--accent); }
     #wx-map-controls { position:absolute;bottom:42px;left:50%;transform:translateX(-50%);display:flex;gap:6px;z-index:5; }
 
+
+    /* Nav group labels */
+    .nav-group-label { font-size:9px;font-weight:700;letter-spacing:1.5px;color:var(--text-muted);padding:16px 20px 4px;text-transform:uppercase;opacity:0.6; }
+    .nav-group-label:first-child { padding-top:8px; }
+
+    /* Drill-down breadcrumb */
+    .drill-breadcrumb { display:flex;align-items:center;gap:6px;font-size:11px;color:var(--text-muted);margin-bottom:12px; }
+    .drill-breadcrumb a { color:var(--accent);text-decoration:none;cursor:pointer; }
+    .drill-breadcrumb a:hover { text-decoration:underline; }
+    .drill-breadcrumb .sep { opacity:0.4; }
+
+    /* Module header with actions */
+    .module-header { display:flex;align-items:center;justify-content:space-between;margin-bottom:20px; }
+    .module-header h2 { margin:0;font-size:22px;font-weight:700; }
+    .module-subtitle { color:var(--text-muted);font-size:12px;margin-top:2px; }
+    .module-actions { display:flex;gap:8px; }
+    .module-btn { display:inline-flex;align-items:center;gap:6px;padding:6px 14px;border-radius:8px;border:1px solid rgba(255,255,255,0.1);background:rgba(255,255,255,0.04);color:var(--text-secondary);font-size:11px;font-family:var(--font-body);cursor:pointer;transition:all 0.2s; }
+    .module-btn:hover { border-color:var(--accent);color:var(--accent); }
+    .module-btn svg { width:14px;height:14px; }
+    .module-btn.primary { background:var(--accent);border-color:var(--accent);color:white; }
+
+    /* KPI strip */
+    .kpi-strip { display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:12px;margin-bottom:20px; }
+    .kpi-card { background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:14px 16px; }
+    .kpi-label { font-size:9px;font-weight:700;letter-spacing:1px;color:var(--text-muted);text-transform:uppercase;margin-bottom:4px; }
+    .kpi-value { font-family:var(--font-mono);font-size:24px;font-weight:700;color:var(--text-primary); }
+    .kpi-delta { font-size:10px;margin-top:2px; }
+    .kpi-delta.up { color:#22C55E; }
+    .kpi-delta.down { color:#EF4444; }
+    .kpi-delta.neutral { color:var(--text-muted); }
+
+    /* Data table — ICS style */
+    .ics-table { width:100%;border-collapse:collapse;font-size:12px; }
+    .ics-table thead th { padding:8px 12px;text-align:left;font-size:9px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:var(--text-muted);border-bottom:1px solid var(--border);position:sticky;top:0;background:var(--surface); }
+    .ics-table tbody tr { border-bottom:1px solid rgba(255,255,255,0.04);cursor:pointer;transition:background 0.15s; }
+    .ics-table tbody tr:hover { background:rgba(59,130,246,0.06); }
+    .ics-table tbody td { padding:10px 12px;color:var(--text-secondary); }
+    .ics-table .status-dot { display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:6px; }
+    .ics-table .status-dot.good { background:#22C55E; }
+    .ics-table .status-dot.warning { background:#F59E0B; }
+    .ics-table .status-dot.critical { background:#EF4444; }
+    .ics-table .status-dot.offline { background:#64748B; }
+    .ics-table .mono { font-family:var(--font-mono);font-size:11px; }
+
+    /* Severity badges */
+    .sev-badge { display:inline-flex;align-items:center;gap:4px;padding:2px 8px;border-radius:4px;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.5px; }
+    .sev-badge.critical { background:rgba(239,68,68,0.15);color:#EF4444;border:1px solid rgba(239,68,68,0.3); }
+    .sev-badge.high { background:rgba(249,115,22,0.15);color:#F97316;border:1px solid rgba(249,115,22,0.3); }
+    .sev-badge.medium { background:rgba(245,158,11,0.15);color:#F59E0B;border:1px solid rgba(245,158,11,0.3); }
+    .sev-badge.low { background:rgba(59,130,246,0.15);color:#3B82F6;border:1px solid rgba(59,130,246,0.3); }
+    .sev-badge.info { background:rgba(100,116,139,0.15);color:#94A3B8;border:1px solid rgba(100,116,139,0.3); }
+
+    /* Process flow / topology */
+    .process-flow { position:relative;background:var(--surface);border:1px solid var(--border);border-radius:16px;padding:24px;min-height:280px;overflow:hidden; }
+    .pf-node { position:absolute;padding:10px 14px;border-radius:10px;border:1px solid var(--border);background:rgba(7,11,22,0.8);backdrop-filter:blur(8px);font-size:11px;cursor:pointer;transition:all 0.2s;z-index:2; }
+    .pf-node:hover { border-color:var(--accent);transform:translateY(-1px);box-shadow:0 4px 12px rgba(59,130,246,0.15); }
+    .pf-node .pf-name { font-weight:600;color:var(--text-primary);margin-bottom:2px; }
+    .pf-node .pf-type { font-size:9px;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.5px; }
+    .pf-node .pf-health { position:absolute;top:-4px;right:-4px;width:12px;height:12px;border-radius:50%;border:2px solid var(--surface); }
+
+    /* Network map */
+    .net-topo { background:var(--surface);border:1px solid var(--border);border-radius:16px;padding:20px;position:relative;min-height:360px; }
+    .net-node { position:absolute;text-align:center;cursor:pointer;transition:transform 0.15s; }
+    .net-node:hover { transform:scale(1.08); }
+    .net-node-icon { width:48px;height:48px;border-radius:12px;display:flex;align-items:center;justify-content:center;margin:0 auto 6px;border:2px solid var(--border); }
+    .net-node-label { font-size:10px;font-weight:600;color:var(--text-primary); }
+    .net-node-ip { font-size:9px;font-family:var(--font-mono);color:var(--text-muted); }
+    .net-link { position:absolute;z-index:0; }
+
+    /* Cyber threat panel */
+    .threat-item { display:flex;align-items:flex-start;gap:12px;padding:12px;border-radius:10px;border:1px solid var(--border);background:var(--surface);margin-bottom:8px;transition:background 0.15s; }
+    .threat-item:hover { background:rgba(59,130,246,0.04); }
+    .threat-icon { width:36px;height:36px;border-radius:8px;display:flex;align-items:center;justify-content:center;flex-shrink:0; }
+    .threat-icon.critical { background:rgba(239,68,68,0.12);color:#EF4444; }
+    .threat-icon.warning { background:rgba(245,158,11,0.12);color:#F59E0B; }
+    .threat-icon.info { background:rgba(59,130,246,0.12);color:#3B82F6; }
+    .threat-title { font-size:12px;font-weight:600;color:var(--text-primary); }
+    .threat-desc { font-size:11px;color:var(--text-muted);margin-top:2px; }
+    .threat-meta { font-size:10px;color:var(--text-muted);margin-top:4px;font-family:var(--font-mono); }
+
+    /* Historian query bar */
+    .hist-query-bar { display:flex;gap:8px;padding:12px;background:var(--surface);border:1px solid var(--border);border-radius:12px;margin-bottom:16px;align-items:center;flex-wrap:wrap; }
+    .hist-query-bar select, .hist-query-bar input { background:rgba(255,255,255,0.04);border:1px solid var(--border);border-radius:6px;padding:6px 10px;color:var(--text-primary);font-size:11px;font-family:var(--font-body); }
+    .hist-query-bar select:focus, .hist-query-bar input:focus { border-color:var(--accent);outline:none; }
+    .hist-query-bar label { font-size:9px;font-weight:700;letter-spacing:0.5px;text-transform:uppercase;color:var(--text-muted); }
+
+    /* Compliance gauge */
+    .compliance-gauge { text-align:center;padding:20px; }
+    .compliance-ring { width:120px;height:120px;margin:0 auto; }
+    .compliance-score { font-family:var(--font-mono);font-size:32px;font-weight:700; }
+    .compliance-label { font-size:11px;color:var(--text-muted);margin-top:4px; }
+
+    /* Shift log */
+    .shift-entry { display:flex;gap:12px;padding:10px 0;border-bottom:1px solid rgba(255,255,255,0.04); }
+    .shift-time { font-family:var(--font-mono);font-size:10px;color:var(--text-muted);width:60px;flex-shrink:0; }
+    .shift-user { font-size:11px;font-weight:600;color:var(--accent);width:80px;flex-shrink:0; }
+    .shift-msg { font-size:11px;color:var(--text-secondary);flex:1; }
+
+    /* Tab bar for sub-views */
+    .tab-bar { display:flex;gap:2px;border-bottom:1px solid var(--border);margin-bottom:16px; }
+    .tab-item { padding:8px 16px;font-size:11px;font-weight:600;color:var(--text-muted);cursor:pointer;border-bottom:2px solid transparent;transition:all 0.15s; }
+    .tab-item:hover { color:var(--text-primary); }
+    .tab-item.active { color:var(--accent);border-bottom-color:var(--accent); }
+
+    /* Split panel */
+    .split-panel { display:grid;grid-template-columns:1fr 1fr;gap:16px; }
+    .split-panel.thirds { grid-template-columns:1fr 1fr 1fr; }
+    @media (max-width:900px) { .split-panel, .split-panel.thirds { grid-template-columns:1fr; } }
+
 </style>
 <link href="https://api.mapbox.com/mapbox-gl-js/v3.4.0/mapbox-gl.css" rel="stylesheet">
 <script src="https://api.mapbox.com/mapbox-gl-js/v3.4.0/mapbox-gl.js"></script>
@@ -739,51 +848,45 @@ body {
 <!-- ── Sidebar ── -->
 <nav class="sidebar">
   <div class="sidebar-nav">
+    <!-- ICS/SCADA Module Navigation -->
+    <div class="nav-group-label">MONITORING</div>
     <a class="nav-item active" href="#overview" data-page="overview">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>
-      Overview
-    </a>
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>
+      Process Overview</a>
     <a class="nav-item" href="#assets" data-page="assets">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 7V5a4 4 0 0 0-8 0v2"/></svg>
-      Assets
-    </a>
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M20 7H4a2 2 0 0 0-2 2v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2z"/><path d="M6 11h.01M10 11h.01"/></svg>
+      Assets</a>
+    <a class="nav-item" href="#alarms" data-page="alarms">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+      Alarms</a>
     <a class="nav-item" href="#health" data-page="health">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>
-      Health
-    </a>
-    <a class="nav-item" href="#alerts" data-page="alerts">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
-      Alerts
-    </a>
-    <a class="nav-item" href="#diagnostics" data-page="diagnostics">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/></svg>
-      Diagnostics
-    </a>
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>
+      Health</a>
+
+    <div class="nav-group-label">ANALYSIS</div>
+    <a class="nav-item" href="#historian" data-page="historian">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+      Historian</a>
+    <a class="nav-item" href="#network" data-page="network">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="2" y="2" width="6" height="6" rx="1"/><rect x="16" y="2" width="6" height="6" rx="1"/><rect x="9" y="16" width="6" height="6" rx="1"/><path d="M5 8v3a3 3 0 0 0 3 3h8a3 3 0 0 0 3-3V8"/><line x1="12" y1="14" x2="12" y2="16"/></svg>
+      Network</a>
+    <a class="nav-item" href="#cyber" data-page="cyber">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+      Cybersecurity</a>
+
+    <div class="nav-group-label">OPERATIONS</div>
     <a class="nav-item" href="#operations" data-page="operations">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
-      Operations
-    </a>
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+      Operations</a>
     <a class="nav-item" href="#weather" data-page="weather">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M18 10h-1.26A8 8 0 1 0 9 20h9a5 5 0 0 0 0-10z"/></svg>
-      Weather
-    </a>
-    <a class="nav-item" href="#cabinet" data-page="cabinet">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="2" width="20" height="8" rx="2"/><rect x="2" y="14" width="20" height="8" rx="2"/><circle cx="6" cy="6" r="1"/><circle cx="6" cy="18" r="1"/><line x1="10" y1="6" x2="18" y2="6"/><line x1="10" y1="18" x2="18" y2="18"/></svg>
-      Cabinet
-    </a>
-    <a class="nav-item" href="#trends" data-page="trends">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
-      Trends
-    </a>
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M18 10h-1.26A8 8 0 1 0 9 20h9a5 5 0 0 0 0-10z"/></svg>
+      Weather</a>
     <a class="nav-item" href="#reports" data-page="reports">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
-      Reports
-    </a>
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
+      Reports</a>
     <a class="nav-item" href="#settings" data-page="settings">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
-      Settings
-    </a>
-  </div>
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/><circle cx="5" cy="12" r="1"/></svg>
+      Settings</a>  </div>
   <div class="sidebar-footer">
     <div class="sidebar-site-label">Killdeer Field</div>
     <div class="sidebar-user">
@@ -840,7 +943,7 @@ body {
 </section>
 
 <!-- ━━━ PAGE: ALERTS ━━━ -->
-<section class="page-section" data-page="alerts">
+<section class="page-section" data-page="alarms">
   <div class="page-header"><div class="page-title">Alerts</div><div class="page-subtitle">Active and recent alert history</div></div>
   <div class="filter-bar" id="alert-filters"></div>
   <div id="alerts-full-list"></div>
@@ -924,6 +1027,18 @@ body {
 </section>
 
 <!-- ━━━ PAGE: OPERATIONS ━━━ -->
+<section class="page-section" data-page="historian">
+  <div id="historian-page"></div>
+</section>
+
+<section class="page-section" data-page="network">
+  <div id="network-page"></div>
+</section>
+
+<section class="page-section" data-page="cyber">
+  <div id="cyber-page"></div>
+</section>
+
 <section class="page-section" data-page="operations">
   <div class="page-header"><div class="page-title">Operations</div><div class="page-subtitle">Operator commands, weather intelligence, and cross-domain correlations</div></div>
   <div id="ops-weather-detail" style="margin-bottom:24px;"></div>
@@ -995,6 +1110,6 @@ body {
     if (el) el.textContent = new Date().toLocaleTimeString('en-US', { hour12: false });
   }, 1000);
 </script>
-<script src="/dashboard/api-client.js?v=9"></script>
+<script src="/dashboard/api-client.js?v=10"></script>
 </body>
 </html>

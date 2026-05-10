@@ -973,107 +973,128 @@
   let _wxMap = null;
 
   function renderWxMap() {
-    const container = document.getElementById('wx-map');
+    var container = document.getElementById('wx-map');
     if (!container) return;
 
-    // Only create map once to prevent blinking on data refresh
     if (_wxMap) {
       updateWxOverlay();
       return;
     }
 
     container.innerHTML = '';
-    try {
-      mapboxgl.accessToken = MAPBOX_TOKEN;
-      const map = new mapboxgl.Map({
-        container: 'wx-map',
-        style: 'mapbox://styles/mapbox/dark-v11',
-        center: [SITE_LON, SITE_LAT],
-        zoom: 9,
-        maxZoom: 13,
-        pitch: 15,
-        attributionControl: false,
-        preserveDrawingBuffer: true,
-      });
-      _wxMap = map;
+    container.style.zIndex = '1';
 
-      map.addControl(new mapboxgl.NavigationControl({showCompass:true, visualizePitch:true}), 'top-right');
-      map.addControl(new mapboxgl.ScaleControl({maxWidth:120, unit:'imperial'}), 'bottom-left');
-      map.addControl(new mapboxgl.FullscreenControl(), 'top-right');
+    var map = L.map('wx-map', {
+      center: [SITE_LAT, SITE_LON],
+      zoom: 11,
+      zoomControl: false,
+      attributionControl: false,
+    });
 
-      map.on('load', function() {
-        // === Live Weather Radar (RainViewer — free, no key) ===
-        fetch('https://api.rainviewer.com/public/weather-maps.json')
-          .then(function(r){return r.json();})
-          .then(function(rv) {
-            var ts = rv.radar && rv.radar.past && rv.radar.past.length > 0
-              ? rv.radar.past[rv.radar.past.length - 1].path : null;
-            if (ts) {
-              map.addSource('radar', {
-                type: 'raster',
-                tiles: ['https://tilecache.rainviewer.com' + ts + '/256/{z}/{x}/{y}/6/1_1.png'],
-                tileSize: 256,
-              });
-              map.addLayer({
-                id: 'radar-layer',
-                type: 'raster',
-                source: 'radar',
-                paint: { 'raster-opacity': 0.55 },
-              });
-            }
-          }).catch(function(){});
+    // Dark tile layer — CartoDB Dark Matter (free, no key, no zoom limits)
+    L.tileLayer('https://basemaps.cartocdn.com/dark_all/{z}/{x}/{y}@2x.png', {
+      maxZoom: 19,
+      attribution: '&copy; OpenStreetMap &copy; CARTO',
+    }).addTo(map);
 
-        // === 25-mile operational radius ring ===
-        var pts = [];
-        for (var a = 0; a <= 360; a += 5) {
-          var r = 0.36;
-          pts.push([SITE_LON + r * Math.cos(a * Math.PI/180), SITE_LAT + r * Math.sin(a * Math.PI/180) * 0.85]);
-        }
-        map.addSource('ops-radius', {
-          type: 'geojson',
-          data: { type: 'Feature', geometry: { type: 'Polygon', coordinates: [pts] } }
-        });
-        map.addLayer({
-          id: 'ops-radius-line',
-          type: 'line',
-          source: 'ops-radius',
-          paint: { 'line-color': '#3B82F6', 'line-width': 1.5, 'line-dasharray': [4, 4], 'line-opacity': 0.4 },
-        });
-        map.addLayer({
-          id: 'ops-radius-fill',
-          type: 'fill',
-          source: 'ops-radius',
-          paint: { 'fill-color': '#3B82F6', 'fill-opacity': 0.04 },
-        });
+    // Zoom control top-right
+    L.control.zoom({ position: 'topright' }).addTo(map);
 
-        // Build layer controls
-        buildWxMapControls();
-      });
+    // Scale bar
+    L.control.scale({ position: 'bottomleft', imperial: true, metric: false }).addTo(map);
 
-      // Pulsing site marker
-      var markerEl = document.createElement('div');
-      markerEl.innerHTML = '<div style="position:relative;width:28px;height:28px;">' +
+    _wxMap = map;
+
+    // Pulsing site marker
+    var pulseIcon = L.divIcon({
+      className: '',
+      html: '<div style="position:relative;width:28px;height:28px;">' +
         '<div style="position:absolute;inset:0;border-radius:50%;background:rgba(59,130,246,0.25);animation:wxPulse 2s ease-in-out infinite;"></div>' +
-        '<div style="position:absolute;inset:4px;border-radius:50%;background:#3B82F6;border:3px solid white;box-shadow:0 0 12px rgba(59,130,246,0.6);"></div></div>';
-      var popup = new mapboxgl.Popup({offset:25,closeButton:false,maxWidth:'280px'}).setHTML(
-        '<div style="font-family:Inter,sans-serif;padding:6px;">' +
-        '<div style="font-weight:700;font-size:14px;color:#1E293B;">Killdeer Field</div>' +
-        '<div style="font-size:11px;color:#64748B;">10102 Clydesdale Dr, Needville, TX</div>' +
-        '<div style="font-size:11px;color:#64748B;">29.39°N, 95.84°W · Elev 85 ft</div>' +
-        (weatherData ? '<div style="margin-top:6px;padding-top:6px;border-top:1px solid #E2E8F0;font-size:12px;color:#334155;">' +
-          '<span style="font-weight:600;font-size:16px;">' + Math.round(weatherData.temp_f) + '°F</span> · ' +
-          Math.round(weatherData.wind_mph) + ' mph ' + (weatherData.wind_dir||'') + ' · ' +
-          (weatherData.condition||'').replace(/_/g,' ') + '</div>' : '') +
-        '</div>'
-      );
-      new mapboxgl.Marker({element:markerEl}).setLngLat([SITE_LON, SITE_LAT]).setPopup(popup).addTo(map);
+        '<div style="position:absolute;inset:4px;border-radius:50%;background:#3B82F6;border:3px solid white;box-shadow:0 0 12px rgba(59,130,246,0.6);"></div></div>',
+      iconSize: [28, 28],
+      iconAnchor: [14, 14],
+    });
 
-      updateWxOverlay();
-    } catch(e) {
-      container.innerHTML = '<div style="display:flex;align-items:center;justify-content:center;height:100%;color:var(--text-muted);font-size:12px;flex-direction:column;gap:8px;padding:20px;text-align:center;">' +
-        '<svg viewBox="0 0 24 24" width="32" height="32" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="12" cy="10" r="3"/><path d="M12 21.7C17.3 17 20 13 20 10a8 8 0 1 0-16 0c0 3 2.7 7 8 11.7z"/></svg>' +
-        '<div>Map unavailable</div></div>';
+    var marker = L.marker([SITE_LAT, SITE_LON], { icon: pulseIcon }).addTo(map);
+    marker.bindPopup(
+      '<div style="font-family:Inter,sans-serif;padding:4px;min-width:200px;">' +
+      '<div style="font-weight:700;font-size:14px;">Killdeer Field</div>' +
+      '<div style="font-size:11px;color:#64748B;">10102 Clydesdale Dr, Needville, TX</div>' +
+      '<div style="font-size:11px;color:#64748B;">29.39°N, 95.84°W · Elev 85 ft</div>' +
+      (weatherData ? '<div style="margin-top:6px;padding-top:6px;border-top:1px solid #E2E8F0;font-size:12px;">' +
+        '<span style="font-weight:600;font-size:16px;">' + Math.round(weatherData.temp_f) + '°F</span> · ' +
+        Math.round(weatherData.wind_mph) + ' mph ' + (weatherData.wind_dir||'') + ' · ' +
+        (weatherData.condition||'').replace(/_/g,' ') + '</div>' : '') +
+      '</div>',
+      { maxWidth: 280 }
+    );
+
+    // 25-mile ops radius ring
+    var opsCircle = L.circle([SITE_LAT, SITE_LON], {
+      radius: 40234, // 25 miles in meters
+      color: '#3B82F6',
+      weight: 1.5,
+      dashArray: '8, 6',
+      fillColor: '#3B82F6',
+      fillOpacity: 0.03,
+      opacity: 0.4,
+    }).addTo(map);
+
+    // Live weather radar overlay (RainViewer)
+    var radarLayer = null;
+    fetch('https://api.rainviewer.com/public/weather-maps.json')
+      .then(function(r) { return r.json(); })
+      .then(function(rv) {
+        var ts = rv.radar && rv.radar.past && rv.radar.past.length > 0
+          ? rv.radar.past[rv.radar.past.length - 1].path : null;
+        if (ts) {
+          radarLayer = L.tileLayer('https://tilecache.rainviewer.com' + ts + '/256/{z}/{x}/{y}/6/1_1.png', {
+            opacity: 0.5,
+            maxNativeZoom: 6,
+            maxZoom: 19,
+          });
+        }
+      }).catch(function() {});
+
+    // Satellite tile layer (toggle)
+    var satLayer = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
+      maxZoom: 19,
+    });
+
+    // Layer toggle controls
+    var ctrl = document.getElementById('wx-map-controls');
+    if (ctrl) {
+      ctrl.innerHTML =
+        '<button class="wx-layer-btn" data-layer="radar" title="Live weather radar">' +
+          '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4.9 19.1A14 14 0 0 1 2 12C2 6.5 6.5 2 12 2s10 4.5 10 10-4.5 10-10 10"/><path d="M7.1 16.9A8 8 0 0 1 4 12a8 8 0 0 1 16 0"/><circle cx="12" cy="12" r="1" fill="currentColor"/></svg> Radar</button>' +
+        '<button class="wx-layer-btn active" data-layer="ops-ring" title="25-mi operational radius">' +
+          '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/></svg> Ops Ring</button>' +
+        '<button class="wx-layer-btn" data-layer="satellite" title="Satellite imagery">' +
+          '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 15l4-4 4 4 4-6 5 6"/></svg> Satellite</button>';
+
+      ctrl.addEventListener('click', function(e) {
+        var btn = e.target.closest('.wx-layer-btn');
+        if (!btn || !_wxMap) return;
+        var layer = btn.dataset.layer;
+        btn.classList.toggle('active');
+        var active = btn.classList.contains('active');
+
+        if (layer === 'radar') {
+          if (radarLayer) { active ? radarLayer.addTo(_wxMap) : _wxMap.removeLayer(radarLayer); }
+        }
+        if (layer === 'ops-ring') {
+          active ? opsCircle.addTo(_wxMap) : _wxMap.removeLayer(opsCircle);
+        }
+        if (layer === 'satellite') {
+          active ? satLayer.addTo(_wxMap) : _wxMap.removeLayer(satLayer);
+        }
+      });
     }
+
+    updateWxOverlay();
+
+    // Fix Leaflet size after container is visible
+    setTimeout(function() { map.invalidateSize(); }, 200);
   }
 
   function updateWxOverlay() {
@@ -1088,40 +1109,7 @@
       '</div>';
   }
 
-  function buildWxMapControls() {
-    var ctrl = document.getElementById('wx-map-controls');
-    if (!ctrl) return;
-    ctrl.innerHTML =
-      '<button class="wx-layer-btn active" data-layer="radar" title="Live weather radar overlay">' +
-        '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4.9 19.1A14 14 0 0 1 2 12C2 6.5 6.5 2 12 2s10 4.5 10 10-4.5 10-10 10"/><path d="M7.1 16.9A8 8 0 0 1 4 12a8 8 0 0 1 16 0"/><circle cx="12" cy="12" r="1" fill="currentColor"/></svg> Radar</button>' +
-      '<button class="wx-layer-btn active" data-layer="ops-ring" title="25-mi operational radius">' +
-        '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/></svg> Ops Ring</button>' +
-      '<button class="wx-layer-btn" data-layer="satellite" title="Satellite imagery">' +
-        '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 15l4-4 4 4 4-6 5 6"/></svg> Satellite</button>';
-
-    ctrl.addEventListener('click', function(e) {
-      var btn = e.target.closest('.wx-layer-btn');
-      if (!btn || !_wxMap) return;
-      var layer = btn.dataset.layer;
-      btn.classList.toggle('active');
-      var vis = btn.classList.contains('active') ? 'visible' : 'none';
-
-      if (layer === 'radar' && _wxMap.getLayer('radar-layer')) {
-        _wxMap.setLayoutProperty('radar-layer', 'visibility', vis);
-      }
-      if (layer === 'ops-ring') {
-        if (_wxMap.getLayer('ops-radius-line')) _wxMap.setLayoutProperty('ops-radius-line', 'visibility', vis);
-        if (_wxMap.getLayer('ops-radius-fill')) _wxMap.setLayoutProperty('ops-radius-fill', 'visibility', vis);
-      }
-      if (layer === 'satellite') {
-        if (btn.classList.contains('active')) {
-          _wxMap.setStyle('mapbox://styles/mapbox/satellite-streets-v12');
-        } else {
-          _wxMap.setStyle('mapbox://styles/mapbox/dark-v11');
-        }
-      }
-    });
-  }
+  function buildWxMapControls() { /* handled inline in renderWxMap */ }
 
   function renderWxHourlyStrip() {
     const el = document.getElementById('wx-hourly-strip');

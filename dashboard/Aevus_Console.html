@@ -822,8 +822,8 @@ body {
     @media (max-width:900px) { .split-panel, .split-panel.thirds { grid-template-columns:1fr; } }
 
 </style>
-<link href="https://api.mapbox.com/mapbox-gl-js/v3.4.0/mapbox-gl.css" rel="stylesheet">
-<script src="https://api.mapbox.com/mapbox-gl-js/v3.4.0/mapbox-gl.js"></script>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 </head>
 <body>
 
@@ -1110,6 +1110,6 @@ body {
     if (el) el.textContent = new Date().toLocaleTimeString('en-US', { hour12: false });
   }, 1000);
 </script>
-<script src="/dashboard/api-client.js?v=10"></script>
+<script src="/dashboard/api-client.js?v=11"></script>
 </body>
 </html>

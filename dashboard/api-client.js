@@ -98,7 +98,7 @@
     navigateTo(initial);
   }
 
-  async function renderPage(page, isRefresh) {
+  async function renderPage(page, isRefresh) { var ft=document.querySelector('.footer');if(ft)ft.style.display=page==='weather'?'none':'';var sf=document.querySelector('.sidebar-footer');if(sf)sf.style.display=page==='weather'?'none':'';document.body.style.overflow=page==='weather'?'hidden':'';
     switch(page) {
       case 'overview': renderOverview(); break;
       case 'assets': isRefresh ? renderAssetsTable(currentAssetFilter) : renderAssetsPage(); break;
@@ -916,57 +916,84 @@
   }
 
   function renderWxCurrentBadge() {
-    const el = document.getElementById('wx-current-badge');
+    var el = document.getElementById('wx-current-badge');
     if (!el || !weatherData) return;
-    const w = weatherData;
-    const icon = WX_ICONS[w.condition] || '🌡️';
-    el.innerHTML = '<div style="font-size:36px;line-height:1;">' + icon + '</div>' +
-      '<div style="font-family:var(--font-mono);font-size:28px;font-weight:700;color:var(--text-primary);">' + Math.round(w.temp_f) + '°F</div>' +
-      '<div style="font-size:11px;color:var(--text-muted);text-transform:capitalize;">' + (w.condition||'').replace(/_/g,' ') + '</div>';
+    var w = weatherData;
+    var icon = WX_ICONS[w.condition] || '☁';
+    el.innerHTML =
+      '<div style="font-size:28px;">' + icon + '</div>' +
+      '<div>' +
+        '<div style="font-family:var(--font-mono);font-size:28px;font-weight:700;line-height:1;">' + Math.round(w.temp_f) + '<span style="font-size:14px;">°F</span></div>' +
+        '<div style="font-size:10px;color:var(--text-muted);text-transform:capitalize;">' + (w.condition||'').replace(/_/g,' ') + '</div>' +
+      '</div>' +
+      '<div style="margin-left:auto;text-align:right;font-size:10px;color:var(--text-muted);">' +
+        '<div>Feels ' + Math.round(w.temp_f) + '°F</div>' +
+        '<div>' + Math.round(w.wind_mph) + ' mph ' + (w.wind_dir||'') + '</div>' +
+      '</div>';
   }
 
   function renderWxConditions() {
-    const el = document.getElementById('wx-conditions');
-    if (!el || !weatherData) return;
-    const w = weatherData;
-    const cards = [
-      { label:'WIND', value: Math.round(w.wind_mph)+' mph', sub:'Gust: '+(w.wind_gust_mph?Math.round(w.wind_gust_mph):0)+' mph', color:'var(--accent)', icon:'💨' },
-      { label:'PRECIP', value: (w.precip_in||0).toFixed(2)+' in', sub:'Current hour', color:'#06B6D4', icon:'🌧️' },
-      { label:'HUMIDITY', value: forecastData ? (forecastData.hourly.relative_humidity_2m[0]+'%') : '—', sub:'Relative', color:'#A855F7', icon:'💧' },
-      { label:'PRESSURE', value: forecastData ? (forecastData.hourly.surface_pressure[0].toFixed(0)+' hPa') : '—', sub:'Surface', color:'var(--text-secondary)', icon:'📊' },
-      { label:'VISIBILITY', value: forecastData ? ((forecastData.hourly.visibility[0]/1609).toFixed(1)+' mi') : '—', sub:'', color:'var(--status-good)', icon:'👁️' },
-      { label:'UV INDEX', value: forecastData ? (forecastData.hourly.uv_index[0].toFixed(1)) : '—', sub: forecastData ? (forecastData.hourly.uv_index[0]>=8?'Very High':forecastData.hourly.uv_index[0]>=6?'High':forecastData.hourly.uv_index[0]>=3?'Moderate':'Low') : '', color:'#F59E0B', icon:'☀️' },
+    var el = document.getElementById('wx-conditions');
+    if (!el) return;
+    var w = weatherData || {};
+    // Get current hour data from forecast for fields not in weatherData
+    var hum = 0, pres = 0, vis = 0, uv = 0, cloud = 50;
+    if (forecastData && forecastData.hourly) {
+      var h = forecastData.hourly;
+      var now = new Date();
+      var idx = 0;
+      for (var i = 0; i < (h.time||[]).length; i++) {
+        if (new Date(h.time[i]) >= now) { idx = Math.max(0, i-1); break; }
+      }
+      hum = h.relative_humidity_2m ? h.relative_humidity_2m[idx] : 0;
+      pres = h.surface_pressure ? h.surface_pressure[idx] : 0;
+      vis = h.visibility ? (h.visibility[idx] / 1609.34).toFixed(1) : 0; // m to miles
+      uv = h.uv_index ? h.uv_index[idx] : 0;
+      cloud = h.cloud_cover ? h.cloud_cover[idx] : 50;
+    }
+    var items = [
+      { icon: '💨', label: 'WIND', val: Math.round(w.wind_mph||0) + ' <span style="font-size:10px;">mph</span>', sub: 'Gust: ' + Math.round(w.wind_gust_mph||0) + ' mph' },
+      { icon: '🌧', label: 'PRECIP', val: (w.precip_in||0).toFixed(2) + ' <span style="font-size:10px;">in</span>', sub: 'Current hour' },
+      { icon: '💧', label: 'HUMIDITY', val: Math.round(hum) + '<span style="font-size:10px;">%</span>', sub: 'Relative' },
+      { icon: '🌡', label: 'PRESSURE', val: Math.round(pres) + ' <span style="font-size:10px;">hPa</span>', sub: 'Surface' },
+      { icon: '👁', label: 'VISIBILITY', val: vis + ' <span style="font-size:10px;">mi</span>', sub: '' },
+      { icon: '☀', label: 'UV INDEX', val: uv.toFixed ? uv.toFixed(1) : uv, sub: uv < 3 ? 'Low' : uv < 6 ? 'Moderate' : 'High' },
     ];
-    el.innerHTML = cards.map(c =>
-      '<div class="stat-card"><div class="stat-card-label">' + c.icon + ' ' + c.label + '</div>' +
-      '<div class="stat-card-value" style="color:' + c.color + ';font-size:20px;">' + c.value + '</div>' +
-      '<div class="stat-card-sub">' + c.sub + '</div></div>'
-    ).join('');
+    el.innerHTML = items.map(function(i) {
+      return '<div class="stat-box" style="padding:6px 8px;">' +
+        '<div class="stat-label" style="font-size:8px;">' + i.icon + ' ' + i.label + '</div>' +
+        '<div class="stat-value" style="font-size:16px;">' + i.val + '</div>' +
+        '<div style="font-size:8px;color:var(--text-muted);">' + i.sub + '</div>' +
+      '</div>';
+    }).join('');
   }
 
   function renderWxSolarPanel() {
-    const el = document.getElementById('wx-solar-panel');
-    if (!el || !weatherData) return;
-    const w = weatherData;
-    const pct = Math.round((w.solar_production_factor||0)*100);
-    const solarCol = pct > 60 ? 'var(--status-good)' : pct > 30 ? 'var(--status-warn)' : 'var(--text-muted)';
-    el.innerHTML = '<div class="panel-title">☀️ Solar & Daylight</div>' +
-      '<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">' +
-        '<div style="text-align:center;padding:14px;border-radius:10px;background:var(--bg-card);border:1px solid var(--border);">' +
-          '<div style="font-size:9px;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.5px;">Solar Factor</div>' +
-          '<div style="font-family:var(--font-mono);font-size:32px;font-weight:700;color:' + solarCol + ';">' + pct + '%</div>' +
-          '<div class="solar-bar" style="width:100%;margin-top:6px;height:10px;"><div class="solar-bar-fill" style="width:' + pct + '%;"></div></div>' +
-        '</div>' +
-        '<div style="text-align:center;padding:14px;border-radius:10px;background:var(--bg-card);border:1px solid var(--border);">' +
-          '<div style="font-size:9px;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.5px;">Daylight Hours</div>' +
-          '<div style="font-family:var(--font-mono);font-size:32px;font-weight:700;color:var(--text-primary);">' + (w.daylight_hours||0).toFixed(1) + '</div>' +
-          '<div style="font-size:10px;color:var(--text-muted);margin-top:4px;">' + (w.is_daylight?'☀ Currently daylight':'🌙 Currently night') + '</div>' +
-        '</div>' +
+    var el = document.getElementById('wx-solar-panel');
+    if (!el || !forecastData) return;
+    var d = forecastData.daily;
+    var sunrise = d.sunrise ? d.sunrise[0] : null;
+    if (sunrise && sunrise.length > 5) { var sd = new Date(sunrise); sunrise = sd.getHours().toString().padStart(2,'0') + ':' + sd.getMinutes().toString().padStart(2,'0'); }
+    var sunset = d.sunset ? d.sunset[0] : null;
+    if (sunset && sunset.length > 5) { var ss = new Date(sunset); sunset = ss.getHours().toString().padStart(2,'0') + ':' + ss.getMinutes().toString().padStart(2,'0'); }
+    var now = new Date();
+    var hr = now.getHours() + now.getMinutes()/60;
+    var factor = Math.max(0, Math.sin((hr - 6) / 12 * Math.PI));
+    var cloud = weatherData ? (weatherData.cloud_cover || 50) : 50;
+    var solar = Math.round(factor * (1 - cloud/100) * 100);
+    var daylight = d.daylight_duration ? (d.daylight_duration[0]/3600).toFixed(1) : '—';
+    var barW = Math.max(2, solar);
+
+    el.innerHTML =
+      '<div class="panel-title" style="font-size:9px;margin-bottom:6px;">☀ Solar & Daylight</div>' +
+      '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">' +
+        '<div style="text-align:center;"><div style="font-size:8px;color:var(--text-muted);">SOLAR</div><div style="font-family:var(--font-mono);font-size:20px;font-weight:700;">' + solar + '%</div>' +
+          '<div style="height:4px;background:rgba(255,255,255,0.06);border-radius:2px;margin-top:2px;"><div style="height:100%;width:' + barW + '%;background:linear-gradient(90deg,#F59E0B,#EF4444);border-radius:2px;"></div></div></div>' +
+        '<div style="text-align:center;"><div style="font-size:8px;color:var(--text-muted);">DAYLIGHT</div><div style="font-family:var(--font-mono);font-size:20px;font-weight:700;">' + daylight + '<span style="font-size:10px;">h</span></div></div>' +
       '</div>' +
-      '<div style="display:flex;justify-content:space-between;margin-top:12px;padding:10px;border-radius:8px;background:var(--bg-card);border:1px solid var(--border);">' +
-        '<div style="text-align:center;flex:1;"><div style="font-size:9px;color:var(--text-muted);">SUNRISE</div><div style="font-family:var(--font-mono);font-size:14px;font-weight:600;color:#F59E0B;">' + (w.sunrise||'—') + '</div></div>' +
-        '<div style="width:1px;background:var(--border);"></div>' +
-        '<div style="text-align:center;flex:1;"><div style="font-size:9px;color:var(--text-muted);">SUNSET</div><div style="font-family:var(--font-mono);font-size:14px;font-weight:600;color:#A855F7;">' + (w.sunset||'—') + '</div></div>' +
+      '<div style="display:flex;justify-content:space-between;margin-top:6px;font-size:9px;">' +
+        '<div><span style="color:var(--text-muted);">Rise</span> <span style="font-family:var(--font-mono);color:#F59E0B;">' + (sunrise||'—') + '</span></div>' +
+        '<div><span style="color:var(--text-muted);">Set</span> <span style="font-family:var(--font-mono);color:#A855F7;">' + (sunset||'—') + '</span></div>' +
       '</div>';
   }
 
@@ -1162,7 +1189,7 @@
     const globalRange = globalMax - globalMin || 1;
 
     let html = '';
-    for (let i = 0; i < d.time.length; i++) {
+    for (let i = 0; i < Math.min(d.time.length, 5); i++) {
       const date = new Date(d.time[i] + 'T12:00:00');
       const dayName = i === 0 ? 'Today' : i === 1 ? 'Tomorrow' : date.toLocaleDateString('en-US',{weekday:'short'});
       const dateStr = date.toLocaleDateString('en-US',{month:'short',day:'numeric'});
@@ -1180,7 +1207,7 @@
       const barWidth = ((hi - lo) / globalRange) * 100;
 
       html += '<div class="wx-day-row">' +
-        '<div class="wx-day-name">' + dayName + '<div style="font-size:10px;color:var(--text-muted);font-weight:400;">' + dateStr + '</div></div>' +
+        '<div class="wx-day-name">' + dayName + '</div>' +
         '<div class="wx-day-icon">' + icon + '</div>' +
         '<div class="wx-day-temps"><span class="wx-day-lo">' + lo + '°</span><span style="color:var(--text-muted);font-size:10px;">—</span><span class="wx-day-hi">' + hi + '°</span></div>' +
         '<div class="wx-day-bar"><div class="wx-day-bar-fill" style="left:' + barLeft + '%;width:' + Math.max(barWidth,4) + '%;"></div></div>' +

@@ -98,7 +98,7 @@
     navigateTo(initial);
   }
 
-  async function renderPage(page, isRefresh) { var ft=document.querySelector('.footer');if(ft)ft.style.display=page==='weather'?'none':'';var sf=document.querySelector('.sidebar-footer');if(sf)sf.style.display=page==='weather'?'none':'';document.body.style.overflow=page==='weather'?'hidden':'';
+  async function renderPage(page, isRefresh) { var ft=document.querySelector('.footer');if(ft)ft.style.display=(page==='weather'||page==='radio')?'none':'';var sf=document.querySelector('.sidebar-footer');if(sf)sf.style.display=(page==='weather'||page==='radio')?'none':'';document.body.style.overflow=(page==='weather'||page==='radio')?'hidden':'';
     switch(page) {
       case 'overview': renderOverview(); break;
       case 'assets': isRefresh ? renderAssetsTable(currentAssetFilter) : renderAssetsPage(); break;
@@ -114,6 +114,7 @@
       case 'historian': renderHistorianPage(); break;
       case 'network': renderNetworkPage(); break;
       case 'cyber': renderCyberPage(); break;
+      case 'radio': renderRadioCommsPage(); break;
       case 'settings': renderSettingsPage(); break;
     }
   }
@@ -913,6 +914,223 @@
     renderWxImpactPanel();
     renderWxWindChart();
     renderWxPrecipChart();
+  }
+
+
+  // ══════════════════════════════════════════════════════════════
+  //  RADIO COMMUNICATIONS PAGE
+  // ══════════════════════════════════════════════════════════════
+  function renderRadioCommsPage() {
+    var assets = liveAssets || [];
+    var r1 = assets.find(function(a){return a.id==='RAD-01';});
+    var r2 = assets.find(function(a){return a.id==='RAD-02';});
+
+    var linkEl = document.getElementById('rc-link-badge');
+    var metaEl = document.getElementById('rc-link-meta');
+    if (linkEl && r1 && r2) {
+      var r1Link = getVitalRaw(r1, 'link_state');
+      var r2Link = getVitalRaw(r2, 'link_state');
+      var bothLinked = r1Link == 1 && r2Link == 1;
+      var r1Rssi = getVitalRaw(r1, 'rssi');
+      var r2Rssi = getVitalRaw(r2, 'rssi');
+      var r1Qual = getVitalRaw(r1, 'signal_quality');
+      var r2Qual = getVitalRaw(r2, 'signal_quality');
+
+      linkEl.innerHTML =
+        '<span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:' + (bothLinked ? 'var(--status-good)' : 'var(--status-bad)') + ';animation:' + (bothLinked ? 'wxPulse 2s infinite' : 'none') + ';"></span>' +
+        '<span style="font-size:13px;font-weight:700;color:' + (bothLinked ? 'var(--status-good)' : 'var(--status-bad)') + ';">' + (bothLinked ? 'LINKED' : 'NO LINK') + '</span>' +
+        '<span style="font-size:11px;color:var(--text-muted);margin-left:12px;">Network: <span style="color:var(--accent);font-weight:600;">killdeer</span></span>' +
+        '<span style="font-size:11px;color:var(--text-muted);margin-left:12px;">Band: <span style="color:var(--text-primary);">900 MHz</span></span>' +
+        '<span style="font-size:11px;color:var(--text-muted);margin-left:12px;">Mode: <span style="color:var(--text-primary);">AP ↔ Remote</span></span>';
+
+      metaEl.innerHTML =
+        'Avg RSSI: <span style="color:var(--accent);font-weight:600;">' + ((r1Rssi+r2Rssi)/2).toFixed(0) + ' dBm</span>' +
+        ' · Avg Quality: <span style="color:var(--accent);font-weight:600;">' + ((r1Qual+r2Qual)/2).toFixed(0) + '%</span>';
+    }
+
+    renderRadioPanel('rc-r1', r1);
+    renderRadioPanel('rc-r2', r2);
+    renderPacketFlow(r1, r2);
+    renderSignalChart(r1, r2);
+  }
+
+  function getVitalRaw(asset, key) {
+    if (!asset || !asset.vitals) return 0;
+    var v = asset.vitals.find(function(v){return v.label.toLowerCase().replace(/ /g,'_') === key;});
+    return v ? v.raw_value : 0;
+  }
+
+  function renderRadioPanel(prefix, asset) {
+    var metricsEl = document.getElementById(prefix + '-metrics');
+    var statusEl = document.getElementById(prefix + '-status');
+    var infoEl = document.getElementById(prefix + '-info');
+    if (!metricsEl || !asset) return;
+
+    var voltage = getVitalRaw(asset, 'voltage');
+    var temp = getVitalRaw(asset, 'temperature');
+    var qual = getVitalRaw(asset, 'signal_quality');
+    var rssi = getVitalRaw(asset, 'rssi');
+    var txPow = getVitalRaw(asset, 'tx_power');
+    var txPkts = getVitalRaw(asset, 'tx_packets');
+    var rxPkts = getVitalRaw(asset, 'rx_packets');
+    var txErr = getVitalRaw(asset, 'tx_error');
+    var rxErr = getVitalRaw(asset, 'rx_error');
+    var rxDrop = getVitalRaw(asset, 'rx_dropped');
+    var totalPkts = txPkts + rxPkts;
+    var errRate = totalPkts > 0 ? ((txErr + rxErr) / totalPkts * 100).toFixed(3) : '0.000';
+
+    var rssiColor = rssi > -50 ? 'var(--status-good)' : rssi > -70 ? 'var(--status-warn)' : 'var(--status-bad)';
+
+    statusEl.innerHTML =
+      '<span style="display:inline-flex;align-items:center;gap:4px;padding:2px 8px;border-radius:4px;font-size:10px;font-weight:600;background:' +
+      (asset.status==='good' ? 'rgba(16,185,129,0.15);color:var(--status-good)' : 'rgba(239,68,68,0.15);color:var(--status-bad)') + ';">' +
+      '<span style="width:6px;height:6px;border-radius:50%;background:currentColor;"></span>' +
+      asset.status.toUpperCase() + '</span>';
+
+    metricsEl.innerHTML =
+      rcMetric('RSSI', rssi + ' dBm', rssiColor, rssiGauge(qual)) +
+      rcMetric('Signal Quality', qual + '%', qual > 80 ? 'var(--status-good)' : qual > 50 ? 'var(--status-warn)' : 'var(--status-bad)', '') +
+      rcMetric('TX Power', txPow + ' dBm', 'var(--accent)', '') +
+      rcMetric('Voltage', voltage.toFixed(1) + ' V', voltage > 10 ? 'var(--status-good)' : 'var(--status-bad)', '') +
+      rcMetric('Temperature', temp + ' °C', temp < 50 ? 'var(--status-good)' : 'var(--status-warn)', '') +
+      rcMetric('Error Rate', errRate + '%', parseFloat(errRate) < 1 ? 'var(--status-good)' : 'var(--status-bad)', '') +
+      rcMetric('TX Packets', txPkts.toLocaleString(), 'var(--text-primary)', '') +
+      rcMetric('RX Packets', rxPkts.toLocaleString(), 'var(--text-primary)', '') +
+      rcMetric('Dropped', rxDrop.toLocaleString(), rxDrop === 0 ? 'var(--status-good)' : 'var(--status-bad)', '');
+
+    infoEl.innerHTML =
+      '<div style="display:flex;gap:16px;flex-wrap:wrap;">' +
+      '<span>IP: <span style="color:var(--accent);">' + (asset.ip_address||'—') + '</span></span>' +
+      '<span>Protocol: <span style="color:var(--text-primary);">' + (asset.protocol||'—').toUpperCase() + '</span></span>' +
+      '<span>Poll: <span style="color:var(--text-primary);">' + (asset.poll_interval||30) + 's</span></span>' +
+      '<span>Last: <span style="color:var(--text-primary);">' + timeAgo(asset.last_seen) + '</span></span>' +
+      '</div>';
+  }
+
+  function rcMetric(label, value, color, sub) {
+    return '<div style="background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:8px 10px;">' +
+      '<div style="font-size:9px;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:2px;">' + label + '</div>' +
+      '<div style="font-family:var(--font-mono);font-size:16px;font-weight:700;color:' + color + ';">' + value + '</div>' +
+      (sub ? '<div style="font-size:9px;color:var(--text-muted);margin-top:1px;">' + sub + '</div>' : '') +
+    '</div>';
+  }
+
+  function rssiGauge(pct) {
+    var bars = '';
+    for (var i = 0; i < 5; i++) {
+      var filled = pct >= (i+1) * 20;
+      bars += '<span style="display:inline-block;width:6px;height:' + (6 + i*3) + 'px;border-radius:1px;background:' + (filled ? 'var(--status-good)' : 'var(--border)') + ';margin-right:2px;vertical-align:bottom;"></span>';
+    }
+    return bars;
+  }
+
+  function renderPacketFlow(r1, r2) {
+    var el = document.getElementById('rc-packet-flow');
+    if (!el || !r1 || !r2) return;
+
+    var r1tx = getVitalRaw(r1, 'tx_packets');
+    var r1rx = getVitalRaw(r1, 'rx_packets');
+    var r2tx = getVitalRaw(r2, 'tx_packets');
+    var r2rx = getVitalRaw(r2, 'rx_packets');
+    var r1err = getVitalRaw(r1, 'tx_error') + getVitalRaw(r1, 'rx_error');
+    var r2err = getVitalRaw(r2, 'tx_error') + getVitalRaw(r2, 'rx_error');
+    var maxPkt = Math.max(r1tx, r1rx, r2tx, r2rx, 1);
+
+    el.innerHTML =
+      '<div style="display:flex;align-items:center;gap:12px;margin-bottom:16px;">' +
+        '<div style="flex:1;text-align:center;">' +
+          '<div style="font-size:10px;font-weight:700;color:var(--accent);">RAD-01 MASTER</div>' +
+          '<div style="font-size:9px;color:var(--text-muted);">192.168.88.11</div>' +
+        '</div>' +
+        '<div style="flex:2;">' +
+          pktBar('TX →', r1tx, maxPkt, 'var(--accent)') +
+          pktBar('← RX', r1rx, maxPkt, '#8b5cf6') +
+        '</div>' +
+        '<div style="width:40px;text-align:center;">' +
+          '<svg viewBox="0 0 40 40" width="40" height="40"><circle cx="20" cy="20" r="16" fill="none" stroke="var(--border)" stroke-width="2"/><path d="M12 20h16M24 16l4 4-4 4" stroke="var(--status-good)" stroke-width="2" fill="none"/></svg>' +
+          '<div style="font-size:8px;color:var(--status-good);font-weight:700;">RF LINK</div>' +
+        '</div>' +
+        '<div style="flex:2;">' +
+          pktBar('TX →', r2tx, maxPkt, 'var(--accent)') +
+          pktBar('← RX', r2rx, maxPkt, '#8b5cf6') +
+        '</div>' +
+        '<div style="flex:1;text-align:center;">' +
+          '<div style="font-size:10px;font-weight:700;color:var(--accent);">RAD-02 REMOTE</div>' +
+          '<div style="font-size:9px;color:var(--text-muted);">192.168.88.12</div>' +
+        '</div>' +
+      '</div>' +
+      '<div style="display:flex;gap:24px;justify-content:center;margin-top:12px;">' +
+        '<div style="text-align:center;"><div style="font-size:9px;color:var(--text-muted);">TOTAL PACKETS</div><div style="font-family:var(--font-mono);font-size:18px;font-weight:700;color:var(--accent);">' + (r1tx+r1rx+r2tx+r2rx).toLocaleString() + '</div></div>' +
+        '<div style="text-align:center;"><div style="font-size:9px;color:var(--text-muted);">TOTAL ERRORS</div><div style="font-family:var(--font-mono);font-size:18px;font-weight:700;color:' + ((r1err+r2err)===0?'var(--status-good)':'var(--status-bad)') + ';">' + (r1err+r2err).toLocaleString() + '</div></div>' +
+        '<div style="text-align:center;"><div style="font-size:9px;color:var(--text-muted);">LINK UPTIME</div><div style="font-family:var(--font-mono);font-size:18px;font-weight:700;color:var(--status-good);">100%</div></div>' +
+      '</div>';
+  }
+
+  function pktBar(label, val, max, color) {
+    var w = Math.max((val/max)*100, 2);
+    return '<div style="display:flex;align-items:center;gap:6px;margin-bottom:4px;">' +
+      '<span style="font-size:9px;color:var(--text-muted);width:30px;">' + label + '</span>' +
+      '<div style="flex:1;height:12px;background:var(--surface);border-radius:3px;overflow:hidden;">' +
+        '<div style="width:' + w + '%;height:100%;background:' + color + ';border-radius:3px;transition:width 0.5s;"></div>' +
+      '</div>' +
+      '<span style="font-family:var(--font-mono);font-size:10px;color:var(--text-primary);width:50px;text-align:right;">' + val.toLocaleString() + '</span>' +
+    '</div>';
+  }
+
+  function renderSignalChart(r1, r2) {
+    var el = document.getElementById('rc-signal-chart');
+    if (!el || !r1 || !r2) return;
+
+    var r1rssi = getVitalRaw(r1, 'rssi');
+    var r2rssi = getVitalRaw(r2, 'rssi');
+    var r1qual = getVitalRaw(r1, 'signal_quality');
+    var r2qual = getVitalRaw(r2, 'signal_quality');
+    var r1pwr = getVitalRaw(r1, 'tx_power');
+    var r2pwr = getVitalRaw(r2, 'tx_power');
+
+    function rssiArc(rssi, label, x) {
+      var pct = Math.max(0, Math.min(100, (rssi - (-100)) / ((-20) - (-100)) * 100));
+      var angle = (pct / 100) * 180;
+      var rad = angle * Math.PI / 180;
+      var r = 45;
+      var cx = x, cy = 60;
+      var x1 = cx - r, y1 = cy;
+      var x2 = cx + r * Math.cos(Math.PI - rad), y2 = cy - r * Math.sin(Math.PI - rad);
+      var large = angle > 90 ? 1 : 0;
+      var color = pct > 60 ? '#10b981' : pct > 30 ? '#f59e0b' : '#ef4444';
+      return '<g>' +
+        '<path d="M' + (cx-r) + ' ' + cy + ' A ' + r + ' ' + r + ' 0 0 1 ' + (cx+r) + ' ' + cy + '" fill="none" stroke="rgba(255,255,255,0.08)" stroke-width="8" stroke-linecap="round"/>' +
+        '<path d="M' + x1 + ' ' + y1 + ' A ' + r + ' ' + r + ' 0 ' + large + ' 1 ' + x2.toFixed(1) + ' ' + y2.toFixed(1) + '" fill="none" stroke="' + color + '" stroke-width="8" stroke-linecap="round"/>' +
+        '<text x="' + cx + '" y="' + (cy-8) + '" text-anchor="middle" fill="' + color + '" font-size="16" font-weight="700" font-family="monospace">' + rssi + '</text>' +
+        '<text x="' + cx + '" y="' + (cy+6) + '" text-anchor="middle" fill="rgba(255,255,255,0.4)" font-size="9">dBm</text>' +
+        '<text x="' + cx + '" y="' + (cy+22) + '" text-anchor="middle" fill="rgba(255,255,255,0.7)" font-size="10" font-weight="600">' + label + '</text>' +
+      '</g>';
+    }
+
+    el.innerHTML =
+      '<svg viewBox="0 0 400 100" width="100%" style="max-height:120px;">' +
+        rssiArc(r1rssi, 'RAD-01 RSSI', 100) +
+        rssiArc(r2rssi, 'RAD-02 RSSI', 300) +
+      '</svg>' +
+      '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:8px;">' +
+        '<div style="display:flex;justify-content:space-around;">' +
+          sigStat('Quality', r1qual + '%', r1qual > 80 ? 'var(--status-good)' : 'var(--status-warn)') +
+          sigStat('TX Power', r1pwr + ' dBm', 'var(--accent)') +
+          sigStat('Voltage', getVitalRaw(r1,'voltage').toFixed(1) + 'V', 'var(--text-primary)') +
+        '</div>' +
+        '<div style="display:flex;justify-content:space-around;">' +
+          sigStat('Quality', r2qual + '%', r2qual > 80 ? 'var(--status-good)' : 'var(--status-warn)') +
+          sigStat('TX Power', r2pwr + ' dBm', 'var(--accent)') +
+          sigStat('Voltage', getVitalRaw(r2,'voltage').toFixed(1) + 'V', 'var(--text-primary)') +
+        '</div>' +
+      '</div>';
+  }
+
+  function sigStat(label, val, color) {
+    return '<div style="text-align:center;">' +
+      '<div style="font-size:9px;color:var(--text-muted);text-transform:uppercase;">' + label + '</div>' +
+      '<div style="font-family:var(--font-mono);font-size:14px;font-weight:700;color:' + color + ';">' + val + '</div>' +
+    '</div>';
   }
 
   function renderWxCurrentBadge() {

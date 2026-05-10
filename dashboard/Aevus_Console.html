@@ -862,6 +862,9 @@ body {
     <a class="nav-item" href="#health" data-page="health">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>
       Health</a>
+    <a class="nav-item" href="#radio" data-page="radio">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M8.5 16.5a5 5 0 017 0"/><path d="M2 8a15.3 15.3 0 0120 0"/><path d="M5 11a10 10 0 0114 0"/><circle cx="12" cy="20" r="1"/></svg>
+      Radio Comms</a>
 
     <div class="nav-group-label">ANALYSIS</div>
     <a class="nav-item" href="#historian" data-page="historian">
@@ -1022,6 +1025,55 @@ body {
 </section>
 
 <!-- ━━━ PAGE: OPERATIONS ━━━ -->
+
+<section class="page-section" data-page="radio">
+  <div style="display:grid;grid-template-columns:1fr 1fr;grid-template-rows:auto 1fr 1fr;gap:8px;height:calc(100vh - 80px);overflow:hidden;">
+
+    <!-- Row 1: Link Status Banner -->
+    <div class="panel-box" style="margin:0;padding:12px;grid-column:span 2;">
+      <div style="display:flex;justify-content:space-between;align-items:center;">
+        <div style="display:flex;align-items:center;gap:12px;">
+          <span class="panel-title" style="font-size:11px;margin:0;">RF LINK STATUS</span>
+          <div id="rc-link-badge" style="display:flex;align-items:center;gap:6px;"></div>
+        </div>
+        <div id="rc-link-meta" style="font-size:10px;color:var(--text-muted);"></div>
+      </div>
+    </div>
+
+    <!-- Row 2 Col 1: RAD-01 Master -->
+    <div class="panel-box" style="margin:0;padding:12px;min-height:0;overflow:auto;">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+        <span class="panel-title" style="font-size:10px;margin:0;">RAD-01 — ACCESS POINT (MASTER)</span>
+        <div id="rc-r1-status"></div>
+      </div>
+      <div id="rc-r1-metrics" class="stat-grid" style="grid-template-columns:repeat(3,1fr);gap:6px;"></div>
+      <div id="rc-r1-info" style="margin-top:8px;font-size:10px;color:var(--text-muted);"></div>
+    </div>
+
+    <!-- Row 2 Col 2: RAD-02 Remote -->
+    <div class="panel-box" style="margin:0;padding:12px;min-height:0;overflow:auto;">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+        <span class="panel-title" style="font-size:10px;margin:0;">RAD-02 — REMOTE (SLAVE)</span>
+        <div id="rc-r2-status"></div>
+      </div>
+      <div id="rc-r2-metrics" class="stat-grid" style="grid-template-columns:repeat(3,1fr);gap:6px;"></div>
+      <div id="rc-r2-info" style="margin-top:8px;font-size:10px;color:var(--text-muted);"></div>
+    </div>
+
+    <!-- Row 3 Col 1: Packet Flow -->
+    <div class="panel-box" style="margin:0;padding:12px;min-height:0;">
+      <span class="panel-title" style="font-size:10px;">PACKET FLOW — REAL-TIME</span>
+      <div id="rc-packet-flow" style="margin-top:8px;"></div>
+    </div>
+
+    <!-- Row 3 Col 2: RF Signal Quality -->
+    <div class="panel-box" style="margin:0;padding:12px;min-height:0;">
+      <span class="panel-title" style="font-size:10px;">RF SIGNAL ANALYSIS</span>
+      <div id="rc-signal-chart" style="margin-top:8px;"></div>
+    </div>
+
+  </div>
+</section>
 <section class="page-section" data-page="historian">
   <div id="historian-page"></div>
 </section>
@@ -1105,6 +1157,6 @@ body {
     if (el) el.textContent = new Date().toLocaleTimeString('en-US', { hour12: false });
   }, 1000);
 </script>
-<script src="/dashboard/api-client.js?v=13"></script>
+<script src="/dashboard/api-client.js?v=14"></script>
 </body>
 </html>

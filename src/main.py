@@ -131,12 +131,18 @@ def _register_collectors() -> None:
 
     # ── SIMULATORS (offline devices, keep generating demo data) ──
 
-    # Trio radios — no IP yet, need serial config
-    for asset_id in ["RAD-01", "RAD-02"]:
-        sim = SimulatorCollector(asset_id, device_type="radio")
-        sim.poll_interval = settings.poll_interval_radio
-        app_state.scheduler.register(asset_id, sim)
-        logger.info("registered_simulator", asset=asset_id, reason="no_ip_assigned")
+    # Trio JR900 radios — LIVE SNMP v2c collectors
+    from src.collectors.snmp_radio import TrioJR900Collector
+    radio_ips = {"RAD-01": settings.trio_radio_1_ip, "RAD-02": settings.trio_radio_2_ip}
+    for asset_id, ip in radio_ips.items():
+        radio = TrioJR900Collector(
+            asset_id=asset_id,
+            host=ip,
+            community=settings.snmp_community,
+            poll_interval=settings.poll_interval_radio,
+        )
+        app_state.scheduler.register(asset_id, radio)
+        logger.info("registered_live_radio", asset=asset_id, host=ip, type="snmp_trio_jr900")
 
     # SCADAPack 470 — live Modbus TCP
     scadapack = SCADAPack470Collector(

@@ -644,6 +644,31 @@ body {
 }
 
 /* ── Scrollbar ── */
+/* ── Weather Page ── */
+.wx-hour-card { min-width:62px; padding:8px 6px; text-align:center; border-radius:8px; border:1px solid var(--border); transition:all 0.15s; cursor:default; flex-shrink:0; }
+.wx-hour-card:hover { background:var(--bg-card-hover); border-color:var(--border-light); }
+.wx-hour-card .wx-h-time { font-size:10px; color:var(--text-muted); font-family:var(--font-mono); }
+.wx-hour-card .wx-h-icon { font-size:18px; margin:4px 0; }
+.wx-hour-card .wx-h-temp { font-size:14px; font-weight:700; font-family:var(--font-mono); color:var(--text-primary); }
+.wx-hour-card .wx-h-detail { font-size:9px; color:var(--text-muted); margin-top:2px; }
+.wx-hour-card.now { border-color:var(--accent); background:var(--accent-dim); }
+.wx-day-row { display:flex; align-items:center; gap:12px; padding:12px 0; border-bottom:1px solid var(--border); }
+.wx-day-row:last-child { border-bottom:none; }
+.wx-day-name { min-width:80px; font-size:13px; font-weight:600; color:var(--text-primary); }
+.wx-day-icon { font-size:20px; min-width:32px; text-align:center; }
+.wx-day-temps { display:flex; gap:4px; align-items:center; min-width:100px; font-family:var(--font-mono); font-size:13px; }
+.wx-day-hi { color:var(--status-bad); font-weight:600; }
+.wx-day-lo { color:var(--accent-light); }
+.wx-day-bar { flex:1; height:6px; border-radius:3px; background:rgba(255,255,255,0.04); overflow:hidden; position:relative; }
+.wx-day-bar-fill { position:absolute; height:100%; border-radius:3px; background:linear-gradient(90deg,var(--accent),var(--status-warn),var(--status-bad)); }
+.wx-day-detail { font-size:10px; color:var(--text-muted); min-width:120px; text-align:right; }
+.wx-impact-item { padding:12px; border-radius:10px; background:var(--bg-card); border:1px solid var(--border); margin-bottom:8px; }
+.wx-impact-item.high { border-left:3px solid var(--status-bad); }
+.wx-impact-item.medium { border-left:3px solid var(--status-warn); }
+.wx-impact-item.low { border-left:3px solid var(--status-good); }
+.wx-impact-label { font-size:12px; font-weight:600; color:var(--text-primary); margin-bottom:2px; }
+.wx-impact-desc { font-size:11px; color:var(--text-muted); }
+
 /* ── Weather Strip ── */
 .weather-tile { display:flex; align-items:center; gap:10px; }
 .weather-icon { width:36px; height:36px; border-radius:10px; display:flex; align-items:center; justify-content:center; }
@@ -681,6 +706,8 @@ body {
 ::-webkit-scrollbar-thumb { background: rgba(148,163,184,0.15); border-radius: 3px; }
 ::-webkit-scrollbar-thumb:hover { background: rgba(148,163,184,0.25); }
 </style>
+<link href="https://api.mapbox.com/mapbox-gl-js/v3.4.0/mapbox-gl.css" rel="stylesheet">
+<script src="https://api.mapbox.com/mapbox-gl-js/v3.4.0/mapbox-gl.js"></script>
 </head>
 <body>
 
@@ -728,6 +755,10 @@ body {
     <a class="nav-item" href="#operations" data-page="operations">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
       Operations
+    </a>
+    <a class="nav-item" href="#weather" data-page="weather">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M18 10h-1.26A8 8 0 1 0 9 20h9a5 5 0 0 0 0-10z"/></svg>
+      Weather
     </a>
     <a class="nav-item" href="#cabinet" data-page="cabinet">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="2" width="20" height="8" rx="2"/><rect x="2" y="14" width="20" height="8" rx="2"/><circle cx="6" cy="6" r="1"/><circle cx="6" cy="18" r="1"/><line x1="10" y1="6" x2="18" y2="6"/><line x1="10" y1="18" x2="18" y2="18"/></svg>
@@ -824,6 +855,66 @@ body {
   <div id="cabinet-content"></div>
 </section>
 
+<!-- ━━━ PAGE: WEATHER ━━━ -->
+<section class="page-section" data-page="weather">
+  <div class="page-header" style="padding-bottom:16px;">
+    <div style="display:flex;justify-content:space-between;align-items:flex-start;">
+      <div>
+        <div class="page-title">Weather Intelligence</div>
+        <div class="page-subtitle">Killdeer Field, ND — Site conditions, forecast, and operational impact</div>
+      </div>
+      <div id="wx-current-badge" style="text-align:right;"></div>
+    </div>
+  </div>
+
+  <!-- Map + Current conditions row -->
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:16px;">
+    <div class="panel-box" style="padding:0;overflow:hidden;min-height:320px;position:relative;">
+      <div id="wx-map" style="width:100%;height:100%;min-height:320px;"></div>
+      <div id="wx-map-overlay" style="position:absolute;bottom:12px;left:12px;right:12px;display:flex;gap:8px;z-index:10;"></div>
+    </div>
+    <div>
+      <div class="stat-grid" id="wx-conditions" style="grid-template-columns:repeat(3,1fr);margin-bottom:12px;"></div>
+      <div class="panel-box" id="wx-solar-panel" style="margin-bottom:0;"></div>
+    </div>
+  </div>
+
+  <!-- Hourly forecast strip -->
+  <div class="panel-box" style="margin-bottom:16px;">
+    <div class="panel-title" style="display:flex;justify-content:space-between;align-items:center;">
+      <span>48-Hour Forecast</span>
+      <div id="wx-hourly-toggle" style="display:flex;gap:4px;"></div>
+    </div>
+    <div id="wx-hourly-strip" style="display:flex;gap:0;overflow-x:auto;padding:8px 0;"></div>
+  </div>
+
+  <!-- 7-Day forecast + operational impact -->
+  <div style="display:grid;grid-template-columns:2fr 1fr;gap:16px;margin-bottom:16px;">
+    <div class="panel-box">
+      <div class="panel-title">7-Day Forecast</div>
+      <div id="wx-daily-forecast"></div>
+    </div>
+    <div class="panel-box">
+      <div class="panel-title">Operational Impact Assessment</div>
+      <div id="wx-impact-panel"></div>
+    </div>
+  </div>
+
+  <!-- Wind + Precip charts -->
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;">
+    <div class="chart-container">
+      <div class="chart-title">Wind Speed — 48h Forecast (mph)</div>
+      <div id="wx-wind-chart" class="bar-chart" style="height:120px;"></div>
+      <div id="wx-wind-labels" class="chart-labels"></div>
+    </div>
+    <div class="chart-container">
+      <div class="chart-title">Precipitation Probability — 48h Forecast (%)</div>
+      <div id="wx-precip-chart" class="bar-chart" style="height:120px;"></div>
+      <div id="wx-precip-labels" class="chart-labels"></div>
+    </div>
+  </div>
+</section>
+
 <!-- ━━━ PAGE: OPERATIONS ━━━ -->
 <section class="page-section" data-page="operations">
   <div class="page-header"><div class="page-title">Operations</div><div class="page-subtitle">Operator commands, weather intelligence, and cross-domain correlations</div></div>
@@ -896,6 +987,6 @@ body {
     if (el) el.textContent = new Date().toLocaleTimeString('en-US', { hour12: false });
   }, 1000);
 </script>
-<script src="/dashboard/api-client.js?v=7"></script>
+<script src="/dashboard/api-client.js?v=8"></script>
 </body>
 </html>

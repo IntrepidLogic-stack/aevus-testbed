@@ -15,6 +15,10 @@
   let liveAssets = [], liveAlerts = [], healthSummary = {}, predictions = [];
   let trendData = [], currentTrendMetric = 'cpu_load';
   let weatherData = null, correlations = [], commandLog = [];
+  let forecastData = null;
+  const MAPBOX_TOKEN = window.AEVUS_MAPBOX_TOKEN || 'pk.eyJ1Ijoid29vZHlpbCIsImEiOiJjbWR4eW5keTUwOTlvMmxxMXo1aGljdWdyIn0.f4ud1cQ6mf-oNM69iY6fEg';
+  const SITE_LAT = 47.35;
+  const SITE_LON = -102.74;
   let currentAlertFilter = 'all';
   let currentAssetFilter = 'all';
   let pageInitialized = {};
@@ -104,6 +108,7 @@
       case 'trends': if (!isRefresh) await renderTrendsPage(); break;
       case 'cabinet': renderCabinetPage(); break;
       case 'operations': renderOperationsPage(); break;
+      case 'weather': renderWeatherPage(); break;
       case 'reports': renderReportsPage(); break;
       case 'settings': renderSettingsPage(); break;
     }
@@ -865,6 +870,308 @@
           '<div style="font-size:10px;color:var(--text-muted);font-family:var(--font-mono);">' + timeAgo(c.detected_at) + '</div>' +
           '</div>';
       }).join('');
+  }
+
+  // ═══════════════════════════════════════
+  // PAGE: WEATHER
+  // ═══════════════════════════════════════
+
+  const WX_ICONS = {
+    clear: '☀️', mostly_clear: '🌤️', partly_cloudy: '⛅', overcast: '☁️',
+    fog: '🌫️', drizzle: '🌦️', rain: '🌧️', heavy_rain: '🌧️',
+    snow: '🌨️', heavy_snow: '❄️', showers: '🌦️', heavy_showers: '⛈️',
+    ice: '🧊', snow_showers: '🌨️', thunderstorm: '⛈️',
+    thunderstorm_hail: '⛈️', unknown: '🌡️',
+  };
+  const WMO_MAP = {
+    0:'clear',1:'mostly_clear',2:'partly_cloudy',3:'overcast',
+    45:'fog',48:'fog',51:'drizzle',53:'drizzle',55:'drizzle',
+    61:'rain',63:'rain',65:'heavy_rain',71:'snow',73:'snow',
+    75:'heavy_snow',77:'ice',80:'showers',81:'showers',82:'heavy_showers',
+    85:'snow_showers',86:'snow_showers',95:'thunderstorm',
+    96:'thunderstorm_hail',99:'thunderstorm_hail'
+  };
+
+  async function renderWeatherPage() {
+    // Fetch forecast + current
+    const [_, fc] = await Promise.all([
+      fetchWeather(),
+      fetchJSON('/weather/forecast')
+    ]);
+    if (fc && !fc.error) forecastData = fc;
+
+    renderWxCurrentBadge();
+    renderWxConditions();
+    renderWxSolarPanel();
+    renderWxMap();
+    renderWxHourlyStrip();
+    renderWxDailyForecast();
+    renderWxImpactPanel();
+    renderWxWindChart();
+    renderWxPrecipChart();
+  }
+
+  function renderWxCurrentBadge() {
+    const el = document.getElementById('wx-current-badge');
+    if (!el || !weatherData) return;
+    const w = weatherData;
+    const icon = WX_ICONS[w.condition] || '🌡️';
+    el.innerHTML = '<div style="font-size:36px;line-height:1;">' + icon + '</div>' +
+      '<div style="font-family:var(--font-mono);font-size:28px;font-weight:700;color:var(--text-primary);">' + Math.round(w.temp_f) + '°F</div>' +
+      '<div style="font-size:11px;color:var(--text-muted);text-transform:capitalize;">' + (w.condition||'').replace(/_/g,' ') + '</div>';
+  }
+
+  function renderWxConditions() {
+    const el = document.getElementById('wx-conditions');
+    if (!el || !weatherData) return;
+    const w = weatherData;
+    const cards = [
+      { label:'WIND', value: Math.round(w.wind_mph)+' mph', sub:'Gust: '+(w.wind_gust_mph?Math.round(w.wind_gust_mph):0)+' mph', color:'var(--accent)', icon:'💨' },
+      { label:'PRECIP', value: (w.precip_in||0).toFixed(2)+' in', sub:'Current hour', color:'#06B6D4', icon:'🌧️' },
+      { label:'HUMIDITY', value: forecastData ? (forecastData.hourly.relative_humidity_2m[0]+'%') : '—', sub:'Relative', color:'#A855F7', icon:'💧' },
+      { label:'PRESSURE', value: forecastData ? (forecastData.hourly.surface_pressure[0].toFixed(0)+' hPa') : '—', sub:'Surface', color:'var(--text-secondary)', icon:'📊' },
+      { label:'VISIBILITY', value: forecastData ? ((forecastData.hourly.visibility[0]/1609).toFixed(1)+' mi') : '—', sub:'', color:'var(--status-good)', icon:'👁️' },
+      { label:'UV INDEX', value: forecastData ? (forecastData.hourly.uv_index[0].toFixed(1)) : '—', sub: forecastData ? (forecastData.hourly.uv_index[0]>=8?'Very High':forecastData.hourly.uv_index[0]>=6?'High':forecastData.hourly.uv_index[0]>=3?'Moderate':'Low') : '', color:'#F59E0B', icon:'☀️' },
+    ];
+    el.innerHTML = cards.map(c =>
+      '<div class="stat-card"><div class="stat-card-label">' + c.icon + ' ' + c.label + '</div>' +
+      '<div class="stat-card-value" style="color:' + c.color + ';font-size:20px;">' + c.value + '</div>' +
+      '<div class="stat-card-sub">' + c.sub + '</div></div>'
+    ).join('');
+  }
+
+  function renderWxSolarPanel() {
+    const el = document.getElementById('wx-solar-panel');
+    if (!el || !weatherData) return;
+    const w = weatherData;
+    const pct = Math.round((w.solar_production_factor||0)*100);
+    const solarCol = pct > 60 ? 'var(--status-good)' : pct > 30 ? 'var(--status-warn)' : 'var(--text-muted)';
+    el.innerHTML = '<div class="panel-title">☀️ Solar & Daylight</div>' +
+      '<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">' +
+        '<div style="text-align:center;padding:14px;border-radius:10px;background:var(--bg-card);border:1px solid var(--border);">' +
+          '<div style="font-size:9px;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.5px;">Solar Factor</div>' +
+          '<div style="font-family:var(--font-mono);font-size:32px;font-weight:700;color:' + solarCol + ';">' + pct + '%</div>' +
+          '<div class="solar-bar" style="width:100%;margin-top:6px;height:10px;"><div class="solar-bar-fill" style="width:' + pct + '%;"></div></div>' +
+        '</div>' +
+        '<div style="text-align:center;padding:14px;border-radius:10px;background:var(--bg-card);border:1px solid var(--border);">' +
+          '<div style="font-size:9px;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.5px;">Daylight Hours</div>' +
+          '<div style="font-family:var(--font-mono);font-size:32px;font-weight:700;color:var(--text-primary);">' + (w.daylight_hours||0).toFixed(1) + '</div>' +
+          '<div style="font-size:10px;color:var(--text-muted);margin-top:4px;">' + (w.is_daylight?'☀ Currently daylight':'🌙 Currently night') + '</div>' +
+        '</div>' +
+      '</div>' +
+      '<div style="display:flex;justify-content:space-between;margin-top:12px;padding:10px;border-radius:8px;background:var(--bg-card);border:1px solid var(--border);">' +
+        '<div style="text-align:center;flex:1;"><div style="font-size:9px;color:var(--text-muted);">SUNRISE</div><div style="font-family:var(--font-mono);font-size:14px;font-weight:600;color:#F59E0B;">' + (w.sunrise||'—') + '</div></div>' +
+        '<div style="width:1px;background:var(--border);"></div>' +
+        '<div style="text-align:center;flex:1;"><div style="font-size:9px;color:var(--text-muted);">SUNSET</div><div style="font-family:var(--font-mono);font-size:14px;font-weight:600;color:#A855F7;">' + (w.sunset||'—') + '</div></div>' +
+      '</div>';
+  }
+
+  function renderWxMap() {
+    const container = document.getElementById('wx-map');
+    if (!container) return;
+    container.innerHTML = '';
+    try {
+      mapboxgl.accessToken = MAPBOX_TOKEN;
+      const map = new mapboxgl.Map({
+        container: 'wx-map',
+        style: 'mapbox://styles/mapbox/dark-v11',
+        center: [SITE_LON, SITE_LAT],
+        zoom: 10,
+        attributionControl: false,
+      });
+      map.addControl(new mapboxgl.NavigationControl({showCompass:true}), 'top-right');
+
+      // Site marker
+      const markerEl = document.createElement('div');
+      markerEl.style.cssText = 'width:20px;height:20px;border-radius:50%;background:var(--accent);border:3px solid white;box-shadow:0 0 12px rgba(59,130,246,0.6);cursor:pointer;';
+      const popup = new mapboxgl.Popup({offset:25,closeButton:false}).setHTML(
+        '<div style="font-family:Inter,sans-serif;padding:4px;">' +
+        '<div style="font-weight:700;font-size:13px;">Killdeer Field</div>' +
+        '<div style="font-size:11px;color:#666;">47.35°N, 102.74°W</div>' +
+        (weatherData ? '<div style="font-size:12px;margin-top:4px;">' + Math.round(weatherData.temp_f) + '°F · ' + (weatherData.condition||'').replace(/_/g,' ') + '</div>' : '') +
+        '</div>'
+      );
+      new mapboxgl.Marker(markerEl).setLngLat([SITE_LON, SITE_LAT]).setPopup(popup).addTo(map);
+
+      // Radar layer overlay label
+      const overlay = document.getElementById('wx-map-overlay');
+      if (overlay) {
+        overlay.innerHTML =
+          '<div style="padding:6px 12px;border-radius:8px;background:rgba(7,11,22,0.8);backdrop-filter:blur(8px);border:1px solid rgba(255,255,255,0.1);font-size:10px;color:var(--text-secondary);display:flex;align-items:center;gap:6px;">' +
+          '<div style="width:6px;height:6px;border-radius:50%;background:var(--accent);box-shadow:0 0 6px var(--accent);"></div>' +
+          'Killdeer Field · 47.35°N 102.74°W · Elev 2,340 ft</div>' +
+          '<div style="padding:6px 12px;border-radius:8px;background:rgba(7,11,22,0.8);backdrop-filter:blur(8px);border:1px solid rgba(255,255,255,0.1);font-size:10px;color:var(--text-secondary);margin-left:auto;">' +
+          (weatherData ? Math.round(weatherData.temp_f) + '°F · ' + Math.round(weatherData.wind_mph) + ' mph ' + (weatherData.condition||'').replace(/_/g,' ') : '') +
+          '</div>';
+      }
+    } catch(e) {
+      container.innerHTML = '<div style="display:flex;align-items:center;justify-content:center;height:100%;color:var(--text-muted);font-size:12px;flex-direction:column;gap:8px;padding:20px;text-align:center;">' +
+        '<svg viewBox="0 0 24 24" width="32" height="32" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="12" cy="10" r="3"/><path d="M12 21.7C17.3 17 20 13 20 10a8 8 0 1 0-16 0c0 3 2.7 7 8 11.7z"/></svg>' +
+        '<div>Map requires Mapbox token</div><div style="font-size:10px;">Set window.AEVUS_MAPBOX_TOKEN in console</div>' +
+        '<div style="font-size:10px;margin-top:8px;">Site: 47.35°N, 102.74°W · Killdeer, ND</div></div>';
+    }
+  }
+
+  function renderWxHourlyStrip() {
+    const el = document.getElementById('wx-hourly-strip');
+    if (!el || !forecastData) return;
+    const h = forecastData.hourly;
+    const now = new Date();
+    const nowHour = now.getHours();
+
+    // Find current hour index
+    let startIdx = 0;
+    for (let i = 0; i < h.time.length; i++) {
+      const t = new Date(h.time[i]);
+      if (t >= now) { startIdx = Math.max(0, i-1); break; }
+    }
+
+    const cards = [];
+    const count = Math.min(48, h.time.length - startIdx);
+    for (let i = startIdx; i < startIdx + count; i++) {
+      const t = new Date(h.time[i]);
+      const hr = t.getHours();
+      const isNow = (i === startIdx);
+      const code = h.weather_code[i];
+      const cond = WMO_MAP[code] || 'unknown';
+      const icon = WX_ICONS[cond] || '🌡️';
+      const temp = Math.round(h.temperature_2m[i]);
+      const wind = Math.round(h.wind_speed_10m[i]);
+      const precip = h.precipitation_probability[i];
+      const timeLabel = isNow ? 'NOW' : (hr === 0 ? t.toLocaleDateString('en-US',{weekday:'short'}) : (hr>12?(hr-12)+'p':(hr===0?'12a':hr+'a')));
+
+      cards.push(
+        '<div class="wx-hour-card' + (isNow?' now':'') + '">' +
+          '<div class="wx-h-time">' + timeLabel + '</div>' +
+          '<div class="wx-h-icon">' + icon + '</div>' +
+          '<div class="wx-h-temp">' + temp + '°</div>' +
+          '<div class="wx-h-detail">💨' + wind + '</div>' +
+          (precip > 20 ? '<div class="wx-h-detail" style="color:var(--accent);">💧' + precip + '%</div>' : '') +
+        '</div>'
+      );
+    }
+    el.innerHTML = cards.join('');
+  }
+
+  function renderWxDailyForecast() {
+    const el = document.getElementById('wx-daily-forecast');
+    if (!el || !forecastData) return;
+    const d = forecastData.daily;
+    const allTemps = [...d.temperature_2m_max, ...d.temperature_2m_min];
+    const globalMin = Math.min(...allTemps);
+    const globalMax = Math.max(...allTemps);
+    const globalRange = globalMax - globalMin || 1;
+
+    let html = '';
+    for (let i = 0; i < d.time.length; i++) {
+      const date = new Date(d.time[i] + 'T12:00:00');
+      const dayName = i === 0 ? 'Today' : i === 1 ? 'Tomorrow' : date.toLocaleDateString('en-US',{weekday:'short'});
+      const dateStr = date.toLocaleDateString('en-US',{month:'short',day:'numeric'});
+      const code = d.weather_code[i];
+      const cond = WMO_MAP[code] || 'unknown';
+      const icon = WX_ICONS[cond] || '🌡️';
+      const hi = Math.round(d.temperature_2m_max[i]);
+      const lo = Math.round(d.temperature_2m_min[i]);
+      const wind = Math.round(d.wind_speed_10m_max[i]);
+      const precip = (d.precipitation_sum[i]||0).toFixed(2);
+      const precipProb = d.precipitation_probability_max[i] || 0;
+
+      // Bar position within global range
+      const barLeft = ((lo - globalMin) / globalRange) * 100;
+      const barWidth = ((hi - lo) / globalRange) * 100;
+
+      html += '<div class="wx-day-row">' +
+        '<div class="wx-day-name">' + dayName + '<div style="font-size:10px;color:var(--text-muted);font-weight:400;">' + dateStr + '</div></div>' +
+        '<div class="wx-day-icon">' + icon + '</div>' +
+        '<div class="wx-day-temps"><span class="wx-day-lo">' + lo + '°</span><span style="color:var(--text-muted);font-size:10px;">—</span><span class="wx-day-hi">' + hi + '°</span></div>' +
+        '<div class="wx-day-bar"><div class="wx-day-bar-fill" style="left:' + barLeft + '%;width:' + Math.max(barWidth,4) + '%;"></div></div>' +
+        '<div class="wx-day-detail">💨 ' + wind + ' mph' + (precipProb > 20 ? ' · 💧 ' + precipProb + '%' : '') + '</div>' +
+      '</div>';
+    }
+    el.innerHTML = html;
+  }
+
+  function renderWxImpactPanel() {
+    const el = document.getElementById('wx-impact-panel');
+    if (!el) return;
+    const impacts = [];
+    const w = weatherData;
+    const fc = forecastData;
+
+    if (w) {
+      // Wind impact
+      if (w.wind_mph > 30) impacts.push({level:'high',label:'High Wind Warning',desc:'Sustained winds >30 mph. Radio links may degrade. Secure loose equipment.'});
+      else if (w.wind_mph > 20) impacts.push({level:'medium',label:'Elevated Wind',desc:'Winds 20-30 mph. Monitor radio SNR for signal degradation.'});
+      else impacts.push({level:'low',label:'Wind Normal',desc:'Winds <20 mph. No impact on operations.'});
+
+      // Temp impact
+      if (w.temp_f < 0) impacts.push({level:'high',label:'Extreme Cold',desc:'Sub-zero temps. Risk of frozen instrumentation and pipe freeze.'});
+      else if (w.temp_f < 20) impacts.push({level:'medium',label:'Cold Weather',desc:'Below 20°F. Monitor gas temp and oil viscosity.'});
+      else if (w.temp_f > 100) impacts.push({level:'high',label:'Extreme Heat',desc:'Above 100°F. Motor overheating risk. Monitor coolant temp.'});
+      else impacts.push({level:'low',label:'Temperature Normal',desc:'Within safe operating range.'});
+
+      // Solar/power
+      if (w.solar_production_factor < 0.1 && !w.is_daylight) impacts.push({level:'low',label:'Night Operations',desc:'Solar charging offline. Battery draw active.'});
+      else if (w.solar_production_factor < 0.3) impacts.push({level:'medium',label:'Low Solar Output',desc:'Cloud cover limiting solar charging. Monitor battery voltage.'});
+
+      // Precipitation
+      if (w.precip_in > 0.5) impacts.push({level:'high',label:'Heavy Precipitation',desc:'Risk of road access issues and equipment moisture ingress.'});
+      else if (w.precip_in > 0.1) impacts.push({level:'medium',label:'Active Precipitation',desc:'Light precipitation. Monitor enclosure seals.'});
+    }
+
+    // Forecast-based
+    if (fc && fc.daily) {
+      const maxWind = Math.max(...fc.daily.wind_speed_10m_max);
+      if (maxWind > 40) impacts.push({level:'high',label:'Forecast: Severe Wind',desc:'Winds up to '+Math.round(maxWind)+' mph expected this week.'});
+      const maxPrecip = Math.max(...(fc.daily.precipitation_probability_max||[]));
+      if (maxPrecip > 70) impacts.push({level:'medium',label:'Forecast: High Precip Chance',desc:'Up to '+maxPrecip+'% precipitation probability this week.'});
+    }
+
+    if (impacts.length === 0) impacts.push({level:'low',label:'All Clear',desc:'No weather-related operational concerns.'});
+
+    el.innerHTML = impacts.map(i =>
+      '<div class="wx-impact-item ' + i.level + '">' +
+        '<div class="wx-impact-label">' + (i.level==='high'?'🔴':i.level==='medium'?'🟡':'🟢') + ' ' + i.label + '</div>' +
+        '<div class="wx-impact-desc">' + i.desc + '</div>' +
+      '</div>'
+    ).join('');
+  }
+
+  function renderWxWindChart() {
+    const el = document.getElementById('wx-wind-chart');
+    const labels = document.getElementById('wx-wind-labels');
+    if (!el || !forecastData) return;
+    const h = forecastData.hourly;
+    const points = h.wind_speed_10m.slice(0, 48);
+    const maxVal = Math.max(...points, 1);
+    el.innerHTML = points.map((v,i) => {
+      const pct = Math.max(2, (v / maxVal) * 100);
+      const col = v > 30 ? 'var(--status-bad)' : v > 20 ? 'var(--status-warn)' : 'var(--accent)';
+      return '<div class="bar-col" style="height:'+pct+'%;background:'+col+';opacity:0.8;" title="'+Math.round(v)+' mph at '+h.time[i]+'"></div>';
+    }).join('');
+    if (labels) {
+      const first = new Date(h.time[0]).toLocaleTimeString('en-US',{hour:'2-digit',minute:'2-digit'});
+      const last = new Date(h.time[47]).toLocaleTimeString('en-US',{hour:'2-digit',minute:'2-digit'});
+      labels.innerHTML = '<span>'+first+'</span><span>'+last+'</span>';
+    }
+  }
+
+  function renderWxPrecipChart() {
+    const el = document.getElementById('wx-precip-chart');
+    const labels = document.getElementById('wx-precip-labels');
+    if (!el || !forecastData) return;
+    const h = forecastData.hourly;
+    const points = h.precipitation_probability.slice(0, 48);
+    el.innerHTML = points.map((v,i) => {
+      const pct = Math.max(2, v);
+      const col = v > 60 ? 'var(--accent)' : v > 30 ? 'rgba(59,130,246,0.6)' : 'rgba(59,130,246,0.3)';
+      return '<div class="bar-col" style="height:'+pct+'%;background:'+col+';opacity:0.8;" title="'+v+'% at '+h.time[i]+'"></div>';
+    }).join('');
+    if (labels) {
+      const first = new Date(h.time[0]).toLocaleTimeString('en-US',{hour:'2-digit',minute:'2-digit'});
+      const last = new Date(h.time[47]).toLocaleTimeString('en-US',{hour:'2-digit',minute:'2-digit'});
+      labels.innerHTML = '<span>'+first+'</span><span>'+last+'</span>';
+    }
   }
 
   // ═══════════════════════════════════════

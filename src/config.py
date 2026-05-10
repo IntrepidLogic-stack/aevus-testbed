@@ -100,8 +100,8 @@ class Settings(BaseSettings):
     notifications_enabled: bool = False
 
     # ── Weather + Daylight ──
-    site_latitude: float = 47.35
-    site_longitude: float = -102.74
+    site_latitude: float = 29.3905
+    site_longitude: float = -95.8375
     weather_poll_interval: int = 900
 
 

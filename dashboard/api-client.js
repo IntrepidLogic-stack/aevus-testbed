@@ -17,8 +17,8 @@
   let weatherData = null, correlations = [], commandLog = [];
   let forecastData = null;
   const MAPBOX_TOKEN = window.AEVUS_MAPBOX_TOKEN || 'pk.eyJ1Ijoid29vZHlpbCIsImEiOiJjbWR4eW5keTUwOTlvMmxxMXo1aGljdWdyIn0.f4ud1cQ6mf-oNM69iY6fEg';
-  const SITE_LAT = 47.35;
-  const SITE_LON = -102.74;
+  const SITE_LAT = 29.3905;
+  const SITE_LON = -95.8375;
   let currentAlertFilter = 'all';
   let currentAssetFilter = 'all';
   let pageInitialized = {};
@@ -966,9 +966,18 @@
       '</div>';
   }
 
+  let _wxMap = null;
+
   function renderWxMap() {
     const container = document.getElementById('wx-map');
     if (!container) return;
+
+    // Only create map once to prevent blinking on data refresh
+    if (_wxMap) {
+      updateWxOverlay();
+      return;
+    }
+
     container.innerHTML = '';
     try {
       mapboxgl.accessToken = MAPBOX_TOKEN;
@@ -976,40 +985,137 @@
         container: 'wx-map',
         style: 'mapbox://styles/mapbox/dark-v11',
         center: [SITE_LON, SITE_LAT],
-        zoom: 10,
+        zoom: 11,
+        pitch: 15,
         attributionControl: false,
+        preserveDrawingBuffer: true,
       });
-      map.addControl(new mapboxgl.NavigationControl({showCompass:true}), 'top-right');
+      _wxMap = map;
 
-      // Site marker
-      const markerEl = document.createElement('div');
-      markerEl.style.cssText = 'width:20px;height:20px;border-radius:50%;background:var(--accent);border:3px solid white;box-shadow:0 0 12px rgba(59,130,246,0.6);cursor:pointer;';
-      const popup = new mapboxgl.Popup({offset:25,closeButton:false}).setHTML(
-        '<div style="font-family:Inter,sans-serif;padding:4px;">' +
-        '<div style="font-weight:700;font-size:13px;">Killdeer Field</div>' +
-        '<div style="font-size:11px;color:#666;">47.35°N, 102.74°W</div>' +
-        (weatherData ? '<div style="font-size:12px;margin-top:4px;">' + Math.round(weatherData.temp_f) + '°F · ' + (weatherData.condition||'').replace(/_/g,' ') + '</div>' : '') +
+      map.addControl(new mapboxgl.NavigationControl({showCompass:true, visualizePitch:true}), 'top-right');
+      map.addControl(new mapboxgl.ScaleControl({maxWidth:120, unit:'imperial'}), 'bottom-left');
+      map.addControl(new mapboxgl.FullscreenControl(), 'top-right');
+
+      map.on('load', function() {
+        // === Live Weather Radar (RainViewer — free, no key) ===
+        fetch('https://api.rainviewer.com/public/weather-maps.json')
+          .then(function(r){return r.json();})
+          .then(function(rv) {
+            var ts = rv.radar && rv.radar.past && rv.radar.past.length > 0
+              ? rv.radar.past[rv.radar.past.length - 1].path : null;
+            if (ts) {
+              map.addSource('radar', {
+                type: 'raster',
+                tiles: ['https://tilecache.rainviewer.com' + ts + '/256/{z}/{x}/{y}/6/1_1.png'],
+                tileSize: 256,
+              });
+              map.addLayer({
+                id: 'radar-layer',
+                type: 'raster',
+                source: 'radar',
+                paint: { 'raster-opacity': 0.55 },
+              });
+            }
+          }).catch(function(){});
+
+        // === 25-mile operational radius ring ===
+        var pts = [];
+        for (var a = 0; a <= 360; a += 5) {
+          var r = 0.36;
+          pts.push([SITE_LON + r * Math.cos(a * Math.PI/180), SITE_LAT + r * Math.sin(a * Math.PI/180) * 0.85]);
+        }
+        map.addSource('ops-radius', {
+          type: 'geojson',
+          data: { type: 'Feature', geometry: { type: 'Polygon', coordinates: [pts] } }
+        });
+        map.addLayer({
+          id: 'ops-radius-line',
+          type: 'line',
+          source: 'ops-radius',
+          paint: { 'line-color': '#3B82F6', 'line-width': 1.5, 'line-dasharray': [4, 4], 'line-opacity': 0.4 },
+        });
+        map.addLayer({
+          id: 'ops-radius-fill',
+          type: 'fill',
+          source: 'ops-radius',
+          paint: { 'fill-color': '#3B82F6', 'fill-opacity': 0.04 },
+        });
+
+        // Build layer controls
+        buildWxMapControls();
+      });
+
+      // Pulsing site marker
+      var markerEl = document.createElement('div');
+      markerEl.innerHTML = '<div style="position:relative;width:28px;height:28px;">' +
+        '<div style="position:absolute;inset:0;border-radius:50%;background:rgba(59,130,246,0.25);animation:wxPulse 2s ease-in-out infinite;"></div>' +
+        '<div style="position:absolute;inset:4px;border-radius:50%;background:#3B82F6;border:3px solid white;box-shadow:0 0 12px rgba(59,130,246,0.6);"></div></div>';
+      var popup = new mapboxgl.Popup({offset:25,closeButton:false,maxWidth:'280px'}).setHTML(
+        '<div style="font-family:Inter,sans-serif;padding:6px;">' +
+        '<div style="font-weight:700;font-size:14px;color:#1E293B;">Killdeer Field</div>' +
+        '<div style="font-size:11px;color:#64748B;">10102 Clydesdale Dr, Needville, TX</div>' +
+        '<div style="font-size:11px;color:#64748B;">29.39°N, 95.84°W · Elev 85 ft</div>' +
+        (weatherData ? '<div style="margin-top:6px;padding-top:6px;border-top:1px solid #E2E8F0;font-size:12px;color:#334155;">' +
+          '<span style="font-weight:600;font-size:16px;">' + Math.round(weatherData.temp_f) + '°F</span> · ' +
+          Math.round(weatherData.wind_mph) + ' mph ' + (weatherData.wind_dir||'') + ' · ' +
+          (weatherData.condition||'').replace(/_/g,' ') + '</div>' : '') +
         '</div>'
       );
-      new mapboxgl.Marker(markerEl).setLngLat([SITE_LON, SITE_LAT]).setPopup(popup).addTo(map);
+      new mapboxgl.Marker({element:markerEl}).setLngLat([SITE_LON, SITE_LAT]).setPopup(popup).addTo(map);
 
-      // Radar layer overlay label
-      const overlay = document.getElementById('wx-map-overlay');
-      if (overlay) {
-        overlay.innerHTML =
-          '<div style="padding:6px 12px;border-radius:8px;background:rgba(7,11,22,0.8);backdrop-filter:blur(8px);border:1px solid rgba(255,255,255,0.1);font-size:10px;color:var(--text-secondary);display:flex;align-items:center;gap:6px;">' +
-          '<div style="width:6px;height:6px;border-radius:50%;background:var(--accent);box-shadow:0 0 6px var(--accent);"></div>' +
-          'Killdeer Field · 47.35°N 102.74°W · Elev 2,340 ft</div>' +
-          '<div style="padding:6px 12px;border-radius:8px;background:rgba(7,11,22,0.8);backdrop-filter:blur(8px);border:1px solid rgba(255,255,255,0.1);font-size:10px;color:var(--text-secondary);margin-left:auto;">' +
-          (weatherData ? Math.round(weatherData.temp_f) + '°F · ' + Math.round(weatherData.wind_mph) + ' mph ' + (weatherData.condition||'').replace(/_/g,' ') : '') +
-          '</div>';
-      }
+      updateWxOverlay();
     } catch(e) {
       container.innerHTML = '<div style="display:flex;align-items:center;justify-content:center;height:100%;color:var(--text-muted);font-size:12px;flex-direction:column;gap:8px;padding:20px;text-align:center;">' +
         '<svg viewBox="0 0 24 24" width="32" height="32" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="12" cy="10" r="3"/><path d="M12 21.7C17.3 17 20 13 20 10a8 8 0 1 0-16 0c0 3 2.7 7 8 11.7z"/></svg>' +
-        '<div>Map requires Mapbox token</div><div style="font-size:10px;">Set window.AEVUS_MAPBOX_TOKEN in console</div>' +
-        '<div style="font-size:10px;margin-top:8px;">Site: 47.35°N, 102.74°W · Killdeer, ND</div></div>';
+        '<div>Map unavailable</div></div>';
     }
+  }
+
+  function updateWxOverlay() {
+    var overlay = document.getElementById('wx-map-overlay');
+    if (!overlay) return;
+    overlay.innerHTML =
+      '<div style="padding:6px 12px;border-radius:8px;background:rgba(7,11,22,0.85);backdrop-filter:blur(8px);border:1px solid rgba(255,255,255,0.1);font-size:10px;color:var(--text-secondary);display:flex;align-items:center;gap:6px;">' +
+      '<div style="width:6px;height:6px;border-radius:50%;background:var(--accent);box-shadow:0 0 6px var(--accent);animation:wxPulse 2s ease-in-out infinite;"></div>' +
+      'Killdeer Field · Needville, TX · 29.39°N 95.84°W · Elev 85 ft</div>' +
+      '<div style="padding:6px 12px;border-radius:8px;background:rgba(7,11,22,0.85);backdrop-filter:blur(8px);border:1px solid rgba(255,255,255,0.1);font-size:10px;color:var(--text-secondary);margin-left:auto;">' +
+      (weatherData ? Math.round(weatherData.temp_f) + '°F · ' + Math.round(weatherData.wind_mph) + ' mph ' + (weatherData.wind_dir||'') + ' · ' + (weatherData.condition||'').replace(/_/g,' ') : '') +
+      '</div>';
+  }
+
+  function buildWxMapControls() {
+    var ctrl = document.getElementById('wx-map-controls');
+    if (!ctrl) return;
+    ctrl.innerHTML =
+      '<button class="wx-layer-btn active" data-layer="radar" title="Live weather radar overlay">' +
+        '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4.9 19.1A14 14 0 0 1 2 12C2 6.5 6.5 2 12 2s10 4.5 10 10-4.5 10-10 10"/><path d="M7.1 16.9A8 8 0 0 1 4 12a8 8 0 0 1 16 0"/><circle cx="12" cy="12" r="1" fill="currentColor"/></svg> Radar</button>' +
+      '<button class="wx-layer-btn active" data-layer="ops-ring" title="25-mi operational radius">' +
+        '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/></svg> Ops Ring</button>' +
+      '<button class="wx-layer-btn" data-layer="satellite" title="Satellite imagery">' +
+        '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 15l4-4 4 4 4-6 5 6"/></svg> Satellite</button>';
+
+    ctrl.addEventListener('click', function(e) {
+      var btn = e.target.closest('.wx-layer-btn');
+      if (!btn || !_wxMap) return;
+      var layer = btn.dataset.layer;
+      btn.classList.toggle('active');
+      var vis = btn.classList.contains('active') ? 'visible' : 'none';
+
+      if (layer === 'radar' && _wxMap.getLayer('radar-layer')) {
+        _wxMap.setLayoutProperty('radar-layer', 'visibility', vis);
+      }
+      if (layer === 'ops-ring') {
+        if (_wxMap.getLayer('ops-radius-line')) _wxMap.setLayoutProperty('ops-radius-line', 'visibility', vis);
+        if (_wxMap.getLayer('ops-radius-fill')) _wxMap.setLayoutProperty('ops-radius-fill', 'visibility', vis);
+      }
+      if (layer === 'satellite') {
+        if (btn.classList.contains('active')) {
+          _wxMap.setStyle('mapbox://styles/mapbox/satellite-streets-v12');
+        } else {
+          _wxMap.setStyle('mapbox://styles/mapbox/dark-v11');
+        }
+      }
+    });
   }
 
   function renderWxHourlyStrip() {

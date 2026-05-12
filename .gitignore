@@ -1,14 +1,9 @@
-# Aevus Testbed
-.env
-data/
-*.db
+.venv/
 __pycache__/
 *.pyc
-.pytest_cache/
-.ruff_cache/
-dist/
-*.egg-info/
-.venv/
-venv/
-node_modules/
-.DS_Store
+.env
+*.db
+*.sqlite
+forecast_cache.json
+weather_cache.json
+*.pem

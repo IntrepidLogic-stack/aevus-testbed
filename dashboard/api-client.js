@@ -1446,7 +1446,7 @@
     var marker = L.marker([SITE_LAT, SITE_LON], { icon: pulseIcon }).addTo(map);
     marker.bindPopup(
       '<div style="font-family:Inter,sans-serif;padding:4px;min-width:200px;">' +
-      '<div style="font-weight:700;font-size:14px;">Killdeer Field</div>' +
+      '<div style="font-weight:700;font-size:14px;">Needville Shop</div>' +
       '<div style="font-size:11px;color:#64748B;">10102 Clydesdale Dr, Needville, TX</div>' +
       '<div style="font-size:11px;color:#64748B;">29.39°N, 95.84°W · Elev 85 ft</div>' +
       (weatherData ? '<div style="margin-top:6px;padding-top:6px;border-top:1px solid #E2E8F0;font-size:12px;">' +
@@ -1531,7 +1531,7 @@
     overlay.innerHTML =
       '<div style="padding:6px 12px;border-radius:8px;background:rgba(7,11,22,0.85);backdrop-filter:blur(8px);border:1px solid rgba(255,255,255,0.1);font-size:10px;color:var(--text-secondary);display:flex;align-items:center;gap:6px;">' +
       '<div style="width:6px;height:6px;border-radius:50%;background:var(--accent);box-shadow:0 0 6px var(--accent);animation:wxPulse 2s ease-in-out infinite;"></div>' +
-      'Killdeer Field · Needville, TX · 29.39°N 95.84°W · Elev 85 ft</div>' +
+      'Needville Shop · Needville, TX · 29.39°N 95.84°W · Elev 85 ft</div>' +
       '<div style="padding:6px 12px;border-radius:8px;background:rgba(7,11,22,0.85);backdrop-filter:blur(8px);border:1px solid rgba(255,255,255,0.1);font-size:10px;color:var(--text-secondary);margin-left:auto;">' +
       (weatherData ? Math.round(weatherData.temp_f) + '°F · ' + Math.round(weatherData.wind_mph) + ' mph ' + (weatherData.wind_dir||'') + ' · ' + (weatherData.condition||'').replace(/_/g,' ') : '') +
       '</div>';
@@ -2489,7 +2489,7 @@
     page.innerHTML =
       '<div class="module-header">' +
         '<div><h2 class="page-title">Alarm Management</h2>' +
-        '<div class="module-subtitle">ISA 18.2 compliant alarm handling — Killdeer Field</div></div>' +
+        '<div class="module-subtitle">ISA 18.2 compliant alarm handling — Needville Shop</div></div>' +
         '<div class="module-actions">' +
           '<button class="module-btn" onclick="window.alarmsView=\'shelved\';renderAlarmsPage()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 3h18v18H3z"/><path d="M3 9h18"/></svg> Shelved</button>' +
           '<button class="module-btn" onclick="window.alarmsView=\'history\';renderAlarmsPage()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg> History</button>' +
@@ -3023,7 +3023,7 @@
     mapInstance = new mapboxgl.Map({
       container: 'aevus-map',
       style: 'mapbox://styles/mapbox/dark-v11',
-      center: [-102.75, 46.96],
+      center: [-95.84, 29.39],
       zoom: 13
     });
 
@@ -3055,8 +3055,8 @@
       if (lat == null || lng == null) {
         const angle = (idx / liveAssets.length) * 2 * Math.PI;
         const r = 0.005 + (idx * 0.002);
-        lat = 46.96 + Math.cos(angle) * r;
-        lng = -102.75 + Math.sin(angle) * r;
+        lat = 29.39 + Math.cos(angle) * r;
+        lng = -95.84 + Math.sin(angle) * r;
       }
       idx++;
 
@@ -3105,7 +3105,7 @@
       <div class="settings-section">
         <div class="settings-title">Platform</div>
         <div class="settings-row"><span class="settings-label">Version</span><span class="settings-val">2.4.1</span></div>
-        <div class="settings-row"><span class="settings-label">Site</span><span class="settings-val">Killdeer Field</span></div>
+        <div class="settings-row"><span class="settings-label">Site</span><span class="settings-val">Needville Shop</span></div>
         <div class="settings-row"><span class="settings-label">API Endpoint</span><span class="settings-val">${API}</span></div>
         <div class="settings-row"><span class="settings-label">WebSocket</span><span class="settings-val">${ws&&ws.readyState===1?'Connected':'Reconnecting...'}</span></div>
       </div>

@@ -1,8 +1,12 @@
-#!/usr/bin/env bash
-set -euo pipefail
+#!/bin/bash
+set -e
 cd /home/ubuntu/aevus-testbed
+echo "Pulling latest..."
 git pull origin main
-source .venv/bin/activate
-pip install -q -r requirements.txt
-sudo systemctl restart aevus
-echo "deploy complete at $(date)"
+echo "Installing dependencies..."
+.venv/bin/pip install -r requirements.txt --quiet 2>/dev/null || true
+echo "Restarting service..."
+sudo systemctl restart aevus.service
+sleep 2
+sudo systemctl is-active aevus.service
+echo "Deploy complete"

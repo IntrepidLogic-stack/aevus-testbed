@@ -1,39 +1,97 @@
-# Aevus Testbed — Python Dependencies
-# Install: pip install -r requirements.txt
-
-# ── Core Framework ──
-fastapi>=0.115.0
-uvicorn[standard]>=0.32.0
-pydantic>=2.10.0
-pydantic-settings>=2.6.0
-python-dotenv>=1.0.0
-
-# ── Data Collection ──
-pysnmp>=6.2.0            # SNMP polling (Trio JR900, MikroTik, Catalyst 2960)
-pymodbus>=3.7.0          # Modbus TCP (SCADAPack 470, port 502)
-# dnp3-python            # DNP3 (SCADAPack 470, port 20000) — Phase 5, install manually when needed
-
-# ── Storage ──
-influxdb-client[async]>=1.46.0   # InfluxDB 2.x async client
-aiosqlite>=0.20.0                # Async SQLite
-
-# ── Scheduling ──
-apscheduler>=3.10.0      # Polling job scheduler
-
-# ── Processing / ML ──
-numpy>=1.26.0
-scikit-learn>=1.5.0      # Anomaly detection, prediction models
-pandas>=2.2.0            # Time-series manipulation
-
-# ── Logging ──
-structlog>=24.4.0        # Structured JSON logging
-
-# ── Dev / Test ──
-pytest>=8.3.0
-pytest-asyncio>=0.24.0
-httpx>=0.27.0            # Async test client for FastAPI
-ruff>=0.8.0              # Linter
-black>=24.10.0           # Formatter
-
-# ── WebSocket ──
-websockets>=14.0         # Already included via uvicorn[standard]
+-e git+ssh://git@github.com/IntrepidLogic-stack/aevus-testbed.git@ebfa9b146ff9bd347a0453b077a197f269df0b39#egg=aevus_testbed
+aiocsv==1.4.0
+aiohappyeyeballs==2.6.1
+aiohttp==3.13.5
+aiosignal==1.4.0
+aiosqlite==0.22.1
+annotated-doc==0.0.4
+annotated-types==0.7.0
+anyio==4.13.0
+APScheduler==3.11.2
+attrs==26.1.0
+Authlib==1.7.2
+bandit==1.9.4
+black==26.3.1
+boto3==1.43.4
+botocore==1.43.4
+certifi==2026.4.22
+cffi==2.0.0
+charset-normalizer==3.4.7
+click==8.3.3
+coverage==7.13.5
+cryptography==48.0.0
+dparse==0.6.4
+fastapi==0.136.1
+filelock==3.29.0
+frozenlist==1.8.0
+h11==0.16.0
+httpcore==1.0.9
+httptools==0.7.1
+httpx==0.28.1
+idna==3.13
+influxdb-client==1.50.0
+iniconfig==2.3.0
+Jinja2==3.1.6
+jmespath==1.1.0
+joblib==1.5.3
+joserfc==1.6.5
+markdown-it-py==4.2.0
+MarkupSafe==3.0.3
+marshmallow==4.3.0
+mdurl==0.1.2
+multidict==6.7.1
+mypy_extensions==1.1.0
+nltk==3.9.4
+numpy==2.4.4
+packaging==26.2
+pandas==3.0.2
+pathspec==1.1.1
+platformdirs==4.9.6
+pluggy==1.6.0
+propcache==0.4.1
+pyasn1==0.6.3
+pycparser==3.0
+pydantic==2.13.4
+pydantic-settings==2.14.0
+pydantic_core==2.46.4
+Pygments==2.20.0
+pymodbus==3.13.0
+pysnmp==7.1.26
+pytest==9.0.3
+pytest-asyncio==1.3.0
+pytest-cov==7.1.0
+python-dateutil==2.9.0.post0
+python-dotenv==1.2.2
+python-multipart==0.0.28
+pytokens==0.4.1
+PyYAML==6.0.3
+reactivex==4.1.0
+regex==2026.4.4
+requests==2.33.1
+rich==15.0.0
+ruamel.yaml==0.19.1
+ruff==0.15.12
+s3transfer==0.17.0
+safety==3.7.0
+safety-schemas==0.0.16
+scikit-learn==1.8.0
+scipy==1.17.1
+shellingham==1.5.4
+six==1.17.0
+starlette==1.0.0
+stevedore==5.7.0
+structlog==25.5.0
+tenacity==9.1.4
+threadpoolctl==3.6.0
+tomlkit==0.14.0
+tqdm==4.67.3
+typer==0.25.1
+typing-inspection==0.4.2
+typing_extensions==4.15.0
+tzlocal==5.3.1
+urllib3==2.6.3
+uvicorn==0.46.0
+uvloop==0.22.1
+watchfiles==1.1.1
+websockets==16.0
+yarl==1.23.0

@@ -1035,6 +1035,24 @@ body {
   .cab-port { min-width: 48px; min-height: 48px; }
 }
 
+
+/* ── ISA-18.2 Alarm Priority Banding ── */
+.ics-table tbody tr.sev-critical { border-left: 3px solid #EF4444; }
+.ics-table tbody tr.sev-high { border-left: 3px solid #F97316; }
+.ics-table tbody tr.sev-warning { border-left: 3px solid #FBBF24; }
+.ics-table tbody tr.sev-medium { border-left: 3px solid #FBBF24; }
+.ics-table tbody tr.sev-low { border-left: 3px solid #60A5FA; }
+.ics-table tbody tr.sev-info { border-left: 3px solid #94A3B8; }
+
+/* ── HPI: Muted Normal States ── */
+.fc-health.good { color: #7B8499 !important; }
+.fc-dot.good { background: #7B8499 !important; box-shadow: none !important; }
+.status-pill.good { color: #7B8499 !important; background: rgba(123,132,153,0.1) !important; }
+.health-bar-fill.good { background: linear-gradient(90deg, #5A6275, #7B8499) !important; box-shadow: none !important; }
+.ics-table .status-dot.good { background: #7B8499 !important; }
+.cab-device-badge.online { background: rgba(123,132,153,0.15) !important; color: #7B8499 !important; }
+.cab-port.up .cab-port-dot { background: #7B8499 !important; }
+
 </style>
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>

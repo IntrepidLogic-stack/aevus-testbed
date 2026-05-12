@@ -63,7 +63,7 @@ document.addEventListener('click', function(e) {
             dd.innerHTML='<div style="padding:16px;text-align:center;color:#7B8499;font-size:12px;">No recent alarms</div>';
           } else {
             dd.innerHTML=alarms.slice(0,8).map(function(a){
-              var col = a.severity==='critical'?'#EF4444':a.severity==='warning'?'#FBBF24':'#10D478';
+              var col = a.severity==='critical'?'#EF4444':a.severity==='warning'?'#FBBF24':'#7B8499';
               return '<div style="padding:8px 12px;border-bottom:1px solid rgba(148,163,184,0.08);display:flex;gap:8px;align-items:flex-start;">' +
                 '<div style="width:6px;height:6px;border-radius:50%;background:'+col+';margin-top:5px;flex-shrink:0;"></div>' +
                 '<div><div style="font-size:11px;color:#FFFFFF;">'+a.asset_id+' — '+(a.metric||a.message||'alarm')+'</div>' +
@@ -332,6 +332,38 @@ document.addEventListener('click', function(e) {
     }).join('');
   }
 
+
+  // HPI: Analog range bar — shows where value sits within normal operating range
+  const VITAL_RANGES = {
+    'PSI': [0, 1500], 'psi': [0, 1500], 'PSIG': [0, 1500],
+    '°F': [-40, 250], 'F': [-40, 250],
+    'RPM': [0, 3600], 'rpm': [0, 3600],
+    'mm/s': [0, 10], 'A': [0, 50],
+    'MCFD': [0, 5000], 'MCF': [0, 500000],
+    'BOPD': [0, 500], 'BBL/h': [0, 100],
+    '%': [0, 100], 'in': [0, 200], 'IN': [0, 200],
+    'VDC': [0, 30], 'vdc': [0, 30],
+    'PPM': [0, 50], 'ppm': [0, 50],
+    '%LEL': [0, 100],
+    'hrs': [0, 50000],
+    'dBm': [-120, 0], 'dB': [0, 40],
+    'Mbps': [0, 100], 'ms': [0, 500],
+    'INH2O': [0, 100], 'inH2O': [0, 100],
+    'SG': [0, 2], 'sg': [0, 2],
+    'BTU/CF': [0, 2000], 'MMBTU': [0, 500], 'MMBTU/D': [0, 100],
+    'count': [0, 100000],
+    'bool': null,
+  };
+  function analogBar(raw, unit, status) {
+    var range = VITAL_RANGES[unit];
+    if (!range) return '';
+    var n = parseFloat(raw);
+    if (isNaN(n)) return '';
+    var pct = Math.max(0, Math.min(100, ((n - range[0]) / (range[1] - range[0])) * 100));
+    var col = status === 'critical' ? '#EF4444' : status === 'warning' ? '#FBBF24' : '#4A5168';
+    return '<div style="height:4px;background:rgba(255,255,255,0.10);border-radius:2px;margin-top:4px;width:100%;"><div style="height:100%;width:' + pct.toFixed(1) + '%;background:' + col + ';border-radius:2px;transition:width 0.5s;"></div></div>';
+  }
+
   function renderProcessPanels() {
     const el = document.getElementById('scada-process-grid');
     if (!el || liveAssets.length === 0) return;
@@ -344,7 +376,7 @@ document.addEventListener('click', function(e) {
       const disc = (r.vitals||[]).filter(v => v.unit === 'bool');
       html += `<div class="process-panel"><div class="pp-title"><span class="live-dot"></span>${r.name} — PROCESS VALUES</div><div class="vitals-grid">${vitals.map(v => {
         const n = parseFloat(v.raw_value); const dv = isNaN(n)?v.value:(n%1===0?n.toFixed(0):n.toFixed(1));
-        return `<div class="vital-item ${v.status||''}"><div class="vi-label">${v.label}</div><div class="vi-value">${dv}<span class="vi-unit">${v.unit||''}</span></div></div>`;
+        return `<div class="vital-item ${v.status||''}"><div class="vi-label">${v.label}</div><div class="vi-value">${dv}<span class="vi-unit">${v.unit||''}</span></div>${analogBar(v.raw_value, v.unit, v.status)}</div>`;
       }).join('')}</div>${disc.length?`<div style="margin-top:12px;"><div style="font-size:9px;text-transform:uppercase;letter-spacing:0.8px;color:var(--text-muted);margin-bottom:8px;">DISCRETE INPUTS</div><div style="display:flex;gap:10px;flex-wrap:wrap;">${disc.map(v=>{const ok=v.value==='OK'||v.value==='STOPPED'||v.raw_value===0;const col=v.status==='good'?'var(--status-good)':ok?'var(--text-muted)':'var(--status-bad)';return `<div style="display:flex;align-items:center;gap:5px;font-size:11px;"><span style="width:6px;height:6px;border-radius:50%;background:${col};"></span><span style="color:var(--text-secondary);">${v.label}</span><span style="font-family:var(--font-mono);color:${col};">${v.value}</span></div>`;}).join('')}</div></div>`:''}</div>`;
     }
     if (net.length > 0) {
@@ -1186,7 +1218,7 @@ document.addEventListener('click', function(e) {
       <div class="kpi-tile"><div class="weather-tile"><div class="weather-icon" style="background:rgba(245,158,11,0.12);color:#FBBF24;">${condIcon}</div><div><div class="weather-val">${w.temp_f != null ? Math.round(w.temp_f) + '°' : '—'}</div><div class="weather-label">${condLabel}</div></div></div></div>
       <div class="kpi-tile"><div class="weather-tile"><div class="weather-icon" style="background:rgba(6,182,212,0.12);color:var(--accent);"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M9.59 4.59A2 2 0 1 1 11 8H2m10.59 11.41A2 2 0 1 0 14 16H2m15.73-8.27A2.5 2.5 0 1 1 19.5 12H2"/></svg></div><div><div class="weather-val">${w.wind_mph != null ? Math.round(w.wind_mph) : '—'}<span style="font-size:12px;color:var(--text-muted);"> mph</span></div><div class="weather-label">Wind${w.wind_gust_mph ? ' · Gust ' + Math.round(w.wind_gust_mph) : ''}</div></div></div></div>
       <div class="kpi-tile"><div class="weather-tile"><div class="weather-icon" style="background:rgba(16,185,129,0.12);color:var(--status-good);"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/></svg></div><div><div class="weather-val" style="color:${solarCol};">${solarPct}%</div><div class="weather-label">Solar Factor</div><div class="solar-bar" style="width:80px;"><div class="solar-bar-fill" style="width:${solarPct}%;"></div></div></div></div></div>
-      <div class="kpi-tile"><div class="weather-tile"><div class="weather-icon" style="background:rgba(168,85,247,0.12);color:#A855F7;"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M17 18a5 5 0 0 0-10 0"/><line x1="12" y1="9" x2="12" y2="2"/><line x1="4.22" y1="10.22" x2="5.64" y2="11.64"/><line x1="1" y1="18" x2="3" y2="18"/><line x1="21" y1="18" x2="23" y2="18"/><line x1="18.36" y1="11.64" x2="19.78" y2="10.22"/></svg></div><div><div class="weather-val">${w.daylight_hours ? w.daylight_hours.toFixed(1) : '—'}<span style="font-size:12px;color:var(--text-muted);"> hrs</span></div><div class="weather-label">${w.is_daylight ? '☀ Daylight' : '🌙 Night'}</div></div></div></div>
+      <div class="kpi-tile"><div class="weather-tile"><div class="weather-icon" style="background:rgba(168,85,247,0.12);color:#A855F7;"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M17 18a5 5 0 0 0-10 0"/><line x1="12" y1="9" x2="12" y2="2"/><line x1="4.22" y1="10.22" x2="5.64" y2="11.64"/><line x1="1" y1="18" x2="3" y2="18"/><line x1="21" y1="18" x2="23" y2="18"/><line x1="18.36" y1="11.64" x2="19.78" y2="10.22"/></svg></div><div><div class="weather-val">${w.daylight_hours ? w.daylight_hours.toFixed(1) : '—'}<span style="font-size:12px;color:var(--text-muted);"> hrs</span></div><div class="weather-label">${w.is_daylight ? '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/></svg> Daylight' : '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg> Night'}</div></div></div></div>
       <div class="kpi-tile"><div class="weather-tile"><div class="weather-icon" style="background:rgba(6,182,212,0.12);color:#06B6D4;"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 2.69l5.66 5.66a8 8 0 1 1-11.31 0z"/></svg></div><div><div class="weather-val">${w.precip_in != null ? w.precip_in.toFixed(2) : '0'}<span style="font-size:12px;color:var(--text-muted);"> in</span></div><div class="weather-label">Precipitation</div></div></div></div>
     `;
   }
@@ -1220,11 +1252,23 @@ document.addEventListener('click', function(e) {
   // ═══════════════════════════════════════
 
   const WX_ICONS = {
-    clear: '☀️', mostly_clear: '🌤️', partly_cloudy: '⛅', overcast: '☁️',
-    fog: '🌫️', drizzle: '🌦️', rain: '🌧️', heavy_rain: '🌧️',
-    snow: '🌨️', heavy_snow: '❄️', showers: '🌦️', heavy_showers: '⛈️',
-    ice: '🧊', snow_showers: '🌨️', thunderstorm: '⛈️',
-    thunderstorm_hail: '⛈️', unknown: '🌡️',
+    clear: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="18.36" y1="4.22" x2="19.78" y2="5.64"/><line x1="4.22" y1="18.36" x2="5.64" y2="19.78"/></svg>',
+    mostly_clear: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="10" cy="10" r="4"/><line x1="10" y1="2" x2="10" y2="4"/><line x1="3.27" y1="5.27" x2="4.69" y2="6.69"/><line x1="2" y1="12" x2="4" y2="12"/><line x1="16.73" y1="5.27" x2="15.31" y2="6.69"/><path d="M18 18H8a4 4 0 0 1-.76-7.93"/></svg>',
+    partly_cloudy: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="10" cy="8" r="4"/><line x1="10" y1="1" x2="10" y2="3"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><path d="M18 18H8a4 4 0 0 1-.76-7.93A5 5 0 0 1 18 14a3 3 0 0 1 0 4z"/></svg>',
+    overcast: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M18 10h-1.26A8 8 0 1 0 9 20h9a5 5 0 0 0 0-10z"/></svg>',
+    fog: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><line x1="3" y1="8" x2="21" y2="8"/><line x1="5" y1="12" x2="19" y2="12"/><line x1="3" y1="16" x2="21" y2="16"/></svg>',
+    drizzle: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M18 10h-1.26A8 8 0 1 0 9 20h9a5 5 0 0 0 0-10z"/><line x1="8" y1="19" x2="8" y2="21"/><line x1="12" y1="19" x2="12" y2="21"/></svg>',
+    rain: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M18 10h-1.26A8 8 0 1 0 9 20h9a5 5 0 0 0 0-10z"/><line x1="8" y1="19" x2="8" y2="22"/><line x1="12" y1="19" x2="12" y2="22"/><line x1="16" y1="19" x2="16" y2="22"/></svg>',
+    heavy_rain: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M18 10h-1.26A8 8 0 1 0 9 20h9a5 5 0 0 0 0-10z"/><line x1="7" y1="19" x2="6" y2="23"/><line x1="11" y1="19" x2="10" y2="23"/><line x1="15" y1="19" x2="14" y2="23"/></svg>',
+    snow: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M18 10h-1.26A8 8 0 1 0 9 20h9a5 5 0 0 0 0-10z"/><circle cx="9" cy="19" r="0.5"/><circle cx="13" cy="17" r="0.5"/><circle cx="11" cy="21" r="0.5"/></svg>',
+    heavy_snow: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2v4m0 12v4M4.93 4.93l2.83 2.83m8.48 8.48l2.83 2.83M2 12h4m12 0h4M4.93 19.07l2.83-2.83m8.48-8.48l2.83-2.83"/></svg>',
+    showers: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M18 10h-1.26A8 8 0 1 0 9 20h9a5 5 0 0 0 0-10z"/><line x1="10" y1="19" x2="9" y2="22"/><line x1="14" y1="19" x2="13" y2="22"/></svg>',
+    heavy_showers: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M18 10h-1.26A8 8 0 1 0 9 20h9a5 5 0 0 0 0-10z"/><polyline points="13 16 12 20 15 20"/></svg>',
+    ice: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2v4m0 12v4M4.93 4.93l2.83 2.83m8.48 8.48l2.83 2.83M2 12h4m12 0h4"/><circle cx="12" cy="12" r="3"/></svg>',
+    snow_showers: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M18 10h-1.26A8 8 0 1 0 9 20h9a5 5 0 0 0 0-10z"/><circle cx="10" cy="19" r="0.5"/><circle cx="14" cy="17" r="0.5"/></svg>',
+    thunderstorm: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M18 10h-1.26A8 8 0 1 0 9 20h9a5 5 0 0 0 0-10z"/><polyline points="13 16 12 20 15 20"/></svg>',
+    thunderstorm_hail: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M18 10h-1.26A8 8 0 1 0 9 20h9a5 5 0 0 0 0-10z"/><polyline points="13 16 12 20 15 20"/><circle cx="9" cy="20" r="1"/></svg>',
+    unknown: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="2" x2="12" y2="14"/><circle cx="12" cy="18" r="3"/></svg>',
   };
   const WMO_MAP = {
     0:'clear',1:'mostly_clear',2:'partly_cloudy',3:'overcast',
@@ -1740,7 +1784,7 @@ document.addEventListener('click', function(e) {
       const isNow = (i === startIdx);
       const code = h.weather_code[i];
       const cond = WMO_MAP[code] || 'unknown';
-      const icon = WX_ICONS[cond] || '🌡️';
+      const icon = WX_ICONS[cond] || '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="2" x2="12" y2="14"/><circle cx="12" cy="18" r="3"/></svg>';
       const temp = Math.round(h.temperature_2m[i]);
       const wind = Math.round(h.wind_speed_10m[i]);
       const precip = h.precipitation_probability[i];
@@ -1751,8 +1795,8 @@ document.addEventListener('click', function(e) {
           '<div class="wx-h-time">' + timeLabel + '</div>' +
           '<div class="wx-h-icon">' + icon + '</div>' +
           '<div class="wx-h-temp">' + temp + '°</div>' +
-          '<div class="wx-h-detail">💨' + wind + '</div>' +
-          (precip > 20 ? '<div class="wx-h-detail" style="color:var(--accent);">💧' + precip + '%</div>' : '') +
+          '<div class="wx-h-detail"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:middle;margin-right:2px;"><path d="M9.59 4.59A2 2 0 1 1 11 8H2m10.59 11.41A2 2 0 1 0 14 16H2m15.73-8.27A2.5 2.5 0 1 1 19.5 12H2"/></svg>' + wind + '</div>' +
+          (precip > 20 ? '<div class="wx-h-detail" style="color:var(--accent);"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:middle;margin-right:2px;"><path d="M12 2.69l5.66 5.66a8 8 0 1 1-11.31 0z"/></svg>' + precip + '%</div>' : '') +
         '</div>'
       );
     }
@@ -1775,7 +1819,7 @@ document.addEventListener('click', function(e) {
       const dateStr = date.toLocaleDateString('en-US',{month:'short',day:'numeric'});
       const code = d.weather_code[i];
       const cond = WMO_MAP[code] || 'unknown';
-      const icon = WX_ICONS[cond] || '🌡️';
+      const icon = WX_ICONS[cond] || '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="2" x2="12" y2="14"/><circle cx="12" cy="18" r="3"/></svg>';
       const hi = Math.round(d.temperature_2m_max[i]);
       const lo = Math.round(d.temperature_2m_min[i]);
       const wind = Math.round(d.wind_speed_10m_max[i]);
@@ -1902,7 +1946,7 @@ document.addEventListener('click', function(e) {
       <div class="stat-card"><div class="stat-card-label">Wind Speed</div><div class="stat-card-value" style="color:var(--accent);">${w.wind_mph != null ? Math.round(w.wind_mph) : '—'} <span style="font-size:12px;">mph</span></div><div class="stat-card-sub">Gust: ${w.wind_gust_mph ? Math.round(w.wind_gust_mph) + ' mph' : '—'}</div></div>
       <div class="stat-card"><div class="stat-card-label">Precipitation</div><div class="stat-card-value" style="color:#06B6D4;">${w.precip_in != null ? w.precip_in.toFixed(2) : '0'} <span style="font-size:12px;">in</span></div></div>
       <div class="stat-card"><div class="stat-card-label">Solar Factor</div><div class="stat-card-value" style="color:${solarCol};">${solarPct}%</div><div class="solar-bar" style="width:100%;margin-top:6px;"><div class="solar-bar-fill" style="width:${solarPct}%;"></div></div></div>
-      <div class="stat-card"><div class="stat-card-label">Daylight</div><div class="stat-card-value">${w.daylight_hours ? w.daylight_hours.toFixed(1) : '—'} <span style="font-size:12px;">hrs</span></div><div class="stat-card-sub">${w.is_daylight ? '☀ Currently daylight' : '🌙 Currently night'}</div></div>
+      <div class="stat-card"><div class="stat-card-label">Daylight</div><div class="stat-card-value">${w.daylight_hours ? w.daylight_hours.toFixed(1) : '—'} <span style="font-size:12px;">hrs</span></div><div class="stat-card-sub">${w.is_daylight ? 'Currently daylight' : 'Currently night'}</div></div>
       <div class="stat-card"><div class="stat-card-label">Sun Times</div><div class="stat-card-value" style="font-size:14px;">${w.sunrise || '—'}</div><div class="stat-card-sub">Sunset: ${w.sunset || '—'}</div></div>
     </div>`;
   }
@@ -2656,7 +2700,7 @@ document.addEventListener('click', function(e) {
   // ALARMS MODULE — ISA 18.2 Alarm Management
   // ================================================================
   function buildKpi(label, value, status) {
-    var colors = {critical:'#EF4444',warning:'#FBBF24',good:'#10D478',neutral:'#60A5FA'};
+    var colors = {critical:'#EF4444',warning:'#FBBF24',good:'#B4BCD0',neutral:'#B4BCD0'};
     var color = colors[status] || '#B4BCD0';
     return '<div class="kpi-tile"><div class="kpi-label">' + label + '</div><div class="kpi-value" style="color:' + color + '">' + value + '</div></div>';
   }
@@ -2721,7 +2765,7 @@ document.addEventListener('click', function(e) {
     const sev = a.severity || 'info';
     const age = a.created_at ? getTimeAgo(a.created_at) : '—';
     const dur = a.created_at ? getTimeDuration(a.created_at) : '—';
-    return '<tr onclick="showAlarmDetail(\'' + (a.id||'') + '\')">' +
+    return '<tr class="sev-' + sev + '" onclick="showAlarmDetail(\'' + (a.id||'') + '\')">' +
       '<td><span class="sev-badge ' + sev + '">' + sev + '</span></td>' +
       '<td><span class="mono">' + (a.asset_id||'—') + '</span></td>' +
       '<td>' + (a.metric||a.message||'—') + '</td>' +
@@ -3024,7 +3068,7 @@ document.addEventListener('click', function(e) {
       var a = (liveAssets||[]).find(function(x){return x.id===assetId;});
       if (!a) return '#6B7280';
       var s = a.status;
-      return s==='good'?'#10D478':s==='warn'||s==='warning'?'#FBBF24':s==='bad'||s==='critical'?'#EF4444':'#6B7280';
+      return s==='good'?'#7B8499':s==='warn'||s==='warning'?'#FBBF24':s==='bad'||s==='critical'?'#EF4444':'#6B7280';
     }
     function nodeHealth(assetId) {
       var a = (liveAssets||[]).find(function(x){return x.id===assetId;});
@@ -3087,7 +3131,7 @@ document.addEventListener('click', function(e) {
       svg += '<rect x="'+(n.x-rw/2)+'" y="'+(n.y-rh/2)+'" width="'+rw+'" height="'+rh+'" rx="8" fill="#161E33" stroke="'+c+'" stroke-width="1.5"/>';
 
       // Icon placeholder (simple text for now)
-      var iconMap = {cloud:'☁',router:'⟐',switch:'⏚',radio:'◎',server:'▣',gauge:'◉',meter:'◈'};
+      var iconMap = {cloud:'◌',router:'⟐',switch:'⏚',radio:'◎',server:'▣',gauge:'◉',meter:'◈'};
       svg += '<text x="'+(n.x-rw/2+14)+'" y="'+(n.y+1)+'" fill="'+c+'" font-size="14" text-anchor="middle" dominant-baseline="middle">'+iconMap[n.icon]+'</text>';
 
       // Label
@@ -3158,7 +3202,7 @@ document.addEventListener('click', function(e) {
     });
     map.addControl(new mapboxgl.NavigationControl(), 'top-right');
 
-    var statusColors = {good:'#10D478',warn:'#FBBF24',warning:'#FBBF24',bad:'#EF4444',critical:'#EF4444',offline:'#6B7280',unknown:'#6B7280'};
+    var statusColors = {good:'#7B8499',warn:'#FBBF24',warning:'#FBBF24',bad:'#EF4444',critical:'#EF4444',offline:'#6B7280',unknown:'#6B7280'};
 
     (liveAssets||[]).forEach(function(a) {
       if (!a.latitude || !a.longitude) return;
@@ -3220,7 +3264,7 @@ document.addEventListener('click', function(e) {
       // Color by status
       let color = '#6B7280'; // gray/unknown
       const s = (asset.status || '').toLowerCase();
-      if (s === 'good') color = '#10D478';
+      if (s === 'good') color = '#7B8499';
       else if (s === 'warn' || s === 'warning') color = '#FBBF24';
       else if (s === 'bad' || s === 'critical') color = '#EF4444';
 

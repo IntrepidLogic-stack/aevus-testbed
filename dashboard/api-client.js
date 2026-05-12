@@ -530,7 +530,7 @@
   const TREND_CATEGORIES = [
     {
       id: 'process', label: 'Process',
-      color: '#10B981', colorDim: 'rgba(16,185,129,0.12)', borderColor: 'rgba(16,185,129,0.3)',
+      color: '#10D478', colorDim: 'rgba(16,185,129,0.12)', borderColor: 'rgba(16,185,129,0.3)',
       icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>',
       metrics: [
         { key: 'suction_pressure', label: 'Suction Press', unit: 'PSI', asset: 'RTU-01' },
@@ -543,7 +543,7 @@
     },
     {
       id: 'mechanical', label: 'Mechanical',
-      color: '#F59E0B', colorDim: 'rgba(245,158,11,0.12)', borderColor: 'rgba(245,158,11,0.3)',
+      color: '#FBBF24', colorDim: 'rgba(245,158,11,0.12)', borderColor: 'rgba(245,158,11,0.3)',
       icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>',
       metrics: [
         { key: 'vibration', label: 'Vibration', unit: 'mm/s', asset: 'RTU-01' },
@@ -578,7 +578,7 @@
     },
     {
       id: 'network', label: 'Network & Comm',
-      color: '#3B82F6', colorDim: 'rgba(59,130,246,0.12)', borderColor: 'rgba(59,130,246,0.3)',
+      color: '#06B6D4', colorDim: 'rgba(6,182,212,0.12)', borderColor: 'rgba(6,182,212,0.3)',
       icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M5 12.55a11 11 0 0 1 14 0"/><path d="M1.42 9a16 16 0 0 1 21.16 0"/><path d="M8.53 16.11a6 6 0 0 1 6.95 0"/><line x1="12" y1="20" x2="12.01" y2="20"/></svg>',
       metrics: [
         { key: 'cpu_load', label: 'CPU Load', unit: '%', asset: null },
@@ -683,13 +683,13 @@
       { h: 168, label: '7D' },
     ];
     bar.innerHTML = ranges.map(r =>
-      '<button class="filter-btn' + (r.h === trendHours ? ' active' : '') + '" data-hours="' + r.h + '" style="padding:5px 12px;font-size:10px;' + (r.h === trendHours ? 'background:var(--accent-dim);color:var(--accent-light);border-color:rgba(59,130,246,0.3);' : '') + '">' + r.label + '</button>'
+      '<button class="filter-btn' + (r.h === trendHours ? ' active' : '') + '" data-hours="' + r.h + '" style="padding:5px 12px;font-size:10px;' + (r.h === trendHours ? 'background:var(--accent-dim);color:var(--accent-light);border-color:rgba(6,182,212,0.3);' : '') + '">' + r.label + '</button>'
     ).join('');
     bar.querySelectorAll('.filter-btn').forEach(b => b.addEventListener('click', async () => {
       trendHours = parseInt(b.dataset.hours);
       bar.querySelectorAll('.filter-btn').forEach(x => { x.classList.remove('active'); x.style.background=''; x.style.color=''; x.style.borderColor=''; });
       b.classList.add('active');
-      b.style.background = 'var(--accent-dim)'; b.style.color = 'var(--accent-light)'; b.style.borderColor = 'rgba(59,130,246,0.3)';
+      b.style.background = 'var(--accent-dim)'; b.style.color = 'var(--accent-light)'; b.style.borderColor = 'rgba(6,182,212,0.3)';
       await loadCategoryTrends();
       renderTrendCharts();
     }));
@@ -1021,8 +1021,8 @@
     const solarCol = solarPct > 60 ? 'var(--status-good)' : solarPct > 30 ? 'var(--status-warn)' : 'var(--text-muted)';
 
     el.innerHTML = `
-      <div class="kpi-tile"><div class="weather-tile"><div class="weather-icon" style="background:rgba(245,158,11,0.12);color:#F59E0B;">${condIcon}</div><div><div class="weather-val">${w.temp_f != null ? Math.round(w.temp_f) + '°' : '—'}</div><div class="weather-label">${condLabel}</div></div></div></div>
-      <div class="kpi-tile"><div class="weather-tile"><div class="weather-icon" style="background:rgba(59,130,246,0.12);color:var(--accent);"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M9.59 4.59A2 2 0 1 1 11 8H2m10.59 11.41A2 2 0 1 0 14 16H2m15.73-8.27A2.5 2.5 0 1 1 19.5 12H2"/></svg></div><div><div class="weather-val">${w.wind_mph != null ? Math.round(w.wind_mph) : '—'}<span style="font-size:12px;color:var(--text-muted);"> mph</span></div><div class="weather-label">Wind${w.wind_gust_mph ? ' · Gust ' + Math.round(w.wind_gust_mph) : ''}</div></div></div></div>
+      <div class="kpi-tile"><div class="weather-tile"><div class="weather-icon" style="background:rgba(245,158,11,0.12);color:#FBBF24;">${condIcon}</div><div><div class="weather-val">${w.temp_f != null ? Math.round(w.temp_f) + '°' : '—'}</div><div class="weather-label">${condLabel}</div></div></div></div>
+      <div class="kpi-tile"><div class="weather-tile"><div class="weather-icon" style="background:rgba(6,182,212,0.12);color:var(--accent);"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M9.59 4.59A2 2 0 1 1 11 8H2m10.59 11.41A2 2 0 1 0 14 16H2m15.73-8.27A2.5 2.5 0 1 1 19.5 12H2"/></svg></div><div><div class="weather-val">${w.wind_mph != null ? Math.round(w.wind_mph) : '—'}<span style="font-size:12px;color:var(--text-muted);"> mph</span></div><div class="weather-label">Wind${w.wind_gust_mph ? ' · Gust ' + Math.round(w.wind_gust_mph) : ''}</div></div></div></div>
       <div class="kpi-tile"><div class="weather-tile"><div class="weather-icon" style="background:rgba(16,185,129,0.12);color:var(--status-good);"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/></svg></div><div><div class="weather-val" style="color:${solarCol};">${solarPct}%</div><div class="weather-label">Solar Factor</div><div class="solar-bar" style="width:80px;"><div class="solar-bar-fill" style="width:${solarPct}%;"></div></div></div></div></div>
       <div class="kpi-tile"><div class="weather-tile"><div class="weather-icon" style="background:rgba(168,85,247,0.12);color:#A855F7;"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M17 18a5 5 0 0 0-10 0"/><line x1="12" y1="9" x2="12" y2="2"/><line x1="4.22" y1="10.22" x2="5.64" y2="11.64"/><line x1="1" y1="18" x2="3" y2="18"/><line x1="21" y1="18" x2="23" y2="18"/><line x1="18.36" y1="11.64" x2="19.78" y2="10.22"/></svg></div><div><div class="weather-val">${w.daylight_hours ? w.daylight_hours.toFixed(1) : '—'}<span style="font-size:12px;color:var(--text-muted);"> hrs</span></div><div class="weather-label">${w.is_daylight ? '☀ Daylight' : '🌙 Night'}</div></div></div></div>
       <div class="kpi-tile"><div class="weather-tile"><div class="weather-icon" style="background:rgba(6,182,212,0.12);color:#06B6D4;"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 2.69l5.66 5.66a8 8 0 1 1-11.31 0z"/></svg></div><div><div class="weather-val">${w.precip_in != null ? w.precip_in.toFixed(2) : '0'}<span style="font-size:12px;color:var(--text-muted);"> in</span></div><div class="weather-label">Precipitation</div></div></div></div>
@@ -1447,15 +1447,15 @@
     var pulseIcon = L.divIcon({
       className: '',
       html: '<div style="position:relative;width:28px;height:28px;">' +
-        '<div style="position:absolute;inset:0;border-radius:50%;background:rgba(59,130,246,0.25);animation:wxPulse 2s ease-in-out infinite;"></div>' +
-        '<div style="position:absolute;inset:4px;border-radius:50%;background:#3B82F6;border:3px solid white;box-shadow:0 0 12px rgba(59,130,246,0.6);"></div></div>',
+        '<div style="position:absolute;inset:0;border-radius:50%;background:rgba(6,182,212,0.25);animation:wxPulse 2s ease-in-out infinite;"></div>' +
+        '<div style="position:absolute;inset:4px;border-radius:50%;background:#06B6D4;border:3px solid white;box-shadow:0 0 12px rgba(6,182,212,0.6);"></div></div>',
       iconSize: [28, 28],
       iconAnchor: [14, 14],
     });
 
     var marker = L.marker([SITE_LAT, SITE_LON], { icon: pulseIcon }).addTo(map);
     marker.bindPopup(
-      '<div style="font-family:Inter,sans-serif;padding:4px;min-width:200px;">' +
+      '<div style="font-family:Manrope,sans-serif;padding:4px;min-width:200px;">' +
       '<div style="font-weight:700;font-size:14px;">Needville Shop</div>' +
       '<div style="font-size:11px;color:#64748B;">10102 Clydesdale Dr, Needville, TX</div>' +
       '<div style="font-size:11px;color:#64748B;">29.39°N, 95.84°W · Elev 85 ft</div>' +
@@ -1470,10 +1470,10 @@
     // 25-mile ops radius ring
     var opsCircle = L.circle([SITE_LAT, SITE_LON], {
       radius: 40234, // 25 miles in meters
-      color: '#3B82F6',
+      color: '#06B6D4',
       weight: 1.5,
       dashArray: '8, 6',
-      fillColor: '#3B82F6',
+      fillColor: '#06B6D4',
       fillOpacity: 0.03,
       opacity: 0.4,
     }).addTo(map);
@@ -1708,7 +1708,7 @@
     const points = h.precipitation_probability.slice(0, 48);
     el.innerHTML = points.map((v,i) => {
       const pct = Math.max(2, v);
-      const col = v > 60 ? 'var(--accent)' : v > 30 ? 'rgba(59,130,246,0.6)' : 'rgba(59,130,246,0.3)';
+      const col = v > 60 ? 'var(--accent)' : v > 30 ? 'rgba(6,182,212,0.6)' : 'rgba(6,182,212,0.3)';
       return '<div class="bar-col" style="height:'+pct+'%;background:'+col+';opacity:0.8;" title="'+v+'% at '+h.time[i]+'"></div>';
     }).join('');
     if (labels) {
@@ -1737,7 +1737,7 @@
     const solarPct = Math.round((w.solar_production_factor || 0) * 100);
     const solarCol = solarPct > 60 ? 'var(--status-good)' : solarPct > 30 ? 'var(--status-warn)' : 'var(--text-muted)';
     el.innerHTML = `<div class="stat-grid" style="grid-template-columns:repeat(6,1fr);">
-      <div class="stat-card"><div class="stat-card-label">Temperature</div><div class="stat-card-value" style="color:#F59E0B;">${w.temp_f != null ? Math.round(w.temp_f) + '°F' : '—'}</div><div class="stat-card-sub">${(w.condition||'').replace(/_/g,' ')}</div></div>
+      <div class="stat-card"><div class="stat-card-label">Temperature</div><div class="stat-card-value" style="color:#FBBF24;">${w.temp_f != null ? Math.round(w.temp_f) + '°F' : '—'}</div><div class="stat-card-sub">${(w.condition||'').replace(/_/g,' ')}</div></div>
       <div class="stat-card"><div class="stat-card-label">Wind Speed</div><div class="stat-card-value" style="color:var(--accent);">${w.wind_mph != null ? Math.round(w.wind_mph) : '—'} <span style="font-size:12px;">mph</span></div><div class="stat-card-sub">Gust: ${w.wind_gust_mph ? Math.round(w.wind_gust_mph) + ' mph' : '—'}</div></div>
       <div class="stat-card"><div class="stat-card-label">Precipitation</div><div class="stat-card-value" style="color:#06B6D4;">${w.precip_in != null ? w.precip_in.toFixed(2) : '0'} <span style="font-size:12px;">in</span></div></div>
       <div class="stat-card"><div class="stat-card-label">Solar Factor</div><div class="stat-card-value" style="color:${solarCol};">${solarPct}%</div><div class="solar-bar" style="width:100%;margin-top:6px;"><div class="solar-bar-fill" style="width:${solarPct}%;"></div></div></div>
@@ -2019,7 +2019,7 @@
     // Console port
     h += '<div style="display:flex;flex-direction:column;align-items:center;gap:2px;margin-right:6px;">';
     h += '<div class="chassis-inner-label">CONSOLE</div>';
-    h += '<div class="wf-aux" style="border-color:rgba(59,130,246,0.3);color:rgba(59,130,246,0.4);">CON</div>';
+    h += '<div class="wf-aux" style="border-color:rgba(6,182,212,0.3);color:rgba(6,182,212,0.4);">CON</div>';
     h += '</div>';
 
     h += '<div class="port-section-divider"></div>';
@@ -2166,7 +2166,7 @@
     }
     h += '</div></div>';
 
-    h += '<div class="port-section-divider" style="border-color:rgba(59,130,246,0.15);"></div>';
+    h += '<div class="port-section-divider" style="border-color:rgba(6,182,212,0.15);"></div>';
 
     // COM1, COM2 serial ports (RS-232/485)
     h += '<div style="display:flex;flex-direction:column;gap:2px;">';
@@ -2174,12 +2174,12 @@
     h += '<div style="display:flex;gap:4px;">';
     for (let c = 1; c <= 2; c++) {
       h += '<div style="display:flex;flex-direction:column;align-items:center;gap:2px;">';
-      h += '<div class="wf-aux" style="width:40px;height:24px;border-color:rgba(59,130,246,0.25);font-size:8px;color:rgba(59,130,246,0.4);">COM' + c + '</div>';
+      h += '<div class="wf-aux" style="width:40px;height:24px;border-color:rgba(6,182,212,0.25);font-size:8px;color:rgba(6,182,212,0.4);">COM' + c + '</div>';
       h += '</div>';
     }
     h += '</div></div>';
 
-    h += '<div class="port-section-divider" style="border-color:rgba(59,130,246,0.15);"></div>';
+    h += '<div class="port-section-divider" style="border-color:rgba(6,182,212,0.15);"></div>';
 
     // Ethernet port
     h += '<div style="display:flex;flex-direction:column;gap:2px;">';
@@ -2187,7 +2187,7 @@
     h += '<div class="wf-port ' + (isOnline ? 'up' : 'down') + '" title="Modbus TCP">ETH</div>';
     h += '</div>';
 
-    h += '<div class="port-section-divider" style="border-color:rgba(59,130,246,0.15);"></div>';
+    h += '<div class="port-section-divider" style="border-color:rgba(6,182,212,0.15);"></div>';
 
     // 8 Analog Inputs (AI1-AI8)
     h += '<div style="display:flex;flex-direction:column;gap:2px;">';
@@ -2205,7 +2205,7 @@
     }
     h += '</div></div>';
 
-    h += '<div class="port-section-divider" style="border-color:rgba(59,130,246,0.15);"></div>';
+    h += '<div class="port-section-divider" style="border-color:rgba(6,182,212,0.15);"></div>';
 
     // 4 Analog Outputs (AO1-AO4)
     h += '<div style="display:flex;flex-direction:column;gap:2px;">';
@@ -2223,7 +2223,7 @@
     }
     h += '</div></div>';
 
-    h += '<div class="port-section-divider" style="border-color:rgba(59,130,246,0.15);"></div>';
+    h += '<div class="port-section-divider" style="border-color:rgba(6,182,212,0.15);"></div>';
 
     // 8 Digital Inputs (DI1-DI8)
     h += '<div style="display:flex;flex-direction:column;gap:2px;">';
@@ -2241,7 +2241,7 @@
     }
     h += '</div></div>';
 
-    h += '<div class="port-section-divider" style="border-color:rgba(59,130,246,0.15);"></div>';
+    h += '<div class="port-section-divider" style="border-color:rgba(6,182,212,0.15);"></div>';
 
     // 4 Digital Outputs (DO1-DO4)
     h += '<div style="display:flex;flex-direction:column;gap:2px;">';
@@ -2422,8 +2422,8 @@
     h += '<div class="chassis-inner-label">USB</div>';
     h += '<div style="display:flex;gap:4px;">';
     h += '<div class="port-pair-col">';
-    h += '<div class="wf-aux" style="width:28px;height:18px;font-size:7px;border-color:rgba(59,130,246,0.5);color:rgba(59,130,246,0.5);">3.0</div>';
-    h += '<div class="wf-aux" style="width:28px;height:18px;font-size:7px;border-color:rgba(59,130,246,0.5);color:rgba(59,130,246,0.5);">3.0</div>';
+    h += '<div class="wf-aux" style="width:28px;height:18px;font-size:7px;border-color:rgba(6,182,212,0.5);color:rgba(6,182,212,0.5);">3.0</div>';
+    h += '<div class="wf-aux" style="width:28px;height:18px;font-size:7px;border-color:rgba(6,182,212,0.5);color:rgba(6,182,212,0.5);">3.0</div>';
     h += '</div>';
     h += '<div class="port-pair-col">';
     h += '<div class="wf-aux" style="width:28px;height:18px;font-size:7px;border-color:rgba(255,255,255,0.12);color:rgba(255,255,255,0.2);">2.0</div>';
@@ -2724,7 +2724,7 @@
 
     el.innerHTML =
       '<svg width="' + w + '" height="' + h + '" style="display:block;">' +
-        '<defs><linearGradient id="hg" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#3B82F6" stop-opacity="0.3"/><stop offset="100%" stop-color="#3B82F6" stop-opacity="0"/></linearGradient></defs>' +
+        '<defs><linearGradient id="hg" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#06B6D4" stop-opacity="0.3"/><stop offset="100%" stop-color="#06B6D4" stop-opacity="0"/></linearGradient></defs>' +
         // Grid lines
         [0,0.25,0.5,0.75,1].map(function(f) {
           var y = pad + f * (h-pad*2);
@@ -2733,7 +2733,7 @@
             '<text x="'+(pad-4)+'" y="'+(y+3)+'" fill="rgba(255,255,255,0.3)" font-size="9" text-anchor="end" font-family="var(--font-mono)">' + label + '</text>';
         }).join('') +
         '<path d="' + areaD + '" fill="url(#hg)"/>' +
-        '<path d="' + pathD + '" fill="none" stroke="#3B82F6" stroke-width="2" stroke-linejoin="round"/>' +
+        '<path d="' + pathD + '" fill="none" stroke="#06B6D4" stroke-width="2" stroke-linejoin="round"/>' +
         // X-axis labels
         [0,0.25,0.5,0.75,1].map(function(f) {
           var x = pad + f * (w-pad*2);
@@ -2801,7 +2801,7 @@
                 '<td><span class="mono">' + (n.type||'—') + '</span></td>' +
                 '<td class="mono">' + (n.ip||'—') + '</td>' +
                 '<td>' + (n.protocol||'—').toUpperCase() + '</td>' +
-                '<td><span class="mono" style="color:' + (n.health > 80 ? '#22C55E' : n.health > 50 ? '#F59E0B' : '#EF4444') + ';">' + (n.health||0) + '%</span></td>' +
+                '<td><span class="mono" style="color:' + (n.health > 80 ? '#10D478' : n.health > 50 ? '#FBBF24' : '#EF4444') + ';">' + (n.health||0) + '%</span></td>' +
                 '<td><span class="status-dot ' + (n.status||'offline') + '"></span>' + (n.status||'offline') + '</td>' +
                 '<td class="mono">' + (n.id||'—') + '</td>' +
               '</tr>';
@@ -2841,7 +2841,7 @@
     links.forEach(function(l) {
       var from = positions[l[0]], to = positions[l[1]];
       if (from && to) {
-        svg += '<line x1="'+from.x+'" y1="'+(from.y+25)+'" x2="'+to.x+'" y2="'+(to.y-5)+'" stroke="rgba(59,130,246,0.3)" stroke-width="2" stroke-dasharray="6,4"/>';
+        svg += '<line x1="'+from.x+'" y1="'+(from.y+25)+'" x2="'+to.x+'" y2="'+(to.y-5)+'" stroke="rgba(6,182,212,0.3)" stroke-width="2" stroke-dasharray="6,4"/>';
       }
     });
     // Tier labels
@@ -2854,8 +2854,8 @@
     nodes.forEach(function(n) {
       var pos = positions[n.id];
       if (!pos) return;
-      var healthColor = n.health > 80 ? '#22C55E' : n.health > 50 ? '#F59E0B' : '#EF4444';
-      var iconBg = pos.tier === 'core' ? 'rgba(139,92,246,0.15)' : pos.tier === 'distribution' ? 'rgba(59,130,246,0.15)' : 'rgba(34,197,94,0.15)';
+      var healthColor = n.health > 80 ? '#10D478' : n.health > 50 ? '#FBBF24' : '#EF4444';
+      var iconBg = pos.tier === 'core' ? 'rgba(139,92,246,0.15)' : pos.tier === 'distribution' ? 'rgba(6,182,212,0.15)' : 'rgba(34,197,94,0.15)';
 
       nodesHtml += '<div class="pf-node" style="left:' + (pos.x-50) + 'px;top:' + pos.y + 'px;min-width:100px;text-align:center;" onclick="window.location.hash=\'#diagnostics\'">' +
         '<div class="pf-health" style="background:' + healthColor + ';"></div>' +
@@ -2965,7 +2965,7 @@
     ];
 
     return '<div style="display:flex;align-items:center;gap:20px;margin-bottom:16px;">' +
-      '<div style="font-family:var(--font-mono);font-size:36px;font-weight:700;color:' + (passed/total > 0.7 ? '#22C55E' : '#F59E0B') + ';">' + Math.round(passed/total*100) + '%</div>' +
+      '<div style="font-family:var(--font-mono);font-size:36px;font-weight:700;color:' + (passed/total > 0.7 ? '#10D478' : '#FBBF24') + ';">' + Math.round(passed/total*100) + '%</div>' +
       '<div style="font-size:11px;color:var(--text-muted);">' + passed + ' of ' + total + ' controls passed<br>NIST CSF Framework</div>' +
     '</div>' +
     checks.map(function(c) {
@@ -2973,7 +2973,7 @@
         '<div style="font-size:10px;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:4px;">' + c.name + '</div>' +
         c.items.map(function(item) {
           var pass = item.includes('✓');
-          return '<div style="font-size:11px;color:' + (pass ? '#22C55E' : 'var(--text-muted)') + ';padding:2px 0;">' + item.replace('✓','').replace('○','') +
+          return '<div style="font-size:11px;color:' + (pass ? '#10D478' : 'var(--text-muted)') + ';padding:2px 0;">' + item.replace('✓','').replace('○','') +
             '<span style="float:right;font-size:10px;">' + (pass ? '✓ PASS' : '○ OPEN') + '</span></div>';
         }).join('') +
       '</div>';
@@ -2990,7 +2990,7 @@
   // HELPER FUNCTIONS
   // ================================================================
   function buildKpi(label, value, status) {
-    var color = status === 'good' ? '#22C55E' : status === 'warning' ? '#F59E0B' : status === 'critical' ? '#EF4444' : 'var(--text-primary)';
+    var color = status === 'good' ? '#10D478' : status === 'warning' ? '#FBBF24' : status === 'critical' ? '#EF4444' : 'var(--text-primary)';
     return '<div class="kpi-card">' +
       '<div class="kpi-label">' + label + '</div>' +
       '<div class="kpi-value" style="color:' + color + ';">' + value + '</div>' +
@@ -3083,8 +3083,8 @@
       // Color by status
       let color = '#6B7280'; // gray/unknown
       const s = (asset.status || '').toLowerCase();
-      if (s === 'good') color = '#10B981';
-      else if (s === 'warn' || s === 'warning') color = '#F59E0B';
+      if (s === 'good') color = '#10D478';
+      else if (s === 'warn' || s === 'warning') color = '#FBBF24';
       else if (s === 'bad' || s === 'critical') color = '#EF4444';
 
       // Create marker element
@@ -3094,7 +3094,7 @@
 
       const popup = new mapboxgl.Popup({ offset: 20, className: 'aevus-map-popup' })
         .setHTML(
-          '<div style="font-family:Inter,sans-serif;padding:4px;">' +
+          '<div style="font-family:Manrope,sans-serif;padding:4px;">' +
           '<div style="font-weight:600;font-size:13px;margin-bottom:4px;">' + (asset.name || asset.id) + '</div>' +
           '<div style="font-size:11px;color:#94A3B8;">Status: <span style="color:' + color + ';font-weight:600;">' + (asset.status || 'unknown') + '</span></div>' +
           '<div style="font-size:11px;color:#94A3B8;">Health: ' + (asset.health != null ? asset.health + '%' : 'N/A') + '</div>' +

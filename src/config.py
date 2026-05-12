@@ -111,6 +111,12 @@ class Settings(BaseSettings):
     site_longitude: float = -95.8375
     weather_poll_interval: int = 900
 
+    # -- Supabase Auth --
+    supabase_url: str = ""
+    supabase_anon_key: str = ""
+    supabase_jwt_secret: str = ""
+
+
 
 # Singleton
 settings = Settings()

@@ -43,6 +43,7 @@ from src.api import (
     ws_router,
 )
 from src.api.ws import ws_manager
+from src.api.auth_config import auth_config_router
 
 # Collectors
 from src.collectors.simulator import SimulatorCollector
@@ -333,6 +334,7 @@ app.include_router(notes_router, prefix="/api/v1")
 app.include_router(journal_router, prefix="/api/v1")
 app.include_router(ping_diag_router, prefix="/api/v1")
 app.include_router(csv_io_router, prefix="/api/v1")
+app.include_router(auth_config_router, prefix="/api/v1")
 
 
 # Serve dashboard static files
@@ -340,6 +342,15 @@ DASHBOARD_DIR = Path(__file__).resolve().parent.parent / "dashboard"
 if DASHBOARD_DIR.exists():
     app.mount("/dashboard", StaticFiles(directory=str(DASHBOARD_DIR), html=True), name="dashboard")
 
+
+
+@app.get("/login")
+async def login_page():
+    """Serve the login page."""
+    login_file = DASHBOARD_DIR / "login.html"
+    if login_file.exists():
+        return Response(content=login_file.read_text(), media_type="text/html")
+    return JSONResponse(status_code=404, content={"detail": "Login page not found"})
 
 @app.get("/")
 async def root():

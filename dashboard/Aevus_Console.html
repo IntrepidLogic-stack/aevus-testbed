@@ -1187,6 +1187,63 @@ body.wall-mode #stale-data-banner { left: 0 !important; top: 0 !important; }
   font-size: 18px;
 }
 
+
+/* ── Wave 1: Page fade-in transition ── */
+@keyframes pageFadeIn {
+  from { opacity: 0.3; transform: translateY(6px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+.page-section.active {
+  animation: pageFadeIn 0.28s ease-out both;
+}
+
+/* ── Wave 1: Keyboard Shortcut Overlay ── */
+#kb-overlay {
+  display: none;
+  position: fixed; inset: 0;
+  background: rgba(0,0,0,0.75);
+  backdrop-filter: blur(8px);
+  z-index: 9999;
+  justify-content: center; align-items: center;
+}
+#kb-overlay.visible { display: flex; }
+#kb-overlay-inner {
+  background: var(--bg-card); border: 1px solid rgba(148,163,184,0.15);
+  border-radius: 16px; padding: 32px 40px; max-width: 580px; width: 90%;
+  box-shadow: 0 24px 64px rgba(0,0,0,0.5);
+}
+.kb-title { font-size: 16px; font-weight: 700; color: var(--text-primary); margin-bottom: 20px; display: flex; justify-content: space-between; align-items: center; }
+.kb-section { margin-bottom: 16px; }
+.kb-section-title { font-size: 10px; font-weight: 600; color: var(--text-faint); letter-spacing: 1px; text-transform: uppercase; margin-bottom: 8px; }
+.kb-row { display: flex; justify-content: space-between; align-items: center; padding: 5px 0; }
+.kb-key {
+  display: inline-flex; align-items: center; justify-content: center;
+  min-width: 28px; height: 24px; padding: 0 8px;
+  background: rgba(255,255,255,0.08); border: 1px solid rgba(255,255,255,0.12);
+  border-radius: 6px; font-family: var(--font-mono); font-size: 11px; font-weight: 600; color: var(--accent);
+}
+.kb-desc { font-size: 13px; color: var(--text-muted); }
+
+/* ── Wave 1: Notification badge ── */
+.notif-badge {
+  position: absolute; top: 2px; right: 2px;
+  min-width: 16px; height: 16px;
+  background: #EF4444; color: white;
+  font-size: 9px; font-weight: 700; border-radius: 8px;
+  display: flex; align-items: center; justify-content: center; padding: 0 4px;
+  animation: badgePop 0.3s ease-out;
+}
+@keyframes badgePop { from { transform: scale(0); } to { transform: scale(1); } }
+.topbar-bell { position: relative; }
+
+/* Notification dropdown items */
+.notif-item { padding: 10px 14px; border-bottom: 1px solid rgba(148,163,184,0.06); cursor: pointer; transition: background 0.15s; }
+.notif-item:hover { background: rgba(255,255,255,0.04); }
+.notif-unread { border-left: 3px solid var(--accent); }
+.notif-actions { padding: 8px 14px; border-top: 1px solid rgba(148,163,184,0.08); display: flex; justify-content: space-between; align-items: center; }
+.notif-action-btn { font-size: 10px; color: var(--accent); cursor: pointer; background: none; border: none; padding: 4px 0; font-family: var(--font-body); }
+.notif-action-btn:hover { text-decoration: underline; }
+
 </style>
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
@@ -1635,6 +1692,137 @@ body.wall-mode #stale-data-banner { left: 0 !important; top: 0 !important; }
       if (window.innerWidth <= 768) closeSidebar();
     });
   });
+})();
+</script>
+
+
+<!-- ── Wave 1: Keyboard Shortcuts Overlay ── -->
+<div id="kb-overlay" onclick="if(event.target===this)this.classList.remove('visible')">
+  <div id="kb-overlay-inner">
+    <div class="kb-title">
+      <span>Keyboard Shortcuts</span>
+      <span style="font-size:11px;color:var(--text-faint);">Press <span class="kb-key">?</span> to toggle</span>
+    </div>
+    <div class="kb-section">
+      <div class="kb-section-title">Navigation</div>
+      <div class="kb-row"><span class="kb-desc">Process Overview</span><span class="kb-key">O</span></div>
+      <div class="kb-row"><span class="kb-desc">Assets</span><span class="kb-key">A</span></div>
+      <div class="kb-row"><span class="kb-desc">Alarms</span><span class="kb-key">L</span></div>
+      <div class="kb-row"><span class="kb-desc">Health</span><span class="kb-key">H</span></div>
+      <div class="kb-row"><span class="kb-desc">Cybersecurity</span><span class="kb-key">C</span></div>
+      <div class="kb-row"><span class="kb-desc">Settings</span><span class="kb-key">S</span></div>
+    </div>
+    <div class="kb-section">
+      <div class="kb-section-title">Actions</div>
+      <div class="kb-row"><span class="kb-desc">Quick-nav to asset 1–7</span><span><span class="kb-key">1</span> – <span class="kb-key">7</span></span></div>
+      <div class="kb-row"><span class="kb-desc">Toggle notifications</span><span class="kb-key">N</span></div>
+      <div class="kb-row"><span class="kb-desc">Toggle wall display</span><span class="kb-key">W</span></div>
+      <div class="kb-row"><span class="kb-desc">Close drawer / overlay</span><span class="kb-key">Esc</span></div>
+      <div class="kb-row"><span class="kb-desc">Acknowledge top alarm</span><span class="kb-key">K</span></div>
+    </div>
+  </div>
+</div>
+
+<!-- ── Wave 1: Keyboard Shortcuts + Notification Enhancement Script ── -->
+<script>
+(function(){
+  // Keyboard shortcuts
+  var navMap = { o:'overview', a:'assets', l:'alarms', h:'health', c:'cyber', s:'settings' };
+  var assetIds = ['EDGE-01','EFM-01','RAD-01','RAD-02','RTR-01','RTU-01','SW-01'];
+
+  document.addEventListener('keydown', function(e){
+    if (e.target.tagName==='INPUT'||e.target.tagName==='TEXTAREA'||e.target.tagName==='SELECT') return;
+    if (e.ctrlKey||e.metaKey||e.altKey) return;
+    var k = e.key.toLowerCase();
+
+    // ? toggle overlay
+    if (k==='?' || (e.shiftKey && k==='/')) {
+      e.preventDefault();
+      document.getElementById('kb-overlay').classList.toggle('visible');
+      return;
+    }
+    // Esc close things
+    if (k==='escape') {
+      var ov = document.getElementById('kb-overlay');
+      if (ov && ov.classList.contains('visible')) { ov.classList.remove('visible'); return; }
+      var drawer = document.getElementById('asset-drawer');
+      if (drawer && drawer.classList.contains('open')) { drawer.classList.remove('open'); return; }
+      var bell = document.getElementById('bell-dropdown');
+      if (bell && bell.style.display==='block') { bell.style.display='none'; return; }
+      return;
+    }
+    // 1-7 asset quick-nav
+    if (k>='1' && k<='7') {
+      var idx = parseInt(k)-1;
+      if (idx < assetIds.length && window.openAssetDrawer) window.openAssetDrawer(assetIds[idx]);
+      return;
+    }
+    // K acknowledge
+    if (k==='k') { var btn=document.querySelector('.alarm-ack-btn'); if(btn)btn.click(); return; }
+    // N notifications
+    if (k==='n') { if(window.toggleBellDropdown) window.toggleBellDropdown(); return; }
+    // W wall mode
+    if (k==='w') { var wb=document.querySelector('.wall-btn'); if(wb)wb.click(); return; }
+    // Navigation
+    if (navMap[k]) { e.preventDefault(); window.location.hash='#'+navMap[k]; }
+  });
+
+  // Enhanced notification center — richer dropdown content
+  var _origToggle = window.toggleBellDropdown;
+  window.toggleBellDropdown = function() {
+    enhanceNotifDropdown();
+    _origToggle();
+  };
+
+  function enhanceNotifDropdown() {
+    var dd = document.getElementById('bell-dropdown-list');
+    if (!dd) return;
+    // Add system events after alarm items
+    var existing = dd.innerHTML;
+    if (existing.indexOf('notif-system-events') >= 0) return; // already enhanced
+
+    var sysEvents = '<div class="notif-system-events">' +
+      '<div style="padding:6px 14px;font-size:9px;font-weight:600;color:var(--text-faint);letter-spacing:0.5px;border-top:1px solid rgba(148,163,184,0.08);">SYSTEM EVENTS</div>' +
+      '<div class="notif-item"><div style="display:flex;gap:8px;align-items:center;">' +
+      '<span style="width:8px;height:8px;border-radius:50%;background:#10D478;flex-shrink:0;"></span>' +
+      '<div><div style="font-size:11px;color:var(--text-primary);">All assets polling normally</div>' +
+      '<div style="font-size:10px;color:var(--text-faint);font-family:var(--font-mono);">2m ago</div></div></div></div>' +
+      '<div class="notif-item"><div style="display:flex;gap:8px;align-items:center;">' +
+      '<span style="width:8px;height:8px;border-radius:50%;background:#60A5FA;flex-shrink:0;"></span>' +
+      '<div><div style="font-size:11px;color:var(--text-primary);">Shift change — Day shift active</div>' +
+      '<div style="font-size:10px;color:var(--text-faint);font-family:var(--font-mono);">5m ago</div></div></div></div>' +
+      '<div class="notif-item"><div style="display:flex;gap:8px;align-items:center;">' +
+      '<span style="width:8px;height:8px;border-radius:50%;background:#10D478;flex-shrink:0;"></span>' +
+      '<div><div style="font-size:11px;color:var(--text-primary);">Weather data refreshed</div>' +
+      '<div style="font-size:10px;color:var(--text-faint);font-family:var(--font-mono);">8m ago</div></div></div></div>' +
+      '</div>';
+
+    var actions = '<div class="notif-actions">' +
+      '<button class="notif-action-btn" onclick="this.textContent='Done';this.style.color='#10D478'">Mark all read</button>' +
+      '<a href="#alarms" class="notif-action-btn" style="text-decoration:none;color:var(--accent);" onclick="document.getElementById('bell-dropdown').style.display='none'">View all alarms →</a>' +
+      '</div>';
+
+    dd.insertAdjacentHTML('beforeend', sysEvents + actions);
+  }
+
+  // Add notification badge based on active alarm count
+  function updateNotifBadge() {
+    var existing = document.querySelector('.notif-badge');
+    if (existing) existing.remove();
+    var countEl = document.getElementById('kpi-alerts');
+    var count = countEl ? parseInt(countEl.textContent) : 0;
+    if (count > 0) {
+      var bell = document.querySelector('.topbar-bell');
+      if (bell) {
+        var badge = document.createElement('span');
+        badge.className = 'notif-badge';
+        badge.textContent = count > 99 ? '99+' : count;
+        bell.appendChild(badge);
+      }
+    }
+  }
+  setInterval(updateNotifBadge, 5000);
+  setTimeout(updateNotifBadge, 2000);
 })();
 </script>
 

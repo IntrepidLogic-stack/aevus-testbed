@@ -913,6 +913,8 @@ body {
 </style>
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<link href="https://unpkg.com/maplibre-gl@4.1.2/dist/maplibre-gl.css" rel="stylesheet">
+<script src="https://unpkg.com/maplibre-gl@4.1.2/dist/maplibre-gl.js"></script>
 </head>
 <body>
 
@@ -954,6 +956,9 @@ body {
     <a class="nav-item" href="#radio" data-page="radio">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M8.5 16.5a5 5 0 017 0"/><path d="M2 8a15.3 15.3 0 0120 0"/><path d="M5 11a10 10 0 0114 0"/><circle cx="12" cy="20" r="1"/></svg>
       Radio Comms</a>
+    <a class="nav-item" href="#map" data-page="map">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><polygon points="1 6 1 22 8 18 16 22 23 18 23 2 16 6 8 2 1 6"/><line x1="8" y1="2" x2="8" y2="18"/><line x1="16" y1="6" x2="16" y2="22"/></svg>
+      Map</a>
 
     <div class="nav-group-label">ANALYSIS</div>
     <a class="nav-item" href="#historian" data-page="historian">
@@ -1142,6 +1147,12 @@ body {
 </section>
 
 <!-- ━━━ PAGE: OPERATIONS ━━━ -->
+
+<section class="page-section" data-page="map">
+  <div id="map-container" style="width:100%;height:calc(100vh - var(--topbar-h));position:relative;">
+    <div id="aevus-map" style="width:100%;height:100%;"></div>
+  </div>
+</section>
 
 <section class="page-section" data-page="radio">
   <div style="display:grid;grid-template-columns:1fr 1fr;grid-template-rows:auto 1fr 1fr;gap:8px;height:calc(100vh - 80px);overflow:hidden;">

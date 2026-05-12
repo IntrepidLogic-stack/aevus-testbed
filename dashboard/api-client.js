@@ -16,7 +16,7 @@
   let trendData = [], currentTrendMetric = 'cpu_load';
   let weatherData = null, correlations = [], commandLog = [];
   let forecastData = null;
-  const MAPBOX_TOKEN = window.AEVUS_MAPBOX_TOKEN || 'pk.eyJ1Ijoid29vZHlpbCIsImEiOiJjbWR4eW5keTUwOTlvMmxxMXo1aGljdWdyIn0.f4ud1cQ6mf-oNM69iY6fEg';
+  const MAPBOX_TOKEN = window.AEVUS_MAPBOX_TOKEN || 'pk.eyJ1IjoiaW50cmVwaWRsb2dpYyIsImEiOiJjbHh0MnFjOGowMTJjMmlzOTIxaXQ0ZHV5In0.HJvGKpD8jVVKxCEqBSi6Rg';
   const SITE_LAT = 29.3905;
   const SITE_LON = -95.8375;
   let currentAlertFilter = 'all';
@@ -98,7 +98,7 @@
     navigateTo(initial);
   }
 
-  async function renderPage(page, isRefresh) { var ft=document.querySelector('.footer');if(ft)ft.style.display=(page==='weather'||page==='radio')?'none':'';var sf=document.querySelector('.sidebar-footer');if(sf)sf.style.display=(page==='weather'||page==='radio')?'none':'';document.body.style.overflow=(page==='weather'||page==='radio')?'hidden':'';
+  async function renderPage(page, isRefresh) { var ft=document.querySelector('.footer');if(ft)ft.style.display=(page==='weather'||page==='radio'||page==='map')?'none':'';var sf=document.querySelector('.sidebar-footer');if(sf)sf.style.display=(page==='weather'||page==='radio'||page==='map')?'none':'';document.body.style.overflow=(page==='weather'||page==='radio'||page==='map')?'hidden':'';
     switch(page) {
       case 'overview': renderOverview(); break;
       case 'assets': isRefresh ? renderAssetsTable(currentAssetFilter) : renderAssetsPage(); break;
@@ -115,7 +115,9 @@
       case 'network': renderNetworkPage(); break;
       case 'cyber': renderCyberPage(); break;
       case 'radio': renderRadioCommsPage(); break;
+      case 'map': renderMapPage(); break;
       case 'settings': renderSettingsPage(); break;
+      case 'map': renderMapPage(); break;
     }
   }
 
@@ -242,33 +244,197 @@
   window.renderScadaPanels = function() { renderFleetStrip(); renderProcessPanels(); renderCommTable(); };
 
   // ═══════════════════════════════════════
-  // PAGE: ASSETS
-  // ═══════════════════════════════════════
+  // Enhanced asset table state
+  let assetSortCol = 'id', assetSortDir = 'asc', assetSearchTerm = '', assetStatusFilter = 'all';
+  let assetColumns = JSON.parse(localStorage.getItem('aevus_asset_columns') || 'null') || ['id','name','type','status','health','protocol','ip_address','last_seen','vitals'];
+  const allAssetColumns = [
+    {key:'id',label:'ID'}, {key:'name',label:'Name'}, {key:'type',label:'Type'},
+    {key:'status',label:'Status'}, {key:'health',label:'Health'}, {key:'protocol',label:'Protocol'},
+    {key:'ip_address',label:'IP Address'}, {key:'last_seen',label:'Last Seen'}, {key:'vitals',label:'Vitals'},
+    {key:'vendor',label:'Vendor'}, {key:'model',label:'Model'}, {key:'location',label:'Location'},
+    {key:'poll_interval',label:'Poll Interval'}
+  ];
+
   function renderAssetsPage() {
-    // Filters
     const fb = document.getElementById('asset-filters');
     const types = ['all', ...new Set(liveAssets.map(a => a.type))];
-    fb.innerHTML = types.map(t => `<button class="filter-btn ${t==='all'?'active':''}" data-type="${t}">${t==='all'?'All':t.charAt(0).toUpperCase()+t.slice(1)}</button>`).join('');
-    fb.querySelectorAll('.filter-btn').forEach(b => b.addEventListener('click', () => {
-      fb.querySelectorAll('.filter-btn').forEach(x => x.classList.remove('active'));
+    const statuses = ['all', ...new Set(liveAssets.map(a => a.status||'unknown'))];
+
+    fb.innerHTML =
+      // Search bar
+      '<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;width:100%;">' +
+      '<div style="position:relative;flex:1;min-width:200px;">' +
+      '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.8" style="position:absolute;left:10px;top:50%;transform:translateY(-50%);color:var(--text-muted);"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>' +
+      '<input id="asset-search" type="text" placeholder="Search assets..." value="' + assetSearchTerm + '" style="width:100%;padding:6px 10px 6px 30px;border-radius:8px;border:1px solid var(--border-light);background:var(--bg-card);color:var(--text-primary);font-size:12px;font-family:var(--font-body);outline:none;">' +
+      '</div>' +
+      // Type filters
+      '<div style="display:flex;gap:4px;">' +
+      types.map(t => '<button class="filter-btn ' + (t===currentAssetFilter?'active':'') + '" data-type="' + t + '">' + (t==='all'?'All':t.charAt(0).toUpperCase()+t.slice(1)) + '</button>').join('') +
+      '</div>' +
+      // Status filter
+      '<div style="display:flex;gap:4px;">' +
+      statuses.map(s => '<button class="filter-btn ' + (s===assetStatusFilter?'active':'') + '" data-status="' + s + '" style="font-size:10px;padding:4px 8px;">' + (s==='all'?'Any Status':s.charAt(0).toUpperCase()+s.slice(1)) + '</button>').join('') +
+      '</div>' +
+      // Column toggle
+      '<button id="col-toggle-btn" class="filter-btn" style="font-size:10px;padding:4px 8px;">' +
+      '<svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg> Columns</button>' +
+      // Saved views
+      '<button id="save-view-btn" class="filter-btn" style="font-size:10px;padding:4px 8px;">' +
+      '<svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M19 21H5a2 2 0 01-2-2V5a2 2 0 012-2h11l5 5v11a2 2 0 01-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/></svg> Save View</button>' +
+      '<button id="csv-export-btn" class="filter-btn" style="font-size:10px;padding:4px 8px;"><svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg> Export CSV</button>' +
+      '<button id="csv-import-btn" class="filter-btn" style="font-size:10px;padding:4px 8px;"><svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg> Import CSV</button>' +
+      '<input type="file" id="csv-file-input" accept=".csv" style="display:none">' +
+      '</div>';
+
+    // Column toggle popup
+    document.getElementById('col-toggle-btn').addEventListener('click', function(e) {
+      e.stopPropagation();
+      let popup = document.getElementById('col-popup');
+      if (popup) { popup.remove(); return; }
+      popup = document.createElement('div');
+      popup.id = 'col-popup';
+      popup.style.cssText = 'position:absolute;z-index:100;background:var(--bg-card-solid);border:1px solid var(--border-light);border-radius:10px;padding:12px;box-shadow:0 8px 32px rgba(0,0,0,0.4);min-width:180px;';
+      popup.innerHTML = '<div style="font-size:11px;font-weight:600;color:var(--text-secondary);margin-bottom:8px;text-transform:uppercase;letter-spacing:1px;">Visible Columns</div>' +
+        allAssetColumns.map(c => '<label style="display:flex;align-items:center;gap:6px;padding:4px 0;font-size:12px;color:var(--text-primary);cursor:pointer;"><input type="checkbox" data-col="' + c.key + '" ' + (assetColumns.includes(c.key)?'checked':'') + ' style="accent-color:var(--accent);"> ' + c.label + '</label>').join('');
+      this.parentElement.appendChild(popup);
+      popup.querySelectorAll('input').forEach(cb => cb.addEventListener('change', function() {
+        if (this.checked && !assetColumns.includes(this.dataset.col)) assetColumns.push(this.dataset.col);
+        else assetColumns = assetColumns.filter(c => c !== this.dataset.col);
+        localStorage.setItem('aevus_asset_columns', JSON.stringify(assetColumns));
+        renderAssetsTable(currentAssetFilter);
+      }));
+      document.addEventListener('click', function handler() { popup.remove(); document.removeEventListener('click', handler); });
+    // CSV Export
+    document.getElementById("csv-export-btn").addEventListener("click", async function() {
+      try {
+        var h = {}; if (API_KEY) h["X-API-Key"] = API_KEY;
+        var r = await fetch(API + "/csv/export", { headers: h });
+        if (!r.ok) throw new Error("Export failed: " + r.status);
+        var blob = await r.blob();
+        var url = URL.createObjectURL(blob);
+        var a = document.createElement("a"); a.href = url;
+        a.download = "aevus_assets.csv"; a.click();
+        URL.revokeObjectURL(url);
+      } catch (e) { alert("CSV export error: " + e.message); }
+    });
+    // CSV Import
+    document.getElementById("csv-import-btn").addEventListener("click", function() {
+      document.getElementById("csv-file-input").click();
+    });
+    document.getElementById("csv-file-input").addEventListener("change", async function() {
+      if (!this.files.length) return;
+      try {
+        var fd = new FormData(); fd.append("file", this.files[0]);
+        var h = {}; if (API_KEY) h["X-API-Key"] = API_KEY;
+        var r = await fetch(API + "/csv/import", { method: "POST", headers: h, body: fd });
+        if (!r.ok) throw new Error("Import failed: " + r.status);
+        var result = await r.json();
+        alert("Imported: " + result.imported + ", Skipped: " + result.skipped +
+          (result.errors.length ? "\nErrors:\n" + result.errors.join("\n") : ""));
+        this.value = "";
+        await fetchAssets(); renderAssetsPage();
+      } catch (e) { alert("CSV import error: " + e.message); }
+    });
+
+    });
+
+    // Save view
+    document.getElementById('save-view-btn').addEventListener('click', function() {
+      const name = prompt('View name:');
+      if (!name) return;
+      const views = JSON.parse(localStorage.getItem('aevus_saved_views') || '[]');
+      views.push({name, columns: [...assetColumns], type: currentAssetFilter, status: assetStatusFilter, sort: assetSortCol, dir: assetSortDir});
+      localStorage.setItem('aevus_saved_views', JSON.stringify(views));
+      alert('View "' + name + '" saved');
+    });
+
+    // Search handler
+    document.getElementById('asset-search').addEventListener('input', function() {
+      assetSearchTerm = this.value.toLowerCase();
+      renderAssetsTable(currentAssetFilter);
+    });
+
+    // Type filter handlers
+    fb.querySelectorAll('[data-type]').forEach(b => b.addEventListener('click', () => {
+      fb.querySelectorAll('[data-type]').forEach(x => x.classList.remove('active'));
       b.classList.add('active');
       currentAssetFilter = b.dataset.type;
       renderAssetsTable(b.dataset.type);
     }));
-    renderAssetsTable('all');
+
+    // Status filter handlers
+    fb.querySelectorAll('[data-status]').forEach(b => b.addEventListener('click', () => {
+      fb.querySelectorAll('[data-status]').forEach(x => x.classList.remove('active'));
+      b.classList.add('active');
+      assetStatusFilter = b.dataset.status;
+      renderAssetsTable(currentAssetFilter);
+    }));
+
+    renderAssetsTable(currentAssetFilter || 'all');
   }
 
   function renderAssetsTable(typeFilter) {
     const wrap = document.getElementById('assets-table-wrap');
-    const filtered = typeFilter === 'all' ? liveAssets : liveAssets.filter(a => a.type === typeFilter);
-    wrap.innerHTML = `<table class="data-table"><thead><tr><th>ID</th><th>Name</th><th>Type</th><th>Status</th><th>Health</th><th>Protocol</th><th>IP Address</th><th>Last Seen</th><th>Vitals</th></tr></thead><tbody>${filtered.map(a => {
-      const topVitals = (a.vitals||[]).slice(0,3).map(v=>v.label+': '+v.value).join(' · ');
-      return `<tr style="cursor:pointer;" onclick="window.openAssetDrawer('${a.id}')"><td class="mono" style="color:var(--accent);font-weight:600;">${a.id}</td><td style="font-weight:500;color:var(--text-primary);">${a.name}</td><td class="mono">${a.type}</td><td>${statusPill(a.status,a.health)}</td><td><div class="health-bar-wrap"><div class="health-bar"><div class="health-bar-fill ${hClass(a.status,a.health)}" style="width:${a.health||0}%"></div></div><span class="health-bar-val" style="color:var(--status-${hClass(a.status,a.health)==='good'?'good':hClass(a.status,a.health)==='warn'?'warn':hClass(a.status,a.health)==='bad'?'bad':'offline'});">${a.health!=null?a.health:'—'}</span></div></td><td class="mono">${protocolMap[a.protocol]||a.protocol||'—'}</td><td class="mono">${a.ip_address||'—'}</td><td class="mono">${timeAgo(a.last_seen)}</td><td style="font-size:10px;color:var(--text-muted);max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${topVitals||'—'}</td></tr>`;
-    }).join('')}</tbody></table>`;
+    let filtered = typeFilter === 'all' ? [...liveAssets] : liveAssets.filter(a => a.type === typeFilter);
+
+    // Status filter
+    if (assetStatusFilter !== 'all') filtered = filtered.filter(a => (a.status||'unknown') === assetStatusFilter);
+
+    // Search filter
+    if (assetSearchTerm) {
+      filtered = filtered.filter(a => {
+        const searchable = [a.id, a.name, a.type, a.status, a.protocol, a.ip_address, a.vendor, a.model, a.location].join(' ').toLowerCase();
+        return searchable.includes(assetSearchTerm);
+      });
+    }
+
+    // Sort
+    filtered.sort((a, b) => {
+      let va = a[assetSortCol], vb = b[assetSortCol];
+      if (assetSortCol === 'health') { va = va||0; vb = vb||0; }
+      if (assetSortCol === 'last_seen') { va = va||''; vb = vb||''; }
+      if (typeof va === 'number' && typeof vb === 'number') return assetSortDir === 'asc' ? va - vb : vb - va;
+      va = String(va||'').toLowerCase(); vb = String(vb||'').toLowerCase();
+      return assetSortDir === 'asc' ? va.localeCompare(vb) : vb.localeCompare(va);
+    });
+
+    const sortIcon = (col) => assetSortCol === col ? (assetSortDir === 'asc' ? ' ▲' : ' ▼') : '';
+    const colDefs = {
+      id: (a) => '<td class="mono" style="color:var(--accent);font-weight:600;">' + a.id + '</td>',
+      name: (a) => '<td style="font-weight:500;color:var(--text-primary);">' + a.name + '</td>',
+      type: (a) => '<td class="mono">' + a.type + '</td>',
+      status: (a) => '<td>' + statusPill(a.status,a.health) + '</td>',
+      health: (a) => '<td><div class="health-bar-wrap"><div class="health-bar"><div class="health-bar-fill ' + hClass(a.status,a.health) + '" style="width:' + (a.health||0) + '%"></div></div><span class="health-bar-val" style="color:var(--status-' + (hClass(a.status,a.health)==='good'?'good':hClass(a.status,a.health)==='warn'?'warn':hClass(a.status,a.health)==='bad'?'bad':'offline') + ');">' + (a.health!=null?a.health:'—') + '</span></div></td>',
+      protocol: (a) => '<td class="mono">' + (protocolMap[a.protocol]||a.protocol||'—') + '</td>',
+      ip_address: (a) => '<td class="mono">' + (a.ip_address||'—') + '</td>',
+      last_seen: (a) => '<td class="mono">' + timeAgo(a.last_seen) + '</td>',
+      vitals: (a) => '<td style="font-size:10px;color:var(--text-muted);max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">' + ((a.vitals||[]).slice(0,3).map(v=>v.label+': '+v.value).join(' · ')||'—') + '</td>',
+      vendor: (a) => '<td class="mono">' + (a.vendor||'—') + '</td>',
+      model: (a) => '<td class="mono">' + (a.model||'—') + '</td>',
+      location: (a) => '<td class="mono">' + (a.location||'—') + '</td>',
+      poll_interval: (a) => '<td class="mono">' + (a.poll_interval||'—') + 's</td>',
+    };
+    const colLabels = {id:'ID',name:'Name',type:'Type',status:'Status',health:'Health',protocol:'Protocol',ip_address:'IP Address',last_seen:'Last Seen',vitals:'Vitals',vendor:'Vendor',model:'Model',location:'Location',poll_interval:'Poll'};
+
+    const headers = assetColumns.map(c => '<th style="cursor:pointer;user-select:none;" data-sort="' + c + '">' + (colLabels[c]||c) + sortIcon(c) + '</th>').join('');
+    const rows = filtered.map(a => '<tr style="cursor:pointer;" onclick="window.openAssetDrawer(\'' + a.id + '\')">' + assetColumns.map(c => colDefs[c]?colDefs[c](a):'<td>—</td>').join('') + '</tr>').join('');
+
+    wrap.innerHTML = '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;"><span style="font-size:11px;color:var(--text-muted);">' + filtered.length + ' of ' + liveAssets.length + ' assets</span></div>' +
+      '<table class="data-table"><thead><tr>' + headers + '</tr></thead><tbody>' + (rows || '<tr><td colspan="' + assetColumns.length + '" style="text-align:center;padding:40px;color:var(--text-muted);">No assets match filters</td></tr>') + '</tbody></table>';
+
+    // Sort handlers
+    wrap.querySelectorAll('th[data-sort]').forEach(th => th.addEventListener('click', () => {
+      if (assetSortCol === th.dataset.sort) assetSortDir = assetSortDir === 'asc' ? 'desc' : 'asc';
+      else { assetSortCol = th.dataset.sort; assetSortDir = 'asc'; }
+      renderAssetsTable(currentAssetFilter);
+    }));
   }
+
 
   // ═══════════════════════════════════════
   // PAGE: HEALTH
+  // ═══════════════════════════════════════
+  
   // ═══════════════════════════════════════
   function renderHealthPage() {
     const stats = document.getElementById('health-stats');
@@ -2835,6 +3001,120 @@
   window.renderNetProtocols = function() { renderNetworkPage(); };
   window.renderNetTraffic = function() { renderNetworkPage(); };
 
+
+  // =======================================
+  // PAGE: MAP
+  // =======================================
+  let mapInstance = null;
+  let mapMarkers = [];
+
+  function renderMapPage() {
+    const container = document.getElementById('aevus-map');
+    if (!container) return;
+
+    // If map already created, just resize
+    if (mapInstance) {
+      mapInstance.resize();
+      updateMapMarkers();
+      return;
+    }
+
+    mapInstance = new maplibregl.Map({
+      container: 'aevus-map',
+      style: {
+        version: 8,
+        sources: {
+          'osm-tiles': {
+            type: 'raster',
+            tiles: ['https://basemaps.cartocdn.com/dark_all/{z}/{x}/{y}@2x.png'],
+            tileSize: 256,
+            attribution: '&copy; OpenStreetMap &copy; CARTO'
+          }
+        },
+        layers: [{
+          id: 'osm-tiles',
+          type: 'raster',
+          source: 'osm-tiles',
+          minzoom: 0,
+          maxzoom: 19
+        }]
+      },
+      center: [-102.75, 46.96],
+      zoom: 13
+    });
+
+    mapInstance.addControl(new maplibregl.NavigationControl(), 'top-right');
+
+    mapInstance.on('load', () => {
+      updateMapMarkers();
+    });
+  }
+
+  function updateMapMarkers() {
+    if (!mapInstance) return;
+
+    // Remove existing markers
+    mapMarkers.forEach(m => m.remove());
+    mapMarkers = [];
+
+    if (liveAssets.length === 0) return;
+
+    const bounds = new maplibregl.LngLatBounds();
+    const offsets = {};
+    let idx = 0;
+
+    liveAssets.forEach(asset => {
+      let lat = asset.latitude;
+      let lng = asset.longitude;
+
+      // Placeholder coordinates around Killdeer, ND if no GPS
+      if (lat == null || lng == null) {
+        const angle = (idx / liveAssets.length) * 2 * Math.PI;
+        const r = 0.005 + (idx * 0.002);
+        lat = 46.96 + Math.cos(angle) * r;
+        lng = -102.75 + Math.sin(angle) * r;
+      }
+      idx++;
+
+      // Color by status
+      let color = '#6B7280'; // gray/unknown
+      const s = (asset.status || '').toLowerCase();
+      if (s === 'good') color = '#10B981';
+      else if (s === 'warn' || s === 'warning') color = '#F59E0B';
+      else if (s === 'bad' || s === 'critical') color = '#EF4444';
+
+      // Create marker element
+      const el = document.createElement('div');
+      el.style.cssText = 'width:16px;height:16px;border-radius:50%;border:2px solid rgba(255,255,255,0.8);cursor:pointer;box-shadow:0 0 8px ' + color;
+      el.style.background = color;
+
+      const popup = new maplibregl.Popup({ offset: 20, className: 'aevus-map-popup' })
+        .setHTML(
+          '<div style="font-family:Inter,sans-serif;padding:4px;">' +
+          '<div style="font-weight:600;font-size:13px;margin-bottom:4px;">' + (asset.name || asset.id) + '</div>' +
+          '<div style="font-size:11px;color:#94A3B8;">Status: <span style="color:' + color + ';font-weight:600;">' + (asset.status || 'unknown') + '</span></div>' +
+          '<div style="font-size:11px;color:#94A3B8;">Health: ' + (asset.health != null ? asset.health + '%' : 'N/A') + '</div>' +
+          '<div style="font-size:11px;color:#94A3B8;">Type: ' + (asset.type || '-') + '</div>' +
+          '<div style="font-size:10px;color:#64748B;margin-top:4px;">' + (asset.ip_address || '') + '</div>' +
+          '</div>'
+        );
+
+      const marker = new maplibregl.Marker({ element: el })
+        .setLngLat([lng, lat])
+        .setPopup(popup)
+        .addTo(mapInstance);
+
+      mapMarkers.push(marker);
+      bounds.extend([lng, lat]);
+    });
+
+    if (mapMarkers.length > 1) {
+      mapInstance.fitBounds(bounds, { padding: 60, maxZoom: 15 });
+    } else if (mapMarkers.length === 1) {
+      mapInstance.flyTo({ center: bounds.getCenter(), zoom: 14 });
+    }
+  }
+
   function renderSettingsPage() {
     const el = document.getElementById('settings-content');
     el.innerHTML = `
@@ -3084,4 +3364,6 @@
   }
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init);
   else setTimeout(init, 50);
+
 })();
+

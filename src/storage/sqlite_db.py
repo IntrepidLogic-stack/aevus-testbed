@@ -36,7 +36,9 @@ CREATE TABLE IF NOT EXISTS assets (
     protocol TEXT NOT NULL DEFAULT 'snmp',
     poll_interval INTEGER NOT NULL DEFAULT 30,
     vitals_json TEXT NOT NULL DEFAULT '[]',
-    events_json TEXT NOT NULL DEFAULT '[]'
+    events_json TEXT NOT NULL DEFAULT '[]',
+    latitude REAL,
+    longitude REAL
 );
 
 
@@ -87,6 +89,14 @@ class SQLiteDB:
         self._conn = sqlite3.connect(self._path, check_same_thread=False)
         self._conn.row_factory = sqlite3.Row
         self._conn.executescript(SCHEMA)
+        try:
+            self._conn.execute('ALTER TABLE assets ADD COLUMN latitude REAL')
+        except Exception:
+            pass
+        try:
+            self._conn.execute('ALTER TABLE assets ADD COLUMN longitude REAL')
+        except Exception:
+            pass
 
     def reconnect(self) -> None:
         """Reconnect if the connection was closed."""
@@ -102,13 +112,14 @@ class SQLiteDB:
         self._conn.execute(
             """INSERT INTO assets (id, type, status, name, location, health,
                last_seen, vendor, model, firmware, ip_address, mac_address,
-               protocol, poll_interval, vitals_json, events_json)
-               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+               protocol, poll_interval, vitals_json, events_json, latitude, longitude)
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                ON CONFLICT(id) DO UPDATE SET
                status=excluded.status, health=excluded.health,
                last_seen=excluded.last_seen, vitals_json=excluded.vitals_json,
                events_json=excluded.events_json, firmware=excluded.firmware,
-               ip_address=excluded.ip_address""",
+               ip_address=excluded.ip_address,
+               latitude=excluded.latitude, longitude=excluded.longitude""",
             (
                 asset.id,
                 asset.type,
@@ -126,6 +137,8 @@ class SQLiteDB:
                 asset.poll_interval,
                 json.dumps([v.model_dump() for v in asset.vitals]),
                 json.dumps([e.model_dump(mode="json") for e in asset.events]),
+                asset.latitude,
+                asset.longitude,
             ),
         )
         self._conn.commit()
@@ -233,6 +246,8 @@ class SQLiteDB:
             protocol=row["protocol"],
             poll_interval=row["poll_interval"],
             vitals=vitals,
+            latitude=row["latitude"] if "latitude" in row.keys() else None,
+            longitude=row["longitude"] if "longitude" in row.keys() else None,
             events=events,
         )
 

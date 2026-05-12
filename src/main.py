@@ -39,6 +39,7 @@ from src.api import (
     journal_router,
     notes_router,
     ping_diag_router,
+    csv_io_router,
     ws_router,
 )
 from src.api.ws import ws_manager
@@ -331,6 +332,7 @@ app.include_router(ingest_router, prefix="/api/v1")
 app.include_router(notes_router, prefix="/api/v1")
 app.include_router(journal_router, prefix="/api/v1")
 app.include_router(ping_diag_router, prefix="/api/v1")
+app.include_router(csv_io_router, prefix="/api/v1")
 
 
 # Serve dashboard static files

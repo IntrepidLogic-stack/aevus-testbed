@@ -31,3 +31,28 @@ async def get_asset(asset_id: str) -> Asset:
     if asset is None:
         raise HTTPException(status_code=404, detail=f"Asset {asset_id} not found")
     return asset
+
+
+from pydantic import BaseModel as PydanticBaseModel
+
+
+class GPSUpdate(PydanticBaseModel):
+    latitude: float
+    longitude: float
+
+
+@router.put("/{asset_id}/gps")
+async def update_asset_gps(asset_id: str, body: GPSUpdate):
+    """Update GPS coordinates for an asset."""
+    from src.main import app_state
+
+    db = app_state.db
+    db._conn.execute(
+        "UPDATE assets SET latitude = ?, longitude = ? WHERE id = ?",
+        (body.latitude, body.longitude, asset_id),
+    )
+    db._conn.commit()
+    asset = db.get_asset(asset_id)
+    if asset is None:
+        raise HTTPException(status_code=404, detail=f"Asset {asset_id} not found")
+    return asset

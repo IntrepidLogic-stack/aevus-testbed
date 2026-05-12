@@ -36,5 +36,7 @@ class Asset(BaseModel):
     mac_address: str | None = None
     protocol: str = "snmp"  # "snmp", "modbus", "dnp3"
     poll_interval: int = 30  # seconds
+    latitude: float | None = None
+    longitude: float | None = None
     vitals: list[VitalSign] = []
     events: list[AssetEvent] = []

@@ -1324,7 +1324,8 @@ body.wall-mode #stale-data-banner { left: 0 !important; top: 0 !important; }
   <div class="section-title">Process Data &amp; Infrastructure</div>
   <div id="worst-condition" style="margin-bottom:12px;grid-column:1/-1;"></div>
   <div id="process-schematic" class="process-panel" style="display:none;grid-column:1/-1;"></div>
-  <div id="scada-process-grid" class="scada-grid" style="display:none"></div>
+  <div id="toggle-process-btn" onclick="window.toggleProcessPanels()" style="cursor:pointer;font-size:11px;color:var(--text-muted);padding:6px 12px;text-align:center;border:1px solid var(--border);border-radius:6px;margin-bottom:8px;">▼ Expand Process Values (L2 Detail)</div>
+        <div id="scada-process-grid" class="scada-grid" style="display:none"></div>
   <div id="scada-comm-panel" class="process-panel" style="display:none"></div>
   <div class="two-col">
     <div class="panel-box"><div class="panel-title">Active Alerts</div><div id="shift-summary" style="display:none;margin-bottom:20px;"></div>

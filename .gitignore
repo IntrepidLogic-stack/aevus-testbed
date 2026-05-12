@@ -7,3 +7,4 @@ __pycache__/
 forecast_cache.json
 weather_cache.json
 *.pem
+.bak

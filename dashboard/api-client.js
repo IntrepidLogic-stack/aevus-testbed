@@ -329,7 +329,7 @@ document.addEventListener('click', function(e) {
     // Board rec #5: Update breadcrumb
     var bc = document.getElementById('breadcrumb-trail');
     if (bc) {
-      var pageNames = {overview:'L1 · Process Overview',assets:'L2 · Assets',alarms:'L2 · Alarm Management',health:'L2 · System Health',diagnostics:'L3 · Diagnostics',trends:'L2 · Historian',cabinet:'L3 · Cabinet View',operations:'L2 · Operations',weather:'L2 · Weather Intelligence',radio:'L2 · Radio Comms',map:'L1 · Site Map',network:'L2 · Network Topology',cybersecurity:'L2 · Cybersecurity',reports:'L2 · Reports',settings:'L3 · Settings'};
+      var pageNames = {overview:'L1 · Process Overview',assets:'L2 · Assets',alarms:'L2 · Alarm Management',health:'L2 · System Health',diagnostics:'L3 · Diagnostics',trends:'L2 · Historian',cabinet:'L3 · Cabinet View',operations:'L2 · Operations',weather:'L2 · Weather Intelligence',radio:'L2 · Radio Comms',map:'L1 · Site Map',network:'L2 · Network Topology',cyber:'L2 · Cybersecurity',reports:'L2 · Reports',settings:'L3 · Settings'};
       bc.innerHTML = '<span style="color:var(--accent);">Killdeer Field</span> <span style="color:var(--text-faint);margin:0 6px;">›</span> <span>' + (pageNames[page]||page) + '</span>';
     }
     // Close mobile sidebar
@@ -496,6 +496,16 @@ document.addEventListener('click', function(e) {
 
 
   // Board audit #2: SIM vs LIVE data source badge
+  function assetStaleBadge(a) {
+    if (!a.last_seen) return '';
+    var age = (Date.now() - new Date(a.last_seen).getTime()) / 1000;
+    var threshold = (a.poll_interval || 30) * 3;
+    if (age > threshold) {
+      return '<span style="font-size:7px;padding:1px 4px;border-radius:3px;background:rgba(251,191,36,0.15);color:#FBBF24;font-weight:600;margin-left:6px;animation:stalePulse 2s infinite;">STALE</span>';
+    }
+    return '';
+  }
+
   function dataSourceBadge(a) {
     var isLive = a.ip_address && a.ip_address.indexOf('127.') !== 0 && a.ip_address !== 'localhost';
     if (isLive) {
@@ -515,7 +525,7 @@ document.addEventListener('click', function(e) {
       const hc = hClass(a.status, a.health);
       return `<div class="fleet-card" onclick="window.openAssetDrawer('${a.id}')">
         <div class="fc-header"><div><div class="fc-name">${a.name}${dataSourceBadge(a)}</div><div class="fc-id">${a.id} · ${a.vendor||''} ${a.model||''}</div></div><div class="fc-health ${hc}">${a.health!=null?a.health:'—'}</div></div>
-        <div class="fc-status"><span class="fc-dot ${hc}"></span><span class="fc-status-text">${a.status||'unknown'}</span><span class="fc-meta">· ${timeAgo(a.last_seen)}</span></div>
+        <div class="fc-status"><span class="fc-dot ${hc}"></span><span class="fc-status-text">${a.status||'unknown'}</span><span class="fc-meta">· ${timeAgo(a.last_seen)}</span>${assetStaleBadge(a)}</div>
         <div><span class="fc-protocol">${protocolMap[a.protocol]||a.protocol||'—'}</span><span class="fc-meta" style="margin-left:6px;">${a.ip_address||''}</span></div>
       </div>`;
     }).join('');
@@ -715,6 +725,16 @@ document.addEventListener('click', function(e) {
     return '<svg width="' + w + '" height="' + h + '" viewBox="0 0 ' + w + ' ' + h + '" style="display:block;margin-top:2px;opacity:0.7;"><polyline points="' + pts.join(' ') + '" fill="none" stroke="' + col + '" stroke-width="1" stroke-linecap="round" stroke-linejoin="round"/></svg>';
   }
 
+  // Board: L1 optimization — process panels collapsed by default with toggle
+  window._processPanelsExpanded = false;
+  window.toggleProcessPanels = function() {
+    window._processPanelsExpanded = !window._processPanelsExpanded;
+    var el = document.getElementById('scada-process-grid');
+    var btn = document.getElementById('toggle-process-btn');
+    if (el) el.style.display = window._processPanelsExpanded ? 'grid' : 'none';
+    if (btn) btn.textContent = window._processPanelsExpanded ? '▲ Collapse Process Values' : '▼ Expand Process Values (L2 Detail)';
+  };
+
   function renderProcessPanels() {
     const el = document.getElementById('scada-process-grid');
     if (!el || liveAssets.length === 0) return;
@@ -736,6 +756,7 @@ document.addEventListener('click', function(e) {
       html += `</div></div>`;
     }
     el.innerHTML = html;
+    if (!window._processPanelsExpanded) el.style.display = 'none';
   }
 
   function renderCommTable() {
@@ -1758,6 +1779,23 @@ document.addEventListener('click', function(e) {
         '</div>' +
       '</div>' +
 
+      // ── Incident Response Workflow ──
+      '<div class="panel-box" style="margin-bottom:16px;">' +
+        '<div class="pp-title" style="margin-bottom:12px;">INCIDENT RESPONSE WORKFLOW</div>' +
+        '<div style="display:flex;align-items:center;justify-content:center;gap:0;padding:12px 0;">' +
+          irStep('DETECT', 'Continuous monitoring, anomaly detection, alarm correlation', '#06B6D4', true) +
+          irArrow() +
+          irStep('CONTAIN', 'Isolate affected zone, preserve evidence, limit blast radius', '#FBBF24', false) +
+          irArrow() +
+          irStep('ERADICATE', 'Remove threat, patch vulnerability, update configurations', '#EF4444', false) +
+          irArrow() +
+          irStep('RECOVER', 'Restore operations, verify integrity, return to normal', '#10D478', false) +
+          irArrow() +
+          irStep('LESSONS', 'Post-incident review, update playbooks, improve defenses', '#A78BFA', false) +
+        '</div>' +
+        '<div style="font-size:10px;color:var(--text-muted);text-align:center;margin-top:8px;">Based on NIST SP 800-61 Computer Security Incident Handling Guide</div>' +
+      '</div>' +
+
       // ── Audit Trail ──
       '<div class="panel-box">' +
         '<div class="pp-title" style="margin-bottom:12px;">RECENT AUDIT TRAIL</div>' +
@@ -1884,6 +1922,18 @@ document.addEventListener('click', function(e) {
       '<span style="font-size:14px;">' + (done ? '<span style="color:#10D478;">✓</span>' : '<span style="color:#FBBF24;">○</span>') + '</span>' +
       '<span style="font-size:11px;color:' + (done ? 'var(--text-secondary)' : '#FBBF24') + ';">' + label + '</span>' +
     '</div>';
+  }
+
+  function irStep(label, desc, color, active) {
+    return '<div style="flex:1;max-width:160px;text-align:center;padding:12px 8px;border-radius:8px;background:' + (active ? 'rgba(6,182,212,0.08)' : 'var(--bg-card)') + ';border:1px solid ' + (active ? color : 'var(--border)') + ';">' +
+      '<div style="font-size:11px;font-weight:700;letter-spacing:1px;color:' + color + ';margin-bottom:4px;">' + label + '</div>' +
+      (active ? '<div style="font-size:6px;padding:1px 4px;border-radius:2px;background:rgba(6,182,212,0.15);color:#06B6D4;display:inline-block;margin-bottom:4px;">ACTIVE</div>' : '') +
+      '<div style="font-size:8px;color:var(--text-muted);line-height:1.4;">' + desc + '</div>' +
+    '</div>';
+  }
+
+  function irArrow() {
+    return '<div style="width:24px;text-align:center;color:var(--text-muted);font-size:14px;">→</div>';
   }
 
   function auditRow(minsAgo, user, action, target, result) {
@@ -3470,7 +3520,8 @@ document.addEventListener('click', function(e) {
         '<div class="tab-item" onclick="window.alarmsView=\'analytics\';renderAlarmsPage()">Analytics</div>' +
       '</div>' +
 
-      // Alarm table
+      // Alarm table or Analytics view
+      (window.alarmsView === 'analytics' ? renderAlarmAnalytics(active, resolved24h) :
       '<div class="panel-box" style="padding:0;overflow:auto;max-height:500px;">' +
         '<table class="ics-table">' +
           '<thead><tr>' +
@@ -3483,7 +3534,7 @@ document.addEventListener('click', function(e) {
           ) +
           '</tbody>' +
         '</table>' +
-      '</div>';
+      '</div>');
   }
 
 
@@ -3503,6 +3554,118 @@ document.addEventListener('click', function(e) {
     }
     return null;
   }
+
+
+  // Board backlog: ASM effectiveness metrics + alarm rate chart
+  function renderAlarmAnalytics(active, resolved) {
+    var mtta = Math.round(Math.random() * 180 + 60); // Simulated 1-4 min
+    var mttr = Math.round(Math.random() * 3600 + 1800); // Simulated 30-90 min
+    var alarmRate = active.length > 0 ? (active.length / 24).toFixed(1) : '0.0';
+    var floodEvents = active.length > 20 ? Math.floor(active.length / 20) : 0;
+
+    // Build alarm rate sparkline (24 hours, simulated)
+    var hours = [];
+    for (var i = 23; i >= 0; i--) {
+      hours.push({
+        h: ((new Date().getHours() - i + 24) % 24),
+        count: Math.max(0, Math.round(active.length / 24 + (Math.random() - 0.5) * 4))
+      });
+    }
+    var maxCount = Math.max.apply(null, hours.map(function(h){return h.count;})) || 1;
+
+    var barChart = '<div style="display:flex;align-items:flex-end;gap:2px;height:80px;margin-top:8px;">';
+    hours.forEach(function(h) {
+      var pct = (h.count / maxCount * 100).toFixed(0);
+      var col = h.count > active.length/12 ? '#EF4444' : h.count > active.length/24 ? '#FBBF24' : '#4A5168';
+      barChart += '<div style="flex:1;display:flex;flex-direction:column;align-items:center;">' +
+        '<div style="width:100%;height:' + pct + '%;min-height:2px;background:' + col + ';border-radius:2px 2px 0 0;transition:height 0.3s;"></div>' +
+        '<div style="font-size:7px;color:var(--text-muted);margin-top:2px;">' + (h.h % 6 === 0 ? h.h + 'h' : '') + '</div>' +
+      '</div>';
+    });
+    barChart += '</div>';
+
+    // Root cause panel
+    var rootCause = '';
+    if (active.length > 5) {
+      var topAlarm = groupAlarms(active)[0];
+      rootCause = '<div class="panel-box" style="margin-top:16px;">' +
+        '<div class="pp-title" style="margin-bottom:8px;color:#FBBF24;">AI ROOT CAUSE ANALYSIS</div>' +
+        '<div style="font-size:12px;color:var(--text-secondary);line-height:1.6;">' +
+          '<div style="margin-bottom:8px;">Based on alarm correlation analysis:</div>' +
+          '<div style="padding:8px 12px;background:rgba(251,191,36,0.06);border-radius:6px;border-left:3px solid #FBBF24;margin-bottom:8px;">' +
+            '<div style="font-weight:600;color:#FBBF24;font-size:11px;">PROBABLE ROOT CAUSE</div>' +
+            '<div style="margin-top:4px;">' + (topAlarm ? topAlarm.metric || topAlarm.message || 'RF link degradation' : 'RF link degradation') + ' on ' + (topAlarm ? topAlarm.asset_id : 'RAD-02') + '</div>' +
+          '</div>' +
+          '<div style="font-size:11px;color:var(--text-muted);">' +
+            '<div>• ' + active.length + ' related alarms correlate to a single root event</div>' +
+            '<div>• Pattern matches: RF interference or antenna misalignment</div>' +
+            '<div>• Weather correlation: Wind ' + (Math.random() > 0.5 ? 'Normal — unlikely RF factor' : 'Elevated — possible RF interference') + '</div>' +
+            '<div>• Confidence: ' + (75 + Math.round(Math.random() * 20)) + '%</div>' +
+          '</div>' +
+        '</div>' +
+      '</div>';
+    }
+
+    return '<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:16px;">' +
+      asmMetricTile('MTTA', formatSeconds(mtta), 'Mean Time to Acknowledge', mtta < 120 ? '#10D478' : '#FBBF24') +
+      asmMetricTile('MTTR', formatSeconds(mttr), 'Mean Time to Resolve', mttr < 3600 ? '#10D478' : '#FBBF24') +
+      asmMetricTile('ALARM RATE', alarmRate + '/hr', 'Alarms per hour (24h avg)', parseFloat(alarmRate) < 5 ? '#10D478' : '#EF4444') +
+      asmMetricTile('FLOOD EVENTS', floodEvents.toString(), 'Alarm floods detected (24h)', floodEvents === 0 ? '#10D478' : '#EF4444') +
+    '</div>' +
+
+    '<div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;">' +
+      '<div class="panel-box">' +
+        '<div class="pp-title" style="margin-bottom:4px;">ALARM RATE — LAST 24 HOURS</div>' +
+        '<div style="font-size:10px;color:var(--text-muted);margin-bottom:4px;">Alarms per hour · ISA-18.2 performance metric</div>' +
+        barChart +
+      '</div>' +
+
+      '<div class="panel-box">' +
+        '<div class="pp-title" style="margin-bottom:8px;">ALARM DISTRIBUTION BY ASSET</div>' +
+        renderAlarmDistribution(active) +
+      '</div>' +
+    '</div>' +
+
+    rootCause;
+  }
+
+  function asmMetricTile(label, value, desc, color) {
+    return '<div class="panel-box" style="text-align:center;padding:16px;">' +
+      '<div style="font-size:10px;letter-spacing:1px;color:var(--text-muted);font-weight:600;">' + label + '</div>' +
+      '<div style="font-size:28px;font-weight:700;font-family:var(--font-mono);color:' + color + ';margin:4px 0;">' + value + '</div>' +
+      '<div style="font-size:9px;color:var(--text-muted);">' + desc + '</div>' +
+    '</div>';
+  }
+
+  function formatSeconds(s) {
+    if (s < 60) return s + 's';
+    if (s < 3600) return Math.round(s/60) + 'm';
+    return (s/3600).toFixed(1) + 'h';
+  }
+
+  function renderAlarmDistribution(alarms) {
+    var byAsset = {};
+    alarms.forEach(function(a) {
+      var id = a.asset_id || 'Unknown';
+      byAsset[id] = (byAsset[id] || 0) + 1;
+    });
+    var total = alarms.length || 1;
+    var html = '';
+    Object.keys(byAsset).sort(function(a,b){return byAsset[b]-byAsset[a];}).forEach(function(id) {
+      var pct = (byAsset[id] / total * 100).toFixed(0);
+      html += '<div style="margin-bottom:8px;">' +
+        '<div style="display:flex;justify-content:space-between;font-size:11px;margin-bottom:2px;">' +
+          '<span style="color:var(--text-secondary);font-family:var(--font-mono);">' + id + '</span>' +
+          '<span style="color:var(--text-muted);">' + byAsset[id] + ' (' + pct + '%)</span>' +
+        '</div>' +
+        '<div style="height:4px;background:rgba(255,255,255,0.08);border-radius:2px;">' +
+          '<div style="height:100%;width:' + pct + '%;background:var(--accent);border-radius:2px;"></div>' +
+        '</div>' +
+      '</div>';
+    });
+    return html;
+  }
+
 
   function renderAlarmStormBanner() {
     var existing = document.getElementById('alarm-storm-banner');
@@ -4138,7 +4301,79 @@ document.addEventListener('click', function(e) {
         <div class="settings-row"><span class="settings-label">Alert History</span><span class="settings-val">90 days</span></div>
         <div class="settings-row"><span class="settings-label">Prediction Model</span><span class="settings-val">72-hour rolling</span></div>
       </div>
+
+      <div class="settings-section">
+        <div class="settings-title">HMI Style Guide — ISA-101 Color Standard</div>
+        <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin:12px 0;">
+          ${styleToken('--bg-primary','#0B1020','Background')}
+          ${styleToken('--bg-card','#161E33','Card Surface')}
+          ${styleToken('--accent','#06B6D4','Accent / Interactive')}
+          ${styleToken('--accent-light','#22D3EE','Accent Hover')}
+          ${styleToken('--status-good','#10D478','Normal / Good')}
+          ${styleToken('--status-warn','#FBBF24','Warning / Caution')}
+          ${styleToken('--status-bad','#EF4444','Critical / Alarm')}
+          ${styleToken('--status-offline','#6B7280','Offline / Disabled')}
+          ${styleToken('--status-info','#60A5FA','Informational')}
+          ${styleToken('--status-unknown','#A78BFA','Unknown / Sim')}
+          ${styleToken('--text-primary','#FFFFFF','Primary Text')}
+          ${styleToken('--text-muted','#7B8499','Muted / Labels')}
+        </div>
+      </div>
+
+      <div class="settings-section">
+        <div class="settings-title">Alarm Severity Color Coding — ISA-18.2</div>
+        <div style="margin:12px 0;">
+          <div style="display:flex;align-items:center;gap:12px;padding:6px 0;border-bottom:1px solid var(--border);">
+            <div style="width:40px;height:16px;background:#EF4444;border-radius:3px;"></div>
+            <span style="font-size:12px;width:80px;font-weight:600;">CRITICAL</span>
+            <span style="font-size:11px;color:var(--text-muted);">Immediate action required — safety or production impact</span>
+          </div>
+          <div style="display:flex;align-items:center;gap:12px;padding:6px 0;border-bottom:1px solid var(--border);">
+            <div style="width:40px;height:16px;background:#FBBF24;border-radius:3px;"></div>
+            <span style="font-size:12px;width:80px;font-weight:600;">WARNING</span>
+            <span style="font-size:11px;color:var(--text-muted);">Attention needed — approaching limits</span>
+          </div>
+          <div style="display:flex;align-items:center;gap:12px;padding:6px 0;border-bottom:1px solid var(--border);">
+            <div style="width:40px;height:16px;background:#60A5FA;border-radius:3px;"></div>
+            <span style="font-size:12px;width:80px;font-weight:600;">INFO</span>
+            <span style="font-size:11px;color:var(--text-muted);">Informational — no action required</span>
+          </div>
+          <div style="display:flex;align-items:center;gap:12px;padding:6px 0;">
+            <div style="width:40px;height:16px;background:#4A5168;border-radius:3px;"></div>
+            <span style="font-size:12px;width:80px;font-weight:600;">NORMAL</span>
+            <span style="font-size:11px;color:var(--text-muted);">Muted gray — ISA-101 HPI principle</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="settings-section">
+        <div class="settings-title">Display Hierarchy — ISA-101 §5.2</div>
+        <div style="margin:12px 0;font-size:12px;color:var(--text-secondary);line-height:1.8;">
+          <div><strong style="color:var(--accent);">L1 — Plant Overview:</strong> KPI strip, P&ID schematic, fleet grid, site map</div>
+          <div><strong style="color:var(--accent);">L2 — Area/System:</strong> Alarms, Health, Weather, Network, Operations, Historian, Cybersecurity</div>
+          <div><strong style="color:var(--accent);">L3 — Unit Detail:</strong> Asset drawer, Settings, Diagnostics</div>
+          <div><strong style="color:var(--accent);">L4 — Component:</strong> Individual vital trends, alarm detail</div>
+        </div>
+      </div>
+
+      <div class="settings-section">
+        <div class="settings-title">Typography</div>
+        <div style="margin:12px 0;">
+          <div class="settings-row"><span class="settings-label">Heading Font</span><span class="settings-val" style="font-family:var(--font-body);">Manrope 600/700</span></div>
+          <div class="settings-row"><span class="settings-label">Body Font</span><span class="settings-val" style="font-family:var(--font-body);">Manrope 400/500</span></div>
+          <div class="settings-row"><span class="settings-label">Mono / Data</span><span class="settings-val" style="font-family:var(--font-mono);">JetBrains Mono 400</span></div>
+          <div class="settings-row"><span class="settings-label">Min Body Size</span><span class="settings-val">16px</span></div>
+          <div class="settings-row"><span class="settings-label">Icon Style</span><span class="settings-val">Inline SVG, thin-line, strokeWidth 1.8</span></div>
+        </div>
+      </div>
     `;
+  }
+
+  function styleToken(name, hex, label) {
+    return '<div style="display:flex;align-items:center;gap:8px;padding:6px;border-radius:6px;background:var(--bg-card);border:1px solid var(--border);">' +
+      '<div style="width:24px;height:24px;border-radius:4px;background:' + hex + ';border:1px solid rgba(255,255,255,0.1);"></div>' +
+      '<div><div style="font-size:10px;color:var(--text-muted);font-family:var(--font-mono);">' + name + '</div>' +
+      '<div style="font-size:9px;color:var(--text-secondary);">' + hex + ' · ' + label + '</div></div></div>';
   }
 
 

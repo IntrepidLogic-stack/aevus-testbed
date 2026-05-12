@@ -3791,7 +3791,7 @@ document.addEventListener('click', function(e) {
   var _histAutoRefresh = null;
 
   function updateHistLiveValues() {
-    // Only update the live values table, not the selects or chart
+    // In-place cell updates only - no innerHTML replacement to prevent flicker
     var tbody = document.querySelector('#historian-page .ics-table tbody');
     if (!tbody) return;
     var metrics = [];
@@ -3802,17 +3802,18 @@ document.addEventListener('click', function(e) {
         });
       });
     }
-    tbody.innerHTML = metrics.slice(0, 50).map(function(m) {
+    var rows = tbody.querySelectorAll('tr');
+    metrics.slice(0, 50).forEach(function(m, i) {
+      var row = rows[i];
+      if (!row) return;
+      var cells = row.querySelectorAll('td');
+      if (cells.length < 3) return;
+      var newVal = m.value != null ? (typeof m.value==='number'?m.value.toFixed(1):String(m.value)) : '—';
+      if (cells[2].textContent !== newVal) cells[2].textContent = newVal;
       var sc = m.status==='good'?'var(--status-good)':m.status==='warning'||m.status==='warn'?'var(--status-warn)':m.status==='bad'||m.status==='critical'?'var(--status-bad)':'var(--text-muted)';
-      return '<tr>' +
-        '<td class="mono">' + m.asset + '</td>' +
-        '<td>' + m.label + '</td>' +
-        '<td class="mono" style="font-weight:600;">' + (m.value != null ? (typeof m.value==="number"?m.value.toFixed(1):m.value) : '—') + '</td>' +
-        '<td>' + (m.unit||'') + '</td>' +
-        '<td><span style="display:inline-block;width:6px;height:6px;border-radius:50%;background:'+sc+';margin-right:4px;"></span>' + (m.status||'—') + '</td>' +
-        '<td style="color:var(--text-muted);text-transform:capitalize;">' + (m.group||'—') + '</td>' +
-      '</tr>';
-    }).join('');
+      var dot = cells[4] ? cells[4].querySelector('span') : null;
+      if (dot) dot.style.background = sc;
+    });
   }
 
   function renderHistorianPage() {

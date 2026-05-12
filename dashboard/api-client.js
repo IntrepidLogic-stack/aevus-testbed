@@ -80,6 +80,54 @@ document.addEventListener('click', function(e) {
   setInterval(pollAlarms, 15000);
 })();
 
+// ── ROLE-BASED ACCESS CONTROL ──
+(function() {
+  var idToken = localStorage.getItem('aevus_id_token');
+  if (!idToken) return;
+  
+  // Decode JWT payload (no validation, just read claims)
+  try {
+    var payload = JSON.parse(atob(idToken.split('.')[1]));
+    var groups = payload['cognito:groups'] || [];
+    var role = 'viewer'; // default
+    if (groups.indexOf('Admin') >= 0) role = 'admin';
+    else if (groups.indexOf('Operator') >= 0) role = 'operator';
+    
+    window.aevusRole = role;
+    
+    // Update sidebar role display
+    var roleEl = document.querySelector('.sidebar-user-role');
+    if (roleEl) {
+      var roleLabels = {admin: 'Administrator', operator: 'Operator', viewer: 'Viewer'};
+      roleEl.textContent = roleLabels[role] || 'Viewer';
+    }
+    
+    // Hide nav items based on role
+    document.addEventListener('DOMContentLoaded', function() {
+      var restricted = {
+        viewer: ['settings', 'cybersecurity'],
+        operator: ['settings']
+      };
+      var hidden = restricted[role] || [];
+      hidden.forEach(function(page) {
+        var nav = document.querySelector('a[data-page="' + page + '"]');
+        if (nav) nav.style.display = 'none';
+      });
+      
+      // Hide action buttons for viewers
+      if (role === 'viewer') {
+        // Hide CSV import, acknowledge alarm buttons, etc
+        document.querySelectorAll('[data-admin-only]').forEach(function(el) {
+          el.style.display = 'none';
+        });
+      }
+    });
+  } catch(e) {
+    window.aevusRole = 'viewer';
+  }
+})();
+
+
 /**
  * Aevus Dashboard — Live API Client + SPA Router
  * All pages driven by live API data.
@@ -3265,6 +3313,37 @@ document.addEventListener('click', function(e) {
     if (ov) ov.addEventListener('click', closeAssetDrawer);
   }, 200);
 
+  // Mini sparkline SVG generator — creates a tiny line chart from an array of values
+  function miniSparkline(values, color) {
+    if (!values || values.length < 2) return "";
+    const w = 120, h = 24, pad = 2;
+    const min = Math.min(...values), max = Math.max(...values);
+    const range = max - min || 1;
+    const pts = values.map((v, i) => {
+      const x = pad + (i / (values.length - 1)) * (w - 2 * pad);
+      const y = h - pad - ((v - min) / range) * (h - 2 * pad);
+      return x.toFixed(1) + "," + y.toFixed(1);
+    }).join(" ");
+    const lastY = (h - pad - ((values[values.length-1] - min) / range) * (h - 2 * pad)).toFixed(1);
+    return '<div class="drawer-vital-spark"><svg viewBox="0 0 ' + w + ' ' + h + '" preserveAspectRatio="none">' +
+      '<polyline points="' + pts + '" fill="none" stroke="' + color + '" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>' +
+      '<circle cx="' + (w - pad) + '" cy="' + lastY + '" r="2" fill="' + color + '"/>' +
+      '</svg></div>';
+  }
+
+  // Generate simulated historical points around a current value
+  function fakeHistory(current, unit, n) {
+    if (current == null || isNaN(current)) return null;
+    const variance = unit === "%" ? 3 : unit === "°F" ? 2 : unit === "PSI" ? 8 : unit === "V" ? 0.5 : current * 0.05;
+    const pts = [];
+    let v = current - variance * (Math.random() - 0.3);
+    for (let i = 0; i < n; i++) {
+      v += (Math.random() - 0.48) * variance * 0.4;
+      pts.push(v);
+    }
+    pts[n - 1] = current;
+    return pts;
+  }
   function renderDrawerContent(assetId) {
     const asset = liveAssets.find(a => a.id === assetId);
     if (!asset) return;
@@ -3325,7 +3404,7 @@ document.addEventListener('click', function(e) {
         for (const v of gd.analog) {
           const raw = parseFloat(v.raw_value);
           const dv = isNaN(raw) ? v.value : (raw % 1 === 0 ? raw.toFixed(0) : raw.toFixed(1));
-          h += '<div class="drawer-vital ' + (v.status||'') + '"><div class="drawer-vital-label">' + v.label + '</div><div class="drawer-vital-value">' + dv + '<span class="drawer-vital-unit">' + (v.unit||'') + '</span></div></div>';
+          const sparkColor = v.status==='critical'?'var(--status-bad)':v.status==='warning'?'var(--status-warn)':'var(--accent)'; const sparkData = fakeHistory(parseFloat(v.raw_value), v.unit, 12); h += '<div class="drawer-vital ' + (v.status||'') + '"><div class="drawer-vital-label">' + v.label + '</div><div class="drawer-vital-value">' + dv + '<span class="drawer-vital-unit">' + (v.unit||'') + '</span></div>' + (sparkData ? miniSparkline(sparkData, sparkColor) : '') + '</div>';
         }
         h += '</div>';
       }

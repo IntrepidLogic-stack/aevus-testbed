@@ -3307,7 +3307,7 @@ body.light-theme .sidebar { background: #FFFFFF !important; border-right-color: 
       }
     }, 12000);
   }
-  setTimeout(injectSecurityFeed, 5000);
+  setInterval(function(){ injectSecurityFeed(); }, 5000);
 
   // ─── Zone Traffic Indicators on Cyber Page ───
   function addZoneTraffic() {
@@ -3323,7 +3323,7 @@ body.light-theme .sidebar { background: #FFFFFF !important; border-right-color: 
       z.appendChild(ind);
     });
   }
-  setTimeout(addZoneTraffic, 6000);
+  setInterval(function(){ addZoneTraffic(); }, 6000);
 
   // ─── Operator Fatigue Indicator ───
   function injectFatigueIndicator() {
@@ -3716,7 +3716,7 @@ body.light-theme .sidebar { background: #FFFFFF !important; border-right-color: 
       }).join('');
     cyberSection.appendChild(wrap);
   }
-  setTimeout(injectConduitRiskScoring, 5500);
+  setInterval(function(){ injectConduitRiskScoring(); }, 5500);
 
 })();
 </script>

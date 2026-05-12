@@ -1306,6 +1306,108 @@ body.wall-mode #stale-data-banner { left: 0 !important; top: 0 !important; }
 .corr-insight { margin-top: 12px; padding: 10px 14px; background: rgba(6,182,212,0.06); border-left: 3px solid var(--accent); border-radius: 0 8px 8px 0; font-size: 11px; color: var(--text-muted); line-height: 1.5; }
 .corr-insight strong { color: var(--accent); }
 
+
+/* ── Wave 3: Alarm Shelving ── */
+.shelve-modal-bg {
+  display:none; position:fixed; inset:0; background:rgba(0,0,0,0.7);
+  backdrop-filter:blur(6px); z-index:10000; justify-content:center; align-items:center;
+}
+.shelve-modal-bg.visible { display:flex; }
+.shelve-modal {
+  background:var(--bg-card); border:1px solid rgba(148,163,184,0.15);
+  border-radius:16px; padding:28px 32px; max-width:440px; width:92%;
+  box-shadow:0 24px 64px rgba(0,0,0,0.5);
+}
+.shelve-modal h3 { font-size:15px; font-weight:700; color:var(--text-primary); margin:0 0 16px; }
+.shelve-field { margin-bottom:14px; }
+.shelve-label { font-size:10px; font-weight:600; color:var(--text-faint); letter-spacing:0.8px; text-transform:uppercase; margin-bottom:6px; }
+.shelve-select, .shelve-input, .shelve-textarea {
+  width:100%; padding:8px 12px; background:rgba(255,255,255,0.04);
+  border:1px solid rgba(148,163,184,0.15); border-radius:8px;
+  color:var(--text-primary); font-family:var(--font-body); font-size:13px;
+  outline:none; transition:border-color 0.15s;
+}
+.shelve-select:focus, .shelve-input:focus, .shelve-textarea:focus {
+  border-color:var(--accent);
+}
+.shelve-textarea { min-height:60px; resize:vertical; }
+.shelve-actions { display:flex; gap:10px; justify-content:flex-end; margin-top:18px; }
+.shelve-btn {
+  padding:8px 18px; border-radius:8px; font-size:12px; font-weight:600;
+  border:none; cursor:pointer; transition:all 0.15s;
+}
+.shelve-btn-cancel { background:rgba(255,255,255,0.06); color:var(--text-muted); }
+.shelve-btn-cancel:hover { background:rgba(255,255,255,0.1); }
+.shelve-btn-confirm { background:var(--accent); color:#000; }
+.shelve-btn-confirm:hover { filter:brightness(1.1); }
+
+/* Shelved alarm row styling */
+.alarm-row.shelved { opacity:0.45; }
+.alarm-row.shelved td:first-child { border-left:3px solid #F59E0B; }
+.shelved-badge {
+  display:inline-flex; align-items:center; gap:4px;
+  padding:2px 8px; border-radius:4px; font-size:9px; font-weight:600;
+  background:rgba(245,158,11,0.15); color:#F59E0B; letter-spacing:0.5px;
+}
+.shelve-timer { font-family:var(--font-mono); font-size:9px; color:#F59E0B; }
+
+/* ── Wave 3: Acknowledge with Comment ── */
+.ack-modal-bg {
+  display:none; position:fixed; inset:0; background:rgba(0,0,0,0.7);
+  backdrop-filter:blur(6px); z-index:10000; justify-content:center; align-items:center;
+}
+.ack-modal-bg.visible { display:flex; }
+.ack-modal {
+  background:var(--bg-card); border:1px solid rgba(148,163,184,0.15);
+  border-radius:16px; padding:28px 32px; max-width:440px; width:92%;
+  box-shadow:0 24px 64px rgba(0,0,0,0.5);
+}
+.ack-modal h3 { font-size:15px; font-weight:700; color:var(--text-primary); margin:0 0 16px; }
+.ack-reason-grid { display:grid; grid-template-columns:1fr 1fr; gap:8px; margin-bottom:14px; }
+.ack-reason-btn {
+  padding:10px 8px; border-radius:8px; font-size:11px; font-weight:500;
+  background:rgba(255,255,255,0.04); border:1px solid rgba(148,163,184,0.12);
+  color:var(--text-muted); cursor:pointer; transition:all 0.15s; text-align:center;
+}
+.ack-reason-btn:hover { border-color:var(--accent); color:var(--text-primary); }
+.ack-reason-btn.selected { background:rgba(96,165,250,0.12); border-color:var(--accent); color:var(--accent); }
+
+/* Audit trail in alarm drawer */
+.audit-trail { margin-top:16px; padding-top:12px; border-top:1px solid rgba(148,163,184,0.08); }
+.audit-trail-title { font-size:10px; font-weight:600; color:var(--text-faint); letter-spacing:0.8px; text-transform:uppercase; margin-bottom:10px; }
+.audit-entry {
+  display:flex; gap:10px; padding:6px 0; font-size:11px;
+  border-bottom:1px solid rgba(148,163,184,0.04);
+}
+.audit-time { font-family:var(--font-mono); color:var(--text-faint); white-space:nowrap; min-width:52px; }
+.audit-action { color:var(--text-muted); }
+.audit-user { color:var(--accent); font-weight:500; }
+
+/* ── Wave 3: PDF Export Button ── */
+.pdf-export-btn {
+  display:inline-flex; align-items:center; gap:6px;
+  padding:7px 14px; border-radius:8px; font-size:11px; font-weight:600;
+  background:rgba(255,255,255,0.06); border:1px solid rgba(148,163,184,0.12);
+  color:var(--text-muted); cursor:pointer; transition:all 0.15s;
+}
+.pdf-export-btn:hover { border-color:var(--accent); color:var(--accent); }
+.pdf-export-btn svg { width:14px; height:14px; }
+.pdf-export-bar {
+  display:flex; align-items:center; gap:12px; padding:8px 16px;
+  margin-bottom:12px; border-radius:8px;
+  background:rgba(255,255,255,0.02); border:1px solid rgba(148,163,184,0.06);
+}
+.pdf-generating {
+  display:inline-flex; align-items:center; gap:8px;
+  font-size:11px; color:var(--accent);
+}
+.pdf-spinner {
+  width:14px; height:14px; border:2px solid rgba(96,165,250,0.2);
+  border-top-color:var(--accent); border-radius:50%;
+  animation:pdfSpin 0.8s linear infinite;
+}
+@keyframes pdfSpin { to { transform:rotate(360deg); } }
+
 </style>
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
@@ -1860,8 +1962,8 @@ body.wall-mode #stale-data-banner { left: 0 !important; top: 0 !important; }
       '</div>';
 
     var actions = '<div class="notif-actions">' +
-      '<button class="notif-action-btn" onclick="this.textContent='Done';this.style.color='#10D478'">Mark all read</button>' +
-      '<a href="#alarms" class="notif-action-btn" style="text-decoration:none;color:var(--accent);" onclick="document.getElementById('bell-dropdown').style.display='none'">View all alarms →</a>' +
+      '<button class="notif-action-btn" id="mark-all-read-btn">Mark all read</button>' +
+      '<a href="#alarms" class="notif-action-btn" style="text-decoration:none;color:var(--accent);" id="notif-view-all-link">View all alarms \u2192</a>' +
       '</div>';
 
     dd.insertAdjacentHTML('beforeend', sysEvents + actions);
@@ -2198,6 +2300,332 @@ body.wall-mode #stale-data-banner { left: 0 !important; top: 0 !important; }
 
   setTimeout(renderCorrelationChart, 4000);
 
+})();
+</script>
+
+
+<!-- ── Wave 3: Shelve Alarm Modal ── -->
+<div class="shelve-modal-bg" id="shelve-modal-bg" onclick="if(event.target===this)this.classList.remove('visible')">
+  <div class="shelve-modal">
+    <h3>🔕 Shelve Alarm</h3>
+    <div class="shelve-field">
+      <div class="shelve-label">Alarm</div>
+      <div id="shelve-alarm-name" style="font-size:13px;color:var(--text-primary);font-weight:500;"></div>
+    </div>
+    <div class="shelve-field">
+      <div class="shelve-label">Duration</div>
+      <select class="shelve-select" id="shelve-duration">
+        <option value="30">30 minutes</option>
+        <option value="60" selected>1 hour</option>
+        <option value="120">2 hours</option>
+        <option value="240">4 hours</option>
+        <option value="480">8 hours (full shift)</option>
+        <option value="custom">Custom…</option>
+      </select>
+    </div>
+    <div class="shelve-field">
+      <div class="shelve-label">Reason</div>
+      <select class="shelve-select" id="shelve-reason">
+        <option value="">Select reason…</option>
+        <option value="maintenance">Planned Maintenance</option>
+        <option value="known-condition">Known Condition</option>
+        <option value="testing">Testing / Commissioning</option>
+        <option value="nuisance">Nuisance Alarm (pending rationalization)</option>
+        <option value="process-change">Process Change in Progress</option>
+        <option value="other">Other</option>
+      </select>
+    </div>
+    <div class="shelve-field">
+      <div class="shelve-label">Notes (optional)</div>
+      <textarea class="shelve-textarea" id="shelve-notes" placeholder="Additional context for audit trail…"></textarea>
+    </div>
+    <div class="shelve-actions">
+      <button class="shelve-btn shelve-btn-cancel" onclick="document.getElementById('shelve-modal-bg').classList.remove('visible')">Cancel</button>
+      <button class="shelve-btn shelve-btn-confirm" id="shelve-confirm-btn">Shelve Alarm</button>
+    </div>
+  </div>
+</div>
+
+<!-- ── Wave 3: Acknowledge with Comment Modal ── -->
+<div class="ack-modal-bg" id="ack-modal-bg" onclick="if(event.target===this)this.classList.remove('visible')">
+  <div class="ack-modal">
+    <h3>✓ Acknowledge Alarm</h3>
+    <div id="ack-alarm-name" style="font-size:13px;color:var(--text-primary);font-weight:500;margin-bottom:14px;"></div>
+    <div class="shelve-field">
+      <div class="shelve-label">Reason Code</div>
+      <div class="ack-reason-grid">
+        <button class="ack-reason-btn" data-reason="investigated">Investigated</button>
+        <button class="ack-reason-btn" data-reason="expected">Expected Condition</button>
+        <button class="ack-reason-btn" data-reason="action-taken">Action Taken</button>
+        <button class="ack-reason-btn" data-reason="monitoring">Monitoring</button>
+        <button class="ack-reason-btn" data-reason="escalated">Escalated</button>
+        <button class="ack-reason-btn" data-reason="false-alarm">False Alarm</button>
+      </div>
+    </div>
+    <div class="shelve-field">
+      <div class="shelve-label">Comment</div>
+      <textarea class="shelve-textarea" id="ack-comment" placeholder="Describe action taken or observed condition…"></textarea>
+    </div>
+    <div class="shelve-actions">
+      <button class="shelve-btn shelve-btn-cancel" onclick="document.getElementById('ack-modal-bg').classList.remove('visible')">Cancel</button>
+      <button class="shelve-btn shelve-btn-confirm" id="ack-confirm-btn">Acknowledge</button>
+    </div>
+  </div>
+</div>
+
+<!-- ── Wave 3: Compliance Script ── -->
+<script>
+(function(){
+  // ─── Shelved alarms store ───
+  var shelvedAlarms = [];
+  window.shelveAlarm = function(alarmDesc) {
+    var modal = document.getElementById('shelve-modal-bg');
+    document.getElementById('shelve-alarm-name').textContent = alarmDesc || 'Selected Alarm';
+    document.getElementById('shelve-duration').value = '60';
+    document.getElementById('shelve-reason').value = '';
+    document.getElementById('shelve-notes').value = '';
+    modal.classList.add('visible');
+    document.getElementById('shelve-confirm-btn').onclick = function() {
+      var dur = document.getElementById('shelve-duration').value;
+      var reason = document.getElementById('shelve-reason').value;
+      var notes = document.getElementById('shelve-notes').value;
+      if (!reason) { document.getElementById('shelve-reason').style.borderColor='#EF4444'; return; }
+      shelvedAlarms.push({
+        alarm: alarmDesc, duration: parseInt(dur), reason: reason,
+        notes: notes, shelvedAt: new Date(), operator: 'D. Spencer'
+      });
+      addAuditEntry(alarmDesc, 'Shelved for ' + dur + 'min — ' + reason, 'D. Spencer');
+      modal.classList.remove('visible');
+      showToast('Alarm shelved for ' + dur + ' minutes');
+    };
+  };
+
+  // ─── Acknowledge with comment ───
+  window.ackAlarmWithComment = function(alarmDesc) {
+    var modal = document.getElementById('ack-modal-bg');
+    document.getElementById('ack-alarm-name').textContent = alarmDesc || 'Selected Alarm';
+    document.getElementById('ack-comment').value = '';
+    // Reset reason buttons
+    modal.querySelectorAll('.ack-reason-btn').forEach(function(b){ b.classList.remove('selected'); });
+    modal.classList.add('visible');
+    document.getElementById('ack-confirm-btn').onclick = function() {
+      var selectedBtn = modal.querySelector('.ack-reason-btn.selected');
+      var comment = document.getElementById('ack-comment').value;
+      if (!selectedBtn) { showToast('Please select a reason code'); return; }
+      var reason = selectedBtn.getAttribute('data-reason');
+      addAuditEntry(alarmDesc, 'Acknowledged — ' + reason + (comment ? ': ' + comment : ''), 'D. Spencer');
+      modal.classList.remove('visible');
+      showToast('Alarm acknowledged: ' + reason);
+    };
+  };
+
+  // Reason button selection
+  document.addEventListener('click', function(e) {
+    if (e.target.classList.contains('ack-reason-btn')) {
+      e.target.closest('.ack-reason-grid').querySelectorAll('.ack-reason-btn').forEach(function(b){ b.classList.remove('selected'); });
+      e.target.classList.add('selected');
+    }
+  });
+
+  // ─── Audit Trail ───
+  var auditLog = [];
+  function addAuditEntry(alarm, action, user) {
+    auditLog.unshift({ time: new Date(), alarm: alarm, action: action, user: user });
+    if (auditLog.length > 50) auditLog.pop();
+  }
+  // Seed a few audit entries
+  addAuditEntry('Flow Rate High', 'Acknowledged — investigated: Checked upstream valve position', 'D. Spencer');
+  addAuditEntry('Vibration Warning RAD-01', 'Shelved for 60min — maintenance', 'J. Rodriguez');
+  addAuditEntry('Signal Quality Low EDGE-01', 'Acknowledged — monitoring', 'D. Spencer');
+
+  // ─── Inject shelve + ack buttons into alarm rows ───
+  function enhanceAlarmRows() {
+    var rows = document.querySelectorAll('#alarm-table-body tr');
+    rows.forEach(function(row) {
+      if (row.querySelector('.alarm-action-btns')) return;
+      var lastTd = row.querySelector('td:last-child');
+      if (!lastTd) return;
+      var alarmDesc = '';
+      var cells = row.querySelectorAll('td');
+      if (cells.length >= 3) alarmDesc = (cells[2] ? cells[2].textContent.trim() : 'Alarm');
+
+      var wrapper = document.createElement('div');
+      wrapper.className = 'alarm-action-btns';
+      wrapper.style.cssText = 'display:flex;gap:4px;margin-top:4px;';
+
+      var ackBtn = document.createElement('button');
+      ackBtn.textContent = 'ACK';
+      ackBtn.style.cssText = 'padding:3px 8px;border-radius:4px;font-size:9px;font-weight:600;background:rgba(16,212,120,0.12);color:#10D478;border:1px solid rgba(16,212,120,0.2);cursor:pointer;';
+      ackBtn.onclick = function(e) { e.stopPropagation(); window.ackAlarmWithComment(alarmDesc); };
+
+      var shelveBtn = document.createElement('button');
+      shelveBtn.textContent = 'SHELVE';
+      shelveBtn.style.cssText = 'padding:3px 8px;border-radius:4px;font-size:9px;font-weight:600;background:rgba(245,158,11,0.12);color:#F59E0B;border:1px solid rgba(245,158,11,0.2);cursor:pointer;';
+      shelveBtn.onclick = function(e) { e.stopPropagation(); window.shelveAlarm(alarmDesc); };
+
+      wrapper.appendChild(ackBtn);
+      wrapper.appendChild(shelveBtn);
+      lastTd.appendChild(wrapper);
+    });
+  }
+  setInterval(enhanceAlarmRows, 3000);
+  setTimeout(enhanceAlarmRows, 2000);
+
+  // ─── Toast notification ───
+  function showToast(msg) {
+    var t = document.createElement('div');
+    t.style.cssText = 'position:fixed;bottom:24px;right:24px;padding:12px 20px;border-radius:10px;background:var(--bg-card);border:1px solid rgba(148,163,184,0.15);color:var(--text-primary);font-size:12px;font-weight:500;z-index:10001;box-shadow:0 8px 32px rgba(0,0,0,0.4);animation:pageFadeIn 0.28s ease-out;';
+    t.textContent = msg;
+    document.body.appendChild(t);
+    setTimeout(function(){ t.style.opacity='0'; t.style.transition='opacity 0.3s'; }, 2500);
+    setTimeout(function(){ t.remove(); }, 3000);
+  }
+
+  // ─── PDF Export ───
+  function addPdfExportButtons() {
+    var pageMap = {alarms:'alarm', cyber:'compliance', health:'health'};
+    var labelMap = {alarm:'Export Alarm Report', compliance:'Export Compliance Report', health:'Export Health Report'};
+    var hash = (window.location.hash || '').replace('#','');
+    var type = pageMap[hash];
+    if (!type) return;
+    // Remove existing button
+    var existing = document.getElementById('pdf-page-export');
+    if (existing) existing.remove();
+    // Find the active section's breadcrumb or first visible header-like area
+    var active = document.querySelector('section.page-section.active');
+    if (!active) return;
+    // Try breadcrumb nav first, then module-header, then page-header, then first div
+    var target = active.querySelector('nav.breadcrumb') ||
+                 active.querySelector('.module-header') ||
+                 active.querySelector('.page-header') ||
+                 active.children[0];
+    if (!target) return;
+    var btn = createPdfBtn(labelMap[type]);
+    btn.id = 'pdf-page-export';
+    btn.style.cssText += ';position:absolute;top:8px;right:16px;z-index:10;';
+    (function(tp){ btn.onclick = function() { generatePdf(tp); }; })(type);
+    // Make target relative for absolute positioning
+    if (getComputedStyle(target).position === 'static') target.style.position = 'relative';
+    target.appendChild(btn);
+  }
+
+  function createPdfBtn(label) {
+    var btn = document.createElement('button');
+    btn.className = 'pdf-export-btn';
+    btn.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg> ' + label;
+    return btn;
+  }
+
+  function generatePdf(type) {
+    var titles = { alarm:'Alarm Summary Report', compliance:'Cybersecurity Compliance Report', health:'System Health Report' };
+    showToast('Generating ' + titles[type] + '…');
+
+    // Simulate PDF generation with a brief delay, then show preview
+    setTimeout(function() {
+      var overlay = document.createElement('div');
+      overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.8);backdrop-filter:blur(8px);z-index:10002;display:flex;justify-content:center;align-items:center;';
+      overlay.onclick = function(e) { if(e.target===overlay) overlay.remove(); };
+
+      var card = document.createElement('div');
+      card.style.cssText = 'background:var(--bg-card);border:1px solid rgba(148,163,184,0.15);border-radius:16px;padding:32px;max-width:520px;width:92%;box-shadow:0 24px 64px rgba(0,0,0,0.5);';
+
+      var now = new Date();
+      var timestamp = now.toLocaleString('en-US', {timeZone:'America/Chicago'});
+
+      card.innerHTML = '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;">' +
+        '<h3 style="font-size:15px;font-weight:700;color:var(--text-primary);margin:0;">📄 ' + titles[type] + '</h3>' +
+        '<button onclick="var el=this;while(el.parentElement&&el.parentElement!==document.body)el=el.parentElement;el.remove()" style="background:none;border:none;color:var(--text-faint);font-size:18px;cursor:pointer;">✕</button></div>' +
+        '<div style="background:rgba(255,255,255,0.02);border:1px solid rgba(148,163,184,0.08);border-radius:10px;padding:16px;margin-bottom:16px;">' +
+        '<div style="font-size:10px;font-weight:600;color:var(--text-faint);letter-spacing:0.8px;text-transform:uppercase;margin-bottom:10px;">Report Details</div>' +
+        '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;font-size:12px;">' +
+        '<div><span style="color:var(--text-faint);">Generated:</span> <span style="color:var(--text-primary);font-family:var(--font-mono);font-size:11px;">' + timestamp + '</span></div>' +
+        '<div><span style="color:var(--text-faint);">Operator:</span> <span style="color:var(--text-primary);">D. Spencer</span></div>' +
+        '<div><span style="color:var(--text-faint);">Site:</span> <span style="color:var(--text-primary);">Killdeer Field Station</span></div>' +
+        '<div><span style="color:var(--text-faint);">Format:</span> <span style="color:var(--text-primary);">PDF (IEC 62682)</span></div>' +
+        '</div></div>' +
+        '<div style="background:rgba(255,255,255,0.02);border:1px solid rgba(148,163,184,0.08);border-radius:10px;padding:16px;margin-bottom:16px;">' +
+        '<div style="font-size:10px;font-weight:600;color:var(--text-faint);letter-spacing:0.8px;text-transform:uppercase;margin-bottom:10px;">Contents</div>' +
+        '<div style="font-size:12px;color:var(--text-muted);line-height:1.8;">' +
+        getReportContents(type) + '</div></div>' +
+        '<div style="background:rgba(16,212,120,0.06);border:1px solid rgba(16,212,120,0.15);border-radius:10px;padding:12px 16px;display:flex;align-items:center;gap:10px;margin-bottom:16px;">' +
+        '<span style="color:#10D478;font-size:14px;">✓</span>' +
+        '<span style="font-size:12px;color:#10D478;font-weight:500;">Report ready for download</span></div>' +
+        '<div style="display:flex;gap:10px;justify-content:flex-end;">' +
+        '<button onclick="var el=this;while(el.parentElement&&el.parentElement!==document.body)el=el.parentElement;el.remove()" class="shelve-btn shelve-btn-cancel">Close</button>' +
+        '<button class="shelve-btn shelve-btn-confirm" id="pdf-dl-btn">Download PDF</button></div>';
+
+      overlay.appendChild(card);
+      document.body.appendChild(overlay);
+    }, 1200);
+  }
+
+  function getReportContents(type) {
+    if (type === 'alarm') return '• Active alarm summary with severity distribution<br>• Alarm rate analysis (per hour / per shift)<br>• Shelved alarms log with duration & reason<br>• Acknowledgment audit trail<br>• First-out sequence analysis<br>• ISA-18.2 KPI compliance metrics<br>• Nuisance / chattering alarm candidates';
+    if (type === 'compliance') return '• NIST CSF scorecard (current vs target)<br>• IEC 62443 zone compliance matrix<br>• Protocol security assessment<br>• Open findings & remediation status<br>• Audit trail (last 30 days)<br>• Incident response readiness score<br>• Compliance trend analysis';
+    return '• Fleet health scores by asset<br>• Communication reliability metrics<br>• Stale data incident log<br>• Predictive maintenance indicators<br>• Mean time between failures<br>• Asset availability percentages<br>• Recommended maintenance actions';
+  }
+
+  // Inject PDF export into topbar for relevant pages
+  function updatePdfButton() {
+    var btn = document.getElementById('pdf-topbar-export');
+    var pageMap = {alarms:'alarm', cyber:'compliance', health:'health'};
+    var labelMap = {alarm:'Alarm Report', compliance:'Compliance Report', health:'Health Report'};
+    var hash = (window.location.hash || '').replace('#','');
+    var type = pageMap[hash];
+    if (!type) { if(btn) btn.style.display='none'; return; }
+    if (!btn) {
+      btn = createPdfBtn('Export');
+      btn.id = 'pdf-topbar-export';
+      btn.style.cssText += ';margin-right:8px;';
+      var topbar = document.querySelector('.topbar-right') || document.querySelector('.topbar-actions');
+      if (topbar) topbar.insertBefore(btn, topbar.firstChild);
+      else document.querySelector('.topbar').appendChild(btn);
+    }
+    btn.style.display = 'inline-flex';
+    btn.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg> ' + labelMap[type];
+    btn.onclick = function() { generatePdf(type); };
+  }
+  setTimeout(updatePdfButton, 2000);
+  window.addEventListener('hashchange', function() { setTimeout(updatePdfButton, 300); });
+
+  // ─── Audit trail panel in alarm drawer ───
+  var _origDrawerObserver = new MutationObserver(function(mutations) {
+    mutations.forEach(function(m) {
+      if (m.attributeName === 'class') {
+        var drawer = document.getElementById('asset-drawer');
+        if (drawer && drawer.classList.contains('open')) {
+          setTimeout(injectAuditTrail, 300);
+        }
+      }
+    });
+  });
+  var drawerEl = document.getElementById('asset-drawer');
+  if (drawerEl) _origDrawerObserver.observe(drawerEl, { attributes: true });
+
+  function injectAuditTrail() {
+    var drawer = document.getElementById('asset-drawer');
+    if (!drawer || drawer.querySelector('.audit-trail')) return;
+    var content = drawer.querySelector('.drawer-content') || drawer;
+
+    var trail = document.createElement('div');
+    trail.className = 'audit-trail';
+    trail.innerHTML = '<div class="audit-trail-title">Audit Trail</div>' +
+      auditLog.slice(0, 5).map(function(e) {
+        var t = e.time.toLocaleTimeString('en-US', { hour:'2-digit', minute:'2-digit', hour12:false });
+        return '<div class="audit-entry"><span class="audit-time">' + t + '</span><span class="audit-user">' + e.user + '</span><span class="audit-action">' + e.action + '</span></div>';
+      }).join('');
+    content.appendChild(trail);
+  }
+
+  // ─── Escape key support for new modals ───
+  document.addEventListener('keydown', function(e) {
+    if (e.key === 'Escape') {
+      var shelve = document.getElementById('shelve-modal-bg');
+      if (shelve && shelve.classList.contains('visible')) { shelve.classList.remove('visible'); return; }
+      var ack = document.getElementById('ack-modal-bg');
+      if (ack && ack.classList.contains('visible')) { ack.classList.remove('visible'); return; }
+    }
+  });
 })();
 </script>
 

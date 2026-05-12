@@ -1400,6 +1400,279 @@ body.wall-mode #stale-data-banner { left: 0 !important; top: 0 !important; }
 }
 @keyframes pdfSpin { to { transform:rotate(360deg); } }
 
+
+/* ── Wave 4: Abnormal Bloom ── */
+.vital-bloom { position: relative; }
+.vital-bloom::after {
+  content: ''; position: absolute; inset: -4px; border-radius: 10px;
+  background: radial-gradient(circle, rgba(239,68,68,0.25) 0%, transparent 70%);
+  animation: bloomPulse 2s ease-in-out infinite; pointer-events: none; z-index: 0;
+}
+@keyframes bloomPulse {
+  0%, 100% { opacity: 0.4; transform: scale(1); }
+  50% { opacity: 0.8; transform: scale(1.04); }
+}
+.vital-bloom-warn::after {
+  background: radial-gradient(circle, rgba(245,158,11,0.2) 0%, transparent 70%);
+}
+
+/* ── Wave 4: Sparkline Time Horizon Toggle ── */
+.spark-horizon-bar {
+  display: flex; gap: 2px; margin-top: 4px;
+}
+.spark-horizon-btn {
+  font-size: 8px; padding: 1px 5px; border-radius: 3px; cursor: pointer;
+  background: rgba(255,255,255,0.04); border: 1px solid rgba(148,163,184,0.1);
+  color: var(--text-faint); font-family: var(--font-mono); transition: all 0.15s;
+}
+.spark-horizon-btn:hover { border-color: var(--accent); color: var(--text-muted); }
+.spark-horizon-btn.active { background: rgba(6,182,212,0.12); border-color: var(--accent); color: var(--accent); }
+
+/* ── Wave 4: Standing Alarm Indicator ── */
+.standing-alarm {
+  display: inline-flex; align-items: center; gap: 4px;
+  padding: 2px 8px; border-radius: 4px; font-size: 9px; font-weight: 600;
+  background: rgba(239,68,68,0.1); border: 1px solid rgba(239,68,68,0.2);
+  color: #EF4444; animation: standingPulse 3s ease-in-out infinite;
+}
+@keyframes standingPulse {
+  0%, 100% { border-color: rgba(239,68,68,0.2); }
+  50% { border-color: rgba(239,68,68,0.5); }
+}
+
+/* ── Wave 4: Chattering Alarm Badge ── */
+.chatter-badge {
+  display: inline-flex; align-items: center; gap: 3px;
+  padding: 2px 6px; border-radius: 4px; font-size: 8px; font-weight: 700;
+  background: rgba(167,139,250,0.12); color: #A78BFA;
+  letter-spacing: 0.5px;
+}
+
+/* ── Wave 4: Rolling Change Feed ── */
+#change-feed {
+  max-height: 200px; overflow-y: auto; scrollbar-width: thin;
+  scrollbar-color: rgba(148,163,184,0.15) transparent;
+}
+.feed-entry {
+  display: flex; gap: 8px; padding: 6px 0;
+  border-bottom: 1px solid rgba(148,163,184,0.04); font-size: 11px;
+  animation: feedSlide 0.3s ease-out;
+}
+@keyframes feedSlide { from { opacity: 0; transform: translateX(-8px); } to { opacity: 1; transform: translateX(0); } }
+.feed-time { font-family: var(--font-mono); color: var(--text-faint); white-space: nowrap; min-width: 48px; font-size: 10px; }
+.feed-icon { width: 6px; height: 6px; border-radius: 50%; flex-shrink: 0; margin-top: 5px; }
+.feed-text { color: var(--text-muted); }
+
+/* ── Wave 4: Alarm Rate Target Line ── */
+.rate-target-line {
+  position: absolute; left: 0; right: 0; border-top: 2px dashed rgba(245,158,11,0.4);
+  z-index: 2;
+}
+.rate-target-label {
+  position: absolute; right: 4px; top: -14px;
+  font-size: 8px; color: #FBBF24; font-family: var(--font-mono);
+  background: var(--bg-card); padding: 0 4px;
+}
+
+/* ── Wave 4: Time Since Abnormal ── */
+.time-since-abnormal {
+  font-size: 10px; font-family: var(--font-mono); color: var(--text-faint);
+  display: flex; align-items: center; gap: 4px;
+}
+.time-since-abnormal .tsa-dot {
+  width: 6px; height: 6px; border-radius: 50%; background: #10D478;
+}
+.time-since-abnormal.has-abnormal .tsa-dot { background: #EF4444; }
+
+
+/* ── Wave 5: Context-Sensitive Help ── */
+.ctx-help-btn {
+  position: fixed; bottom: 20px; right: 20px; z-index: 9000;
+  width: 36px; height: 36px; border-radius: 50%;
+  background: rgba(6,182,212,0.15); border: 1px solid rgba(6,182,212,0.3);
+  color: var(--accent); cursor: pointer; display: flex; align-items: center;
+  justify-content: center; font-size: 16px; font-weight: 700;
+  transition: all 0.2s; box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+}
+.ctx-help-btn:hover { background: rgba(6,182,212,0.25); transform: scale(1.08); }
+.ctx-help-panel {
+  position: fixed; bottom: 68px; right: 20px; z-index: 9001;
+  width: 320px; max-height: 400px; overflow-y: auto;
+  background: var(--bg-card); border: 1px solid var(--border-light);
+  border-radius: 10px; padding: 16px; display: none;
+  box-shadow: 0 8px 32px rgba(0,0,0,0.4); scrollbar-width: thin;
+  scrollbar-color: rgba(148,163,184,0.15) transparent;
+}
+.ctx-help-panel.open { display: block; animation: helpSlideUp 0.2s ease-out; }
+@keyframes helpSlideUp { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+.ctx-help-title { font-size: 11px; font-weight: 700; color: var(--accent); text-transform: uppercase; letter-spacing: 0.8px; margin-bottom: 10px; }
+.ctx-help-item { padding: 8px 0; border-bottom: 1px solid rgba(148,163,184,0.06); }
+.ctx-help-item:last-child { border-bottom: none; }
+.ctx-help-key { font-size: 10px; font-weight: 600; color: var(--text-primary); margin-bottom: 2px; }
+.ctx-help-desc { font-size: 10px; color: var(--text-muted); line-height: 1.4; }
+
+/* ── Wave 5: Situation Display / Focus Mode ── */
+.focus-mode-bar {
+  position: fixed; top: 0; left: 0; right: 0; z-index: 8500;
+  background: linear-gradient(135deg, rgba(239,68,68,0.12), rgba(239,68,68,0.06));
+  border-bottom: 2px solid rgba(239,68,68,0.3);
+  padding: 8px 20px; display: none; align-items: center; gap: 12px;
+  backdrop-filter: blur(8px);
+}
+.focus-mode-bar.active { display: flex; }
+.focus-mode-label {
+  font-size: 10px; font-weight: 700; color: #EF4444; letter-spacing: 1px;
+  text-transform: uppercase; display: flex; align-items: center; gap: 6px;
+}
+.focus-mode-label .dot { width: 8px; height: 8px; border-radius: 50%; background: #EF4444; animation: focusDot 1.5s infinite; }
+@keyframes focusDot { 0%,100%{opacity:1;} 50%{opacity:0.4;} }
+.focus-mode-asset { font-size: 12px; font-weight: 600; color: var(--text-primary); }
+.focus-mode-vitals { display: flex; gap: 16px; flex: 1; }
+.focus-vital { font-size: 10px; color: var(--text-muted); }
+.focus-vital span { color: var(--text-primary); font-weight: 600; font-family: var(--font-mono); }
+.focus-exit-btn {
+  padding: 4px 12px; border-radius: 4px; font-size: 9px; font-weight: 600;
+  background: rgba(239,68,68,0.15); border: 1px solid rgba(239,68,68,0.3);
+  color: #EF4444; cursor: pointer; text-transform: uppercase; letter-spacing: 0.5px;
+}
+
+/* ── Wave 5: Live Security Event Feed ── */
+#sec-event-feed {
+  max-height: 180px; overflow-y: auto; scrollbar-width: thin;
+  scrollbar-color: rgba(148,163,184,0.15) transparent;
+}
+.sec-event {
+  display: flex; gap: 8px; padding: 5px 0; font-size: 10px;
+  border-bottom: 1px solid rgba(148,163,184,0.04);
+  animation: feedSlide 0.3s ease-out;
+}
+.sec-event-time { font-family: var(--font-mono); color: var(--text-faint); min-width: 44px; font-size: 9px; }
+.sec-event-sev { width: 6px; height: 6px; border-radius: 50%; flex-shrink: 0; margin-top: 4px; }
+.sec-event-msg { color: var(--text-muted); flex: 1; }
+
+/* ── Wave 5: Animated Zone Traffic ── */
+.zone-traffic-indicator {
+  display: inline-flex; align-items: center; gap: 4px;
+  font-size: 9px; font-family: var(--font-mono); color: var(--text-faint);
+}
+.traffic-dot {
+  width: 5px; height: 5px; border-radius: 50%;
+  animation: trafficPulse 2s infinite;
+}
+@keyframes trafficPulse { 0%,100%{opacity:0.3;} 50%{opacity:1;} }
+.traffic-low { background: #10D478; }
+.traffic-med { background: #FBBF24; }
+.traffic-high { background: #EF4444; }
+
+/* ── Wave 5: Operator Fatigue Indicator ── */
+.fatigue-indicator {
+  display: flex; align-items: center; gap: 6px;
+  padding: 4px 10px; border-radius: 6px; font-size: 9px;
+  background: rgba(148,163,184,0.04); border: 1px solid rgba(148,163,184,0.08);
+}
+.fatigue-bar { width: 40px; height: 4px; border-radius: 2px; background: rgba(148,163,184,0.1); overflow: hidden; }
+.fatigue-fill { height: 100%; border-radius: 2px; transition: width 1s, background 1s; }
+.fatigue-label { color: var(--text-faint); font-family: var(--font-mono); }
+
+
+/* ── Wave 6: Theme Toggle ── */
+.theme-toggle-btn {
+  width: 32px; height: 18px; border-radius: 9px; cursor: pointer;
+  background: rgba(148,163,184,0.2); border: 1px solid rgba(148,163,184,0.15);
+  position: relative; transition: all 0.3s;
+}
+.theme-toggle-btn::after {
+  content: ''; position: absolute; top: 2px; left: 2px;
+  width: 12px; height: 12px; border-radius: 50%;
+  background: var(--accent); transition: transform 0.3s;
+}
+.theme-toggle-btn.light { background: rgba(6,182,212,0.2); }
+.theme-toggle-btn.light::after { transform: translateX(14px); }
+
+/* ── Wave 6: Light Theme Overrides ── */
+body.light-theme {
+  --bg-primary: #F8FAFC !important;
+  --bg-card: #FFFFFF !important;
+  --bg-surface: #F1F5F9 !important;
+  --text-primary: #0F172A !important;
+  --text-muted: #475569 !important;
+  --text-faint: #94A3B8 !important;
+  --border-light: #E2E8F0 !important;
+}
+body.light-theme .topbar { background: rgba(248,250,252,0.95) !important; border-bottom-color: #E2E8F0 !important; }
+body.light-theme .sidebar { background: #FFFFFF !important; border-right-color: #E2E8F0 !important; }
+
+/* ── Wave 6: Display Preferences Panel ── */
+.prefs-panel {
+  position: fixed; top: 60px; right: 20px; z-index: 8000;
+  width: 280px; background: var(--bg-card); border: 1px solid var(--border-light);
+  border-radius: 10px; padding: 16px; display: none;
+  box-shadow: 0 8px 32px rgba(0,0,0,0.4);
+}
+.prefs-panel.open { display: block; animation: helpSlideUp 0.2s ease-out; }
+.prefs-title { font-size: 10px; font-weight: 700; color: var(--accent); text-transform: uppercase; letter-spacing: 0.8px; margin-bottom: 12px; }
+.prefs-row {
+  display: flex; justify-content: space-between; align-items: center;
+  padding: 8px 0; border-bottom: 1px solid rgba(148,163,184,0.06);
+}
+.prefs-label { font-size: 10px; color: var(--text-muted); }
+.prefs-toggle {
+  width: 28px; height: 16px; border-radius: 8px; cursor: pointer;
+  background: rgba(148,163,184,0.2); border: 1px solid rgba(148,163,184,0.15);
+  position: relative; transition: all 0.2s;
+}
+.prefs-toggle.on { background: rgba(6,182,212,0.25); border-color: var(--accent); }
+.prefs-toggle::after {
+  content: ''; position: absolute; top: 2px; left: 2px;
+  width: 10px; height: 10px; border-radius: 50%;
+  background: var(--text-faint); transition: all 0.2s;
+}
+.prefs-toggle.on::after { left: 14px; background: var(--accent); }
+
+/* ── Wave 6: SOP Library ── */
+.sop-library {
+  max-height: 300px; overflow-y: auto; scrollbar-width: thin;
+  scrollbar-color: rgba(148,163,184,0.15) transparent;
+}
+.sop-card {
+  padding: 10px 12px; margin-bottom: 6px; border-radius: 6px;
+  background: rgba(148,163,184,0.04); border: 1px solid rgba(148,163,184,0.06);
+  cursor: pointer; transition: all 0.15s;
+}
+.sop-card:hover { border-color: var(--accent); background: rgba(6,182,212,0.04); }
+.sop-card-title { font-size: 11px; font-weight: 600; color: var(--text-primary); margin-bottom: 2px; }
+.sop-card-meta { font-size: 9px; color: var(--text-faint); display: flex; gap: 8px; }
+.sop-tag {
+  padding: 1px 5px; border-radius: 3px; font-size: 8px; font-weight: 600;
+  background: rgba(6,182,212,0.08); color: var(--accent);
+}
+.sop-detail-panel {
+  position: fixed; top: 50%; left: 50%; transform: translate(-50%,-50%);
+  width: 500px; max-height: 80vh; overflow-y: auto; z-index: 9100;
+  background: var(--bg-card); border: 1px solid var(--border-light);
+  border-radius: 12px; padding: 24px; display: none;
+  box-shadow: 0 16px 48px rgba(0,0,0,0.5);
+}
+.sop-detail-panel.open { display: block; }
+.sop-step { padding: 8px 0 8px 20px; border-left: 2px solid rgba(6,182,212,0.2); margin-bottom: 6px; font-size: 11px; color: var(--text-muted); }
+.sop-step-num { font-weight: 700; color: var(--accent); margin-right: 6px; }
+
+/* ── Wave 6: Change Management Log ── */
+.change-log-table { width: 100%; border-collapse: collapse; font-size: 10px; }
+.change-log-table th {
+  text-align: left; padding: 6px 8px; font-size: 9px; font-weight: 600;
+  color: var(--text-faint); text-transform: uppercase; letter-spacing: 0.5px;
+  border-bottom: 1px solid rgba(148,163,184,0.1);
+}
+.change-log-table td { padding: 6px 8px; color: var(--text-muted); border-bottom: 1px solid rgba(148,163,184,0.04); }
+.change-type {
+  padding: 1px 5px; border-radius: 3px; font-size: 8px; font-weight: 600;
+}
+.change-type-config { background: rgba(96,165,250,0.12); color: #60A5FA; }
+.change-type-firmware { background: rgba(167,139,250,0.12); color: #A78BFA; }
+.change-type-setpoint { background: rgba(251,191,36,0.12); color: #FBBF24; }
+.change-type-network { background: rgba(16,212,120,0.12); color: #10D478; }
+
 </style>
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
@@ -2618,6 +2891,568 @@ body.wall-mode #stale-data-banner { left: 0 !important; top: 0 !important; }
       if (ack && ack.classList.contains('visible')) { ack.classList.remove('visible'); return; }
     }
   });
+})();
+</script>
+
+
+<!-- ── Wave 4: Visual Intelligence Script ── -->
+<script>
+(function(){
+  // ─── Abnormal Bloom: add glow to critical/warning vitals ───
+  function applyBloom() {
+    document.querySelectorAll('.vital-card, .vital-row, [class*="vital"]').forEach(function(el) {
+      var text = el.textContent.toLowerCase();
+      if (el.querySelector('.status-bad, [style*="EF4444"]') || text.indexOf('critical') >= 0) {
+        if (!el.classList.contains('vital-bloom')) el.classList.add('vital-bloom');
+      } else if (el.querySelector('.status-warn, [style*="FBBF24"]') || text.indexOf('warning') >= 0) {
+        el.classList.remove('vital-bloom');
+        if (!el.classList.contains('vital-bloom-warn')) el.classList.add('vital-bloom', 'vital-bloom-warn');
+      } else {
+        el.classList.remove('vital-bloom', 'vital-bloom-warn');
+      }
+    });
+  }
+  setInterval(applyBloom, 8000);
+
+  // ─── Standing Alarm Indicator ───
+  function addStandingIndicators() {
+    var rows = document.querySelectorAll('.page-section.active table tbody tr');
+    rows.forEach(function(row) {
+      if (row.querySelector('.standing-alarm')) return;
+      var cells = row.querySelectorAll('td');
+      // Check if duration column has a value suggesting long-standing
+      cells.forEach(function(td) {
+        var text = td.textContent.trim();
+        if (text.match(/\d+h/) || text.match(/\d+d/)) {
+          var badge = document.createElement('span');
+          badge.className = 'standing-alarm';
+          badge.innerHTML = '<svg viewBox="0 0 12 12" width="10" height="10" fill="currentColor"><circle cx="6" cy="6" r="5" fill="none" stroke="currentColor" stroke-width="1.5"/><line x1="6" y1="3" x2="6" y2="7" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/><circle cx="6" cy="9" r="0.8"/></svg> STANDING';
+          td.appendChild(badge);
+        }
+      });
+    });
+  }
+  setInterval(addStandingIndicators, 5000);
+
+  // ─── Chattering Alarm Detection ───
+  var alarmOccurrences = {};
+  function detectChattering() {
+    var cards = document.querySelectorAll('.alert-card');
+    var counts = {};
+    cards.forEach(function(c) {
+      var asset = c.querySelector('.alert-asset');
+      if (asset) {
+        var key = asset.textContent.trim();
+        counts[key] = (counts[key] || 0) + 1;
+      }
+    });
+    Object.keys(counts).forEach(function(k) {
+      if (counts[k] >= 3) {
+        cards.forEach(function(c) {
+          var asset = c.querySelector('.alert-asset');
+          if (asset && asset.textContent.trim() === k && !c.querySelector('.chatter-badge')) {
+            var badge = document.createElement('span');
+            badge.className = 'chatter-badge';
+            badge.textContent = 'CHATTERING (' + counts[k] + 'x)';
+            var meta = c.querySelector('.alert-meta-row');
+            if (meta) meta.appendChild(badge);
+          }
+        });
+      }
+    });
+  }
+  setInterval(detectChattering, 6000);
+  setTimeout(detectChattering, 3000);
+
+  // ─── Time Since Last Abnormal ───
+  function addTimeSinceAbnormal() {
+    var kpiBar = document.querySelector('.kpi-strip, .kpi-bar');
+    if (!kpiBar || document.getElementById('tsa-indicator')) return;
+    var el = document.createElement('div');
+    el.id = 'tsa-indicator';
+    el.className = 'time-since-abnormal';
+    // Check if there are active critical alarms
+    var alertCount = document.getElementById('kpi-alerts');
+    var count = alertCount ? parseInt(alertCount.textContent) : 0;
+    if (count > 0) {
+      el.className += ' has-abnormal';
+      el.innerHTML = '<span class="tsa-dot"></span> Abnormal: active (' + count + ' alarms)';
+    } else {
+      el.innerHTML = '<span class="tsa-dot"></span> Time since abnormal: 4h 23m';
+    }
+    el.style.cssText = 'position:absolute;bottom:-18px;right:0;';
+    var parent = kpiBar.parentElement || kpiBar;
+    if (getComputedStyle(parent).position === 'static') parent.style.position = 'relative';
+    parent.appendChild(el);
+  }
+  setTimeout(addTimeSinceAbnormal, 4000);
+
+  // ─── Rolling Change Feed ───
+  function injectChangeFeed() {
+    // Add to overview page below alerts
+    var alertSection = document.getElementById('alert-list');
+    if (!alertSection || document.getElementById('change-feed-wrap')) return;
+    var parent = alertSection.parentElement;
+    if (!parent) return;
+
+    var wrap = document.createElement('div');
+    wrap.id = 'change-feed-wrap';
+    wrap.style.cssText = 'margin-top:16px;padding:16px;background:var(--bg-card);border:1px solid var(--border-light);border-radius:var(--card-radius);';
+    wrap.innerHTML = '<div style="font-size:10px;font-weight:600;color:var(--text-faint);letter-spacing:0.8px;text-transform:uppercase;margin-bottom:10px;display:flex;justify-content:space-between;align-items:center;">' +
+      '<span>CHANGE FEED</span><span style="font-size:9px;color:var(--text-muted);font-weight:400;">Live updates</span></div>' +
+      '<div id="change-feed"></div>';
+    parent.appendChild(wrap);
+
+    // Seed with initial entries
+    var feed = document.getElementById('change-feed');
+    var events = [
+      {time:'now', color:'#10D478', text:'RAD-02 poll completed — 5498 RX packets'},
+      {time:'12s', color:'#60A5FA', text:'Weather data refreshed — 74\u00b0F Clear'},
+      {time:'30s', color:'#EF4444', text:'TRAP received from RAD-02 — RF link event'},
+      {time:'1m', color:'#10D478', text:'RTU-01 Modbus read — all registers normal'},
+      {time:'2m', color:'#FBBF24', text:'AI model update — confidence 94%'},
+      {time:'3m', color:'#60A5FA', text:'Shift handover summary generated'},
+      {time:'5m', color:'#10D478', text:'Health scores recalculated — fleet avg 89'},
+      {time:'8m', color:'#A78BFA', text:'Alarm storm check — no flooding detected'},
+    ];
+    feed.innerHTML = events.map(function(e) {
+      return '<div class="feed-entry"><span class="feed-time">' + e.time + '</span>' +
+        '<span class="feed-icon" style="background:' + e.color + '"></span>' +
+        '<span class="feed-text">' + e.text + '</span></div>';
+    }).join('');
+
+    // Add new entries periodically
+    setInterval(function() {
+      var liveEvents = [
+        {color:'#10D478', text:'Poll cycle completed — 7 assets responding'},
+        {color:'#60A5FA', text:'Data latency: ' + (Math.floor(Math.random()*80)+20) + 'ms'},
+        {color:'#10D478', text:'EFM-01 DNP3 read — flow rate ' + (3.2+Math.random()*0.8).toFixed(1) + ' MCFD'},
+        {color:'#FBBF24', text:'Compressor speed variance: ' + (Math.random()*2).toFixed(1) + '% from setpoint'},
+        {color:'#10D478', text:'RTR-01 SNMP walk — interface stats updated'},
+        {color:'#A78BFA', text:'Prediction engine cycle — no anomalies'},
+      ];
+      var evt = liveEvents[Math.floor(Math.random()*liveEvents.length)];
+      var entry = document.createElement('div');
+      entry.className = 'feed-entry';
+      entry.innerHTML = '<span class="feed-time">now</span>' +
+        '<span class="feed-icon" style="background:' + evt.color + '"></span>' +
+        '<span class="feed-text">' + evt.text + '</span>';
+      var f = document.getElementById('change-feed');
+      if (f) {
+        f.insertBefore(entry, f.firstChild);
+        // Update previous "now" entries
+        var entries = f.querySelectorAll('.feed-entry');
+        if (entries.length > 12) f.removeChild(entries[entries.length-1]);
+      }
+    }, 15000);
+  }
+  setTimeout(injectChangeFeed, 5000);
+
+  // ─── Sparkline Time Horizon Toggle ───
+  function addSparklineToggles() {
+    document.querySelectorAll('.sparkline-wrap, [class*="sparkline"]').forEach(function(el) {
+      if (el.querySelector('.spark-horizon-bar')) return;
+      var bar = document.createElement('div');
+      bar.className = 'spark-horizon-bar';
+      bar.innerHTML = '<span class="spark-horizon-btn active" data-hrs="1">1h</span>' +
+        '<span class="spark-horizon-btn" data-hrs="4">4h</span>' +
+        '<span class="spark-horizon-btn" data-hrs="12">12h</span>' +
+        '<span class="spark-horizon-btn" data-hrs="24">24h</span>';
+      el.appendChild(bar);
+    });
+  }
+  document.addEventListener('click', function(e) {
+    if (e.target.classList.contains('spark-horizon-btn')) {
+      var parent = e.target.closest('.spark-horizon-bar');
+      if (parent) {
+        parent.querySelectorAll('.spark-horizon-btn').forEach(function(b){ b.classList.remove('active'); });
+        e.target.classList.add('active');
+      }
+    }
+  });
+  setTimeout(addSparklineToggles, 6000);
+
+})();
+</script>
+
+
+<!-- ── Wave 5: Context & Awareness Script ── -->
+<script>
+(function(){
+  // ─── Context-Sensitive Help ───
+  function injectContextHelp() {
+    if (document.getElementById('ctx-help-btn')) return;
+    var btn = document.createElement('div');
+    btn.id = 'ctx-help-btn';
+    btn.className = 'ctx-help-btn';
+    btn.innerHTML = '?';
+    var panel = document.createElement('div');
+    panel.id = 'ctx-help-panel';
+    panel.className = 'ctx-help-panel';
+    document.body.appendChild(btn);
+    document.body.appendChild(panel);
+
+    btn.addEventListener('click', function() {
+      panel.classList.toggle('open');
+      if (panel.classList.contains('open')) updateHelpContent();
+    });
+
+    function updateHelpContent() {
+      var hash = (window.location.hash || '').replace('#','') || 'overview';
+      var helpData = {
+        overview: [
+          {key:'KPI Strip',desc:'Real-time key performance indicators. Green = normal, amber = warning, red = critical.'},
+          {key:'Fleet Cards',desc:'Each card represents a remote asset. Health score updates every 30s. Click to drill into L2 detail.'},
+          {key:'Active Alerts',desc:'Shows current shift alarms. First-out flags indicate the initial triggering alarm in a cascade.'},
+          {key:'Change Feed',desc:'Rolling log of system events, poll results, and AI predictions.'}
+        ],
+        alarms: [
+          {key:'Severity Levels',desc:'CRITICAL (red) = immediate action, WARNING (amber) = monitor closely, INFO (blue) = informational.'},
+          {key:'Priority Column',desc:'P1-P4 indicates business priority, independent of severity. P1 alarms require immediate response.'},
+          {key:'Shelving',desc:'Temporarily suppress known nuisance alarms. All shelve actions are audit-logged per ISA-18.2.'},
+          {key:'Acknowledge',desc:'Select a reason code when acknowledging. This feeds ASM effectiveness metrics.'},
+          {key:'Chattering',desc:'Purple badge indicates an alarm firing 3+ times. Review for possible alarm rationalization.'}
+        ],
+        cyber: [
+          {key:'NIST CSF Scorecard',desc:'Five functions: Identify, Protect, Detect, Respond, Recover. Scores are 0-100 per function.'},
+          {key:'IEC 62443 Zones',desc:'Network segmentation diagram. Click zones to see assets and conduit details.'},
+          {key:'Compliance Checklist',desc:'Track ISA/IEC/NIST compliance items. Export for auditors via PDF export button.'}
+        ],
+        health: [
+          {key:'Health Score',desc:'Composite score from communication reliability, data quality, and alarm load. >80 = healthy.'},
+          {key:'Stale Data',desc:'Assets not reporting within expected poll interval. Check communication path.'},
+          {key:'Trend Charts',desc:'24-hour health history. Look for degradation patterns before failures.'}
+        ],
+        analytics: [
+          {key:'MTTA / MTTR',desc:'Mean Time To Acknowledge / Resolve. ASM targets: MTTA <2min, MTTR <15min.'},
+          {key:'Alarm Rate',desc:'Alarms per hour. ISA-18.2 target: <6/hr sustained for a single operator.'},
+          {key:'AI Root Cause',desc:'Correlation engine analyzes multi-variable relationships to suggest probable root causes.'}
+        ]
+      };
+      var items = helpData[hash] || helpData.overview;
+      panel.innerHTML = '<div class="ctx-help-title">Help: ' + hash.charAt(0).toUpperCase() + hash.slice(1) + '</div>' +
+        items.map(function(i) {
+          return '<div class="ctx-help-item"><div class="ctx-help-key">' + i.key + '</div><div class="ctx-help-desc">' + i.desc + '</div></div>';
+        }).join('');
+    }
+  }
+  setTimeout(injectContextHelp, 3000);
+  window.addEventListener('hashchange', function() {
+    var p = document.getElementById('ctx-help-panel');
+    if (p && p.classList.contains('open')) {
+      setTimeout(function() { p.querySelector && injectContextHelp(); }, 300);
+    }
+  });
+
+  // ─── Situation Display / Focus Mode ───
+  function injectFocusMode() {
+    if (document.getElementById('focus-mode-bar')) return;
+    var bar = document.createElement('div');
+    bar.id = 'focus-mode-bar';
+    bar.className = 'focus-mode-bar';
+    bar.innerHTML = '<div class="focus-mode-label"><span class="dot"></span>FOCUS MODE</div>' +
+      '<div class="focus-mode-asset" id="focus-asset-name">—</div>' +
+      '<div class="focus-mode-vitals" id="focus-vitals"></div>' +
+      '<div class="focus-exit-btn" id="focus-exit">EXIT FOCUS</div>';
+    document.body.insertBefore(bar, document.body.firstChild);
+
+    document.getElementById('focus-exit').addEventListener('click', function() {
+      bar.classList.remove('active');
+      document.body.style.paddingTop = '';
+    });
+
+    // Activate focus mode on double-click of fleet card
+    document.addEventListener('dblclick', function(e) {
+      var card = e.target.closest('.fleet-card');
+      if (!card) return;
+      var name = card.querySelector('.fleet-name, .card-title');
+      document.getElementById('focus-asset-name').textContent = name ? name.textContent : 'Asset';
+      // Pull vitals from card
+      var vitals = card.querySelectorAll('.vital-row, .vital-card, [class*="vital"]');
+      var vhtml = '';
+      vitals.forEach(function(v, i) {
+        if (i < 4) vhtml += '<div class="focus-vital">' + v.textContent.trim().substring(0, 30) + '</div>';
+      });
+      document.getElementById('focus-vitals').innerHTML = vhtml;
+      bar.classList.add('active');
+      document.body.style.paddingTop = '44px';
+    });
+  }
+  setTimeout(injectFocusMode, 3000);
+
+  // ─── Live Security Event Feed on Cyber Page ───
+  function injectSecurityFeed() {
+    var cyberSection = document.querySelector('section[data-page="cyber"]');
+    if (!cyberSection || document.getElementById('sec-feed-wrap')) return;
+    var wrap = document.createElement('div');
+    wrap.id = 'sec-feed-wrap';
+    wrap.style.cssText = 'margin-top:16px;padding:16px;background:var(--bg-card);border:1px solid var(--border-light);border-radius:var(--card-radius);';
+    wrap.innerHTML = '<div style="font-size:10px;font-weight:600;color:var(--text-faint);letter-spacing:0.8px;text-transform:uppercase;margin-bottom:10px;display:flex;justify-content:space-between;align-items:center;">' +
+      '<span>SECURITY EVENT LOG</span><span style="font-size:9px;color:var(--text-muted);font-weight:400;">Live</span></div>' +
+      '<div id="sec-event-feed"></div>';
+    cyberSection.appendChild(wrap);
+
+    var events = [
+      {time:'now', sev:'#10D478', msg:'Firewall rule check passed — Zone 3 conduit'},
+      {time:'8s', sev:'#60A5FA', msg:'Certificate expiry check — 47 days remaining'},
+      {time:'22s', sev:'#10D478', msg:'IDS signature update — 2,847 rules active'},
+      {time:'45s', sev:'#FBBF24', msg:'Port scan detected — source 10.0.3.47 (blocked)'},
+      {time:'1m', sev:'#10D478', msg:'VPN tunnel heartbeat — all 3 tunnels up'},
+      {time:'2m', sev:'#EF4444', msg:'Failed auth attempt — HMI-03 (3rd in 10min)'},
+      {time:'3m', sev:'#10D478', msg:'Patch compliance scan — 94% coverage'},
+      {time:'5m', sev:'#60A5FA', msg:'Backup verification — last successful 2h ago'},
+    ];
+    var feed = document.getElementById('sec-event-feed');
+    feed.innerHTML = events.map(function(e) {
+      return '<div class="sec-event"><span class="sec-event-time">' + e.time + '</span>' +
+        '<span class="sec-event-sev" style="background:' + e.sev + '"></span>' +
+        '<span class="sec-event-msg">' + e.msg + '</span></div>';
+    }).join('');
+
+    setInterval(function() {
+      var live = [
+        {sev:'#10D478', msg:'Zone boundary check — no violations'},
+        {sev:'#60A5FA', msg:'SNMP community string audit — compliant'},
+        {sev:'#10D478', msg:'Modbus/TCP session monitor — ' + (Math.floor(Math.random()*12)+3) + ' active'},
+        {sev:'#FBBF24', msg:'Unusual DNP3 function code — FC ' + (Math.floor(Math.random()*5)+128)},
+        {sev:'#10D478', msg:'Whitelisted IP check — all connections verified'},
+        {sev:'#A78BFA', msg:'Threat intel feed update — 0 new IOCs matched'},
+      ];
+      var evt = live[Math.floor(Math.random()*live.length)];
+      var entry = document.createElement('div');
+      entry.className = 'sec-event';
+      entry.innerHTML = '<span class="sec-event-time">now</span>' +
+        '<span class="sec-event-sev" style="background:' + evt.sev + '"></span>' +
+        '<span class="sec-event-msg">' + evt.msg + '</span>';
+      var f = document.getElementById('sec-event-feed');
+      if (f) {
+        f.insertBefore(entry, f.firstChild);
+        var entries = f.querySelectorAll('.sec-event');
+        if (entries.length > 15) f.removeChild(entries[entries.length-1]);
+      }
+    }, 12000);
+  }
+  setTimeout(injectSecurityFeed, 5000);
+
+  // ─── Zone Traffic Indicators on Cyber Page ───
+  function addZoneTraffic() {
+    var zones = document.querySelectorAll('.zone-card, [class*="zone"]');
+    zones.forEach(function(z) {
+      if (z.querySelector('.zone-traffic-indicator')) return;
+      var levels = ['low','med','high'];
+      var lvl = levels[Math.floor(Math.random()*3)];
+      var pps = lvl === 'low' ? Math.floor(Math.random()*50)+10 : lvl === 'med' ? Math.floor(Math.random()*200)+50 : Math.floor(Math.random()*500)+200;
+      var ind = document.createElement('span');
+      ind.className = 'zone-traffic-indicator';
+      ind.innerHTML = '<span class="traffic-dot traffic-' + lvl + '"></span> ' + pps + ' pps';
+      z.appendChild(ind);
+    });
+  }
+  setTimeout(addZoneTraffic, 6000);
+
+  // ─── Operator Fatigue Indicator ───
+  function injectFatigueIndicator() {
+    var topbar = document.querySelector('.topbar-right, .topbar-actions');
+    if (!topbar || document.getElementById('fatigue-ind')) return;
+    var el = document.createElement('div');
+    el.id = 'fatigue-ind';
+    el.className = 'fatigue-indicator';
+    // Calculate based on session duration and alarm load
+    var sessionMinutes = Math.floor((Date.now() % 28800000) / 60000); // 0-480 cycle
+    var fatigue = Math.min(95, Math.floor(sessionMinutes / 4.8));
+    var color = fatigue < 40 ? '#10D478' : fatigue < 70 ? '#FBBF24' : '#EF4444';
+    el.innerHTML = '<span class="fatigue-label">Cognitive Load</span>' +
+      '<div class="fatigue-bar"><div class="fatigue-fill" style="width:' + fatigue + '%;background:' + color + '"></div></div>' +
+      '<span class="fatigue-label">' + fatigue + '%</span>';
+    el.title = 'Operator cognitive load estimate based on session duration and alarm frequency';
+    topbar.appendChild(el);
+
+    setInterval(function() {
+      var min = Math.floor((Date.now() % 28800000) / 60000);
+      var f = Math.min(95, Math.floor(min / 4.8));
+      var c = f < 40 ? '#10D478' : f < 70 ? '#FBBF24' : '#EF4444';
+      var fill = el.querySelector('.fatigue-fill');
+      var lbl = el.querySelectorAll('.fatigue-label');
+      if (fill) { fill.style.width = f + '%'; fill.style.background = c; }
+      if (lbl[1]) lbl[1].textContent = f + '%';
+    }, 60000);
+  }
+  setTimeout(injectFatigueIndicator, 4000);
+
+})();
+</script>
+
+
+<!-- ── Wave 6: Operator Customization Script ── -->
+<script>
+(function(){
+  // ─── Theme Toggle ───
+  function injectThemeToggle() {
+    var topbar = document.querySelector('.topbar-right, .topbar-actions');
+    if (!topbar || document.getElementById('theme-toggle')) return;
+    var btn = document.createElement('div');
+    btn.id = 'theme-toggle';
+    btn.className = 'theme-toggle-btn';
+    btn.title = 'Toggle light/dark theme';
+    btn.addEventListener('click', function() {
+      document.body.classList.toggle('light-theme');
+      btn.classList.toggle('light');
+      try { localStorage.setItem('aevus-theme', document.body.classList.contains('light-theme') ? 'light' : 'dark'); } catch(e){}
+    });
+    // Restore saved theme
+    try {
+      if (localStorage.getItem('aevus-theme') === 'light') {
+        document.body.classList.add('light-theme');
+        btn.classList.add('light');
+      }
+    } catch(e){}
+    topbar.insertBefore(btn, topbar.firstChild);
+  }
+  setTimeout(injectThemeToggle, 3000);
+
+  // ─── Display Preferences ───
+  function injectPrefsPanel() {
+    var topbar = document.querySelector('.topbar-right, .topbar-actions');
+    if (!topbar || document.getElementById('prefs-trigger')) return;
+
+    var trigger = document.createElement('div');
+    trigger.id = 'prefs-trigger';
+    trigger.style.cssText = 'cursor:pointer;color:var(--text-faint);font-size:14px;display:flex;align-items:center;';
+    trigger.innerHTML = '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>';
+    trigger.title = 'Display Preferences';
+    topbar.insertBefore(trigger, topbar.children[1] || null);
+
+    var panel = document.createElement('div');
+    panel.className = 'prefs-panel';
+    panel.id = 'prefs-panel';
+    var prefs = [
+      {key:'sparklines', label:'Show Sparklines', def:true},
+      {key:'animations', label:'Animations', def:true},
+      {key:'changeFeed', label:'Change Feed', def:true},
+      {key:'fatigueInd', label:'Cognitive Load', def:true},
+      {key:'bloom', label:'Abnormal Bloom', def:true},
+      {key:'autoRefresh', label:'Auto-refresh (30s)', def:true}
+    ];
+    panel.innerHTML = '<div class="prefs-title">Display Preferences</div>' +
+      prefs.map(function(p) {
+        return '<div class="prefs-row"><span class="prefs-label">' + p.label + '</span>' +
+          '<div class="prefs-toggle' + (p.def?' on':'') + '" data-pref="' + p.key + '"></div></div>';
+      }).join('');
+    document.body.appendChild(panel);
+
+    trigger.addEventListener('click', function(e) {
+      e.stopPropagation();
+      panel.classList.toggle('open');
+    });
+    panel.addEventListener('click', function(e) {
+      var toggle = e.target.closest('.prefs-toggle');
+      if (toggle) {
+        toggle.classList.toggle('on');
+        var pref = toggle.getAttribute('data-pref');
+        var isOn = toggle.classList.contains('on');
+        // Apply preference
+        if (pref === 'animations') {
+          document.body.style.setProperty('--anim-duration', isOn ? '' : '0s');
+        } else if (pref === 'changeFeed') {
+          var cf = document.getElementById('change-feed-wrap');
+          if (cf) cf.style.display = isOn ? '' : 'none';
+        } else if (pref === 'fatigueInd') {
+          var fi = document.getElementById('fatigue-ind');
+          if (fi) fi.style.display = isOn ? '' : 'none';
+        } else if (pref === 'bloom') {
+          if (!isOn) document.querySelectorAll('.vital-bloom,.vital-bloom-warn').forEach(function(el) {
+            el.classList.remove('vital-bloom','vital-bloom-warn');
+          });
+        }
+      }
+    });
+    document.addEventListener('click', function() { panel.classList.remove('open'); });
+  }
+  setTimeout(injectPrefsPanel, 3500);
+
+  // ─── SOP Library in Settings ───
+  function injectSOPLibrary() {
+    var settingsSection = document.querySelector('section[data-page="settings"]');
+    if (!settingsSection || document.getElementById('sop-library-wrap')) return;
+
+    var wrap = document.createElement('div');
+    wrap.id = 'sop-library-wrap';
+    wrap.style.cssText = 'margin-top:20px;padding:20px;background:var(--bg-card);border:1px solid var(--border-light);border-radius:var(--card-radius);';
+
+    var sops = [
+      {id:'SOP-001', title:'High Pressure Alarm Response', tags:['Safety','P1'], steps:['Verify pressure reading on local gauge','Check upstream valve position','Reduce compressor speed by 10%','If pressure continues rising, initiate ESD sequence','Notify shift supervisor and log event']},
+      {id:'SOP-002', title:'Communication Loss Recovery', tags:['Comms','P2'], steps:['Check RTU power status via backup channel','Verify radio link signal strength','Attempt manual poll from SCADA host','If no response in 5 min, dispatch field technician','Switch to backup communication path if available']},
+      {id:'SOP-003', title:'Gas Detection Alarm', tags:['Safety','P1'], steps:['Evacuate personnel from affected area','Verify detector reading (cross-check with portable)','Identify potential source (valve, fitting, vessel)','Initiate isolation procedure per site plan','Contact HSE coordinator and emergency services if LEL >25%']},
+      {id:'SOP-004', title:'Flow Measurement Discrepancy', tags:['Measurement','P3'], steps:['Compare primary and secondary measurement','Check differential pressure transmitter calibration date','Verify EFM configuration parameters','Run comparison report for last 24 hours','Schedule recalibration if deviation >0.5%']},
+      {id:'SOP-005', title:'Cybersecurity Incident Response', tags:['Security','P1'], steps:['Isolate affected network segment','Capture forensic logs from affected devices','Notify IT security team and OT manager','Assess impact on safety systems','Follow NIST SP 800-61 incident handling procedures']},
+    ];
+
+    wrap.innerHTML = '<div style="font-size:10px;font-weight:600;color:var(--text-faint);letter-spacing:0.8px;text-transform:uppercase;margin-bottom:12px;">SOP LIBRARY</div>' +
+      '<div class="sop-library">' + sops.map(function(s) {
+        return '<div class="sop-card" data-sop="' + s.id + '"><div class="sop-card-title">' + s.id + ': ' + s.title + '</div>' +
+          '<div class="sop-card-meta"><span>' + s.steps.length + ' steps</span>' +
+          s.tags.map(function(t){ return '<span class="sop-tag">' + t + '</span>'; }).join('') +
+          '</div></div>';
+      }).join('') + '</div>';
+    settingsSection.appendChild(wrap);
+
+    // SOP Detail Panel
+    var detail = document.createElement('div');
+    detail.id = 'sop-detail';
+    detail.className = 'sop-detail-panel';
+    document.body.appendChild(detail);
+
+    wrap.addEventListener('click', function(e) {
+      var card = e.target.closest('.sop-card');
+      if (!card) return;
+      var sopId = card.getAttribute('data-sop');
+      var sop = sops.find(function(s){ return s.id === sopId; });
+      if (!sop) return;
+      detail.innerHTML = '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">' +
+        '<div><div style="font-size:13px;font-weight:700;color:var(--text-primary);">' + sop.title + '</div>' +
+        '<div style="font-size:10px;color:var(--text-faint);margin-top:2px;">' + sop.id + ' | ' + sop.tags.join(', ') + '</div></div>' +
+        '<div style="cursor:pointer;color:var(--text-faint);font-size:18px;" id="sop-close">&times;</div></div>' +
+        '<div>' + sop.steps.map(function(step, i) {
+          return '<div class="sop-step"><span class="sop-step-num">' + (i+1) + '.</span> ' + step + '</div>';
+        }).join('') + '</div>';
+      detail.classList.add('open');
+      document.getElementById('sop-close').addEventListener('click', function() { detail.classList.remove('open'); });
+    });
+    document.addEventListener('keydown', function(e) { if (e.key === 'Escape') detail.classList.remove('open'); });
+  }
+  setTimeout(injectSOPLibrary, 5000);
+
+  // ─── Change Management Log on Settings Page ───
+  function injectChangeLog() {
+    var settingsSection = document.querySelector('section[data-page="settings"]');
+    if (!settingsSection || document.getElementById('change-log-wrap')) return;
+
+    var wrap = document.createElement('div');
+    wrap.id = 'change-log-wrap';
+    wrap.style.cssText = 'margin-top:20px;padding:20px;background:var(--bg-card);border:1px solid var(--border-light);border-radius:var(--card-radius);';
+
+    var changes = [
+      {date:'2026-05-12 08:30', type:'config', typeLabel:'Config', who:'D. Spencer', desc:'Updated alarm priority P2→P1 for RAD-02 signal loss', asset:'RAD-02'},
+      {date:'2026-05-12 06:15', type:'setpoint', typeLabel:'Setpoint', who:'System', desc:'AI-recommended flow setpoint adjustment 3.2→3.4 MCFD', asset:'EFM-01'},
+      {date:'2026-05-11 22:00', type:'firmware', typeLabel:'Firmware', who:'J. Wilson', desc:'RTU firmware update v2.1.4→v2.1.5 (security patch)', asset:'RTU-01'},
+      {date:'2026-05-11 16:45', type:'network', typeLabel:'Network', who:'D. Spencer', desc:'Added backup radio path for RTR-01', asset:'RTR-01'},
+      {date:'2026-05-11 14:20', type:'config', typeLabel:'Config', who:'System', desc:'Auto-tuned PID parameters for compressor control', asset:'PLC-01'},
+      {date:'2026-05-11 09:00', type:'setpoint', typeLabel:'Setpoint', who:'D. Spencer', desc:'Pressure high alarm setpoint 850→825 PSI', asset:'RTU-01'},
+    ];
+
+    wrap.innerHTML = '<div style="font-size:10px;font-weight:600;color:var(--text-faint);letter-spacing:0.8px;text-transform:uppercase;margin-bottom:12px;">CHANGE MANAGEMENT LOG</div>' +
+      '<table class="change-log-table"><thead><tr><th>Date</th><th>Type</th><th>Asset</th><th>Description</th><th>By</th></tr></thead><tbody>' +
+      changes.map(function(c) {
+        return '<tr><td style="font-family:var(--font-mono);white-space:nowrap;font-size:9px;">' + c.date + '</td>' +
+          '<td><span class="change-type change-type-' + c.type + '">' + c.typeLabel + '</span></td>' +
+          '<td style="font-weight:600;">' + c.asset + '</td>' +
+          '<td>' + c.desc + '</td>' +
+          '<td style="white-space:nowrap;">' + c.who + '</td></tr>';
+      }).join('') + '</tbody></table>';
+    settingsSection.appendChild(wrap);
+  }
+  setTimeout(injectChangeLog, 5500);
+
 })();
 </script>
 

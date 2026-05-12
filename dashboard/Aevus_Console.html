@@ -1748,6 +1748,76 @@ body.light-theme .sidebar { background: #FFFFFF !important; border-right-color: 
 .conduit-meta { color: var(--text-faint); font-size: 9px; }
 .conduit-factors { display: flex; gap: 6px; font-size: 8px; color: var(--text-faint); font-family: var(--font-mono); }
 
+
+/* ── Fix: Historian Select Dropdowns ── */
+#hist-asset, #hist-metric, #hist-range {
+  -webkit-appearance: menulist !important;
+  appearance: menulist !important;
+  background-color: #1A2238 !important;
+  color: #FFFFFF !important;
+  border: 1px solid rgba(148,163,184,0.2) !important;
+  border-radius: 6px !important;
+  padding: 6px 28px 6px 10px !important;
+  font-size: 11px !important;
+  font-family: var(--font-body) !important;
+  cursor: pointer !important;
+  min-width: 160px !important;
+  position: relative !important;
+  z-index: 10 !important;
+}
+#hist-asset:focus, #hist-metric:focus, #hist-range:focus {
+  outline: 2px solid var(--accent) !important;
+  outline-offset: -1px !important;
+  border-color: var(--accent) !important;
+}
+#hist-asset option, #hist-metric option, #hist-range option {
+  background-color: #1A2238 !important;
+  color: #FFFFFF !important;
+  padding: 8px 10px !important;
+  font-size: 12px !important;
+}
+#hist-asset option:checked, #hist-metric option:checked, #hist-range option:checked {
+  background-color: #0E7490 !important;
+  color: #FFFFFF !important;
+}
+#hist-asset option:hover, #hist-metric option:hover, #hist-range option:hover {
+  background-color: rgba(6,182,212,0.2) !important;
+}
+/* Also fix any generic select in the historian section */
+section[data-page="historian"] select {
+  -webkit-appearance: menulist !important;
+  appearance: menulist !important;
+  background-color: #1A2238 !important;
+  color: #FFFFFF !important;
+  border: 1px solid rgba(148,163,184,0.2) !important;
+  border-radius: 6px !important;
+  padding: 6px 28px 6px 10px !important;
+  cursor: pointer !important;
+  position: relative !important;
+  z-index: 10 !important;
+}
+section[data-page="historian"] select option {
+  background-color: #1A2238 !important;
+  color: #FFFFFF !important;
+  padding: 8px !important;
+}
+
+
+/* ── Fix: Drawer overlay should be display:none when inactive ── */
+.drawer-overlay {
+  display: none !important;
+  pointer-events: none !important;
+}
+.drawer-overlay.active {
+  display: block !important;
+  pointer-events: auto !important;
+}
+/* ── Fix: Historian selects above any overlays ── */
+.hist-query-bar {
+  position: relative !important;
+  z-index: 300 !important;
+}
+
 </style>
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
@@ -3718,6 +3788,21 @@ body.light-theme .sidebar { background: #FFFFFF !important; border-right-color: 
   }
   setInterval(function(){ injectConduitRiskScoring(); }, 5500);
 
+})();
+</script>
+
+
+<!-- ── Fix: Hide drawer overlay on page change ── -->
+<script>
+(function(){
+  function hideOverlay() {
+    var ov = document.getElementById('drawer-overlay');
+    if (ov && !ov.classList.contains('active')) {
+      ov.style.display = 'none';
+    }
+  }
+  setInterval(hideOverlay, 2000);
+  window.addEventListener('hashchange', hideOverlay);
 })();
 </script>
 

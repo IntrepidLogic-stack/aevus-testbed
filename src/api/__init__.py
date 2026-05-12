@@ -15,6 +15,7 @@ from src.api.ws import router as ws_router
 from src.api.ingest import router as ingest_router
 from src.api.notes import router as notes_router
 from src.api.notes import journal_router
+from src.api.ping_diag import router as ping_diag_router
 
 __all__ = [
     "assets_router",
@@ -32,4 +33,5 @@ __all__ = [
     "ws_router",
     "notes_router",
     "journal_router",
+    "ping_diag_router",
 ]

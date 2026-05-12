@@ -1115,7 +1115,7 @@
       linkEl.innerHTML =
         '<span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:' + (bothLinked ? 'var(--status-good)' : 'var(--status-bad)') + ';animation:' + (bothLinked ? 'wxPulse 2s infinite' : 'none') + ';"></span>' +
         '<span style="font-size:13px;font-weight:700;color:' + (bothLinked ? 'var(--status-good)' : 'var(--status-bad)') + ';">' + (bothLinked ? 'LINKED' : 'NO LINK') + '</span>' +
-        '<span style="font-size:11px;color:var(--text-muted);margin-left:12px;">Network: <span style="color:var(--accent);font-weight:600;">killdeer</span></span>' +
+        '<span style="font-size:11px;color:var(--text-muted);margin-left:12px;">Network: <span style="color:var(--accent);font-weight:600;">needville</span></span>' +
         '<span style="font-size:11px;color:var(--text-muted);margin-left:12px;">Band: <span style="color:var(--text-primary);">900 MHz</span></span>' +
         '<span style="font-size:11px;color:var(--text-muted);margin-left:12px;">Mode: <span style="color:var(--text-primary);">AP ↔ Remote</span></span>';
 
@@ -3071,7 +3071,7 @@
       let lat = asset.latitude;
       let lng = asset.longitude;
 
-      // Placeholder coordinates around Killdeer, ND if no GPS
+      // Placeholder coordinates around Needville, TX if no GPS
       if (lat == null || lng == null) {
         const angle = (idx / liveAssets.length) * 2 * Math.PI;
         const r = 0.005 + (idx * 0.002);

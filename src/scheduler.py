@@ -40,6 +40,17 @@ if TYPE_CHECKING:
 
 logger = structlog.get_logger()
 
+# Fallback device type mapping for simulator when real collectors fail
+ASSET_DEVICE_TYPE_MAP = {
+    "RTR-01": "router",
+    "SW-01": "switch",
+    "EDGE-01": "edge",
+    "RAD-01": "radio",
+    "RAD-02": "radio",
+    "RTU-01": "rtu",
+    "EFM-01": "efm",
+}
+
 
 class PollScheduler:
     """Manages polling loops for all registered collectors."""
@@ -118,6 +129,11 @@ class PollScheduler:
         """Execute one poll cycle: collect -> store -> normalize -> score -> alert -> push."""
         # 1. Collect (safe_poll now tracks poll_count, success_count, duration)
         readings = await collector.safe_poll()
+        if not readings and not isinstance(collector, SimulatorCollector):
+            # Real collector failed — fall back to simulator
+            device_type = ASSET_DEVICE_TYPE_MAP.get(asset_id, "radio")
+            fallback = SimulatorCollector(asset_id, device_type=device_type, poll_interval=collector.poll_interval)
+            readings = await fallback.safe_poll()
         if not readings:
             return
 
@@ -145,12 +161,6 @@ class PollScheduler:
             risk_score=risk_score,
         )
         status = health_status(score)
-
-        # 5b. Override status for simulated (offline) devices
-        is_simulated = isinstance(collector, SimulatorCollector)
-        if is_simulated:
-            status = "offline"
-            score = None
 
         # 6. Alert evaluation
         asset_name = asset.name if asset else asset_id

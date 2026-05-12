@@ -22,6 +22,9 @@ HOST_RESOURCE_OIDS = {
     "mem_total": "1.3.6.1.4.1.2021.4.5.0",
     "mem_avail": "1.3.6.1.4.1.2021.4.6.0",
     "cpu_idle": "1.3.6.1.4.1.2021.11.11.0",
+    "disk_percent": "1.3.6.1.4.1.2021.9.1.9.1",
+    "cpu_temp": "1.3.6.1.4.1.2021.13.16.1.3.1",
+    "process_count": "1.3.6.1.2.1.25.1.6.0",
 }
 
 
@@ -51,6 +54,7 @@ class SNMPEdgeCollector(BaseCollector):
                         unit="%",
                         source="snmp",
                         oid=HOST_RESOURCE_OIDS["cpu_idle"],
+                        group="system",
                     )
                 )
             except (ValueError, TypeError):
@@ -67,6 +71,7 @@ class SNMPEdgeCollector(BaseCollector):
                         unit="",
                         source="snmp",
                         oid=HOST_RESOURCE_OIDS["cpu_load_1min"],
+                        group="system",
                     )
                 )
             except (ValueError, TypeError):
@@ -83,6 +88,7 @@ class SNMPEdgeCollector(BaseCollector):
                         unit="",
                         source="snmp",
                         oid=HOST_RESOURCE_OIDS["cpu_load_5min"],
+                        group="system",
                     )
                 )
             except (ValueError, TypeError):
@@ -99,14 +105,66 @@ class SNMPEdgeCollector(BaseCollector):
                     pct = ((total - avail) / total) * 100
                     readings.append(
                         self._make_reading(
-                            metric="memory_usage",
+                            metric="memory_used",
                             value=round(pct, 1),
                             unit="%",
                             source="snmp",
+                            group="system",
                         )
                     )
             except (ValueError, TypeError):
                 self.log.debug("mem_parse_error", total=mem_total, avail=mem_avail)
+
+        # Disk usage
+        disk_pct = await self._snmp_get(HOST_RESOURCE_OIDS["disk_percent"])
+        if disk_pct is not None:
+            try:
+                readings.append(
+                    self._make_reading(
+                        metric="disk_used",
+                        value=float(disk_pct),
+                        unit="%",
+                        source="snmp",
+                        oid=HOST_RESOURCE_OIDS["disk_percent"],
+                        group="system",
+                    )
+                )
+            except (ValueError, TypeError):
+                self.log.debug("disk_parse_error", raw=disk_pct)
+
+        # CPU temperature (may not be available on all Pis)
+        cpu_temp = await self._snmp_get(HOST_RESOURCE_OIDS["cpu_temp"])
+        if cpu_temp is not None:
+            try:
+                readings.append(
+                    self._make_reading(
+                        metric="cpu_temp",
+                        value=float(cpu_temp),
+                        unit="°C",
+                        source="snmp",
+                        oid=HOST_RESOURCE_OIDS["cpu_temp"],
+                        group="environment",
+                    )
+                )
+            except (ValueError, TypeError):
+                self.log.debug("cpu_temp_parse_error", raw=cpu_temp)
+
+        # Total processes
+        proc_count = await self._snmp_get(HOST_RESOURCE_OIDS["process_count"])
+        if proc_count is not None:
+            try:
+                readings.append(
+                    self._make_reading(
+                        metric="process_count",
+                        value=float(proc_count),
+                        unit="count",
+                        source="snmp",
+                        oid=HOST_RESOURCE_OIDS["process_count"],
+                        group="system",
+                    )
+                )
+            except (ValueError, TypeError):
+                self.log.debug("proc_count_parse_error", raw=proc_count)
 
         # Uptime — handle multiple formats
         uptime_raw = await self._snmp_get(SYSTEM_OIDS["sys_uptime"])
@@ -128,11 +186,12 @@ class SNMPEdgeCollector(BaseCollector):
                 hours = ticks / 360000.0
                 readings.append(
                     self._make_reading(
-                        metric="uptime",
+                        metric="uptime_hours",
                         value=round(hours, 2),
                         unit="hrs",
                         source="snmp",
                         oid=SYSTEM_OIDS["sys_uptime"],
+                        group="system",
                     )
                 )
             except (ValueError, IndexError, TypeError):

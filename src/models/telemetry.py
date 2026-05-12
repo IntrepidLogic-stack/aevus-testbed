@@ -17,6 +17,7 @@ class VitalSign(BaseModel):
     unit: str  # "dBm", "PSI", "MCFD", "%"
     status: str = ""  # "good", "warn", "bad", or ""
     group: str = ""  # compressor, well, production, safety, power, etc.
+    source: str = ""  # "snmp", "modbus", "dnp3", "simulator"
 
 
 class RawTelemetry(BaseModel):

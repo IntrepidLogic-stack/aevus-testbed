@@ -327,7 +327,9 @@ THRESHOLD_MAP: dict[str, dict] = {
         "fmt": "{:.0f}",
     },
     "memory_usage": {
-        "direction": "info",
+        "direction": "upper_bad",
+        "warn": 80.0,
+        "crit": 95.0,
         "label": "MEMORY",
         "fmt": "{:.0f}",
     },
@@ -354,6 +356,93 @@ THRESHOLD_MAP: dict[str, dict] = {
         "crit": settings.threshold_if_errors_crit,
         "label": "TX ERRORS",
         "fmt": "{:,.0f}",
+    },
+    # --- Edge (Raspberry Pi) ---
+    "disk_used": {
+        "direction": "upper_bad",
+        "warn": 80.0,
+        "crit": 95.0,
+        "label": "DISK USAGE",
+        "fmt": "{:.0f}",
+    },
+    "cpu_temp": {
+        "direction": "upper_bad",
+        "warn": 70.0,
+        "crit": 80.0,
+        "label": "CPU TEMP",
+        "fmt": "{:.1f}",
+    },
+    "memory_used": {
+        "direction": "upper_bad",
+        "warn": 80.0,
+        "crit": 95.0,
+        "label": "MEMORY USED",
+        "fmt": "{:.0f}",
+    },
+    "process_count": {
+        "direction": "info",
+        "label": "PROCESSES",
+        "fmt": "{:.0f}",
+    },
+    "uptime_hours": {
+        "direction": "info",
+        "label": "UPTIME",
+        "fmt": "{:,.0f}",
+    },
+    "load_avg_1m": {
+        "direction": "upper_bad",
+        "warn": 2.0,
+        "crit": 4.0,
+        "label": "LOAD AVG 1M",
+        "fmt": "{:.2f}",
+    },
+    "load_avg_5m": {
+        "direction": "upper_bad",
+        "warn": 2.0,
+        "crit": 4.0,
+        "label": "LOAD AVG 5M",
+        "fmt": "{:.2f}",
+    },
+    "uptime": {
+        "direction": "info",
+        "label": "UPTIME",
+        "fmt": "{:,.1f}",
+    },
+    # --- Radio (Trio JR900) missing entries ---
+    "signal_quality": {
+        "direction": "lower_bad",
+        "warn": 50.0,
+        "crit": 25.0,
+        "label": "SIGNAL QUALITY",
+        "fmt": "{:.0f}",
+    },
+    "link_state": {
+        "direction": "bool_bad",
+        "label": "LINK STATE",
+        "fmt": "{}",
+    },
+    "tx_error": {
+        "direction": "info",
+        "label": "TX ERRORS",
+        "fmt": "{:,.0f}",
+    },
+    "rx_error": {
+        "direction": "info",
+        "label": "RX ERRORS",
+        "fmt": "{:,.0f}",
+    },
+    "rx_dropped": {
+        "direction": "info",
+        "label": "RX DROPPED",
+        "fmt": "{:,.0f}",
+    },
+    # --- Switch (Cisco) ---
+    "cpu_load_1min": {
+        "direction": "upper_bad",
+        "warn": 70.0,
+        "crit": 90.0,
+        "label": "CPU LOAD 1MIN",
+        "fmt": "{:.0f}",
     },
 }
 
@@ -395,6 +484,20 @@ def normalize_reading(reading: RawTelemetry) -> VitalSign:
 
     if spec is None:
         # Unknown metric -- pass through with no status
+        # Check for interface oper_status metrics (dynamic per-interface)
+        if reading.metric.endswith("_oper_status"):
+            is_up = reading.value == 1.0
+            iface_label = reading.metric.replace("_oper_status", "").replace("_", " ").strip('"').upper()
+            return VitalSign(
+                label=iface_label,
+                value="UP" if is_up else "DOWN",
+                raw_value=reading.value,
+                unit="",
+                status="good" if is_up else "bad",
+                group=reading.group or "traffic",
+                source=reading.source,
+            )
+
         return VitalSign(
             label=reading.metric.upper().replace("_", " "),
             value=f"{reading.value} {reading.unit}",
@@ -402,6 +505,7 @@ def normalize_reading(reading: RawTelemetry) -> VitalSign:
             unit=reading.unit,
             status="",
             group=reading.group,
+            source=reading.source,
         )
 
     # Format display value
@@ -416,6 +520,8 @@ def normalize_reading(reading: RawTelemetry) -> VitalSign:
         display = "LOADED" if reading.value >= 1.0 else "UNLOADED"
     elif reading.metric == "flare_active":
         display = "LIT" if reading.value >= 1.0 else "OUT"
+    elif reading.metric == "link_state":
+        display = "LINKED" if reading.value >= 1.0 else "DOWN"
     else:
         try:
             display = f"{fmt.format(reading.value)} {reading.unit}"
@@ -436,6 +542,7 @@ def normalize_reading(reading: RawTelemetry) -> VitalSign:
         unit=reading.unit,
         status=status,
         group=reading.group,
+        source=reading.source,
     )
 
 

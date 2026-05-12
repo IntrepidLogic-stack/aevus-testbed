@@ -1125,6 +1125,12 @@ body.wall-mode::after {
   z-index: 9999; pointer-events: none;
 }
 
+
+/* ── Stale Data Banner ── */
+#stale-data-banner { animation: pulse-warn 2s ease-in-out infinite; }
+@keyframes pulse-warn { 0%,100% { opacity: 1; } 50% { opacity: 0.7; } }
+body.wall-mode #stale-data-banner { left: 0 !important; top: 0 !important; }
+
 </style>
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
@@ -1248,7 +1254,7 @@ body.wall-mode::after {
 <!-- ━━━ PAGE: OVERVIEW ━━━ -->
 <section class="page-section active" data-page="overview">
   <div class="kpi-strip">
-    <div class="kpi-tile"><div class="kpi-label">Assets Monitored</div><div class="kpi-value" id="kpi-assets">—</div><div class="kpi-sub">Live polling active</div></div>
+    <div class="kpi-tile"><div class="kpi-label">Oil Production</div><div class="kpi-value" id="kpi-assets">—</div><div class="kpi-sub">BOPD · live metering</div></div>
     <div class="kpi-tile"><div class="kpi-label">Health Score</div><div class="kpi-value" id="kpi-health">—</div><div class="kpi-sub">Fleet average</div></div>
     <div class="kpi-tile"><div class="kpi-label">Predicted Failures</div><div class="kpi-value" id="kpi-predictions">0</div><div class="kpi-sub">Next 72 hours</div></div>
     <div class="kpi-tile"><div class="kpi-label">Active Alerts</div><div class="kpi-value" id="kpi-alerts">—</div><div class="kpi-alert-breakdown" id="kpi-alert-breakdown"></div></div>
@@ -1264,7 +1270,8 @@ body.wall-mode::after {
   <div id="scada-process-grid" class="scada-grid" style="display:none"></div>
   <div id="scada-comm-panel" class="process-panel" style="display:none"></div>
   <div class="two-col">
-    <div class="panel-box"><div class="panel-title">Active Alerts</div><div id="alert-list"></div></div>
+    <div class="panel-box"><div class="panel-title">Active Alerts</div><div id="shift-summary" style="display:none;margin-bottom:20px;"></div>
+    <div id="alert-list"></div></div>
     <div class="panel-box"><div class="panel-title">AI Predictions</div><div id="predictions-list"></div></div>
   </div>
 </section>

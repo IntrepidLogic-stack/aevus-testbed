@@ -4070,8 +4070,8 @@ document.addEventListener('click', function(e) {
   function renderNetworkPage() {
     var page = document.getElementById('network-page');
     if (!page) return;
-    // Skip full rebuild if already rendered
-    if (page.querySelector('.module-header')) return;
+    // Skip full rebuild if already rendered (network-specific check)
+    if (page.querySelector('.page-title')) return;
 
     function nodeColor(assetId) {
       var a = (liveAssets||[]).find(function(x){return x.id===assetId;});
@@ -4180,8 +4180,8 @@ document.addEventListener('click', function(e) {
   function renderMapPage() {
     var page = document.querySelector('section[data-page="map"]');
     if (!page) return;
-    // Skip rebuild if map already loaded
-    if (document.getElementById('aevus-map')) return;
+    // Skip rebuild if map already initialized (not just div exists)
+    if (window._aevusMapLoaded) return;
     page.style.position='relative';page.style.minHeight='calc(100vh - 60px)';page.style.overflow='hidden';
 
     page.innerHTML =
@@ -4203,6 +4203,7 @@ document.addEventListener('click', function(e) {
   }
 
   function initAevusMap() {
+    window._aevusMapLoaded = true;
     mapboxgl.accessToken = 'pk.eyJ1Ijoid29vZHlpbCIsImEiOiJjbWR4eW5keTUwOTlvMmxxMXo1aGljdWdyIn0.f4ud1cQ6mf-oNM69iY6fEg';
     var map = new mapboxgl.Map({
       container: 'aevus-map',

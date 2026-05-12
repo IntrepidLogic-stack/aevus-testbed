@@ -11,6 +11,19 @@ window.aevusLogout = function() {
 };
 
 // Tab badge — show alert count in browser tab title
+// Wall mode button injector
+document.addEventListener('DOMContentLoaded', function() {
+  var tr = document.querySelector('.topbar-right');
+  if (tr) {
+    var btn = document.createElement('button');
+    btn.className = 'module-btn';
+    btn.style.cssText = 'padding:4px 10px;font-size:10px;margin-right:4px;';
+    btn.innerHTML = '<svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="1.8" style="vertical-align:middle;margin-right:3px;"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>Wall';
+    btn.onclick = function(){ window.toggleWallMode(); };
+    tr.insertBefore(btn, tr.firstChild);
+  }
+});
+
 window.updateTabBadge = function(count) {
   var base = 'Aevus — Killdeer Field';
   document.title = count > 0 ? 'Aevus (' + count + ') — Killdeer Field' : base;
@@ -151,6 +164,50 @@ document.addEventListener('click', function(e) {
 
   let ws = null, pollTimer = null;
   let liveAssets = [], liveAlerts = [], healthSummary = {}, predictions = [];
+
+  // Board audit #3: Wall Display / Control Room mode
+  var wallMode = false;
+  var wallCycleTimer = null;
+  var wallPages = ['overview','alarms','health'];
+  var wallPageIndex = 0;
+
+  window.toggleWallMode = function() {
+    wallMode = !wallMode;
+    document.body.classList.toggle('wall-mode', wallMode);
+    if (wallMode) {
+      // Enter wall display mode
+      if (document.documentElement.requestFullscreen) document.documentElement.requestFullscreen();
+      wallPageIndex = 0;
+      navigateTo(wallPages[0]);
+      wallCycleTimer = setInterval(function() {
+        wallPageIndex = (wallPageIndex + 1) % wallPages.length;
+        navigateTo(wallPages[wallPageIndex]);
+      }, 30000);
+    } else {
+      // Exit wall display mode
+      if (document.exitFullscreen) document.exitFullscreen();
+      if (wallCycleTimer) { clearInterval(wallCycleTimer); wallCycleTimer = null; }
+    }
+  };
+
+  // F11 key toggles wall mode
+  document.addEventListener('keydown', function(e) {
+    if (e.key === 'F11') {
+      e.preventDefault();
+      window.toggleWallMode();
+    }
+  });
+
+  // Exit wall mode when leaving fullscreen
+  document.addEventListener('fullscreenchange', function() {
+    if (!document.fullscreenElement && wallMode) {
+      wallMode = false;
+      document.body.classList.remove('wall-mode');
+      if (wallCycleTimer) { clearInterval(wallCycleTimer); wallCycleTimer = null; }
+    }
+  });
+
+
   let trendData = [], currentTrendMetric = 'cpu_load';
   let weatherData = null, correlations = [], commandLog = [];
   let forecastData = null;
@@ -285,6 +342,7 @@ document.addEventListener('click', function(e) {
     renderWeatherStrip();
     renderCorrelationsOverview();
     renderFleetStrip();
+    renderProcessSchematic();
     renderProcessPanels();
     renderCommTable();
     renderLiveAlerts();
@@ -322,6 +380,17 @@ document.addEventListener('click', function(e) {
     }).join('');
   }
 
+
+  // Board audit #2: SIM vs LIVE data source badge
+  function dataSourceBadge(a) {
+    var isLive = a.ip_address && a.ip_address.indexOf('127.') !== 0 && a.ip_address !== 'localhost';
+    if (isLive) {
+      return '<span style="font-size:8px;padding:1px 5px;border-radius:3px;background:rgba(16,212,120,0.12);color:#10D478;font-weight:600;letter-spacing:0.5px;margin-left:6px;">LIVE</span>';
+    } else {
+      return '<span style="font-size:8px;padding:1px 5px;border-radius:3px;background:rgba(167,139,250,0.12);color:#A78BFA;font-weight:600;letter-spacing:0.5px;margin-left:6px;">SIM</span>';
+    }
+  }
+
   const protocolMap = { snmp: 'SNMP v2c', modbus: 'Modbus TCP', simulator: 'Simulator' };
 
   function renderFleetStrip() {
@@ -331,11 +400,110 @@ document.addEventListener('click', function(e) {
     el.innerHTML = liveAssets.map(a => {
       const hc = hClass(a.status, a.health);
       return `<div class="fleet-card" onclick="window.openAssetDrawer('${a.id}')">
-        <div class="fc-header"><div><div class="fc-name">${a.name}</div><div class="fc-id">${a.id} · ${a.vendor||''} ${a.model||''}</div></div><div class="fc-health ${hc}">${a.health!=null?a.health:'—'}</div></div>
+        <div class="fc-header"><div><div class="fc-name">${a.name}${dataSourceBadge(a)}</div><div class="fc-id">${a.id} · ${a.vendor||''} ${a.model||''}</div></div><div class="fc-health ${hc}">${a.health!=null?a.health:'—'}</div></div>
         <div class="fc-status"><span class="fc-dot ${hc}"></span><span class="fc-status-text">${a.status||'unknown'}</span><span class="fc-meta">· ${timeAgo(a.last_seen)}</span></div>
         <div><span class="fc-protocol">${protocolMap[a.protocol]||a.protocol||'—'}</span><span class="fc-meta" style="margin-left:6px;">${a.ip_address||''}</span></div>
       </div>`;
     }).join('');
+  }
+
+
+
+  // Board audit #1: Simplified P&ID process schematic
+  function renderProcessSchematic() {
+    var el = document.getElementById('process-schematic');
+    if (!el) return;
+
+    // Extract key values from RTU assets
+    var efm = liveAssets.find(function(a){return a.id==='EFM-01';});
+    var rtu = liveAssets.find(function(a){return a.id==='RTU-01';});
+    var efmV = {}, rtuV = {};
+    if (efm && efm.vitals) efm.vitals.forEach(function(v){ efmV[v.label] = v; efmV[v.label.toUpperCase()] = v; });
+    if (rtu && rtu.vitals) rtu.vitals.forEach(function(v){ rtuV[v.label] = v; rtuV[v.label.toUpperCase()] = v; });
+
+    function val(obj, key, unit) {
+      var v = obj[key];
+      if (!v) return '—';
+      var n = parseFloat(v.raw_value);
+      return isNaN(n) ? '—' : (n % 1 === 0 ? n.toFixed(0) : n.toFixed(1)) + (unit||'');
+    }
+    function sc(obj, key) {
+      var v = obj[key];
+      if (!v) return '#7B8499';
+      return v.status === 'critical' ? '#EF4444' : v.status === 'warning' ? '#FBBF24' : '#7B8499';
+    }
+
+    el.style.display = 'block';
+    el.innerHTML = '<div class="pp-title" style="margin-bottom:12px;"><span class="live-dot"></span>PROCESS FLOW — KILLDEER FIELD</div>' +
+    '<svg viewBox="0 0 960 200" style="width:100%;height:auto;max-height:220px;" xmlns="http://www.w3.org/2000/svg">' +
+
+    // Flow lines (pipeline)
+    '<line x1="120" y1="100" x2="240" y2="100" stroke="#4A5168" stroke-width="3" stroke-dasharray="8,4"/>' +
+    '<line x1="340" y1="100" x2="460" y2="100" stroke="#4A5168" stroke-width="3" stroke-dasharray="8,4"/>' +
+    '<line x1="560" y1="100" x2="660" y2="100" stroke="#4A5168" stroke-width="3" stroke-dasharray="8,4"/>' +
+    '<line x1="760" y1="100" x2="860" y2="100" stroke="#4A5168" stroke-width="3" stroke-dasharray="8,4"/>' +
+
+    // Flow arrows
+    '<polygon points="238,94 248,100 238,106" fill="#4A5168"/>' +
+    '<polygon points="458,94 468,100 458,106" fill="#4A5168"/>' +
+    '<polygon points="658,94 668,100 658,106" fill="#4A5168"/>' +
+    '<polygon points="858,94 868,100 858,106" fill="#4A5168"/>' +
+
+    // WELLHEAD
+    '<rect x="20" y="60" width="100" height="80" rx="6" fill="none" stroke="#4A5168" stroke-width="1.5"/>' +
+    '<text x="70" y="52" text-anchor="middle" fill="#7B8499" font-size="9" font-family="var(--font-body)" letter-spacing="1">WELLHEAD</text>' +
+    '<text x="70" y="85" text-anchor="middle" fill="' + sc(rtuV,'TUBING PRESSURE') + '" font-size="13" font-family="var(--font-mono)" font-weight="600">' + val(rtuV,'TUBING PRESSURE',' PSI') + '</text>' +
+    '<text x="70" y="100" text-anchor="middle" fill="#7B8499" font-size="8">TBG PRESS</text>' +
+    '<text x="70" y="120" text-anchor="middle" fill="' + sc(rtuV,'CASING PRESSURE') + '" font-size="11" font-family="var(--font-mono)">' + val(rtuV,'CASING PRESSURE',' PSI') + '</text>' +
+    '<text x="70" y="132" text-anchor="middle" fill="#7B8499" font-size="8">CSG PRESS</text>' +
+
+    // SEPARATOR
+    '<rect x="250" y="55" width="90" height="90" rx="45" fill="none" stroke="#4A5168" stroke-width="1.5"/>' +
+    '<text x="295" y="47" text-anchor="middle" fill="#7B8499" font-size="9" font-family="var(--font-body)" letter-spacing="1">SEPARATOR</text>' +
+    '<text x="295" y="90" text-anchor="middle" fill="' + sc(rtuV,'SUCTION PRESSURE') + '" font-size="13" font-family="var(--font-mono)" font-weight="600">' + val(rtuV,'SUCTION PRESSURE',' PSI') + '</text>' +
+    '<text x="295" y="105" text-anchor="middle" fill="#7B8499" font-size="8">SUCT PRESS</text>' +
+    '<text x="295" y="122" text-anchor="middle" fill="' + sc(rtuV,'DISCHARGE PRESSURE') + '" font-size="10" font-family="var(--font-mono)">' + val(rtuV,'DISCHARGE PRESSURE',' PSI') + '</text>' +
+    '<text x="295" y="134" text-anchor="middle" fill="#7B8499" font-size="7">DISCH</text>' +
+
+    // COMPRESSOR
+    '<rect x="470" y="60" width="90" height="80" rx="6" fill="none" stroke="#4A5168" stroke-width="1.5"/>' +
+    '<text x="515" y="52" text-anchor="middle" fill="#7B8499" font-size="9" font-family="var(--font-body)" letter-spacing="1">COMPRESSOR</text>' +
+    '<text x="515" y="85" text-anchor="middle" fill="' + sc(rtuV,'COMPRESSOR RPM') + '" font-size="13" font-family="var(--font-mono)" font-weight="600">' + val(rtuV,'COMPRESSOR RPM',' RPM') + '</text>' +
+    '<text x="515" y="100" text-anchor="middle" fill="#7B8499" font-size="8">SPEED</text>' +
+    '<text x="515" y="118" text-anchor="middle" fill="' + sc(rtuV,'GAS TEMP') + '" font-size="11" font-family="var(--font-mono)">' + val(rtuV,'GAS TEMP','°F') + '</text>' +
+    '<text x="515" y="130" text-anchor="middle" fill="' + sc(rtuV,'GAS TEMP') + '" font-size="8">GAS TEMP</text>' +
+
+    // TANKS
+    '<rect x="670" y="55" width="90" height="90" rx="6" fill="none" stroke="#4A5168" stroke-width="1.5"/>' +
+    // Tank fill level
+    '<rect x="672" y="' + (143 - Math.min(86, (parseFloat((rtuV['Oil Tank Level']||{}).raw_value)||50)/100*86)).toFixed(0) + '" width="86" height="' + Math.min(86, (parseFloat((rtuV['Oil Tank Level']||{}).raw_value)||50)/100*86).toFixed(0) + '" rx="4" fill="rgba(6,182,212,0.08)"/>' +
+    '<text x="715" y="47" text-anchor="middle" fill="#7B8499" font-size="9" font-family="var(--font-body)" letter-spacing="1">TANK FARM</text>' +
+    '<text x="715" y="90" text-anchor="middle" fill="#B4BCD0" font-size="13" font-family="var(--font-mono)" font-weight="600">' + val(rtuV,'OIL TANK LEVEL','%') + '</text>' +
+    '<text x="715" y="105" text-anchor="middle" fill="#7B8499" font-size="8">OIL LEVEL</text>' +
+    '<text x="715" y="122" text-anchor="middle" fill="#B4BCD0" font-size="10" font-family="var(--font-mono)">' + val(rtuV,'WATER TANK LEVEL','%') + '</text>' +
+    '<text x="715" y="134" text-anchor="middle" fill="#7B8499" font-size="7">WATER</text>' +
+
+    // METERING (EFM)
+    '<rect x="870" y="60" width="80" height="80" rx="6" fill="none" stroke="#4A5168" stroke-width="1.5"/>' +
+    '<text x="910" y="52" text-anchor="middle" fill="#7B8499" font-size="9" font-family="var(--font-body)" letter-spacing="1">METERING</text>' +
+    '<text x="910" y="85" text-anchor="middle" fill="#B4BCD0" font-size="13" font-family="var(--font-mono)" font-weight="600">' + val(efmV,'FLOW RATE',' MCFD') + '</text>' +
+    '<text x="910" y="100" text-anchor="middle" fill="#7B8499" font-size="8">FLOW RATE</text>' +
+    '<text x="910" y="118" text-anchor="middle" fill="#B4BCD0" font-size="10" font-family="var(--font-mono)">' + val(efmV,'ACCUMULATED VOLUME',' MCF') + '</text>' +
+    '<text x="910" y="130" text-anchor="middle" fill="#7B8499" font-size="7">ACCUM VOL</text>' +
+
+    // Safety indicators at bottom
+    '<rect x="20" y="165" width="180" height="28" rx="4" fill="rgba(239,68,68,0.06)" stroke="rgba(239,68,68,0.15)" stroke-width="1"/>' +
+    '<text x="30" y="183" fill="#EF4444" font-size="8" font-family="var(--font-body)" letter-spacing="0.5">SAFETY</text>' +
+    '<text x="80" y="183" fill="' + sc(rtuV,'H2S') + '" font-size="10" font-family="var(--font-mono)">H2S: ' + val(rtuV,'H2S',' PPM') + '</text>' +
+    '<text x="150" y="183" fill="' + sc(rtuV,'LEL') + '" font-size="10" font-family="var(--font-mono)">LEL: ' + val(rtuV,'LEL','%') + '</text>' +
+
+    // Production summary at bottom
+    '<rect x="220" y="165" width="200" height="28" rx="4" fill="rgba(6,182,212,0.06)" stroke="rgba(6,182,212,0.15)" stroke-width="1"/>' +
+    '<text x="230" y="183" fill="#06B6D4" font-size="8" font-family="var(--font-body)" letter-spacing="0.5">PRODUCTION</text>' +
+    '<text x="310" y="183" fill="#B4BCD0" font-size="10" font-family="var(--font-mono)">' + val(rtuV,'OIL PRODUCTION',' BOPD') + '</text>' +
+    '<text x="385" y="183" fill="#B4BCD0" font-size="10" font-family="var(--font-mono)">' + val(rtuV,'FLOW RATE',' MCFD') + '</text>' +
+
+    '</svg>';
   }
 
 
@@ -420,7 +588,7 @@ document.addEventListener('click', function(e) {
     for (const r of rtu) {
       const vitals = (r.vitals||[]).filter(v => v.unit !== 'bool');
       const disc = (r.vitals||[]).filter(v => v.unit === 'bool');
-      html += `<div class="process-panel"><div class="pp-title"><span class="live-dot"></span>${r.name} — PROCESS VALUES</div><div class="vitals-grid">${vitals.map(v => {
+      html += `<div class="process-panel"><div class="pp-title"><span class="live-dot"></span>${r.name}${dataSourceBadge(r)} — PROCESS VALUES</div><div class="vitals-grid">${vitals.map(v => {
         const n = parseFloat(v.raw_value); const dv = isNaN(n)?v.value:(n%1===0?n.toFixed(0):n.toFixed(1));
         return `<div class="vital-item ${v.status||''} tier-${vitalTier(v)}" title="${v.label}: ${dv} ${v.unit||''} — Range: ${vitalRangeStr(v.unit)}"><div class="vi-label">${v.label}</div><div class="vi-value">${dv}<span class="vi-unit">${v.unit||''}</span></div>${analogBar(v.raw_value, v.unit, v.status)}${compactSparkline(v.raw_value, v.unit, v.status)}</div>`;
       }).join('')}</div>${disc.length?`<div style="margin-top:12px;"><div style="font-size:9px;text-transform:uppercase;letter-spacing:0.8px;color:var(--text-muted);margin-bottom:8px;">DISCRETE INPUTS</div><div style="display:flex;gap:10px;flex-wrap:wrap;">${disc.map(v=>{const ok=v.value==='OK'||v.value==='STOPPED'||v.raw_value===0;const col=v.status==='good'?'var(--status-good)':ok?'var(--text-muted)':'var(--status-bad)';return `<div style="display:flex;align-items:center;gap:5px;font-size:11px;"><span style="width:6px;height:6px;border-radius:50%;background:${col};"></span><span style="color:var(--text-secondary);">${v.label}</span><span style="font-family:var(--font-mono);color:${col};">${v.value}</span></div>`;}).join('')}</div></div>`:''}</div>`;
@@ -440,7 +608,7 @@ document.addEventListener('click', function(e) {
     el.innerHTML = `<div class="pp-title"><span class="live-dot"></span>COMMUNICATION STATUS</div>
       <table class="comm-table"><thead><tr><th>ASSET</th><th>PROTOCOL</th><th>IP</th><th>STATUS</th><th>HEALTH</th><th>POLL</th><th>LAST SEEN</th></tr></thead><tbody>${liveAssets.map(a => {
         const c = hClass(a.status,a.health); const col = c==='good'?'var(--status-good)':c==='offline'?'var(--status-offline)':'var(--status-warn)';
-        return `<tr><td><strong>${a.id}</strong> <span style="color:var(--text-muted);font-size:11px;">${a.name}</span></td><td class="mono">${protocolMap[a.protocol]||a.protocol||'—'}</td><td class="mono">${a.ip_address||'—'}</td><td><span class="ct-status"><span class="ct-dot" style="background:${col};"></span>${a.status||'—'}</span></td><td class="mono" style="color:${col};">${a.health!=null?a.health:'—'}</td><td class="mono">${a.poll_interval||'—'}s</td><td class="mono">${timeAgo(a.last_seen)}</td></tr>`;
+        return `<tr><td><strong>${a.id}</strong> <span style="color:var(--text-muted);font-size:11px;">${a.name}</span>${dataSourceBadge(a)}</td><td class="mono">${protocolMap[a.protocol]||a.protocol||'—'}</td><td class="mono">${a.ip_address||'—'}</td><td><span class="ct-status"><span class="ct-dot" style="background:${col};"></span>${a.status||'—'}</span></td><td class="mono" style="color:${col};">${a.health!=null?a.health:'—'}</td><td class="mono">${a.poll_interval||'—'}s</td><td class="mono">${timeAgo(a.last_seen)}</td></tr>`;
       }).join('')}</tbody></table>`;
   }
 

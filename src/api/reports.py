@@ -1,210 +1,134 @@
-"""
-Aevus Testbed --- Reports API Routes
-Generate on-demand compliance and operational reports.
-"""
-
-from __future__ import annotations
-
-from datetime import UTC, datetime
-
-from fastapi import APIRouter, Query
+from fastapi import APIRouter
+from fastapi.responses import HTMLResponse
+from datetime import datetime
+import json
 
 router = APIRouter(prefix="/reports", tags=["reports"])
 
+@router.get("/site-summary")
+async def site_summary_report():
+    """Generate a printable HTML site summary report."""
+    from src.storage.sqlite_db import get_db
+    db = get_db()
 
-@router.get("/fleet-health")
-async def fleet_health_report(
-    hours: int = Query(24, ge=1, le=720),
-) -> dict:
-    """Generate a fleet health summary report."""
-    from src.main import app_state
+    # Get all assets
+    assets = db.execute("SELECT * FROM assets ORDER BY id").fetchall()
+    asset_list = [dict(a) for a in assets]
 
-    assets = app_state.db.list_assets()
-    now = datetime.now(UTC)
+    # Get recent alarms
+    alarms = []
+    try:
+        alarm_rows = db.execute("SELECT * FROM alarms ORDER BY timestamp DESC LIMIT 20").fetchall()
+        alarms = [dict(a) for a in alarm_rows]
+    except:
+        pass
 
-    asset_rows = []
-    for a in assets:
-        asset_rows.append(
-            {
-                "id": a.id,
-                "name": a.name,
-                "type": a.type,
-                "status": a.status,
-                "health": a.health,
-                "last_seen": a.last_seen.isoformat() if a.last_seen else None,
-            }
-        )
+    now = datetime.now().strftime("%Y-%m-%d %H:%M:%S CT")
+    total = len(asset_list)
+    online = sum(1 for a in asset_list if a.get("status") == "good")
+    avg_health = round(sum(a.get("health", 0) for a in asset_list) / max(total, 1), 1)
+    critical_alarms = sum(1 for a in alarms if a.get("severity") == "critical" and a.get("state") == "active")
+    warning_alarms = sum(1 for a in alarms if a.get("severity") == "warning" and a.get("state") == "active")
 
-    scores = [a.health for a in assets if a.health is not None]
-    return {
-        "report": "fleet-health",
-        "generated_at": now.isoformat(),
-        "period_hours": hours,
-        "total_assets": len(assets),
-        "avg_health": round(sum(scores) / len(scores)) if scores else None,
-        "assets": asset_rows,
-        "open_alerts": len(app_state.alert_engine.open_alerts),
-    }
+    asset_rows = ""
+    for a in asset_list:
+        h = a.get("health", 0)
+        hcol = "#10D478" if h > 80 else "#FBBF24" if h > 50 else "#EF4444"
+        asset_rows += f"""<tr>
+          <td style="font-weight:600;color:#06B6D4;">{a.get("id","")}</td>
+          <td>{a.get("name","")}</td>
+          <td>{a.get("type","")}</td>
+          <td>{a.get("protocol","")}</td>
+          <td>{a.get("ip","")}</td>
+          <td style="color:{hcol};font-weight:600;">{h}%</td>
+          <td style="color:#10D478;">● {a.get("status","")}</td>
+        </tr>"""
 
+    alarm_rows = ""
+    for al in alarms[:10]:
+        scol = "#EF4444" if al.get("severity") == "critical" else "#FBBF24" if al.get("severity") == "warning" else "#10D478"
+        alarm_rows += f"""<tr>
+          <td>{al.get("timestamp","")}</td>
+          <td>{al.get("asset_id","")}</td>
+          <td style="color:{scol};font-weight:600;">{al.get("severity","")}</td>
+          <td>{al.get("metric", al.get("message",""))}</td>
+          <td>{al.get("state","")}</td>
+        </tr>"""
 
-@router.get("/alerts")
-async def alert_report(
-    hours: int = Query(24, ge=1, le=720),
-    severity: str | None = Query(None),
-) -> dict:
-    """Generate an alert history report."""
-    from src.main import app_state
+    if not alarm_rows:
+        alarm_rows = '<tr><td colspan="5" style="text-align:center;color:#7B8499;padding:20px;">No alarms recorded</td></tr>'
 
-    alerts = app_state.db.list_alerts(severity=severity, limit=500)
-    now = datetime.now(UTC)
+    html = f"""<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<title>Aevus Site Report — Killdeer Field</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap');
+  * {{ margin:0; padding:0; box-sizing:border-box; }}
+  body {{ font-family:'Manrope',sans-serif; background:#0B1020; color:#FFFFFF; padding:40px; }}
+  .report {{ max-width:1000px; margin:0 auto; }}
+  .header {{ display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:32px; padding-bottom:20px; border-bottom:2px solid #06B6D4; }}
+  .logo {{ font-family:'JetBrains Mono',monospace; font-size:28px; font-weight:700; color:#06B6D4; letter-spacing:3px; }}
+  .tagline {{ font-family:'JetBrains Mono',monospace; font-size:9px; letter-spacing:2px; color:#7B8499; margin-top:4px; }}
+  .report-meta {{ text-align:right; font-size:12px; color:#B4BCD0; }}
+  .section-title {{ font-size:16px; font-weight:700; color:#06B6D4; margin:28px 0 12px; letter-spacing:1px; text-transform:uppercase; }}
+  .kpi-row {{ display:flex; gap:16px; margin-bottom:24px; }}
+  .kpi {{ flex:1; background:#161E33; border:1px solid rgba(148,163,184,0.12); border-radius:12px; padding:16px; text-align:center; }}
+  .kpi-val {{ font-size:28px; font-weight:700; font-family:'JetBrains Mono',monospace; }}
+  .kpi-label {{ font-size:10px; color:#7B8499; text-transform:uppercase; letter-spacing:1px; margin-top:4px; }}
+  table {{ width:100%; border-collapse:collapse; font-size:12px; }}
+  th {{ text-align:left; padding:8px 12px; color:#7B8499; font-size:10px; text-transform:uppercase; letter-spacing:0.5px; border-bottom:1px solid rgba(148,163,184,0.15); }}
+  td {{ padding:8px 12px; border-bottom:1px solid rgba(148,163,184,0.06); }}
+  .footer {{ margin-top:40px; padding-top:16px; border-top:1px solid rgba(148,163,184,0.1); display:flex; justify-content:space-between; font-size:10px; color:#7B8499; }}
+  @media print {{
+    body {{ background:white; color:black; }}
+    .kpi {{ border:1px solid #ddd; }}
+    th {{ color:#666; }}
+    td {{ border-bottom:1px solid #eee; }}
+  }}
+</style>
+</head>
+<body>
+<div class="report">
+  <div class="header">
+    <div>
+      <div class="logo">AEVUS</div>
+      <div class="tagline">PREDICT. PREVENT. PERFORM.</div>
+    </div>
+    <div class="report-meta">
+      <div style="font-weight:600;font-size:14px;">Site Health Report</div>
+      <div>Killdeer Field — Needville, TX 77461</div>
+      <div>Generated: {now}</div>
+    </div>
+  </div>
 
-    return {
-        "report": "alert-history",
-        "generated_at": now.isoformat(),
-        "period_hours": hours,
-        "total_alerts": len(alerts),
-        "alerts": [
-            {
-                "id": a.id,
-                "severity": a.severity,
-                "asset_id": a.asset_id,
-                "message": a.message,
-                "status": a.status,
-                "detected_at": a.detected_at.isoformat(),
-            }
-            for a in alerts
-        ],
-    }
+  <div class="section-title">Site Overview</div>
+  <div class="kpi-row">
+    <div class="kpi"><div class="kpi-val">{total}</div><div class="kpi-label">Assets Monitored</div></div>
+    <div class="kpi"><div class="kpi-val" style="color:#10D478;">{online}</div><div class="kpi-label">Online</div></div>
+    <div class="kpi"><div class="kpi-val" style="color:#06B6D4;">{avg_health}%</div><div class="kpi-label">Avg Health</div></div>
+    <div class="kpi"><div class="kpi-val" style="color:#EF4444;">{critical_alarms}</div><div class="kpi-label">Critical Alarms</div></div>
+    <div class="kpi"><div class="kpi-val" style="color:#FBBF24;">{warning_alarms}</div><div class="kpi-label">Warnings</div></div>
+  </div>
 
+  <div class="section-title">Asset Inventory</div>
+  <table>
+    <thead><tr><th>ID</th><th>Name</th><th>Type</th><th>Protocol</th><th>IP Address</th><th>Health</th><th>Status</th></tr></thead>
+    <tbody>{asset_rows}</tbody>
+  </table>
 
-@router.get("/alarm-frequency")
-async def alarm_frequency_report(
-    hours: int = Query(24, ge=1, le=720),
-) -> dict:
-    """Alarm frequency report — count of alarms per hour."""
-    from collections import defaultdict
-    from src.main import app_state
+  <div class="section-title">Alarm History (Last 10)</div>
+  <table>
+    <thead><tr><th>Timestamp</th><th>Asset</th><th>Severity</th><th>Metric</th><th>State</th></tr></thead>
+    <tbody>{alarm_rows}</tbody>
+  </table>
 
-    alerts = app_state.db.list_alerts(limit=1000)
-    now = datetime.now(UTC)
-    cutoff = now.timestamp() - (hours * 3600)
-
-    hourly: dict[str, int] = defaultdict(int)
-    by_severity: dict[str, int] = defaultdict(int)
-
-    for a in alerts:
-        ts = a.detected_at.timestamp()
-        if ts < cutoff:
-            continue
-        hour_key = a.detected_at.strftime("%Y-%m-%d %H:00")
-        hourly[hour_key] += 1
-        by_severity[a.severity] = by_severity.get(a.severity, 0) + 1
-
-    return {
-        "report": "alarm-frequency",
-        "generated_at": now.isoformat(),
-        "period_hours": hours,
-        "total_alarms": sum(hourly.values()),
-        "by_severity": dict(by_severity),
-        "hourly": [{"hour": k, "count": v} for k, v in sorted(hourly.items())],
-    }
-
-
-@router.get("/top-alarming")
-async def top_alarming_report(
-    hours: int = Query(24, ge=1, le=720),
-    limit: int = Query(10, ge=1, le=50),
-) -> dict:
-    """Top alarming assets — which assets generate the most alarms."""
-    from collections import Counter
-    from src.main import app_state
-
-    alerts = app_state.db.list_alerts(limit=1000)
-    now = datetime.now(UTC)
-    cutoff = now.timestamp() - (hours * 3600)
-
-    asset_counts: Counter = Counter()
-    asset_names: dict[str, str] = {}
-    message_counts: Counter = Counter()
-
-    for a in alerts:
-        if a.detected_at.timestamp() < cutoff:
-            continue
-        asset_counts[a.asset_id] += 1
-        asset_names[a.asset_id] = a.asset_name
-        message_counts[a.message] += 1
-
-    top_assets = [
-        {"asset_id": aid, "asset_name": asset_names.get(aid, aid), "alarm_count": cnt}
-        for aid, cnt in asset_counts.most_common(limit)
-    ]
-    top_messages = [
-        {"message": msg, "count": cnt}
-        for msg, cnt in message_counts.most_common(limit)
-    ]
-
-    return {
-        "report": "top-alarming",
-        "generated_at": now.isoformat(),
-        "period_hours": hours,
-        "top_assets": top_assets,
-        "top_alarm_types": top_messages,
-    }
-
-
-@router.get("/uptime")
-async def uptime_report(
-    hours: int = Query(24, ge=1, le=720),
-) -> dict:
-    """Asset uptime report — online percentage per asset."""
-    from src.main import app_state
-
-    assets = app_state.db.list_assets()
-    now = datetime.now(UTC)
-
-    rows = []
-    for a in assets:
-        is_online = a.status in ("Good", "good", "online", "warning")
-        last_seen_ago = None
-        if a.last_seen:
-            last_seen_ago = round((now - a.last_seen).total_seconds())
-
-        rows.append({
-            "asset_id": a.id,
-            "name": a.name,
-            "status": a.status,
-            "health": a.health,
-            "online": is_online,
-            "last_seen_seconds_ago": last_seen_ago,
-        })
-
-    online_count = sum(1 for r in rows if r["online"])
-    return {
-        "report": "uptime",
-        "generated_at": now.isoformat(),
-        "period_hours": hours,
-        "total_assets": len(rows),
-        "online_count": online_count,
-        "uptime_pct": round(online_count / len(rows) * 100, 1) if rows else 0,
-        "assets": rows,
-    }
-
-
-@router.get("/journal")
-async def journal_report(
-    asset_id: str | None = Query(None),
-    category: str | None = Query(None),
-    limit: int = Query(100),
-) -> dict:
-    """Journal/audit trail report."""
-    from src.main import app_state
-
-    entries = app_state.db.list_journal(asset_id, category, limit)
-    now = datetime.now(UTC)
-
-    return {
-        "report": "journal",
-        "generated_at": now.isoformat(),
-        "total_entries": len(entries),
-        "entries": entries,
-    }
+  <div class="footer">
+    <div>Aevus Platform v2.4.1 · Intrepid Logic LLC · SDVOSB</div>
+    <div>CONFIDENTIAL — For authorized personnel only</div>
+  </div>
+</div>
+</body>
+</html>"""
+    return HTMLResponse(content=html)

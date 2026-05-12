@@ -1,3 +1,85 @@
+// ══════════════════════════════════════════
+// ── GLOBAL UTILITIES (always available) ──
+// ══════════════════════════════════════════
+
+// Logout
+window.aevusLogout = function() {
+  localStorage.removeItem('aevus_id_token');
+  localStorage.removeItem('aevus_access_token');
+  localStorage.removeItem('aevus_user_email');
+  window.location.href = '/dashboard/login.html';
+};
+
+// Tab badge — show alert count in browser tab title
+window.updateTabBadge = function(count) {
+  var base = 'Aevus — Killdeer Field';
+  document.title = count > 0 ? 'Aevus (' + count + ') — Killdeer Field' : base;
+};
+
+// Bell dropdown toggle
+window.toggleBellDropdown = function() {
+  var dd = document.getElementById('bell-dropdown');
+  if (!dd) return;
+  dd.style.display = dd.style.display === 'block' ? 'none' : 'block';
+};
+
+// Close bell dropdown on outside click
+document.addEventListener('click', function(e) {
+  var dd = document.getElementById('bell-dropdown');
+  var bell = document.querySelector('.topbar-bell');
+  if (dd && bell && !bell.contains(e.target) && !dd.contains(e.target)) {
+    dd.style.display = 'none';
+  }
+});
+
+// Show user email from Cognito
+(function() {
+  var userEmail = localStorage.getItem('aevus_user_email');
+  if (userEmail) {
+    document.addEventListener('DOMContentLoaded', function() {
+      var nameEl = document.querySelector('.sidebar-user-name');
+      if (nameEl) nameEl.textContent = userEmail.split('@')[0].replace(/\./g, ' ').replace(/\b\w/g, function(l){return l.toUpperCase();});
+    });
+  }
+})();
+
+
+// ── ALARM POLLING FOR BELL + TAB BADGE ──
+(function() {
+  var API_KEY = '8U7_JghqHK-nmG5bDwUx5w-A9uFg8F7tiVmvR9WJDyY';
+  function pollAlarms() {
+    var tok = localStorage.getItem('aevus_id_token');
+    var headers = {'X-API-Key': API_KEY};
+    if (tok) headers['Authorization'] = 'Bearer ' + tok;
+    fetch('/api/alarms', {headers: headers})
+      .then(function(r){return r.json()})
+      .then(function(d){
+        var alarms = d.alarms || [];
+        var active = alarms.filter(function(a){return a.state==='active'}).length;
+        if(window.updateTabBadge) window.updateTabBadge(active);
+        var dd = document.getElementById('bell-dropdown-list');
+        if(dd){
+          if(alarms.length===0){
+            dd.innerHTML='<div style="padding:16px;text-align:center;color:#7B8499;font-size:12px;">No recent alarms</div>';
+          } else {
+            dd.innerHTML=alarms.slice(0,8).map(function(a){
+              var col = a.severity==='critical'?'#EF4444':a.severity==='warning'?'#FBBF24':'#10D478';
+              return '<div style="padding:8px 12px;border-bottom:1px solid rgba(148,163,184,0.08);display:flex;gap:8px;align-items:flex-start;">' +
+                '<div style="width:6px;height:6px;border-radius:50%;background:'+col+';margin-top:5px;flex-shrink:0;"></div>' +
+                '<div><div style="font-size:11px;color:#FFFFFF;">'+a.asset_id+' — '+(a.metric||a.message||'alarm')+'</div>' +
+                '<div style="font-size:10px;color:#7B8499;">'+a.severity+' · '+(a.state||'')+'</div></div></div>';
+            }).join('');
+          }
+        }
+      }).catch(function(){
+        var dd = document.getElementById('bell-dropdown-list');
+        if(dd) dd.innerHTML='<div style="padding:16px;text-align:center;color:#7B8499;font-size:12px;">No recent alarms</div>';
+      });
+  }
+  setTimeout(pollAlarms, 2000);
+  setInterval(pollAlarms, 15000);
+})();
+
 /**
  * Aevus Dashboard — Live API Client + SPA Router
  * All pages driven by live API data.
@@ -988,6 +1070,16 @@
     const warnAlerts = liveAlerts.filter(a=>a.severity==='warning'&&a.status==='open').length;
 
     el.innerHTML = `
+      <div style="display:flex;justify-content:flex-end;margin-bottom:16px;gap:8px;">
+        <a href="/api/v1/reports/site-summary" target="_blank" style="display:inline-flex;align-items:center;gap:6px;padding:8px 16px;background:rgba(6,182,212,0.12);border:1px solid rgba(6,182,212,0.3);border-radius:8px;color:#22D3EE;font-size:12px;font-weight:600;text-decoration:none;cursor:pointer;font-family:var(--font-body);">
+          <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+          Download Report
+        </a>
+        <button onclick="window.print()" style="display:inline-flex;align-items:center;gap:6px;padding:8px 16px;background:rgba(148,163,184,0.08);border:1px solid rgba(148,163,184,0.15);border-radius:8px;color:#B4BCD0;font-size:12px;font-weight:500;cursor:pointer;font-family:var(--font-body);">
+          <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.8"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg>
+          Print
+        </button>
+      </div>
       <div class="stat-grid">
         <div class="stat-card"><div class="stat-card-label">Report Period</div><div class="stat-card-value" style="font-size:18px;">Last 24h</div><div class="stat-card-sub">${new Date().toLocaleDateString('en-US',{weekday:'long',year:'numeric',month:'long',day:'numeric'})}</div></div>
         <div class="stat-card"><div class="stat-card-label">Uptime</div><div class="stat-card-value" style="color:var(--status-good);">${((online/liveAssets.length)*100).toFixed(0)}%</div><div class="stat-card-sub">${online} of ${liveAssets.length} online</div></div>
@@ -1495,10 +1587,9 @@
       }).catch(function() {
   // ── COGNITO AUTH GUARD ──
   var idToken = localStorage.getItem('aevus_id_token');
-  var API_KEY_HARDCODED = true; // Set false to require Cognito login
+  var API_KEY_HARDCODED = false; // Set false to require Cognito login
   if (!API_KEY_HARDCODED && !idToken) {
     window.location.href = '/dashboard/login.html';
-    return;
   }
 });
 

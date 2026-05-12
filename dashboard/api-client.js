@@ -16,7 +16,7 @@
   let trendData = [], currentTrendMetric = 'cpu_load';
   let weatherData = null, correlations = [], commandLog = [];
   let forecastData = null;
-  const MAPBOX_TOKEN = window.AEVUS_MAPBOX_TOKEN || 'pk.eyJ1IjoiaW50cmVwaWRsb2dpYyIsImEiOiJjbHh0MnFjOGowMTJjMmlzOTIxaXQ0ZHV5In0.HJvGKpD8jVVKxCEqBSi6Rg';
+  const MAPBOX_TOKEN = window.AEVUS_MAPBOX_TOKEN || 'pk.eyJ1Ijoid29vZHlpbCIsImEiOiJjbWR4eW5keTUwOTlvMmxxMXo1aGljdWdyIn0.f4ud1cQ6mf-oNM69iY6fEg';
   const SITE_LAT = 29.3905;
   const SITE_LON = -95.8375;
   let currentAlertFilter = 'all';
@@ -3019,31 +3019,15 @@
       return;
     }
 
-    mapInstance = new maplibregl.Map({
+    mapboxgl.accessToken = MAPBOX_TOKEN;
+    mapInstance = new mapboxgl.Map({
       container: 'aevus-map',
-      style: {
-        version: 8,
-        sources: {
-          'osm-tiles': {
-            type: 'raster',
-            tiles: ['https://basemaps.cartocdn.com/dark_all/{z}/{x}/{y}@2x.png'],
-            tileSize: 256,
-            attribution: '&copy; OpenStreetMap &copy; CARTO'
-          }
-        },
-        layers: [{
-          id: 'osm-tiles',
-          type: 'raster',
-          source: 'osm-tiles',
-          minzoom: 0,
-          maxzoom: 19
-        }]
-      },
+      style: 'mapbox://styles/mapbox/dark-v11',
       center: [-102.75, 46.96],
       zoom: 13
     });
 
-    mapInstance.addControl(new maplibregl.NavigationControl(), 'top-right');
+    mapInstance.addControl(new mapboxgl.NavigationControl(), 'top-right');
 
     mapInstance.on('load', () => {
       updateMapMarkers();
@@ -3059,7 +3043,7 @@
 
     if (liveAssets.length === 0) return;
 
-    const bounds = new maplibregl.LngLatBounds();
+    const bounds = new mapboxgl.LngLatBounds();
     const offsets = {};
     let idx = 0;
 
@@ -3088,7 +3072,7 @@
       el.style.cssText = 'width:16px;height:16px;border-radius:50%;border:2px solid rgba(255,255,255,0.8);cursor:pointer;box-shadow:0 0 8px ' + color;
       el.style.background = color;
 
-      const popup = new maplibregl.Popup({ offset: 20, className: 'aevus-map-popup' })
+      const popup = new mapboxgl.Popup({ offset: 20, className: 'aevus-map-popup' })
         .setHTML(
           '<div style="font-family:Inter,sans-serif;padding:4px;">' +
           '<div style="font-weight:600;font-size:13px;margin-bottom:4px;">' + (asset.name || asset.id) + '</div>' +
@@ -3099,7 +3083,7 @@
           '</div>'
         );
 
-      const marker = new maplibregl.Marker({ element: el })
+      const marker = new mapboxgl.Marker({ element: el })
         .setLngLat([lng, lat])
         .setPopup(popup)
         .addTo(mapInstance);

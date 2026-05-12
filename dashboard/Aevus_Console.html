@@ -2229,7 +2229,70 @@ section[data-page="historian"] select option {
   </div>
   <div class="drawer-body" id="drawer-body"></div>
 </div>
-</main>
+
+    <section class="page-section" data-page="sites">
+      <nav class="breadcrumb"><a href="#overview">Killdeer Field</a> &rsaquo; Enterprise Sites</nav>
+      <h2 class="page-title" style="margin-bottom:4px;">Enterprise Overview</h2>
+      <div style="font-size:12px;color:var(--text-muted);margin-bottom:20px;">Multi-site fleet management — 4 locations</div>
+
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:16px;">
+        <!-- Killdeer Field - Active -->
+        <div style="padding:20px;background:var(--bg-card);border:1px solid var(--accent);border-radius:var(--card-radius);cursor:pointer;" onclick="location.hash='overview'">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
+            <div style="font-size:14px;font-weight:700;color:var(--text-primary);">Killdeer Field</div>
+            <span style="padding:2px 8px;border-radius:4px;font-size:9px;font-weight:600;background:rgba(16,212,120,0.12);color:#10D478;">ACTIVE</span>
+          </div>
+          <div style="font-size:11px;color:var(--text-muted);margin-bottom:8px;">Dunn County, ND &bull; Midstream Gas Gathering</div>
+          <div style="display:flex;gap:16px;font-size:11px;font-family:var(--font-mono);">
+            <div><span style="color:var(--text-faint);">Assets:</span> <span style="color:var(--text-primary);font-weight:600;">7</span></div>
+            <div><span style="color:var(--text-faint);">Health:</span> <span style="color:#10D478;font-weight:600;">89</span></div>
+            <div><span style="color:var(--text-faint);">Alerts:</span> <span style="color:#EF4444;font-weight:600;">50</span></div>
+          </div>
+          <div style="margin-top:10px;height:3px;border-radius:2px;background:rgba(6,182,212,0.15);"><div style="height:100%;width:89%;border-radius:2px;background:var(--accent);"></div></div>
+        </div>
+
+        <!-- Permian Basin - Coming Soon -->
+        <div style="padding:20px;background:var(--bg-card);border:1px solid var(--border-light);border-radius:var(--card-radius);opacity:0.6;">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
+            <div style="font-size:14px;font-weight:700;color:var(--text-primary);">Permian Basin</div>
+            <span style="padding:2px 8px;border-radius:4px;font-size:9px;font-weight:600;background:rgba(148,163,184,0.1);color:var(--text-faint);">COMING SOON</span>
+          </div>
+          <div style="font-size:11px;color:var(--text-muted);margin-bottom:8px;">Midland County, TX &bull; Oil Production</div>
+          <div style="display:flex;gap:16px;font-size:11px;font-family:var(--font-mono);color:var(--text-faint);">
+            <div>Assets: —</div><div>Health: —</div><div>Alerts: —</div>
+          </div>
+          <div style="margin-top:10px;height:3px;border-radius:2px;background:rgba(148,163,184,0.06);"></div>
+        </div>
+
+        <!-- Eagle Ford - Coming Soon -->
+        <div style="padding:20px;background:var(--bg-card);border:1px solid var(--border-light);border-radius:var(--card-radius);opacity:0.6;">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
+            <div style="font-size:14px;font-weight:700;color:var(--text-primary);">Eagle Ford</div>
+            <span style="padding:2px 8px;border-radius:4px;font-size:9px;font-weight:600;background:rgba(148,163,184,0.1);color:var(--text-faint);">COMING SOON</span>
+          </div>
+          <div style="font-size:11px;color:var(--text-muted);margin-bottom:8px;">Karnes County, TX &bull; Gas Processing</div>
+          <div style="display:flex;gap:16px;font-size:11px;font-family:var(--font-mono);color:var(--text-faint);">
+            <div>Assets: —</div><div>Health: —</div><div>Alerts: —</div>
+          </div>
+          <div style="margin-top:10px;height:3px;border-radius:2px;background:rgba(148,163,184,0.06);"></div>
+        </div>
+
+        <!-- DJ Basin - Coming Soon -->
+        <div style="padding:20px;background:var(--bg-card);border:1px solid var(--border-light);border-radius:var(--card-radius);opacity:0.6;">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
+            <div style="font-size:14px;font-weight:700;color:var(--text-primary);">DJ Basin</div>
+            <span style="padding:2px 8px;border-radius:4px;font-size:9px;font-weight:600;background:rgba(148,163,184,0.1);color:var(--text-faint);">COMING SOON</span>
+          </div>
+          <div style="font-size:11px;color:var(--text-muted);margin-bottom:8px;">Weld County, CO &bull; Water Disposal</div>
+          <div style="display:flex;gap:16px;font-size:11px;font-family:var(--font-mono);color:var(--text-faint);">
+            <div>Assets: —</div><div>Health: —</div><div>Alerts: —</div>
+          </div>
+          <div style="margin-top:10px;height:3px;border-radius:2px;background:rgba(148,163,184,0.06);"></div>
+        </div>
+      </div>
+    </section>
+
+    </main>
 
 <script>
   window.AEVUS_API_KEY = '8U7_JghqHK-nmG5bDwUx5w-A9uFg8F7tiVmvR9WJDyY';

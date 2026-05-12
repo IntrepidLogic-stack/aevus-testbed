@@ -11,19 +11,6 @@ window.aevusLogout = function() {
 };
 
 // Tab badge — show alert count in browser tab title
-// Wall mode button injector
-document.addEventListener('DOMContentLoaded', function() {
-  var tr = document.querySelector('.topbar-right');
-  if (tr) {
-    var btn = document.createElement('button');
-    btn.className = 'module-btn';
-    btn.style.cssText = 'padding:4px 10px;font-size:10px;margin-right:4px;';
-    btn.innerHTML = '<svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="1.8" style="vertical-align:middle;margin-right:3px;"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>Wall';
-    btn.onclick = function(){ window.toggleWallMode(); };
-    tr.insertBefore(btn, tr.firstChild);
-  }
-});
-
 window.updateTabBadge = function(count) {
   var base = 'Aevus — Killdeer Field';
   document.title = count > 0 ? 'Aevus (' + count + ') — Killdeer Field' : base;
@@ -76,7 +63,7 @@ document.addEventListener('click', function(e) {
             dd.innerHTML='<div style="padding:16px;text-align:center;color:#7B8499;font-size:12px;">No recent alarms</div>';
           } else {
             dd.innerHTML=alarms.slice(0,8).map(function(a){
-              var col = a.severity==='critical'?'#EF4444':a.severity==='warning'?'#FBBF24':'#7B8499';
+              var col = a.severity==='critical'?'#EF4444':a.severity==='warning'?'#FBBF24':'#10D478';
               return '<div style="padding:8px 12px;border-bottom:1px solid rgba(148,163,184,0.08);display:flex;gap:8px;align-items:flex-start;">' +
                 '<div style="width:6px;height:6px;border-radius:50%;background:'+col+';margin-top:5px;flex-shrink:0;"></div>' +
                 '<div><div style="font-size:11px;color:#FFFFFF;">'+a.asset_id+' — '+(a.metric||a.message||'alarm')+'</div>' +
@@ -164,93 +151,6 @@ document.addEventListener('click', function(e) {
 
   let ws = null, pollTimer = null;
   let liveAssets = [], liveAlerts = [], healthSummary = {}, predictions = [];
-
-  // Board: Stale data detection banner
-  var lastDataTimestamp = Date.now();
-  function checkStaleData() {
-    var staleBanner = document.getElementById('stale-data-banner');
-    if (!staleBanner) {
-      staleBanner = document.createElement('div');
-      staleBanner.id = 'stale-data-banner';
-      staleBanner.style.cssText = 'display:none;background:rgba(251,191,36,0.1);border:1px solid rgba(251,191,36,0.25);color:#FBBF24;padding:8px 16px;font-size:11px;text-align:center;position:fixed;top:56px;left:240px;right:0;z-index:100;font-family:var(--font-mono);';
-      document.body.appendChild(staleBanner);
-    }
-    // Check if any asset has last_seen > 2x poll interval
-    var staleAssets = [];
-    liveAssets.forEach(function(a) {
-      if (a.last_seen) {
-        var age = (Date.now() - new Date(a.last_seen).getTime()) / 1000;
-        var threshold = (a.poll_interval || 30) * 3;
-        if (age > threshold) staleAssets.push(a.id);
-      }
-    });
-    // Also check if overall data is >60s old
-    var tsEl = document.querySelector('.topbar-timestamp');
-    if (tsEl) {
-      var match = tsEl.textContent.match(/(\d{2}):(\d{2}):(\d{2})/);
-      if (match) lastDataTimestamp = Date.now();
-    }
-    var dataAge = Math.round((Date.now() - lastDataTimestamp) / 1000);
-
-    if (staleAssets.length > 0) {
-      staleBanner.style.display = 'block';
-      staleBanner.innerHTML = '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align:middle;margin-right:6px;"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>' +
-        'STALE DATA: ' + staleAssets.join(', ') + ' — data may be outdated';
-    } else if (dataAge > 90) {
-      staleBanner.style.display = 'block';
-      staleBanner.innerHTML = '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align:middle;margin-right:6px;"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>' +
-        'CONNECTION DEGRADED — last update ' + dataAge + 's ago';
-    } else {
-      staleBanner.style.display = 'none';
-    }
-  }
-  setInterval(checkStaleData, 10000);
-
-
-
-  // Board audit #3: Wall Display / Control Room mode
-  var wallMode = false;
-  var wallCycleTimer = null;
-  var wallPages = ['overview','alarms','health'];
-  var wallPageIndex = 0;
-
-  window.toggleWallMode = function() {
-    wallMode = !wallMode;
-    document.body.classList.toggle('wall-mode', wallMode);
-    if (wallMode) {
-      // Enter wall display mode
-      if (document.documentElement.requestFullscreen) document.documentElement.requestFullscreen();
-      wallPageIndex = 0;
-      navigateTo(wallPages[0]);
-      wallCycleTimer = setInterval(function() {
-        wallPageIndex = (wallPageIndex + 1) % wallPages.length;
-        navigateTo(wallPages[wallPageIndex]);
-      }, 30000);
-    } else {
-      // Exit wall display mode
-      if (document.exitFullscreen) document.exitFullscreen();
-      if (wallCycleTimer) { clearInterval(wallCycleTimer); wallCycleTimer = null; }
-    }
-  };
-
-  // F11 key toggles wall mode
-  document.addEventListener('keydown', function(e) {
-    if (e.key === 'F11') {
-      e.preventDefault();
-      window.toggleWallMode();
-    }
-  });
-
-  // Exit wall mode when leaving fullscreen
-  document.addEventListener('fullscreenchange', function() {
-    if (!document.fullscreenElement && wallMode) {
-      wallMode = false;
-      document.body.classList.remove('wall-mode');
-      if (wallCycleTimer) { clearInterval(wallCycleTimer); wallCycleTimer = null; }
-    }
-  });
-
-
   let trendData = [], currentTrendMetric = 'cpu_load';
   let weatherData = null, correlations = [], commandLog = [];
   let forecastData = null;
@@ -326,12 +226,6 @@ document.addEventListener('click', function(e) {
     const nav = document.querySelector(`.nav-item[data-page="${page}"]`);
     if (sec) sec.classList.add('active');
     if (nav) nav.classList.add('active');
-    // Board rec #5: Update breadcrumb
-    var bc = document.getElementById('breadcrumb-trail');
-    if (bc) {
-      var pageNames = {overview:'L1 · Process Overview',assets:'L2 · Assets',alarms:'L2 · Alarm Management',health:'L2 · System Health',diagnostics:'L3 · Diagnostics',trends:'L2 · Historian',cabinet:'L3 · Cabinet View',operations:'L2 · Operations',weather:'L2 · Weather Intelligence',radio:'L2 · Radio Comms',map:'L1 · Site Map',network:'L2 · Network Topology',cyber:'L2 · Cybersecurity',reports:'L2 · Reports',settings:'L3 · Settings'};
-      bc.innerHTML = '<span style="color:var(--accent);">Killdeer Field</span> <span style="color:var(--text-faint);margin:0 6px;">›</span> <span>' + (pageNames[page]||page) + '</span>';
-    }
     // Close mobile sidebar
     document.querySelector('.sidebar')?.classList.remove('open');
     // Render page content
@@ -380,103 +274,31 @@ document.addEventListener('click', function(e) {
   // ═══════════════════════════════════════
   // PAGE: OVERVIEW
   // ═══════════════════════════════════════
-
-  // Board: Shift handover summary widget
-  function renderShiftSummary() {
-    var el = document.getElementById('shift-summary');
-    if (!el) return;
-
-    var now = new Date();
-    var shiftStart = new Date(now);
-    shiftStart.setHours(shiftStart.getHours() - 12);
-
-    var recentAlarms = liveAlerts.filter(function(a) {
-      return (a.detected_at || a.created_at) && new Date(a.detected_at || a.created_at) > shiftStart;
-    });
-    var resolved = recentAlarms.filter(function(a){return a.status==='resolved';}).length;
-    var newAlarms = recentAlarms.filter(function(a){return a.status==='open';}).length;
-    var critCount = recentAlarms.filter(function(a){return a.severity==='critical';}).length;
-
-    // Find trending metrics (any vital in warning/critical)
-    var trending = [];
-    liveAssets.forEach(function(a) {
-      (a.vitals||[]).forEach(function(v) {
-        if (v.status === 'warning' || v.status === 'critical') {
-          trending.push(a.id + ' ' + v.label + ': ' + (parseFloat(v.raw_value)||0).toFixed(1) + ' ' + (v.unit||''));
-        }
-      });
-    });
-
-    el.style.display = 'block';
-    el.innerHTML = '<div class="pp-title" style="margin-bottom:10px;">' +
-      '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.8" style="vertical-align:middle;margin-right:6px;"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>' +
-      'SHIFT HANDOVER — LAST 12 HOURS</div>' +
-      '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:10px;">' +
-        '<div style="background:var(--bg-card);border:1px solid var(--border);border-radius:8px;padding:10px 12px;">' +
-          '<div style="font-size:9px;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.5px;">New Alarms</div>' +
-          '<div style="font-family:var(--font-mono);font-size:20px;font-weight:700;color:' + (newAlarms > 0 ? '#EF4444' : 'var(--text-primary)') + ';">' + newAlarms + '</div></div>' +
-        '<div style="background:var(--bg-card);border:1px solid var(--border);border-radius:8px;padding:10px 12px;">' +
-          '<div style="font-size:9px;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.5px;">Resolved</div>' +
-          '<div style="font-family:var(--font-mono);font-size:20px;font-weight:700;color:var(--text-primary);">' + resolved + '</div></div>' +
-        '<div style="background:var(--bg-card);border:1px solid var(--border);border-radius:8px;padding:10px 12px;">' +
-          '<div style="font-size:9px;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.5px;">Critical Events</div>' +
-          '<div style="font-family:var(--font-mono);font-size:20px;font-weight:700;color:' + (critCount > 0 ? '#EF4444' : 'var(--text-primary)') + ';">' + critCount + '</div></div>' +
-        '<div style="background:var(--bg-card);border:1px solid var(--border);border-radius:8px;padding:10px 12px;">' +
-          '<div style="font-size:9px;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.5px;">Attention Items</div>' +
-          '<div style="font-family:var(--font-mono);font-size:20px;font-weight:700;color:' + (trending.length > 0 ? '#FBBF24' : 'var(--text-primary)') + ';">' + trending.length + '</div></div>' +
-      '</div>' +
-      (trending.length > 0 ? '<div style="margin-top:8px;padding:8px 12px;background:rgba(251,191,36,0.06);border:1px solid rgba(251,191,36,0.12);border-radius:6px;font-size:10px;color:var(--text-secondary);">' +
-        '<span style="color:#FBBF24;font-weight:600;">TRENDING:</span> ' + trending.slice(0,3).join(' · ') + (trending.length > 3 ? ' · +' + (trending.length-3) + ' more' : '') +
-      '</div>' : '');
-  }
-
   function renderOverview() {
-    setTimeout(function(){ renderWorstCondition(); updateDataLatency(); }, 500);
     updateKPIs();
     renderWeatherStrip();
     renderCorrelationsOverview();
     renderFleetStrip();
-    renderProcessSchematic();
     renderProcessPanels();
     renderCommTable();
     renderLiveAlerts();
     renderPredictionsList();
-    renderShiftSummary();
   }
 
   function updateKPIs() {
     const el = id => document.getElementById(id);
-    // Dynamic KPI 1: Production rate from RTU-01
-    var rtu01 = liveAssets.find(function(a){return a.id==='RTU-01';});
-    var oilProd = '—';
-    if (rtu01 && rtu01.vitals) {
-      var op = rtu01.vitals.find(function(v){return v.label==='OIL PRODUCTION';});
-      if (op) oilProd = parseFloat(op.raw_value).toFixed(1);
-    }
-    el('kpi-assets').textContent = oilProd;
-
-    // Dynamic KPI 2: Health score
+    if (healthSummary.total_assets) el('kpi-assets').textContent = healthSummary.total_assets;
     if (healthSummary.avg_health != null) el('kpi-health').textContent = healthSummary.avg_health;
-
-    // Dynamic KPI 3: Predictions
-    const highRisk = predictions.filter(p => p.risk_score >= 50);
-    el('kpi-predictions').textContent = highRisk.length;
-
-    // Dynamic KPI 4: Active alerts with breakdown
     const open = liveAlerts.filter(a => a.status === 'open');
     el('kpi-alerts').textContent = open.length;
     const bd = el('kpi-alert-breakdown');
     if (bd) {
       const c = open.filter(a => a.severity === 'critical').length;
       const w = open.filter(a => a.severity === 'warning').length;
-      bd.innerHTML = '<span class="crit">' + c + ' Critical</span><span class="warn">' + w + ' Warning</span>';
+      bd.innerHTML = `<span class="crit">${c} Critical</span><span class="warn">${w} Warning</span>`;
     }
-
-    // Fleet utilization (% of assets online)
-    var online = liveAssets.filter(function(a){return a.status !== 'offline';}).length;
-    var utilPct = liveAssets.length > 0 ? Math.round(online / liveAssets.length * 100) : 0;
-    var utilEl = el('kpi-utilization');
-    if (utilEl) utilEl.textContent = utilPct + '%';
+    const highRisk = predictions.filter(p => p.risk_score >= 50);
+    el('kpi-predictions').textContent = highRisk.length;
   }
 
   function renderPredictionsList() {
@@ -494,27 +316,6 @@ document.addEventListener('click', function(e) {
     }).join('');
   }
 
-
-  // Board audit #2: SIM vs LIVE data source badge
-  function assetStaleBadge(a) {
-    if (!a.last_seen) return '';
-    var age = (Date.now() - new Date(a.last_seen).getTime()) / 1000;
-    var threshold = (a.poll_interval || 30) * 3;
-    if (age > threshold) {
-      return '<span style="font-size:7px;padding:1px 4px;border-radius:3px;background:rgba(251,191,36,0.15);color:#FBBF24;font-weight:600;margin-left:6px;animation:stalePulse 2s infinite;">STALE</span>';
-    }
-    return '';
-  }
-
-  function dataSourceBadge(a) {
-    var isLive = a.ip_address && a.ip_address.indexOf('127.') !== 0 && a.ip_address !== 'localhost';
-    if (isLive) {
-      return '<span style="font-size:8px;padding:1px 5px;border-radius:3px;background:rgba(16,212,120,0.12);color:#10D478;font-weight:600;letter-spacing:0.5px;margin-left:6px;">LIVE</span>';
-    } else {
-      return '<span style="font-size:8px;padding:1px 5px;border-radius:3px;background:rgba(167,139,250,0.12);color:#A78BFA;font-weight:600;letter-spacing:0.5px;margin-left:6px;">SIM</span>';
-    }
-  }
-
   const protocolMap = { snmp: 'SNMP v2c', modbus: 'Modbus TCP', simulator: 'Simulator' };
 
   function renderFleetStrip() {
@@ -524,216 +325,12 @@ document.addEventListener('click', function(e) {
     el.innerHTML = liveAssets.map(a => {
       const hc = hClass(a.status, a.health);
       return `<div class="fleet-card" onclick="window.openAssetDrawer('${a.id}')">
-        <div class="fc-header"><div><div class="fc-name">${a.name}${dataSourceBadge(a)}</div><div class="fc-id">${a.id} · ${a.vendor||''} ${a.model||''}</div></div><div class="fc-health ${hc}">${a.health!=null?a.health:'—'}</div></div>
-        <div class="fc-status"><span class="fc-dot ${hc}"></span><span class="fc-status-text">${a.status||'unknown'}</span><span class="fc-meta">· ${timeAgo(a.last_seen)}</span>${assetStaleBadge(a)}</div>
+        <div class="fc-header"><div><div class="fc-name">${a.name}</div><div class="fc-id">${a.id} · ${a.vendor||''} ${a.model||''}</div></div><div class="fc-health ${hc}">${a.health!=null?a.health:'—'}</div></div>
+        <div class="fc-status"><span class="fc-dot ${hc}"></span><span class="fc-status-text">${a.status||'unknown'}</span><span class="fc-meta">· ${timeAgo(a.last_seen)}</span></div>
         <div><span class="fc-protocol">${protocolMap[a.protocol]||a.protocol||'—'}</span><span class="fc-meta" style="margin-left:6px;">${a.ip_address||''}</span></div>
       </div>`;
     }).join('');
   }
-
-
-
-  // Board audit #1: Simplified P&ID process schematic
-  function renderProcessSchematic() {
-    var el = document.getElementById('process-schematic');
-    if (!el) return;
-
-    // Extract key values from RTU assets
-    var efm = liveAssets.find(function(a){return a.id==='EFM-01';});
-    var rtu = liveAssets.find(function(a){return a.id==='RTU-01';});
-    var efmV = {}, rtuV = {};
-    if (efm && efm.vitals) efm.vitals.forEach(function(v){ efmV[v.label] = v; efmV[v.label.toUpperCase()] = v; });
-    if (rtu && rtu.vitals) rtu.vitals.forEach(function(v){ rtuV[v.label] = v; rtuV[v.label.toUpperCase()] = v; });
-
-    function val(obj, key, unit) {
-      var v = obj[key];
-      if (!v) return '—';
-      var n = parseFloat(v.raw_value);
-      return isNaN(n) ? '—' : (n % 1 === 0 ? n.toFixed(0) : n.toFixed(1)) + (unit||'');
-    }
-    function sc(obj, key) {
-      var v = obj[key];
-      if (!v) return '#7B8499';
-      return v.status === 'critical' ? '#EF4444' : v.status === 'warning' ? '#FBBF24' : '#7B8499';
-    }
-
-    el.style.display = 'block';
-    el.innerHTML = '<div class="pp-title" style="margin-bottom:12px;"><span class="live-dot"></span>PROCESS FLOW — KILLDEER FIELD</div>' +
-    '<svg viewBox="0 0 960 200" style="width:100%;height:auto;max-height:220px;" xmlns="http://www.w3.org/2000/svg">' +
-
-    // Flow lines (pipeline)
-    '<line x1="120" y1="100" x2="240" y2="100" stroke="#4A5168" stroke-width="3" stroke-dasharray="8,4"/>' +
-    '<line x1="340" y1="100" x2="460" y2="100" stroke="#4A5168" stroke-width="3" stroke-dasharray="8,4"/>' +
-    '<line x1="560" y1="100" x2="660" y2="100" stroke="#4A5168" stroke-width="3" stroke-dasharray="8,4"/>' +
-    '<line x1="760" y1="100" x2="860" y2="100" stroke="#4A5168" stroke-width="3" stroke-dasharray="8,4"/>' +
-
-    // Flow arrows
-    '<polygon points="238,94 248,100 238,106" fill="#4A5168"/>' +
-    '<polygon points="458,94 468,100 458,106" fill="#4A5168"/>' +
-    '<polygon points="658,94 668,100 658,106" fill="#4A5168"/>' +
-    '<polygon points="858,94 868,100 858,106" fill="#4A5168"/>' +
-
-    // WELLHEAD
-    '<rect x="20" y="60" width="100" height="80" rx="6" fill="none" stroke="#4A5168" stroke-width="1.5"/>' +
-    '<text x="70" y="52" text-anchor="middle" fill="#7B8499" font-size="9" font-family="var(--font-body)" letter-spacing="1">WELLHEAD</text>' +
-    '<text x="70" y="85" text-anchor="middle" fill="' + sc(rtuV,'TUBING PRESSURE') + '" font-size="13" font-family="var(--font-mono)" font-weight="600">' + val(rtuV,'TUBING PRESSURE',' PSI') + '</text>' +
-    '<text x="70" y="100" text-anchor="middle" fill="#7B8499" font-size="8">TBG PRESS</text>' +
-    '<text x="70" y="120" text-anchor="middle" fill="' + sc(rtuV,'CASING PRESSURE') + '" font-size="11" font-family="var(--font-mono)">' + val(rtuV,'CASING PRESSURE',' PSI') + '</text>' +
-    '<text x="70" y="132" text-anchor="middle" fill="#7B8499" font-size="8">CSG PRESS</text>' +
-
-    // SEPARATOR
-    '<rect x="250" y="55" width="90" height="90" rx="45" fill="none" stroke="#4A5168" stroke-width="1.5"/>' +
-    '<text x="295" y="47" text-anchor="middle" fill="#7B8499" font-size="9" font-family="var(--font-body)" letter-spacing="1">SEPARATOR</text>' +
-    '<text x="295" y="90" text-anchor="middle" fill="' + sc(rtuV,'SUCTION PRESSURE') + '" font-size="13" font-family="var(--font-mono)" font-weight="600">' + val(rtuV,'SUCTION PRESSURE',' PSI') + '</text>' +
-    '<text x="295" y="105" text-anchor="middle" fill="#7B8499" font-size="8">SUCT PRESS</text>' +
-    '<text x="295" y="122" text-anchor="middle" fill="' + sc(rtuV,'DISCHARGE PRESSURE') + '" font-size="10" font-family="var(--font-mono)">' + val(rtuV,'DISCHARGE PRESSURE',' PSI') + '</text>' +
-    '<text x="295" y="134" text-anchor="middle" fill="#7B8499" font-size="7">DISCH</text>' +
-
-    // COMPRESSOR
-    '<rect x="470" y="60" width="90" height="80" rx="6" fill="none" stroke="#4A5168" stroke-width="1.5"/>' +
-    '<text x="515" y="52" text-anchor="middle" fill="#7B8499" font-size="9" font-family="var(--font-body)" letter-spacing="1">COMPRESSOR</text>' +
-    '<text x="515" y="85" text-anchor="middle" fill="' + sc(rtuV,'COMPRESSOR RPM') + '" font-size="13" font-family="var(--font-mono)" font-weight="600">' + val(rtuV,'COMPRESSOR RPM',' RPM') + '</text>' +
-    '<text x="515" y="100" text-anchor="middle" fill="#7B8499" font-size="8">SPEED</text>' +
-    '<text x="515" y="118" text-anchor="middle" fill="' + sc(rtuV,'GAS TEMP') + '" font-size="11" font-family="var(--font-mono)">' + val(rtuV,'GAS TEMP','°F') + '</text>' +
-    '<text x="515" y="130" text-anchor="middle" fill="' + sc(rtuV,'GAS TEMP') + '" font-size="8">GAS TEMP</text>' +
-
-    // TANKS
-    '<rect x="670" y="55" width="90" height="90" rx="6" fill="none" stroke="#4A5168" stroke-width="1.5"/>' +
-    // Tank fill level
-    '<rect x="672" y="' + (143 - Math.min(86, (parseFloat((rtuV['Oil Tank Level']||{}).raw_value)||50)/100*86)).toFixed(0) + '" width="86" height="' + Math.min(86, (parseFloat((rtuV['Oil Tank Level']||{}).raw_value)||50)/100*86).toFixed(0) + '" rx="4" fill="rgba(6,182,212,0.08)"/>' +
-    '<text x="715" y="47" text-anchor="middle" fill="#7B8499" font-size="9" font-family="var(--font-body)" letter-spacing="1">TANK FARM</text>' +
-    '<text x="715" y="90" text-anchor="middle" fill="#B4BCD0" font-size="13" font-family="var(--font-mono)" font-weight="600">' + val(rtuV,'OIL TANK LEVEL','%') + '</text>' +
-    '<text x="715" y="105" text-anchor="middle" fill="#7B8499" font-size="8">OIL LEVEL</text>' +
-    '<text x="715" y="122" text-anchor="middle" fill="#B4BCD0" font-size="10" font-family="var(--font-mono)">' + val(rtuV,'WATER TANK LEVEL','%') + '</text>' +
-    '<text x="715" y="134" text-anchor="middle" fill="#7B8499" font-size="7">WATER</text>' +
-
-    // METERING (EFM)
-    '<rect x="870" y="60" width="80" height="80" rx="6" fill="none" stroke="#4A5168" stroke-width="1.5"/>' +
-    '<text x="910" y="52" text-anchor="middle" fill="#7B8499" font-size="9" font-family="var(--font-body)" letter-spacing="1">METERING</text>' +
-    '<text x="910" y="85" text-anchor="middle" fill="#B4BCD0" font-size="13" font-family="var(--font-mono)" font-weight="600">' + val(efmV,'FLOW RATE',' MCFD') + '</text>' +
-    '<text x="910" y="100" text-anchor="middle" fill="#7B8499" font-size="8">FLOW RATE</text>' +
-    '<text x="910" y="118" text-anchor="middle" fill="#B4BCD0" font-size="10" font-family="var(--font-mono)">' + val(efmV,'ACCUMULATED VOLUME',' MCF') + '</text>' +
-    '<text x="910" y="130" text-anchor="middle" fill="#7B8499" font-size="7">ACCUM VOL</text>' +
-
-    // Safety indicators at bottom
-    '<rect x="20" y="165" width="180" height="28" rx="4" fill="rgba(239,68,68,0.06)" stroke="rgba(239,68,68,0.15)" stroke-width="1"/>' +
-    '<text x="30" y="183" fill="#EF4444" font-size="8" font-family="var(--font-body)" letter-spacing="0.5">SAFETY</text>' +
-    '<text x="80" y="183" fill="' + sc(rtuV,'H2S') + '" font-size="10" font-family="var(--font-mono)">H2S: ' + val(rtuV,'H2S',' PPM') + '</text>' +
-    '<text x="150" y="183" fill="' + sc(rtuV,'LEL') + '" font-size="10" font-family="var(--font-mono)">LEL: ' + val(rtuV,'LEL','%') + '</text>' +
-
-    // Production summary at bottom
-    '<rect x="220" y="165" width="200" height="28" rx="4" fill="rgba(6,182,212,0.06)" stroke="rgba(6,182,212,0.15)" stroke-width="1"/>' +
-    '<text x="230" y="183" fill="#06B6D4" font-size="8" font-family="var(--font-body)" letter-spacing="0.5">PRODUCTION</text>' +
-    '<text x="310" y="183" fill="#B4BCD0" font-size="10" font-family="var(--font-mono)">' + val(rtuV,'OIL PRODUCTION',' BOPD') + '</text>' +
-    '<text x="385" y="183" fill="#B4BCD0" font-size="10" font-family="var(--font-mono)">' + val(rtuV,'FLOW RATE',' MCFD') + '</text>' +
-
-    '</svg>';
-  }
-
-
-  // HPI: Analog range bar — shows where value sits within normal operating range
-  const VITAL_RANGES = {
-    'PSI': [0, 1500], 'psi': [0, 1500], 'PSIG': [0, 1500],
-    '°F': [-40, 250], 'F': [-40, 250],
-    'RPM': [0, 3600], 'rpm': [0, 3600],
-    'mm/s': [0, 10], 'A': [0, 50],
-    'MCFD': [0, 5000], 'MCF': [0, 500000],
-    'BOPD': [0, 500], 'BBL/h': [0, 100],
-    '%': [0, 100], 'in': [0, 200], 'IN': [0, 200],
-    'VDC': [0, 30], 'vdc': [0, 30],
-    'PPM': [0, 50], 'ppm': [0, 50],
-    '%LEL': [0, 100],
-    'hrs': [0, 50000],
-    'dBm': [-120, 0], 'dB': [0, 40],
-    'Mbps': [0, 100], 'ms': [0, 500],
-    'INH2O': [0, 100], 'inH2O': [0, 100],
-    'SG': [0, 2], 'sg': [0, 2],
-    'BTU/CF': [0, 2000], 'MMBTU': [0, 500], 'MMBTU/D': [0, 100],
-    'count': [0, 100000],
-    'bool': null,
-  };
-  function analogBar(raw, unit, status, isSafety) {
-    var range = VITAL_RANGES[unit];
-    if (!range) return '';
-    var n = parseFloat(raw);
-    if (isNaN(n)) return '';
-    var pct = Math.max(0, Math.min(100, ((n - range[0]) / (range[1] - range[0])) * 100));
-    var col = status === 'critical' ? '#EF4444' : status === 'warning' ? '#FBBF24' : (isSafety ? 'rgba(16,212,120,0.6)' : '#4A5168');
-    var h = isSafety ? 6 : 4;
-    // Setpoint tick marks at 20% and 80% (alarm limits)
-    var loTick = 20, hiTick = 80;
-    var ticks = '<div style="position:absolute;left:' + loTick + '%;top:0;width:1px;height:100%;background:rgba(251,191,36,0.4);" title="Low alarm limit"></div>' +
-                '<div style="position:absolute;left:' + hiTick + '%;top:0;width:1px;height:100%;background:rgba(251,191,36,0.4);" title="High alarm limit"></div>';
-    return '<div style="height:' + h + 'px;background:rgba(255,255,255,0.10);border-radius:2px;margin-top:4px;width:100%;position:relative;">' +
-      '<div style="height:100%;width:' + pct.toFixed(1) + '%;background:' + col + ';border-radius:2px;transition:width 0.5s;"></div>' +
-      ticks + '</div>';
-  }
-
-
-
-
-  // Board: Micro-trend arrows showing value direction
-  function trendArrow(raw, unit) {
-    var n = parseFloat(raw);
-    if (isNaN(n)) return '';
-    var hist = fakeHistory(n, unit, 6);
-    if (!hist || hist.length < 3) return '';
-    var first = (hist[0] + hist[1] + hist[2]) / 3;
-    var last = (hist[3] + hist[4] + hist[5]) / 3;
-    var pctChange = ((last - first) / (Math.abs(first) || 1)) * 100;
-    var rateStr = (pctChange > 0 ? '+' : '') + pctChange.toFixed(1) + '%/hr';
-    if (Math.abs(pctChange) < 0.5) return '<span style="color:var(--text-faint);font-size:9px;margin-left:3px;" title="Rate: ' + rateStr + '">&rarr;</span>';
-    if (pctChange > 0) return '<span style="color:var(--text-faint);font-size:9px;margin-left:3px;" title="Rate: ' + rateStr + '">&uarr;</span>';
-    return '<span style="color:var(--text-faint);font-size:9px;margin-left:3px;" title="Rate: ' + rateStr + '">&darr;</span>';
-  }
-
-  // Board rec #4: Range string for tooltips
-  function vitalRangeStr(unit) {
-    var r = typeof VITAL_RANGES !== 'undefined' ? VITAL_RANGES[unit] : null;
-    if (!r) return 'N/A';
-    return r[0] + '–' + r[1] + ' ' + (unit||'');
-  }
-
-  // Board rec #3: Classify vitals into display tiers
-  var SAFETY_LABELS = ['H2S','LEL','ESD','Gas','Shutdown','Emergency','Flame'];
-  var INFO_LABELS = ['Run Hours','Hours','Battery','Signal','RSSI','SNR','Uptime','Firmware'];
-  function vitalTier(v) {
-    var label = (v.label||'').toLowerCase();
-    for (var i=0;i<SAFETY_LABELS.length;i++) if (label.indexOf(SAFETY_LABELS[i].toLowerCase())>=0) return 'safety';
-    if (v.status === 'critical' || v.status === 'warning') return 'critical';
-    for (var j=0;j<INFO_LABELS.length;j++) if (label.indexOf(INFO_LABELS[j].toLowerCase())>=0) return 'info';
-    return 'process';
-  }
-
-
-  // Board rec #1: Compact sparkline for process panel vitals
-  function compactSparkline(raw, unit, status, isSafety) {
-    var n = parseFloat(raw);
-    if (isNaN(n)) return '';
-    var hist = fakeHistory(n, unit, 16);
-    if (!hist) return '';
-    var w = isSafety ? 80 : 60, h = isSafety ? 24 : 16, pad = 1;
-    var min = Math.min.apply(null, hist), max = Math.max.apply(null, hist);
-    var range = max - min || 1;
-    var pts = [];
-    for (var i = 0; i < hist.length; i++) {
-      var x = (pad + (i / (hist.length - 1)) * (w - 2 * pad)).toFixed(1);
-      var y = (h - pad - ((hist[i] - min) / range) * (h - 2 * pad)).toFixed(1);
-      pts.push(x + ',' + y);
-    }
-    var col = status === 'critical' ? '#EF4444' : status === 'warning' ? '#FBBF24' : '#4A5168';
-    return '<svg width="' + w + '" height="' + h + '" viewBox="0 0 ' + w + ' ' + h + '" style="display:block;margin-top:2px;opacity:0.7;"><polyline points="' + pts.join(' ') + '" fill="none" stroke="' + col + '" stroke-width="1" stroke-linecap="round" stroke-linejoin="round"/></svg>';
-  }
-
-  // Board: L1 optimization — process panels collapsed by default with toggle
-  window._processPanelsExpanded = false;
-  window.toggleProcessPanels = function() {
-    window._processPanelsExpanded = !window._processPanelsExpanded;
-    var el = document.getElementById('scada-process-grid');
-    var btn = document.getElementById('toggle-process-btn');
-    if (el) el.style.display = window._processPanelsExpanded ? 'grid' : 'none';
-    if (btn) btn.textContent = window._processPanelsExpanded ? '▲ Collapse Process Values' : '▼ Expand Process Values (L2 Detail)';
-  };
 
   function renderProcessPanels() {
     const el = document.getElementById('scada-process-grid');
@@ -745,9 +342,9 @@ document.addEventListener('click', function(e) {
     for (const r of rtu) {
       const vitals = (r.vitals||[]).filter(v => v.unit !== 'bool');
       const disc = (r.vitals||[]).filter(v => v.unit === 'bool');
-      html += `<div class="process-panel"><div class="pp-title"><span class="live-dot"></span>${r.name}${dataSourceBadge(r)} — PROCESS VALUES</div><div class="vitals-grid">${vitals.map(v => {
+      html += `<div class="process-panel"><div class="pp-title"><span class="live-dot"></span>${r.name} — PROCESS VALUES</div><div class="vitals-grid">${vitals.map(v => {
         const n = parseFloat(v.raw_value); const dv = isNaN(n)?v.value:(n%1===0?n.toFixed(0):n.toFixed(1));
-        return `<div class="vital-item ${v.status||''} tier-${vitalTier(v)}" title="${v.label}: ${dv} ${v.unit||''} — Range: ${vitalRangeStr(v.unit)}"><div class="vi-label">${v.label}</div><div class="vi-value">${dv}<span class="vi-unit">${v.unit||''}</span>${trendArrow(v.raw_value, v.unit)}</div>${analogBar(v.raw_value, v.unit, v.status, vitalTier(v)==='safety')}${compactSparkline(v.raw_value, v.unit, v.status, vitalTier(v)==='safety')}</div>`;
+        return `<div class="vital-item ${v.status||''}"><div class="vi-label">${v.label}</div><div class="vi-value">${dv}<span class="vi-unit">${v.unit||''}</span></div></div>`;
       }).join('')}</div>${disc.length?`<div style="margin-top:12px;"><div style="font-size:9px;text-transform:uppercase;letter-spacing:0.8px;color:var(--text-muted);margin-bottom:8px;">DISCRETE INPUTS</div><div style="display:flex;gap:10px;flex-wrap:wrap;">${disc.map(v=>{const ok=v.value==='OK'||v.value==='STOPPED'||v.raw_value===0;const col=v.status==='good'?'var(--status-good)':ok?'var(--text-muted)':'var(--status-bad)';return `<div style="display:flex;align-items:center;gap:5px;font-size:11px;"><span style="width:6px;height:6px;border-radius:50%;background:${col};"></span><span style="color:var(--text-secondary);">${v.label}</span><span style="font-family:var(--font-mono);color:${col};">${v.value}</span></div>`;}).join('')}</div></div>`:''}</div>`;
     }
     if (net.length > 0) {
@@ -756,7 +353,6 @@ document.addEventListener('click', function(e) {
       html += `</div></div>`;
     }
     el.innerHTML = html;
-    if (!window._processPanelsExpanded) el.style.display = 'none';
   }
 
   function renderCommTable() {
@@ -766,7 +362,7 @@ document.addEventListener('click', function(e) {
     el.innerHTML = `<div class="pp-title"><span class="live-dot"></span>COMMUNICATION STATUS</div>
       <table class="comm-table"><thead><tr><th>ASSET</th><th>PROTOCOL</th><th>IP</th><th>STATUS</th><th>HEALTH</th><th>POLL</th><th>LAST SEEN</th></tr></thead><tbody>${liveAssets.map(a => {
         const c = hClass(a.status,a.health); const col = c==='good'?'var(--status-good)':c==='offline'?'var(--status-offline)':'var(--status-warn)';
-        return `<tr><td><strong>${a.id}</strong> <span style="color:var(--text-muted);font-size:11px;">${a.name}</span>${dataSourceBadge(a)}</td><td class="mono">${protocolMap[a.protocol]||a.protocol||'—'}</td><td class="mono">${a.ip_address||'—'}</td><td><span class="ct-status"><span class="ct-dot" style="background:${col};"></span>${a.status||'—'}</span></td><td class="mono" style="color:${col};">${a.health!=null?a.health:'—'}</td><td class="mono">${a.poll_interval||'—'}s</td><td class="mono">${timeAgo(a.last_seen)}</td></tr>`;
+        return `<tr><td><strong>${a.id}</strong> <span style="color:var(--text-muted);font-size:11px;">${a.name}</span></td><td class="mono">${protocolMap[a.protocol]||a.protocol||'—'}</td><td class="mono">${a.ip_address||'—'}</td><td><span class="ct-status"><span class="ct-dot" style="background:${col};"></span>${a.status||'—'}</span></td><td class="mono" style="color:${col};">${a.health!=null?a.health:'—'}</td><td class="mono">${a.poll_interval||'—'}s</td><td class="mono">${timeAgo(a.last_seen)}</td></tr>`;
       }).join('')}</tbody></table>`;
   }
 
@@ -780,10 +376,10 @@ document.addEventListener('click', function(e) {
     const sev = a.severity || 'info';
     const borderColor = sev === 'critical' ? '#EF4444' : sev === 'warning' ? '#FBBF24' : '#06B6D4';
     const isTrap = a.message && (a.message.toLowerCase().includes('link down') || a.message.toLowerCase().includes('cold start') || a.message.toLowerCase().includes('trap'));
-    const trapBadge = isTrap ? '<span style="font-size:9px;padding:2px 6px;border-radius:4px;background:rgba(167,139,250,0.15);color:#A78BFA;font-weight:600;margin-left:6px;">TRAP</span>' : '';
+    const trapBadge = isTrap ? '<span style="font-size:9px;padding:2px 6px;border-radius:4px;background:rgba(168,85,247,0.15);color:#A855F7;font-weight:600;margin-left:6px;">TRAP</span>' : '';
     const statusBadge = a.status !== 'open' ? `<span style="font-size:9px;padding:2px 6px;border-radius:4px;background:${a.status==='acknowledged'?'rgba(251,191,36,0.15)':'rgba(16,212,120,0.15)'};color:${a.status==='acknowledged'?'#FBBF24':'#10D478'};font-weight:600;margin-left:6px;">${a.status.toUpperCase()}</span>` : '';
     const actions = full && a.status !== 'resolved' ? `<div style="display:flex;gap:6px;margin-top:8px;">${a.status==='open'?`<button onclick="window.ackAlert('${a.id}')" style="font-size:10px;padding:4px 10px;border-radius:6px;border:1px solid rgba(251,191,36,0.3);background:rgba(251,191,36,0.1);color:#FBBF24;cursor:pointer;font-family:var(--font-body);">Acknowledge</button>`:''}<button onclick="window.resolveAlert('${a.id}')" style="font-size:10px;padding:4px 10px;border-radius:6px;border:1px solid rgba(16,212,120,0.3);background:rgba(16,212,120,0.1);color:#10D478;cursor:pointer;font-family:var(--font-body);">Resolve</button></div>` : '';
-    return `<div class="alert-card ${sev}" style="border-left:3px solid ${borderColor};${isTrap?'box-shadow:0 0 8px rgba(167,139,250,0.15);':''}">
+    return `<div class="alert-card ${sev}" style="border-left:3px solid ${borderColor};${isTrap?'box-shadow:0 0 8px rgba(168,85,247,0.15);':''}">
       <div class="alert-icon-wrap ${sev}">${alertSvgs[sev]||alertSvgs.info}</div>
       <div class="alert-body">
         <div class="alert-meta-row"><span class="severity-badge ${sev}">${sev.toUpperCase()}</span>${statusBadge}${trapBadge}<span class="alert-time">${timeAgo(a.detected_at)}</span></div>
@@ -995,22 +591,6 @@ document.addEventListener('click', function(e) {
   // ═══════════════════════════════════════
   
   // ═══════════════════════════════════════
-
-  // Board: Health score breakdown — show how score is calculated
-  function healthBreakdown(a) {
-    var h = a.health || 0;
-    // Simulated breakdown components that sum to health score
-    var uptime = Math.min(25, Math.round(h * 0.27));
-    var response = Math.min(25, Math.round(h * 0.26));
-    var errorRate = Math.min(25, Math.round(h * 0.25));
-    var stability = h - uptime - response - errorRate;
-    if (stability < 0) stability = 0;
-    return '<span>Uptime +' + uptime + '</span>' +
-           '<span>Response +' + response + '</span>' +
-           '<span>Error Rate +' + errorRate + '</span>' +
-           '<span>Stability +' + stability + '</span>';
-  }
-
   function renderHealthPage() {
     const stats = document.getElementById('health-stats');
     const bs = healthSummary.by_status || {};
@@ -1027,11 +607,7 @@ document.addEventListener('click', function(e) {
       return `<div style="display:flex;align-items:center;gap:16px;padding:12px 0;border-bottom:1px solid var(--border);">
         <div style="min-width:80px;"><span class="mono" style="color:var(--accent);font-weight:600;font-size:12px;">${a.id}</span></div>
         <div style="min-width:140px;font-size:12px;color:var(--text-secondary);">${a.name}</div>
-        <div style="flex:1;"><div class="health-bar" style="height:8px;"><div class="health-bar-fill ${hc}" style="width:${a.health||0}%"></div></div>
-          <div style="display:flex;gap:12px;margin-top:4px;font-size:9px;color:var(--text-faint);">
-            ${healthBreakdown(a)}
-          </div>
-        </div>
+        <div style="flex:1;"><div class="health-bar" style="height:8px;"><div class="health-bar-fill ${hc}" style="width:${a.health||0}%"></div></div></div>
         <div style="min-width:40px;text-align:right;font-family:var(--font-mono);font-size:14px;font-weight:700;color:${colorVar};">${a.health!=null?a.health:'—'}</div>
         ${statusPill(a.status,a.health)}
       </div>`;
@@ -1116,7 +692,7 @@ document.addEventListener('click', function(e) {
   const TREND_CATEGORIES = [
     {
       id: 'process', label: 'Process',
-      color: '#10D478', colorDim: 'rgba(16,212,120,0.12)', borderColor: 'rgba(16,212,120,0.3)',
+      color: '#10D478', colorDim: 'rgba(16,185,129,0.12)', borderColor: 'rgba(16,185,129,0.3)',
       icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>',
       metrics: [
         { key: 'suction_pressure', label: 'Suction Press', unit: 'PSI', asset: 'RTU-01' },
@@ -1152,7 +728,7 @@ document.addEventListener('click', function(e) {
     },
     {
       id: 'power', label: 'Power & Levels',
-      color: '#A78BFA', colorDim: 'rgba(167,139,250,0.12)', borderColor: 'rgba(167,139,250,0.3)',
+      color: '#A855F7', colorDim: 'rgba(168,85,247,0.12)', borderColor: 'rgba(168,85,247,0.3)',
       icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/></svg>',
       metrics: [
         { key: 'battery_voltage', label: 'Battery', unit: 'VDC', asset: 'RTU-01' },
@@ -1566,390 +1142,6 @@ document.addEventListener('click', function(e) {
     // ═══════════════════════════════════════
   // PAGE: REPORTS
   // ═══════════════════════════════════════
-
-
-  // Board Audit 2: Alarm aging indicator
-  function alarmAgingBadge(a) {
-    if (!a.created_at) return '';
-    var mins = (Date.now() - new Date(a.created_at).getTime()) / 60000;
-    if (mins < 60) return ' <span class="age-badge age-fresh" title="Fresh alarm">●</span>';
-    if (mins < 240) return ' <span class="age-badge age-aging" title="Aging: ' + Math.round(mins/60) + 'h">●</span>';
-    return ' <span class="age-badge age-stale" title="Stale: ' + Math.round(mins/60) + 'h">●</span>';
-  }
-
-  // Board Audit 2: Priority (ISA-18.2 §6.3 — separate from severity)
-  function alarmPriority(a) {
-    var sev = (a.severity||'info').toLowerCase();
-    if (sev === 'critical') return '<span style="color:#EF4444;font-size:10px;font-weight:700;">P1</span>';
-    if (sev === 'high') return '<span style="color:#FBBF24;font-size:10px;font-weight:700;">P2</span>';
-    if (sev === 'warning') return '<span style="color:#FBBF24;font-size:10px;font-weight:600;">P3</span>';
-    return '<span style="color:var(--text-muted);font-size:10px;">P4</span>';
-  }
-
-  // Board Audit 2: Guided response in alarm detail drawer
-  function alarmGuidedResponse(a) {
-    var metric = (a.metric||a.message||'').toLowerCase();
-    var responses = {
-      'rf link': ['Check antenna connections on ' + (a.asset_id||'device'), 'Verify line-of-sight to tower', 'Check weather conditions for RF interference', 'Review signal strength trend in Historian'],
-      'pressure': ['Check valve positions upstream/downstream', 'Verify pump/compressor status', 'Review pressure trend for rate of change', 'Check for blockage or leak indicators'],
-      'temperature': ['Check cooling system status', 'Verify ambient conditions', 'Review temperature rate of change', 'Check for insulation damage or heat source'],
-      'h2s': ['EVACUATE if above 10 PPM', 'Verify sensor calibration date', 'Check wind direction for source', 'Notify safety officer immediately'],
-      'lel': ['EVACUATE if above 10%', 'Check ventilation systems', 'Verify gas detection sensor calibration', 'Identify potential leak source'],
-      'vibration': ['Check bearing condition', 'Verify motor mount bolts', 'Review vibration spectrum', 'Schedule predictive maintenance'],
-      'level': ['Check level transmitter calibration', 'Verify outlet valve position', 'Check for overflow risk', 'Review production rate changes'],
-    };
-    var guidance = [];
-    for (var key in responses) {
-      if (metric.indexOf(key) >= 0) { guidance = responses[key]; break; }
-    }
-    if (guidance.length === 0) {
-      guidance = ['Investigate ' + (a.metric||'condition') + ' on ' + (a.asset_id||'device'), 'Check physical connections', 'Review trend data for last 24h', 'Cross-reference with environmental data'];
-    }
-    return '<div style="margin-top:12px;"><div style="font-size:10px;text-transform:uppercase;letter-spacing:0.8px;color:#FBBF24;font-weight:600;margin-bottom:6px;">⚡ RECOMMENDED RESPONSE</div>' +
-      guidance.map(function(g,i){return '<div style="font-size:11px;color:var(--text-secondary);padding:4px 0;border-bottom:1px solid var(--border);">' + (i+1) + '. ' + g + '</div>';}).join('') +
-      '</div>';
-  }
-
-  // Board Audit 2: Response timeline in alarm detail
-  function alarmResponseTimeline(a) {
-    var detected = a.created_at ? new Date(a.created_at).toLocaleTimeString() : '—';
-    var ack = a.acknowledged ? '✓ Acknowledged' : '○ Pending';
-    return '<div style="margin-top:12px;"><div style="font-size:10px;text-transform:uppercase;letter-spacing:0.8px;color:var(--text-muted);font-weight:600;margin-bottom:6px;">RESPONSE TIMELINE</div>' +
-      '<div style="display:flex;gap:0;align-items:stretch;">' +
-        timelineStep('Detected', detected, true) +
-        timelineStep('Acknowledged', ack, a.acknowledged) +
-        timelineStep('Action Taken', '○ Pending', false) +
-        timelineStep('Resolved', '○ Open', false) +
-      '</div></div>';
-  }
-
-  function timelineStep(label, value, done) {
-    var col = done ? '#10D478' : 'var(--text-muted)';
-    return '<div style="flex:1;text-align:center;position:relative;">' +
-      '<div style="width:12px;height:12px;border-radius:50%;background:' + (done ? 'rgba(16,212,120,0.2)' : 'var(--bg-card)') + ';border:2px solid ' + col + ';margin:0 auto 4px;"></div>' +
-      '<div style="font-size:9px;color:' + col + ';font-weight:600;">' + label + '</div>' +
-      '<div style="font-size:8px;color:var(--text-muted);margin-top:2px;">' + value + '</div>' +
-    '</div>';
-  }
-
-  // Board Audit 2: Worst-condition banner below KPIs
-
-  // Board Audit 2: Micro-interactions — track previous values for pulse effects
-  var _prevAlarmCount = -1;
-  var _prevHealthScores = {};
-  function microInteractionPulse() {
-    var open = liveAlerts.filter(function(a){return a.status !== 'resolved';}).length;
-    if (_prevAlarmCount >= 0 && open !== _prevAlarmCount) {
-      var kpi4 = document.querySelectorAll('.kpi-tile')[3];
-      if (kpi4) { kpi4.classList.add('kpi-pulse'); setTimeout(function(){kpi4.classList.remove('kpi-pulse');}, 1500); }
-    }
-    _prevAlarmCount = open;
-
-    // Fleet card health pulse
-    (liveAssets||[]).forEach(function(a){
-      var card = document.querySelector('[data-asset="' + a.id + '"]');
-      if (!card) return;
-      var hs = a.health_score || a.health;
-      if (_prevHealthScores[a.id] !== undefined && _prevHealthScores[a.id] !== hs) {
-        card.classList.add('health-changed');
-        setTimeout(function(){card.classList.remove('health-changed');}, 1200);
-      }
-      _prevHealthScores[a.id] = hs;
-    });
-  }
-
-  function renderWorstCondition() {
-    var el = document.getElementById('worst-condition');
-    if (!el) return;
-    var open = liveAlerts.filter(function(a){return a.status !== 'resolved';});
-    var critical = open.filter(function(a){return a.severity === 'critical';});
-    if (critical.length === 0 && open.length === 0) {
-      el.innerHTML = '<div style="padding:6px 12px;border-radius:6px;background:rgba(16,212,120,0.06);border:1px solid rgba(16,212,120,0.15);font-size:12px;color:#10D478;display:flex;align-items:center;gap:6px;"><span style="font-size:14px;">✓</span> All systems nominal — no active alarms</div>';
-      return;
-    }
-    var worst = critical.length > 0 ? critical[0] : open[0];
-    var msg = critical.length + ' critical alarm' + (critical.length !== 1 ? 's' : '') + ' — ' + (worst.metric||worst.message||'Unknown') + ' on ' + (worst.asset_id||'Unknown');
-    el.innerHTML = '<div style="padding:6px 12px;border-radius:6px;background:rgba(239,68,68,0.06);border:1px solid rgba(239,68,68,0.15);font-size:12px;color:#EF4444;display:flex;align-items:center;gap:6px;"><span style="font-size:14px;">⚠</span> ' + msg + '</div>';
-  }
-
-  // Board Audit 2: Data latency display
-  function updateDataLatency() {
-    var el = document.getElementById('data-latency');
-    if (!el) return;
-    // Calculate time since last poll response
-    var latency = Math.round(Math.random() * 80 + 40); // Simulated 40-120ms
-    el.textContent = latency + 'ms';
-    el.style.color = latency < 100 ? '#10D478' : latency < 200 ? '#FBBF24' : '#EF4444';
-  }
-
-  function renderCyberPage() {
-    const page = document.querySelector('section[data-page="cyber"]');
-    if (!page) return;
-    // Skip full rebuild if already rendered (prevents flicker of injected panels)
-    if (page.querySelector('.module-header')) return;
-
-    // Determine live asset protocols
-    var protoList = [];
-    (liveAssets||[]).forEach(function(a){
-      (a.vitals||[]).forEach(function(v){ });
-      var p = a.protocol || '';
-      if (p && protoList.indexOf(p) < 0) protoList.push(p);
-    });
-
-    page.innerHTML =
-      '<div class="module-header">' +
-        '<div><h2 class="page-title">Cybersecurity</h2>' +
-        '<div class="module-subtitle">IEC 62443 zone mapping · NIST CSF posture · Protocol security — Killdeer Field</div></div>' +
-      '</div>' +
-
-      // ── NIST CSF Scorecard ──
-      '<div class="panel-box" style="margin-bottom:16px;">' +
-        '<div class="pp-title" style="margin-bottom:12px;">NIST CSF 2.0 — MATURITY SCORECARD</div>' +
-        '<div style="display:grid;grid-template-columns:repeat(5,1fr);gap:12px;">' +
-          nistCsfTile('IDENTIFY', 78, 'Asset inventory, risk assessment, governance', '#60A5FA') +
-          nistCsfTile('PROTECT', 72, 'Access control, data security, training', '#A78BFA') +
-          nistCsfTile('DETECT', 85, 'Continuous monitoring, anomaly detection', '#06B6D4') +
-          nistCsfTile('RESPOND', 65, 'Response planning, communications, mitigation', '#FBBF24') +
-          nistCsfTile('RECOVER', 60, 'Recovery planning, improvements, comms', '#10D478') +
-        '</div>' +
-        '<div style="margin-top:12px;display:flex;align-items:center;gap:8px;">' +
-          '<span style="font-size:11px;color:var(--text-muted);">Overall Maturity:</span>' +
-          '<span style="font-size:20px;font-weight:700;font-family:var(--font-mono);color:var(--accent);">72%</span>' +
-          '<span style="font-size:10px;color:var(--text-muted);margin-left:8px;">Target: 85% · Last assessed: ' + new Date().toLocaleDateString() + '</span>' +
-        '</div>' +
-      '</div>' +
-
-      // ── IEC 62443 Zone Map ──
-      '<div class="panel-box" style="margin-bottom:16px;">' +
-        '<div class="pp-title" style="margin-bottom:12px;">IEC 62443 — ZONE & CONDUIT MODEL</div>' +
-        renderZoneDiagram() +
-      '</div>' +
-
-      // Two-column: Protocol Security + Session Info
-      '<div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:16px;">' +
-
-        // ── Protocol Security Matrix ──
-        '<div class="panel-box">' +
-          '<div class="pp-title" style="margin-bottom:12px;">PROTOCOL SECURITY MATRIX</div>' +
-          '<table class="ics-table" style="font-size:12px;">' +
-            '<thead><tr><th>Protocol</th><th>Auth</th><th>Encryption</th><th>Integrity</th><th>Risk</th></tr></thead>' +
-            '<tbody>' +
-              protoSecRow('SNMP v2c', false, false, false, 'high', 'Community string only. Migrate to SNMPv3.') +
-              protoSecRow('Modbus TCP', false, false, false, 'high', 'No native security. Use network segmentation.') +
-              protoSecRow('DNP3', false, false, false, 'medium', 'SA available but not enabled. Plan DNP3-SA rollout.') +
-              protoSecRow('HTTPS/WSS', true, true, true, 'low', 'TLS 1.3, Cognito JWT auth, certificate pinned.') +
-            '</tbody>' +
-          '</table>' +
-          '<div style="margin-top:8px;font-size:10px;color:var(--text-muted);">⚠ OT protocol risks are mitigated by network segmentation per IEC 62443 zones</div>' +
-        '</div>' +
-
-        // ── Session & Auth Status ──
-        '<div class="panel-box">' +
-          '<div class="pp-title" style="margin-bottom:12px;">SESSION & AUTHENTICATION</div>' +
-          '<div style="display:grid;gap:10px;">' +
-            cyberInfoRow('Auth Provider', 'AWS Cognito', 'good') +
-            cyberInfoRow('Session Status', 'Active — authenticated', 'good') +
-            cyberInfoRow('User', (typeof currentUser !== "undefined" && currentUser ? currentUser.email || currentUser.username || 'System Admin' : 'System Admin'), 'neutral') +
-            cyberInfoRow('Role', (typeof currentUser !== "undefined" && currentUser ? currentUser.role || 'admin' : 'admin'), 'neutral') +
-            cyberInfoRow('Login Method', 'Username + Password (SRP)', 'good') +
-            cyberInfoRow('API Auth', 'JWT Bearer Token', 'good') +
-            cyberInfoRow('Token Expiry', '1 hour (auto-refresh)', 'good') +
-            cyberInfoRow('Default Passwords', 'None — all custom', 'good') +
-          '</div>' +
-        '</div>' +
-
-      '</div>' +
-
-      // ── Compliance Checklist ──
-      '<div class="panel-box" style="margin-bottom:16px;">' +
-        '<div class="pp-title" style="margin-bottom:12px;">COMPLIANCE CHECKLIST</div>' +
-        '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">' +
-          complianceItem('IEC 62443 Zone Segmentation', true) +
-          complianceItem('NIST CSF Function Coverage', true) +
-          complianceItem('ISA-18.2 Alarm Management', true) +
-          complianceItem('ISA-101 HMI Standards', true) +
-          complianceItem('Cognito Authentication', true) +
-          complianceItem('TLS 1.3 Dashboard Transport', true) +
-          complianceItem('API Key Authentication', true) +
-          complianceItem('Role-Based Access Control', true) +
-          complianceItem('Audit Trail Logging', true) +
-          complianceItem('SNMPv3 Migration', false) +
-          complianceItem('DNP3 Secure Authentication', false) +
-          complianceItem('NERC CIP Alignment', false) +
-          complianceItem('Incident Response Playbook', false) +
-          complianceItem('Penetration Test (annual)', false) +
-        '</div>' +
-      '</div>' +
-
-      // ── Incident Response Workflow ──
-      '<div class="panel-box" style="margin-bottom:16px;">' +
-        '<div class="pp-title" style="margin-bottom:12px;">INCIDENT RESPONSE WORKFLOW</div>' +
-        '<div style="display:flex;align-items:center;justify-content:center;gap:0;padding:12px 0;">' +
-          irStep('DETECT', 'Continuous monitoring, anomaly detection, alarm correlation', '#06B6D4', true) +
-          irArrow() +
-          irStep('CONTAIN', 'Isolate affected zone, preserve evidence, limit blast radius', '#FBBF24', false) +
-          irArrow() +
-          irStep('ERADICATE', 'Remove threat, patch vulnerability, update configurations', '#EF4444', false) +
-          irArrow() +
-          irStep('RECOVER', 'Restore operations, verify integrity, return to normal', '#10D478', false) +
-          irArrow() +
-          irStep('LESSONS', 'Post-incident review, update playbooks, improve defenses', '#A78BFA', false) +
-        '</div>' +
-        '<div style="font-size:10px;color:var(--text-muted);text-align:center;margin-top:8px;">Based on NIST SP 800-61 Computer Security Incident Handling Guide</div>' +
-      '</div>' +
-
-      // ── Audit Trail ──
-      '<div class="panel-box">' +
-        '<div class="pp-title" style="margin-bottom:12px;">RECENT AUDIT TRAIL</div>' +
-        '<table class="ics-table" style="font-size:11px;">' +
-          '<thead><tr><th>Timestamp</th><th>User</th><th>Action</th><th>Target</th><th>Result</th></tr></thead>' +
-          '<tbody>' +
-            auditRow(2, 'Dave Spencer', 'Login', 'Dashboard', 'OK') +
-            auditRow(5, 'Dave Spencer', 'View Page', 'Process Overview', 'OK') +
-            auditRow(8, 'System', 'Poll Cycle', '7 assets', 'OK') +
-            auditRow(15, 'Dave Spencer', 'Acknowledge Alarm', 'RAD-02 RF Link', 'OK') +
-            auditRow(23, 'System', 'SNMP Trap Received', 'RAD-01 192.168.88.11', 'OK') +
-            auditRow(38, 'Dave Spencer', 'Execute Command', 'RTU-01 Stop Motor', 'OK') +
-            auditRow(60, 'System', 'Stale Data Check', 'All assets', 'OK') +
-            auditRow(125, 'Dave Spencer', 'Login', 'Dashboard', 'OK') +
-          '</tbody>' +
-        '</table>' +
-      '</div>';
-  }
-
-  function nistCsfTile(func, score, desc, color) {
-    var barW = Math.min(score, 100);
-    return '<div style="background:var(--bg-card);border:1px solid var(--border);border-radius:8px;padding:12px;text-align:center;">' +
-      '<div style="font-size:10px;letter-spacing:1px;color:' + color + ';font-weight:700;margin-bottom:6px;">' + func + '</div>' +
-      '<div style="font-size:28px;font-weight:700;font-family:var(--font-mono);color:var(--text-primary);">' + score + '<span style="font-size:14px;color:var(--text-muted);">%</span></div>' +
-      '<div style="height:4px;background:rgba(255,255,255,0.08);border-radius:2px;margin:8px 0;">' +
-        '<div style="height:100%;width:' + barW + '%;background:' + color + ';border-radius:2px;"></div>' +
-      '</div>' +
-      '<div style="font-size:9px;color:var(--text-muted);line-height:1.3;">' + desc + '</div>' +
-    '</div>';
-  }
-
-  function renderZoneDiagram() {
-    // Simplified IEC 62443 zone/conduit SVG
-    return '<div style="position:relative;overflow-x:auto;">' +
-      '<svg viewBox="0 0 900 340" style="width:100%;max-width:900px;margin:0 auto;display:block;" xmlns="http://www.w3.org/2000/svg">' +
-        // Zone 3 — Enterprise
-        '<rect x="20" y="10" width="860" height="70" rx="8" fill="rgba(96,165,250,0.06)" stroke="rgba(96,165,250,0.3)" stroke-width="1" stroke-dasharray="6,3"/>' +
-        '<text x="40" y="35" fill="#60A5FA" font-size="10" font-weight="700" font-family="Manrope">ZONE 3 — ENTERPRISE / IT</text>' +
-        '<text x="40" y="52" fill="#7B8499" font-size="9" font-family="Manrope">Corporate network · Cloud services · Remote access</text>' +
-        '<rect x="650" y="25" width="210" height="40" rx="6" fill="rgba(96,165,250,0.08)" stroke="rgba(96,165,250,0.2)"/>' +
-        '<text x="660" y="42" fill="#60A5FA" font-size="9" font-family="JetBrains Mono">AWS Cognito + CloudFront</text>' +
-        '<text x="660" y="55" fill="#7B8499" font-size="8" font-family="JetBrains Mono">TLS 1.3 · JWT Auth</text>' +
-
-        // Conduit Z3→Z2
-        '<line x1="450" y1="80" x2="450" y2="110" stroke="#FBBF24" stroke-width="2" stroke-dasharray="4,2"/>' +
-        '<rect x="400" y="85" width="100" height="20" rx="4" fill="rgba(251,191,36,0.1)" stroke="rgba(251,191,36,0.3)"/>' +
-        '<text x="450" y="99" fill="#FBBF24" font-size="8" font-family="Manrope" text-anchor="middle" font-weight="600">FIREWALL</text>' +
-
-        // Zone 2 — Supervisory
-        '<rect x="20" y="110" width="860" height="80" rx="8" fill="rgba(6,182,212,0.06)" stroke="rgba(6,182,212,0.3)" stroke-width="1" stroke-dasharray="6,3"/>' +
-        '<text x="40" y="135" fill="#06B6D4" font-size="10" font-weight="700" font-family="Manrope">ZONE 2 — SUPERVISORY / SCADA</text>' +
-        '<text x="40" y="152" fill="#7B8499" font-size="9" font-family="Manrope">Aevus Dashboard · Historian · Alarm Management</text>' +
-        '<rect x="400" y="130" width="220" height="45" rx="6" fill="rgba(6,182,212,0.08)" stroke="rgba(6,182,212,0.2)"/>' +
-        '<text x="410" y="147" fill="#06B6D4" font-size="9" font-family="JetBrains Mono">Raspberry Pi (EDGE-01)</text>' +
-        '<text x="410" y="160" fill="#7B8499" font-size="8" font-family="JetBrains Mono">Aevus Collector · 192.168.88.254</text>' +
-        '<rect x="650" y="130" width="210" height="45" rx="6" fill="rgba(6,182,212,0.08)" stroke="rgba(6,182,212,0.2)"/>' +
-        '<text x="660" y="147" fill="#06B6D4" font-size="9" font-family="JetBrains Mono">MikroTik L009 (RTR-01)</text>' +
-        '<text x="660" y="160" fill="#7B8499" font-size="8" font-family="JetBrains Mono">Router · 192.168.88.1</text>' +
-
-        // Conduit Z2→Z1
-        '<line x1="450" y1="190" x2="450" y2="220" stroke="rgba(16,212,120,0.5)" stroke-width="2" stroke-dasharray="4,2"/>' +
-        '<rect x="385" y="195" width="130" height="20" rx="4" fill="rgba(16,212,120,0.1)" stroke="rgba(16,212,120,0.3)"/>' +
-        '<text x="450" y="209" fill="#10D478" font-size="8" font-family="Manrope" text-anchor="middle" font-weight="600">SWITCH (SW-01)</text>' +
-
-        // Zone 1 — Basic Control
-        '<rect x="20" y="220" width="860" height="110" rx="8" fill="rgba(16,212,120,0.04)" stroke="rgba(16,212,120,0.25)" stroke-width="1" stroke-dasharray="6,3"/>' +
-        '<text x="40" y="245" fill="#10D478" font-size="10" font-weight="700" font-family="Manrope">ZONE 1 — BASIC CONTROL / FIELD</text>' +
-        '<text x="40" y="262" fill="#7B8499" font-size="9" font-family="Manrope">PLCs · RTUs · Flow computers · Radios</text>' +
-
-        // Field devices
-        '<rect x="50" y="275" width="160" height="40" rx="6" fill="rgba(16,212,120,0.06)" stroke="rgba(16,212,120,0.2)"/>' +
-        '<text x="60" y="292" fill="#10D478" font-size="9" font-family="JetBrains Mono">SCADAPack 470</text>' +
-        '<text x="60" y="304" fill="#7B8499" font-size="8" font-family="JetBrains Mono">Modbus TCP · .21</text>' +
-
-        '<rect x="240" y="275" width="160" height="40" rx="6" fill="rgba(16,212,120,0.06)" stroke="rgba(16,212,120,0.2)"/>' +
-        '<text x="250" y="292" fill="#10D478" font-size="9" font-family="JetBrains Mono">TotalFlow XFC G4</text>' +
-        '<text x="250" y="304" fill="#7B8499" font-size="8" font-family="JetBrains Mono">DNP3 · 127.0.0.1</text>' +
-
-        '<rect x="430" y="275" width="160" height="40" rx="6" fill="rgba(16,212,120,0.06)" stroke="rgba(16,212,120,0.2)"/>' +
-        '<text x="440" y="292" fill="#10D478" font-size="9" font-family="JetBrains Mono">Trio JR900 #1</text>' +
-        '<text x="440" y="304" fill="#7B8499" font-size="8" font-family="JetBrains Mono">SNMP v2c · .11</text>' +
-
-        '<rect x="620" y="275" width="160" height="40" rx="6" fill="rgba(16,212,120,0.06)" stroke="rgba(16,212,120,0.2)"/>' +
-        '<text x="630" y="292" fill="#10D478" font-size="9" font-family="JetBrains Mono">Trio JR900 #2</text>' +
-        '<text x="630" y="304" fill="#7B8499" font-size="8" font-family="JetBrains Mono">SNMP v2c · .12</text>' +
-
-        // Protocol warning labels
-        '<rect x="50" y="318" width="68" height="14" rx="3" fill="rgba(251,191,36,0.15)"/>' +
-        '<text x="84" y="328" fill="#FBBF24" font-size="7" font-family="Manrope" text-anchor="middle" font-weight="600">⚠ NO AUTH</text>' +
-        '<rect x="240" y="318" width="68" height="14" rx="3" fill="rgba(251,191,36,0.15)"/>' +
-        '<text x="274" y="328" fill="#FBBF24" font-size="7" font-family="Manrope" text-anchor="middle" font-weight="600">⚠ NO SA</text>' +
-        '<rect x="430" y="318" width="68" height="14" rx="3" fill="rgba(251,191,36,0.15)"/>' +
-        '<text x="464" y="328" fill="#FBBF24" font-size="7" font-family="Manrope" text-anchor="middle" font-weight="600">⚠ NO ENC</text>' +
-        '<rect x="620" y="318" width="68" height="14" rx="3" fill="rgba(251,191,36,0.15)"/>' +
-        '<text x="654" y="328" fill="#FBBF24" font-size="7" font-family="Manrope" text-anchor="middle" font-weight="600">⚠ NO ENC</text>' +
-
-      '</svg>' +
-    '</div>';
-  }
-
-  function protoSecRow(name, auth, enc, integ, risk, note) {
-    var riskColor = risk === 'high' ? '#EF4444' : risk === 'medium' ? '#FBBF24' : '#10D478';
-    var check = '<span style="color:#10D478;">✓</span>';
-    var cross = '<span style="color:#EF4444;">✗</span>';
-    return '<tr>' +
-      '<td style="font-family:var(--font-mono);font-weight:600;">' + name + '</td>' +
-      '<td style="text-align:center;">' + (auth ? check : cross) + '</td>' +
-      '<td style="text-align:center;">' + (enc ? check : cross) + '</td>' +
-      '<td style="text-align:center;">' + (integ ? check : cross) + '</td>' +
-      '<td><span style="color:' + riskColor + ';font-weight:600;font-size:10px;text-transform:uppercase;">' + risk + '</span></td>' +
-    '</tr>';
-  }
-
-  function cyberInfoRow(label, value, status) {
-    var col = status === 'good' ? '#10D478' : status === 'warn' ? '#FBBF24' : 'var(--text-secondary)';
-    return '<div style="display:flex;justify-content:space-between;align-items:center;padding:6px 0;border-bottom:1px solid var(--border);">' +
-      '<span style="font-size:11px;color:var(--text-muted);">' + label + '</span>' +
-      '<span style="font-size:12px;color:' + col + ';font-family:var(--font-mono);font-weight:500;">' + value + '</span>' +
-    '</div>';
-  }
-
-  function complianceItem(label, done) {
-    return '<div style="display:flex;align-items:center;gap:8px;padding:6px 8px;border-radius:6px;background:' + (done ? 'rgba(16,212,120,0.05)' : 'rgba(251,191,36,0.05)') + ';">' +
-      '<span style="font-size:14px;">' + (done ? '<span style="color:#10D478;">✓</span>' : '<span style="color:#FBBF24;">○</span>') + '</span>' +
-      '<span style="font-size:11px;color:' + (done ? 'var(--text-secondary)' : '#FBBF24') + ';">' + label + '</span>' +
-    '</div>';
-  }
-
-  function irStep(label, desc, color, active) {
-    return '<div style="flex:1;max-width:160px;text-align:center;padding:12px 8px;border-radius:8px;background:' + (active ? 'rgba(6,182,212,0.08)' : 'var(--bg-card)') + ';border:1px solid ' + (active ? color : 'var(--border)') + ';">' +
-      '<div style="font-size:11px;font-weight:700;letter-spacing:1px;color:' + color + ';margin-bottom:4px;">' + label + '</div>' +
-      (active ? '<div style="font-size:6px;padding:1px 4px;border-radius:2px;background:rgba(6,182,212,0.15);color:#06B6D4;display:inline-block;margin-bottom:4px;">ACTIVE</div>' : '') +
-      '<div style="font-size:8px;color:var(--text-muted);line-height:1.4;">' + desc + '</div>' +
-    '</div>';
-  }
-
-  function irArrow() {
-    return '<div style="width:24px;text-align:center;color:var(--text-muted);font-size:14px;">→</div>';
-  }
-
-  function auditRow(minsAgo, user, action, target, result) {
-    var t = new Date(Date.now() - minsAgo * 60000);
-    var ts = t.toLocaleTimeString('en-US', {hour:'2-digit',minute:'2-digit',second:'2-digit',hour12:false});
-    return '<tr>' +
-      '<td class="mono">' + ts + '</td>' +
-      '<td>' + user + '</td>' +
-      '<td>' + action + '</td>' +
-      '<td class="mono">' + target + '</td>' +
-      '<td><span style="color:#10D478;font-size:10px;font-weight:600;">' + result + '</span></td>' +
-    '</tr>';
-  }
-
   function renderReportsPage() {
     const el = document.getElementById('reports-content');
     const online = liveAssets.filter(a=>a.status!=='offline').length;
@@ -1993,8 +1185,8 @@ document.addEventListener('click', function(e) {
     el.innerHTML = `
       <div class="kpi-tile"><div class="weather-tile"><div class="weather-icon" style="background:rgba(245,158,11,0.12);color:#FBBF24;">${condIcon}</div><div><div class="weather-val">${w.temp_f != null ? Math.round(w.temp_f) + '°' : '—'}</div><div class="weather-label">${condLabel}</div></div></div></div>
       <div class="kpi-tile"><div class="weather-tile"><div class="weather-icon" style="background:rgba(6,182,212,0.12);color:var(--accent);"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M9.59 4.59A2 2 0 1 1 11 8H2m10.59 11.41A2 2 0 1 0 14 16H2m15.73-8.27A2.5 2.5 0 1 1 19.5 12H2"/></svg></div><div><div class="weather-val">${w.wind_mph != null ? Math.round(w.wind_mph) : '—'}<span style="font-size:12px;color:var(--text-muted);"> mph</span></div><div class="weather-label">Wind${w.wind_gust_mph ? ' · Gust ' + Math.round(w.wind_gust_mph) : ''}</div></div></div></div>
-      <div class="kpi-tile"><div class="weather-tile"><div class="weather-icon" style="background:rgba(16,212,120,0.12);color:var(--status-good);"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/></svg></div><div><div class="weather-val" style="color:${solarCol};">${solarPct}%</div><div class="weather-label">Solar Factor</div><div class="solar-bar" style="width:80px;"><div class="solar-bar-fill" style="width:${solarPct}%;"></div></div></div></div></div>
-      <div class="kpi-tile"><div class="weather-tile"><div class="weather-icon" style="background:rgba(167,139,250,0.12);color:#A78BFA;"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M17 18a5 5 0 0 0-10 0"/><line x1="12" y1="9" x2="12" y2="2"/><line x1="4.22" y1="10.22" x2="5.64" y2="11.64"/><line x1="1" y1="18" x2="3" y2="18"/><line x1="21" y1="18" x2="23" y2="18"/><line x1="18.36" y1="11.64" x2="19.78" y2="10.22"/></svg></div><div><div class="weather-val">${w.daylight_hours ? w.daylight_hours.toFixed(1) : '—'}<span style="font-size:12px;color:var(--text-muted);"> hrs</span></div><div class="weather-label">${w.is_daylight ? '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/></svg> Daylight' : '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg> Night'}</div></div></div></div>
+      <div class="kpi-tile"><div class="weather-tile"><div class="weather-icon" style="background:rgba(16,185,129,0.12);color:var(--status-good);"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/></svg></div><div><div class="weather-val" style="color:${solarCol};">${solarPct}%</div><div class="weather-label">Solar Factor</div><div class="solar-bar" style="width:80px;"><div class="solar-bar-fill" style="width:${solarPct}%;"></div></div></div></div></div>
+      <div class="kpi-tile"><div class="weather-tile"><div class="weather-icon" style="background:rgba(168,85,247,0.12);color:#A855F7;"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M17 18a5 5 0 0 0-10 0"/><line x1="12" y1="9" x2="12" y2="2"/><line x1="4.22" y1="10.22" x2="5.64" y2="11.64"/><line x1="1" y1="18" x2="3" y2="18"/><line x1="21" y1="18" x2="23" y2="18"/><line x1="18.36" y1="11.64" x2="19.78" y2="10.22"/></svg></div><div><div class="weather-val">${w.daylight_hours ? w.daylight_hours.toFixed(1) : '—'}<span style="font-size:12px;color:var(--text-muted);"> hrs</span></div><div class="weather-label">${w.is_daylight ? '☀ Daylight' : '🌙 Night'}</div></div></div></div>
       <div class="kpi-tile"><div class="weather-tile"><div class="weather-icon" style="background:rgba(6,182,212,0.12);color:#06B6D4;"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 2.69l5.66 5.66a8 8 0 1 1-11.31 0z"/></svg></div><div><div class="weather-val">${w.precip_in != null ? w.precip_in.toFixed(2) : '0'}<span style="font-size:12px;color:var(--text-muted);"> in</span></div><div class="weather-label">Precipitation</div></div></div></div>
     `;
   }
@@ -2028,23 +1220,11 @@ document.addEventListener('click', function(e) {
   // ═══════════════════════════════════════
 
   const WX_ICONS = {
-    clear: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="18.36" y1="4.22" x2="19.78" y2="5.64"/><line x1="4.22" y1="18.36" x2="5.64" y2="19.78"/></svg>',
-    mostly_clear: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="10" cy="10" r="4"/><line x1="10" y1="2" x2="10" y2="4"/><line x1="3.27" y1="5.27" x2="4.69" y2="6.69"/><line x1="2" y1="12" x2="4" y2="12"/><line x1="16.73" y1="5.27" x2="15.31" y2="6.69"/><path d="M18 18H8a4 4 0 0 1-.76-7.93"/></svg>',
-    partly_cloudy: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="10" cy="8" r="4"/><line x1="10" y1="1" x2="10" y2="3"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><path d="M18 18H8a4 4 0 0 1-.76-7.93A5 5 0 0 1 18 14a3 3 0 0 1 0 4z"/></svg>',
-    overcast: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M18 10h-1.26A8 8 0 1 0 9 20h9a5 5 0 0 0 0-10z"/></svg>',
-    fog: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><line x1="3" y1="8" x2="21" y2="8"/><line x1="5" y1="12" x2="19" y2="12"/><line x1="3" y1="16" x2="21" y2="16"/></svg>',
-    drizzle: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M18 10h-1.26A8 8 0 1 0 9 20h9a5 5 0 0 0 0-10z"/><line x1="8" y1="19" x2="8" y2="21"/><line x1="12" y1="19" x2="12" y2="21"/></svg>',
-    rain: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M18 10h-1.26A8 8 0 1 0 9 20h9a5 5 0 0 0 0-10z"/><line x1="8" y1="19" x2="8" y2="22"/><line x1="12" y1="19" x2="12" y2="22"/><line x1="16" y1="19" x2="16" y2="22"/></svg>',
-    heavy_rain: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M18 10h-1.26A8 8 0 1 0 9 20h9a5 5 0 0 0 0-10z"/><line x1="7" y1="19" x2="6" y2="23"/><line x1="11" y1="19" x2="10" y2="23"/><line x1="15" y1="19" x2="14" y2="23"/></svg>',
-    snow: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M18 10h-1.26A8 8 0 1 0 9 20h9a5 5 0 0 0 0-10z"/><circle cx="9" cy="19" r="0.5"/><circle cx="13" cy="17" r="0.5"/><circle cx="11" cy="21" r="0.5"/></svg>',
-    heavy_snow: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2v4m0 12v4M4.93 4.93l2.83 2.83m8.48 8.48l2.83 2.83M2 12h4m12 0h4M4.93 19.07l2.83-2.83m8.48-8.48l2.83-2.83"/></svg>',
-    showers: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M18 10h-1.26A8 8 0 1 0 9 20h9a5 5 0 0 0 0-10z"/><line x1="10" y1="19" x2="9" y2="22"/><line x1="14" y1="19" x2="13" y2="22"/></svg>',
-    heavy_showers: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M18 10h-1.26A8 8 0 1 0 9 20h9a5 5 0 0 0 0-10z"/><polyline points="13 16 12 20 15 20"/></svg>',
-    ice: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2v4m0 12v4M4.93 4.93l2.83 2.83m8.48 8.48l2.83 2.83M2 12h4m12 0h4"/><circle cx="12" cy="12" r="3"/></svg>',
-    snow_showers: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M18 10h-1.26A8 8 0 1 0 9 20h9a5 5 0 0 0 0-10z"/><circle cx="10" cy="19" r="0.5"/><circle cx="14" cy="17" r="0.5"/></svg>',
-    thunderstorm: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M18 10h-1.26A8 8 0 1 0 9 20h9a5 5 0 0 0 0-10z"/><polyline points="13 16 12 20 15 20"/></svg>',
-    thunderstorm_hail: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M18 10h-1.26A8 8 0 1 0 9 20h9a5 5 0 0 0 0-10z"/><polyline points="13 16 12 20 15 20"/><circle cx="9" cy="20" r="1"/></svg>',
-    unknown: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="2" x2="12" y2="14"/><circle cx="12" cy="18" r="3"/></svg>',
+    clear: '☀️', mostly_clear: '🌤️', partly_cloudy: '⛅', overcast: '☁️',
+    fog: '🌫️', drizzle: '🌦️', rain: '🌧️', heavy_rain: '🌧️',
+    snow: '🌨️', heavy_snow: '❄️', showers: '🌦️', heavy_showers: '⛈️',
+    ice: '🧊', snow_showers: '🌨️', thunderstorm: '⛈️',
+    thunderstorm_hail: '⛈️', unknown: '🌡️',
   };
   const WMO_MAP = {
     0:'clear',1:'mostly_clear',2:'partly_cloudy',3:'overcast',
@@ -2141,7 +1321,7 @@ document.addEventListener('click', function(e) {
 
     statusEl.innerHTML =
       '<span style="display:inline-flex;align-items:center;gap:4px;padding:2px 8px;border-radius:4px;font-size:10px;font-weight:600;background:' +
-      (asset.status==='good' ? 'rgba(16,212,120,0.15);color:var(--status-good)' : 'rgba(239,68,68,0.15);color:var(--status-bad)') + ';">' +
+      (asset.status==='good' ? 'rgba(16,185,129,0.15);color:var(--status-good)' : 'rgba(239,68,68,0.15);color:var(--status-bad)') + ';">' +
       '<span style="width:6px;height:6px;border-radius:50%;background:currentColor;"></span>' +
       asset.status.toUpperCase() + '</span>';
 
@@ -2386,7 +1566,7 @@ document.addEventListener('click', function(e) {
       '</div>' +
       '<div style="display:flex;justify-content:space-between;margin-top:8px;font-size:9px;font-family:var(--font-mono);">' +
         '<div><span style="color:var(--text-muted);">RISE</span> <span style="color:var(--status-warn);">' + (sunrise||'—') + '</span></div>' +
-        '<div><span style="color:var(--text-muted);">SET</span> <span style="color:#A78BFA;">' + (sunset||'—') + '</span></div>' +
+        '<div><span style="color:var(--text-muted);">SET</span> <span style="color:#A855F7;">' + (sunset||'—') + '</span></div>' +
       '</div>';
   }
 
@@ -2439,9 +1619,9 @@ document.addEventListener('click', function(e) {
     marker.bindPopup(
       '<div style="font-family:Manrope,sans-serif;padding:4px;min-width:200px;">' +
       '<div style="font-weight:700;font-size:14px;">Killdeer Field</div>' +
-      '<div style="font-size:11px;color:#6B7280;">10102 Clydesdale Dr, Needville, TX 77461</div>' +
-      '<div style="font-size:11px;color:#6B7280;">29.39°N, 95.84°W · Elev 85 ft</div>' +
-      (weatherData ? '<div style="margin-top:6px;padding-top:6px;border-top:1px solid rgba(148,163,184,0.08);font-size:12px;">' +
+      '<div style="font-size:11px;color:#64748B;">10102 Clydesdale Dr, Needville, TX 77461</div>' +
+      '<div style="font-size:11px;color:#64748B;">29.39°N, 95.84°W · Elev 85 ft</div>' +
+      (weatherData ? '<div style="margin-top:6px;padding-top:6px;border-top:1px solid #E2E8F0;font-size:12px;">' +
         '<span style="font-weight:600;font-size:16px;">' + Math.round(weatherData.temp_f) + '°F</span> · ' +
         Math.round(weatherData.wind_mph) + ' mph ' + (weatherData.wind_dir||'') + ' · ' +
         (weatherData.condition||'').replace(/_/g,' ') + '</div>' : '') +
@@ -2560,7 +1740,7 @@ document.addEventListener('click', function(e) {
       const isNow = (i === startIdx);
       const code = h.weather_code[i];
       const cond = WMO_MAP[code] || 'unknown';
-      const icon = WX_ICONS[cond] || '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="2" x2="12" y2="14"/><circle cx="12" cy="18" r="3"/></svg>';
+      const icon = WX_ICONS[cond] || '🌡️';
       const temp = Math.round(h.temperature_2m[i]);
       const wind = Math.round(h.wind_speed_10m[i]);
       const precip = h.precipitation_probability[i];
@@ -2571,8 +1751,8 @@ document.addEventListener('click', function(e) {
           '<div class="wx-h-time">' + timeLabel + '</div>' +
           '<div class="wx-h-icon">' + icon + '</div>' +
           '<div class="wx-h-temp">' + temp + '°</div>' +
-          '<div class="wx-h-detail"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:middle;margin-right:2px;"><path d="M9.59 4.59A2 2 0 1 1 11 8H2m10.59 11.41A2 2 0 1 0 14 16H2m15.73-8.27A2.5 2.5 0 1 1 19.5 12H2"/></svg>' + wind + '</div>' +
-          (precip > 20 ? '<div class="wx-h-detail" style="color:var(--accent);"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:middle;margin-right:2px;"><path d="M12 2.69l5.66 5.66a8 8 0 1 1-11.31 0z"/></svg>' + precip + '%</div>' : '') +
+          '<div class="wx-h-detail">💨' + wind + '</div>' +
+          (precip > 20 ? '<div class="wx-h-detail" style="color:var(--accent);">💧' + precip + '%</div>' : '') +
         '</div>'
       );
     }
@@ -2595,7 +1775,7 @@ document.addEventListener('click', function(e) {
       const dateStr = date.toLocaleDateString('en-US',{month:'short',day:'numeric'});
       const code = d.weather_code[i];
       const cond = WMO_MAP[code] || 'unknown';
-      const icon = WX_ICONS[cond] || '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="2" x2="12" y2="14"/><circle cx="12" cy="18" r="3"/></svg>';
+      const icon = WX_ICONS[cond] || '🌡️';
       const hi = Math.round(d.temperature_2m_max[i]);
       const lo = Math.round(d.temperature_2m_min[i]);
       const wind = Math.round(d.wind_speed_10m_max[i]);
@@ -2722,7 +1902,7 @@ document.addEventListener('click', function(e) {
       <div class="stat-card"><div class="stat-card-label">Wind Speed</div><div class="stat-card-value" style="color:var(--accent);">${w.wind_mph != null ? Math.round(w.wind_mph) : '—'} <span style="font-size:12px;">mph</span></div><div class="stat-card-sub">Gust: ${w.wind_gust_mph ? Math.round(w.wind_gust_mph) + ' mph' : '—'}</div></div>
       <div class="stat-card"><div class="stat-card-label">Precipitation</div><div class="stat-card-value" style="color:#06B6D4;">${w.precip_in != null ? w.precip_in.toFixed(2) : '0'} <span style="font-size:12px;">in</span></div></div>
       <div class="stat-card"><div class="stat-card-label">Solar Factor</div><div class="stat-card-value" style="color:${solarCol};">${solarPct}%</div><div class="solar-bar" style="width:100%;margin-top:6px;"><div class="solar-bar-fill" style="width:${solarPct}%;"></div></div></div>
-      <div class="stat-card"><div class="stat-card-label">Daylight</div><div class="stat-card-value">${w.daylight_hours ? w.daylight_hours.toFixed(1) : '—'} <span style="font-size:12px;">hrs</span></div><div class="stat-card-sub">${w.is_daylight ? 'Currently daylight' : 'Currently night'}</div></div>
+      <div class="stat-card"><div class="stat-card-label">Daylight</div><div class="stat-card-value">${w.daylight_hours ? w.daylight_hours.toFixed(1) : '—'} <span style="font-size:12px;">hrs</span></div><div class="stat-card-sub">${w.is_daylight ? '☀ Currently daylight' : '🌙 Currently night'}</div></div>
       <div class="stat-card"><div class="stat-card-label">Sun Times</div><div class="stat-card-value" style="font-size:14px;">${w.sunrise || '—'}</div><div class="stat-card-sub">Sunset: ${w.sunset || '—'}</div></div>
     </div>`;
   }
@@ -3276,15 +2456,15 @@ document.addEventListener('click', function(e) {
     // N-type antenna connector (larger SVG ~36px)
     h += '<div style="display:flex;flex-direction:column;align-items:center;gap:2px;">';
     h += '<div class="chassis-inner-label">ANT</div>';
-    h += '<svg width="36" height="36" viewBox="0 0 36 36" fill="none" stroke="rgba(167,139,250,0.5)" stroke-width="1.5">';
+    h += '<svg width="36" height="36" viewBox="0 0 36 36" fill="none" stroke="rgba(168,85,247,0.5)" stroke-width="1.5">';
     h += '<circle cx="18" cy="18" r="14"/>';
     h += '<circle cx="18" cy="18" r="8"/>';
     h += '<circle cx="18" cy="18" r="3"/>';
-    h += '<circle cx="18" cy="18" r="1" fill="rgba(167,139,250,0.5)"/>';
+    h += '<circle cx="18" cy="18" r="1" fill="rgba(168,85,247,0.5)"/>';
     h += '</svg>';
     h += '</div>';
 
-    h += '<div class="port-section-divider" style="border-color:rgba(167,139,250,0.15);"></div>';
+    h += '<div class="port-section-divider" style="border-color:rgba(168,85,247,0.15);"></div>';
 
     // Green power terminal block (V+, V-)
     h += '<div style="display:flex;flex-direction:column;align-items:center;gap:2px;">';
@@ -3298,28 +2478,28 @@ document.addEventListener('click', function(e) {
     h += '<div style="width:20px;text-align:center;font-size:7px;color:rgba(34,197,94,0.6);font-family:var(--font-mono);">V-</div>';
     h += '</div></div>';
 
-    h += '<div class="port-section-divider" style="border-color:rgba(167,139,250,0.15);"></div>';
+    h += '<div class="port-section-divider" style="border-color:rgba(168,85,247,0.15);"></div>';
 
     // DB9 serial port — D-shaped trapezoid
     h += '<div style="display:flex;flex-direction:column;align-items:center;gap:2px;">';
     h += '<div class="chassis-inner-label">SERIAL</div>';
     h += '<svg width="44" height="28" viewBox="0 0 44 28" fill="none">';
-    h += '<path d="M6,2 L38,2 C40,2 42,4 42,6 L40,22 C40,24 38,26 36,26 L8,26 C6,26 4,24 4,22 L2,6 C2,4 4,2 6,2 Z" stroke="rgba(167,139,250,0.4)" stroke-width="1.5" fill="rgba(167,139,250,0.05)"/>';
-    h += '<text x="22" y="17" text-anchor="middle" fill="rgba(167,139,250,0.5)" font-size="8" font-family="var(--font-mono)">DB9</text>';
+    h += '<path d="M6,2 L38,2 C40,2 42,4 42,6 L40,22 C40,24 38,26 36,26 L8,26 C6,26 4,24 4,22 L2,6 C2,4 4,2 6,2 Z" stroke="rgba(168,85,247,0.4)" stroke-width="1.5" fill="rgba(168,85,247,0.05)"/>';
+    h += '<text x="22" y="17" text-anchor="middle" fill="rgba(168,85,247,0.5)" font-size="8" font-family="var(--font-mono)">DB9</text>';
     h += '</svg>';
     h += '</div>';
 
-    h += '<div class="port-section-divider" style="border-color:rgba(167,139,250,0.15);"></div>';
+    h += '<div class="port-section-divider" style="border-color:rgba(168,85,247,0.15);"></div>';
 
     // 2x RJ45 serial ports (Serial A, Serial B)
     h += '<div style="display:flex;flex-direction:column;gap:2px;">';
     h += '<div class="chassis-inner-label">SERIAL A/B</div>';
     h += '<div style="display:flex;gap:3px;">';
-    h += '<div class="wf-aux" style="width:42px;border-color:rgba(167,139,250,0.2);color:rgba(167,139,250,0.35);font-size:8px;">SER-A</div>';
-    h += '<div class="wf-aux" style="width:42px;border-color:rgba(167,139,250,0.2);color:rgba(167,139,250,0.35);font-size:8px;">SER-B</div>';
+    h += '<div class="wf-aux" style="width:42px;border-color:rgba(168,85,247,0.2);color:rgba(168,85,247,0.35);font-size:8px;">SER-A</div>';
+    h += '<div class="wf-aux" style="width:42px;border-color:rgba(168,85,247,0.2);color:rgba(168,85,247,0.35);font-size:8px;">SER-B</div>';
     h += '</div></div>';
 
-    h += '<div class="port-section-divider" style="border-color:rgba(167,139,250,0.15);"></div>';
+    h += '<div class="port-section-divider" style="border-color:rgba(168,85,247,0.15);"></div>';
 
     // Ethernet RJ45
     h += '<div style="display:flex;flex-direction:column;gap:2px;">';
@@ -3476,13 +2656,12 @@ document.addEventListener('click', function(e) {
   // ALARMS MODULE — ISA 18.2 Alarm Management
   // ================================================================
   function buildKpi(label, value, status) {
-    var colors = {critical:'#EF4444',warning:'#FBBF24',good:'#B4BCD0',neutral:'#B4BCD0'};
+    var colors = {critical:'#EF4444',warning:'#FBBF24',good:'#10D478',neutral:'#60A5FA'};
     var color = colors[status] || '#B4BCD0';
     return '<div class="kpi-tile"><div class="kpi-label">' + label + '</div><div class="kpi-value" style="color:' + color + '">' + value + '</div></div>';
   }
 
   function renderAlarmsPage() {
-    renderAlarmStormBanner();
     // Reuse existing alerts data but present in ISA 18.2 format
     const page = document.querySelector('section[data-page="alarms"]');
     if (!page) return;
@@ -3522,229 +2701,33 @@ document.addEventListener('click', function(e) {
         '<div class="tab-item" onclick="window.alarmsView=\'analytics\';renderAlarmsPage()">Analytics</div>' +
       '</div>' +
 
-      // Alarm table or Analytics view
-      (window.alarmsView === 'analytics' ? renderAlarmAnalytics(active, resolved24h) :
+      // Alarm table
       '<div class="panel-box" style="padding:0;overflow:auto;max-height:500px;">' +
         '<table class="ics-table">' +
           '<thead><tr>' +
-            '<th>Severity</th><th>Asset</th><th>Alarm</th><th>Value</th><th>Time</th><th>Duration</th><th>Priority</th><th>Status</th><th>Action</th>' +
+            '<th>Severity</th><th>Asset</th><th>Alarm</th><th>Value</th><th>Time</th><th>Duration</th><th>Status</th><th>Action</th>' +
           '</tr></thead>' +
           '<tbody>' +
           (window.alarmsView === 'history'
-            ? groupAlarms(liveAlerts).map(a => renderAlarmRow(a)).join('')
-            : groupAlarms(active).map(a => renderAlarmRow(a)).join('') || '<tr><td colspan="9" style="text-align:center;padding:40px;color:var(--text-muted);">No active alarms — all systems nominal</td></tr>'
+            ? liveAlerts.map(a => renderAlarmRow(a)).join('')
+            : active.map(a => renderAlarmRow(a)).join('') || '<tr><td colspan="8" style="text-align:center;padding:40px;color:var(--text-muted);">No active alarms — all systems nominal</td></tr>'
           ) +
           '</tbody>' +
         '</table>' +
-      '</div>');
-  }
-
-
-
-
-  // Board: Alarm storm detection + first-out flagging
-  function detectAlarmStorm(alarms) {
-    if (!alarms || alarms.length < 5) return null;
-    // Check if 5+ alarms fired within 60 seconds
-    var sorted = alarms.filter(function(a){return a.created_at;}).sort(function(a,b){return new Date(a.created_at)-new Date(b.created_at);});
-    for (var i = 0; i <= sorted.length - 5; i++) {
-      var t0 = new Date(sorted[i].created_at).getTime();
-      var t4 = new Date(sorted[i+4].created_at).getTime();
-      if (t4 - t0 < 60000) {
-        return {count: sorted.length, firstOut: sorted[0], asset: sorted[0].asset_id};
-      }
-    }
-    return null;
-  }
-
-
-  // Board backlog: ASM effectiveness metrics + alarm rate chart
-  function renderAlarmAnalytics(active, resolved) {
-    var mtta = Math.round(Math.random() * 180 + 60); // Simulated 1-4 min
-    var mttr = Math.round(Math.random() * 3600 + 1800); // Simulated 30-90 min
-    var alarmRate = active.length > 0 ? (active.length / 24).toFixed(1) : '0.0';
-    var floodEvents = active.length > 20 ? Math.floor(active.length / 20) : 0;
-
-    // Build alarm rate sparkline (24 hours, simulated)
-    var hours = [];
-    for (var i = 23; i >= 0; i--) {
-      hours.push({
-        h: ((new Date().getHours() - i + 24) % 24),
-        count: Math.max(0, Math.round(active.length / 24 + (Math.random() - 0.5) * 4))
-      });
-    }
-    var maxCount = Math.max.apply(null, hours.map(function(h){return h.count;})) || 1;
-
-    var barChart = '<div style="display:flex;align-items:flex-end;gap:2px;height:80px;margin-top:8px;">';
-    hours.forEach(function(h) {
-      var pct = (h.count / maxCount * 100).toFixed(0);
-      var col = h.count > active.length/12 ? '#EF4444' : h.count > active.length/24 ? '#FBBF24' : '#4A5168';
-      barChart += '<div style="flex:1;display:flex;flex-direction:column;align-items:center;">' +
-        '<div style="width:100%;height:' + pct + '%;min-height:2px;background:' + col + ';border-radius:2px 2px 0 0;transition:height 0.3s;"></div>' +
-        '<div style="font-size:7px;color:var(--text-muted);margin-top:2px;">' + (h.h % 6 === 0 ? h.h + 'h' : '') + '</div>' +
       '</div>';
-    });
-    barChart += '</div>';
-
-    // Root cause panel
-    var rootCause = '';
-    if (active.length > 5) {
-      var topAlarm = groupAlarms(active)[0];
-      rootCause = '<div class="panel-box" style="margin-top:16px;">' +
-        '<div class="pp-title" style="margin-bottom:8px;color:#FBBF24;">AI ROOT CAUSE ANALYSIS</div>' +
-        '<div style="font-size:12px;color:var(--text-secondary);line-height:1.6;">' +
-          '<div style="margin-bottom:8px;">Based on alarm correlation analysis:</div>' +
-          '<div style="padding:8px 12px;background:rgba(251,191,36,0.06);border-radius:6px;border-left:3px solid #FBBF24;margin-bottom:8px;">' +
-            '<div style="font-weight:600;color:#FBBF24;font-size:11px;">PROBABLE ROOT CAUSE</div>' +
-            '<div style="margin-top:4px;">' + (topAlarm ? topAlarm.metric || topAlarm.message || 'RF link degradation' : 'RF link degradation') + ' on ' + (topAlarm ? topAlarm.asset_id : 'RAD-02') + '</div>' +
-          '</div>' +
-          '<div style="font-size:11px;color:var(--text-muted);">' +
-            '<div>• ' + active.length + ' related alarms correlate to a single root event</div>' +
-            '<div>• Pattern matches: RF interference or antenna misalignment</div>' +
-            '<div>• Weather correlation: Wind ' + (Math.random() > 0.5 ? 'Normal — unlikely RF factor' : 'Elevated — possible RF interference') + '</div>' +
-            '<div>• Confidence: ' + (75 + Math.round(Math.random() * 20)) + '%</div>' +
-          '</div>' +
-        '</div>' +
-      '</div>';
-    }
-
-    return '<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:16px;">' +
-      asmMetricTile('MTTA', formatSeconds(mtta), 'Mean Time to Acknowledge', mtta < 120 ? '#10D478' : '#FBBF24') +
-      asmMetricTile('MTTR', formatSeconds(mttr), 'Mean Time to Resolve', mttr < 3600 ? '#10D478' : '#FBBF24') +
-      asmMetricTile('ALARM RATE', alarmRate + '/hr', 'Alarms per hour (24h avg)', parseFloat(alarmRate) < 5 ? '#10D478' : '#EF4444') +
-      asmMetricTile('FLOOD EVENTS', floodEvents.toString(), 'Alarm floods detected (24h)', floodEvents === 0 ? '#10D478' : '#EF4444') +
-    '</div>' +
-
-    '<div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;">' +
-      '<div class="panel-box">' +
-        '<div class="pp-title" style="margin-bottom:4px;">ALARM RATE — LAST 24 HOURS</div>' +
-        '<div style="font-size:10px;color:var(--text-muted);margin-bottom:4px;">Alarms per hour · ISA-18.2 performance metric</div>' +
-        barChart +
-      '</div>' +
-
-      '<div class="panel-box">' +
-        '<div class="pp-title" style="margin-bottom:8px;">ALARM DISTRIBUTION BY ASSET</div>' +
-        renderAlarmDistribution(active) +
-      '</div>' +
-    '</div>' +
-
-    rootCause;
-  }
-
-  function asmMetricTile(label, value, desc, color) {
-    return '<div class="panel-box" style="text-align:center;padding:16px;">' +
-      '<div style="font-size:10px;letter-spacing:1px;color:var(--text-muted);font-weight:600;">' + label + '</div>' +
-      '<div style="font-size:28px;font-weight:700;font-family:var(--font-mono);color:' + color + ';margin:4px 0;">' + value + '</div>' +
-      '<div style="font-size:9px;color:var(--text-muted);">' + desc + '</div>' +
-    '</div>';
-  }
-
-  function formatSeconds(s) {
-    if (s < 60) return s + 's';
-    if (s < 3600) return Math.round(s/60) + 'm';
-    return (s/3600).toFixed(1) + 'h';
-  }
-
-  function renderAlarmDistribution(alarms) {
-    var byAsset = {};
-    alarms.forEach(function(a) {
-      var id = a.asset_id || 'Unknown';
-      byAsset[id] = (byAsset[id] || 0) + 1;
-    });
-    var total = alarms.length || 1;
-    var html = '';
-    Object.keys(byAsset).sort(function(a,b){return byAsset[b]-byAsset[a];}).forEach(function(id) {
-      var pct = (byAsset[id] / total * 100).toFixed(0);
-      html += '<div style="margin-bottom:8px;">' +
-        '<div style="display:flex;justify-content:space-between;font-size:11px;margin-bottom:2px;">' +
-          '<span style="color:var(--text-secondary);font-family:var(--font-mono);">' + id + '</span>' +
-          '<span style="color:var(--text-muted);">' + byAsset[id] + ' (' + pct + '%)</span>' +
-        '</div>' +
-        '<div style="height:4px;background:rgba(255,255,255,0.08);border-radius:2px;">' +
-          '<div style="height:100%;width:' + pct + '%;background:var(--accent);border-radius:2px;"></div>' +
-        '</div>' +
-      '</div>';
-    });
-    return html;
-  }
-
-
-  function renderAlarmStormBanner() {
-    var existing = document.getElementById('alarm-storm-banner');
-    if (existing) existing.remove();
-    var open = liveAlerts.filter(function(a){return a.status === 'open';});
-    var storm = detectAlarmStorm(open);
-    if (!storm) return;
-    var banner = document.createElement('div');
-    banner.id = 'alarm-storm-banner';
-    banner.style.cssText = 'background:rgba(239,68,68,0.08);border:1px solid rgba(239,68,68,0.2);border-radius:8px;padding:10px 16px;margin-bottom:16px;display:flex;align-items:center;gap:10px;';
-    banner.innerHTML = '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="#EF4444" stroke-width="2"><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>' +
-      '<div><span style="color:#EF4444;font-weight:600;font-size:12px;">POTENTIAL ALARM STORM</span>' +
-      '<span style="color:var(--text-secondary);font-size:11px;margin-left:8px;">' + storm.count + ' alarms active — First out: ' + (storm.firstOut.metric||storm.firstOut.message||'Unknown') + ' on ' + storm.asset + '</span></div>';
-    var main = document.querySelector('.page-section.active');
-    if (main) main.insertBefore(banner, main.firstChild);
-  }
-
-  // Board rec #6: Tiny alarm trend sparkline
-  function alarmMiniSpark(a) {
-    if (a.value == null || isNaN(parseFloat(a.value))) return '';
-    var n = parseFloat(a.value);
-    var hist = fakeHistory(n, a.unit||'', 8);
-    if (!hist) return '';
-    var w = 40, h = 12, pad = 1;
-    var min = Math.min.apply(null, hist), max = Math.max.apply(null, hist);
-    var range = max - min || 1;
-    var pts = [];
-    for (var i = 0; i < hist.length; i++) {
-      var x = (pad + (i / (hist.length - 1)) * (w - 2 * pad)).toFixed(1);
-      var y = (h - pad - ((hist[i] - min) / range) * (h - 2 * pad)).toFixed(1);
-      pts.push(x + ',' + y);
-    }
-    var sev = a.severity || 'info';
-    var col = sev === 'critical' ? '#EF4444' : sev === 'warning' ? '#FBBF24' : '#60A5FA';
-    return '<svg width="' + w + '" height="' + h + '" viewBox="0 0 ' + w + ' ' + h + '" style="display:inline-block;vertical-align:middle;margin-left:6px;opacity:0.6;"><polyline points="' + pts.join(' ') + '" fill="none" stroke="' + col + '" stroke-width="1" stroke-linecap="round"/></svg>';
-  }
-
-  // Board rec #2: Group duplicate alarms with count badges
-  function groupAlarms(alarms) {
-    var groups = {};
-    var order = [];
-    for (var i = 0; i < alarms.length; i++) {
-      var a = alarms[i];
-      var key = (a.asset_id||'') + '::' + (a.metric||a.message||'');
-      if (!groups[key]) {
-        groups[key] = {alarm: a, count: 1, latest: a.created_at||''};
-        order.push(key);
-      } else {
-        groups[key].count++;
-        if ((a.created_at||'') > groups[key].latest) {
-          groups[key].alarm = a;
-          groups[key].latest = a.created_at||'';
-        }
-      }
-    }
-    var result = [];
-    for (var j = 0; j < order.length; j++) {
-      var g = groups[order[j]];
-      g.alarm._groupCount = g.count;
-      if (j === 0) g.alarm._firstOut = true;
-      result.push(g.alarm);
-    }
-    return result;
   }
 
   function renderAlarmRow(a) {
     const sev = a.severity || 'info';
     const age = a.created_at ? getTimeAgo(a.created_at) : '—';
     const dur = a.created_at ? getTimeDuration(a.created_at) : '—';
-    return '<tr class="sev-' + sev + '" onclick="showAlarmDetail(\'' + (a.id||'') + '\')">' +
-      '<td><span class="sev-badge ' + sev + '">' + sev + '</span>' + (a._firstOut ? '<span style="font-size:7px;display:block;color:#FBBF24;letter-spacing:0.5px;margin-top:2px;">FIRST OUT</span>' : '') + '</td>' +
+    return '<tr onclick="showAlarmDetail(\'' + (a.id||'') + '\')">' +
+      '<td><span class="sev-badge ' + sev + '">' + sev + '</span></td>' +
       '<td><span class="mono">' + (a.asset_id||'—') + '</span></td>' +
-      "<td>" + (a.metric||a.message||'—') + (a._groupCount > 1 ? ' <span style="font-size:9px;padding:1px 5px;border-radius:8px;background:rgba(96,165,250,0.15);color:#60A5FA;font-weight:600;">×' + a._groupCount + '</span>' : '') + '</td>' +
-      '<td class="mono">' + (a.value != null ? a.value + (a.unit ? ' ' + a.unit : '') : '—') + alarmMiniSpark(a) + '</td>' +
+      '<td>' + (a.metric||a.message||'—') + '</td>' +
+      '<td class="mono">' + (a.value != null ? a.value : '—') + '</td>' +
       '<td class="mono">' + age + '</td>' +
-      '<td class="mono">' + dur + alarmAgingBadge(a) + '</td>' +
-      '<td>' + alarmPriority(a) + '</td>' +
+      '<td class="mono">' + dur + '</td>' +
       '<td><span class="status-dot ' + (a.status||'') + '"></span>' + (a.status||'active') + '</td>' +
       '<td><button class="module-btn" style="padding:2px 8px;font-size:10px;" onclick="event.stopPropagation()">ACK</button></td>' +
     '</tr>';
@@ -3777,10 +2760,7 @@ document.addEventListener('click', function(e) {
                 '<div>• Cross-reference with weather/environmental data</div>' +
               '</div>' +
             '</div>' +
-          '</div>' +
-          alarmGuidedResponse(a) +
-          alarmResponseTimeline(a) +
-          '<div style="margin-top:16px;"><button class="module-btn" style="width:100%;padding:8px;font-size:11px;" onclick="event.stopPropagation()"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.8" style="vertical-align:middle;margin-right:4px;"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg> Log Operator Action</button></div>';
+          '</div>';
       }
     }
   }
@@ -3792,38 +2772,7 @@ document.addEventListener('click', function(e) {
   var _histData = [];
   var _histAutoRefresh = null;
 
-  function updateHistLiveValues() {
-    // In-place cell updates only - no innerHTML replacement to prevent flicker
-    var tbody = document.querySelector('#historian-page .ics-table tbody');
-    if (!tbody) return;
-    var metrics = [];
-    if (liveAssets && liveAssets.length) {
-      liveAssets.forEach(function(a) {
-        if (a.vitals) a.vitals.forEach(function(v) {
-          metrics.push({ asset: a.id, label: v.label, value: v.raw_value, unit: v.unit, status: v.status, group: v.group });
-        });
-      });
-    }
-    var rows = tbody.querySelectorAll('tr');
-    metrics.slice(0, 50).forEach(function(m, i) {
-      var row = rows[i];
-      if (!row) return;
-      var cells = row.querySelectorAll('td');
-      if (cells.length < 3) return;
-      var newVal = m.value != null ? (typeof m.value==='number'?m.value.toFixed(1):String(m.value)) : '—';
-      if (cells[2].textContent !== newVal) cells[2].textContent = newVal;
-      var sc = m.status==='good'?'var(--status-good)':m.status==='warning'||m.status==='warn'?'var(--status-warn)':m.status==='bad'||m.status==='critical'?'var(--status-bad)':'var(--text-muted)';
-      var dot = cells[4] ? cells[4].querySelector('span') : null;
-      if (dot) dot.style.background = sc;
-    });
-  }
-
   function renderHistorianPage() {
-    // Skip full rebuild if already rendered (prevents select dropdown destruction)
-    if (document.getElementById("hist-asset")) {
-      updateHistLiveValues();
-      return;
-    }
     const page = document.getElementById('historian-page');
     if (!page) return;
     if (_histAutoRefresh) { clearInterval(_histAutoRefresh); _histAutoRefresh = null; }
@@ -4070,8 +3019,6 @@ document.addEventListener('click', function(e) {
   function renderNetworkPage() {
     var page = document.getElementById('network-page');
     if (!page) return;
-    // Skip full rebuild if already rendered
-    if (page.querySelector('.module-header')) return;
 
     function nodeColor(assetId) {
       var a = (liveAssets||[]).find(function(x){return x.id===assetId;});
@@ -4140,7 +3087,7 @@ document.addEventListener('click', function(e) {
       svg += '<rect x="'+(n.x-rw/2)+'" y="'+(n.y-rh/2)+'" width="'+rw+'" height="'+rh+'" rx="8" fill="#161E33" stroke="'+c+'" stroke-width="1.5"/>';
 
       // Icon placeholder (simple text for now)
-      var iconMap = {cloud:'◌',router:'⟐',switch:'⏚',radio:'◎',server:'▣',gauge:'◉',meter:'◈'};
+      var iconMap = {cloud:'☁',router:'⟐',switch:'⏚',radio:'◎',server:'▣',gauge:'◉',meter:'◈'};
       svg += '<text x="'+(n.x-rw/2+14)+'" y="'+(n.y+1)+'" fill="'+c+'" font-size="14" text-anchor="middle" dominant-baseline="middle">'+iconMap[n.icon]+'</text>';
 
       // Label
@@ -4180,8 +3127,6 @@ document.addEventListener('click', function(e) {
   function renderMapPage() {
     var page = document.querySelector('section[data-page="map"]');
     if (!page) return;
-    // Skip rebuild if map already loaded
-    if (document.getElementById('aevus-map')) return;
     page.style.position='relative';page.style.minHeight='calc(100vh - 60px)';page.style.overflow='hidden';
 
     page.innerHTML =
@@ -4213,7 +3158,7 @@ document.addEventListener('click', function(e) {
     });
     map.addControl(new mapboxgl.NavigationControl(), 'top-right');
 
-    var statusColors = {good:'#7B8499',warn:'#FBBF24',warning:'#FBBF24',bad:'#EF4444',critical:'#EF4444',offline:'#6B7280',unknown:'#6B7280'};
+    var statusColors = {good:'#10D478',warn:'#FBBF24',warning:'#FBBF24',bad:'#EF4444',critical:'#EF4444',offline:'#6B7280',unknown:'#6B7280'};
 
     (liveAssets||[]).forEach(function(a) {
       if (!a.latitude || !a.longitude) return;
@@ -4230,9 +3175,9 @@ document.addEventListener('click', function(e) {
       var popup = new mapboxgl.Popup({offset:25, closeButton:false}).setHTML(
         '<div style="font-family:Manrope;padding:4px;">' +
           '<div style="font-weight:700;font-size:13px;margin-bottom:4px;">'+a.name+'</div>' +
-          '<div style="font-size:11px;color:#7B8499;">'+a.id+' · '+(a.type||'')+'</div>' +
+          '<div style="font-size:11px;color:#666;">'+a.id+' · '+(a.type||'')+'</div>' +
           '<div style="font-size:11px;margin-top:4px;">Health: <b style="color:'+c+'">'+h+'</b> · '+(a.status||'unknown')+'</div>' +
-          '<div style="font-size:10px;color:#7B8499;margin-top:2px;">'+(a.ip_address||'')+'</div>' +
+          '<div style="font-size:10px;color:#888;margin-top:2px;">'+(a.ip_address||'')+'</div>' +
         '</div>'
       );
 
@@ -4275,7 +3220,7 @@ document.addEventListener('click', function(e) {
       // Color by status
       let color = '#6B7280'; // gray/unknown
       const s = (asset.status || '').toLowerCase();
-      if (s === 'good') color = '#7B8499';
+      if (s === 'good') color = '#10D478';
       else if (s === 'warn' || s === 'warning') color = '#FBBF24';
       else if (s === 'bad' || s === 'critical') color = '#EF4444';
 
@@ -4288,10 +3233,10 @@ document.addEventListener('click', function(e) {
         .setHTML(
           '<div style="font-family:Manrope,sans-serif;padding:4px;">' +
           '<div style="font-weight:600;font-size:13px;margin-bottom:4px;">' + (asset.name || asset.id) + '</div>' +
-          '<div style="font-size:11px;color:#B4BCD0;">Status: <span style="color:' + color + ';font-weight:600;">' + (asset.status || 'unknown') + '</span></div>' +
-          '<div style="font-size:11px;color:#B4BCD0;">Health: ' + (asset.health != null ? asset.health + '%' : 'N/A') + '</div>' +
-          '<div style="font-size:11px;color:#B4BCD0;">Type: ' + (asset.type || '-') + '</div>' +
-          '<div style="font-size:10px;color:#6B7280;margin-top:4px;">' + (asset.ip_address || '') + '</div>' +
+          '<div style="font-size:11px;color:#94A3B8;">Status: <span style="color:' + color + ';font-weight:600;">' + (asset.status || 'unknown') + '</span></div>' +
+          '<div style="font-size:11px;color:#94A3B8;">Health: ' + (asset.health != null ? asset.health + '%' : 'N/A') + '</div>' +
+          '<div style="font-size:11px;color:#94A3B8;">Type: ' + (asset.type || '-') + '</div>' +
+          '<div style="font-size:10px;color:#64748B;margin-top:4px;">' + (asset.ip_address || '') + '</div>' +
           '</div>'
         );
 
@@ -4338,79 +3283,7 @@ document.addEventListener('click', function(e) {
         <div class="settings-row"><span class="settings-label">Alert History</span><span class="settings-val">90 days</span></div>
         <div class="settings-row"><span class="settings-label">Prediction Model</span><span class="settings-val">72-hour rolling</span></div>
       </div>
-
-      <div class="settings-section">
-        <div class="settings-title">HMI Style Guide — ISA-101 Color Standard</div>
-        <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin:12px 0;">
-          ${styleToken('--bg-primary','#0B1020','Background')}
-          ${styleToken('--bg-card','#161E33','Card Surface')}
-          ${styleToken('--accent','#06B6D4','Accent / Interactive')}
-          ${styleToken('--accent-light','#22D3EE','Accent Hover')}
-          ${styleToken('--status-good','#10D478','Normal / Good')}
-          ${styleToken('--status-warn','#FBBF24','Warning / Caution')}
-          ${styleToken('--status-bad','#EF4444','Critical / Alarm')}
-          ${styleToken('--status-offline','#6B7280','Offline / Disabled')}
-          ${styleToken('--status-info','#60A5FA','Informational')}
-          ${styleToken('--status-unknown','#A78BFA','Unknown / Sim')}
-          ${styleToken('--text-primary','#FFFFFF','Primary Text')}
-          ${styleToken('--text-muted','#7B8499','Muted / Labels')}
-        </div>
-      </div>
-
-      <div class="settings-section">
-        <div class="settings-title">Alarm Severity Color Coding — ISA-18.2</div>
-        <div style="margin:12px 0;">
-          <div style="display:flex;align-items:center;gap:12px;padding:6px 0;border-bottom:1px solid var(--border);">
-            <div style="width:40px;height:16px;background:#EF4444;border-radius:3px;"></div>
-            <span style="font-size:12px;width:80px;font-weight:600;">CRITICAL</span>
-            <span style="font-size:11px;color:var(--text-muted);">Immediate action required — safety or production impact</span>
-          </div>
-          <div style="display:flex;align-items:center;gap:12px;padding:6px 0;border-bottom:1px solid var(--border);">
-            <div style="width:40px;height:16px;background:#FBBF24;border-radius:3px;"></div>
-            <span style="font-size:12px;width:80px;font-weight:600;">WARNING</span>
-            <span style="font-size:11px;color:var(--text-muted);">Attention needed — approaching limits</span>
-          </div>
-          <div style="display:flex;align-items:center;gap:12px;padding:6px 0;border-bottom:1px solid var(--border);">
-            <div style="width:40px;height:16px;background:#60A5FA;border-radius:3px;"></div>
-            <span style="font-size:12px;width:80px;font-weight:600;">INFO</span>
-            <span style="font-size:11px;color:var(--text-muted);">Informational — no action required</span>
-          </div>
-          <div style="display:flex;align-items:center;gap:12px;padding:6px 0;">
-            <div style="width:40px;height:16px;background:#4A5168;border-radius:3px;"></div>
-            <span style="font-size:12px;width:80px;font-weight:600;">NORMAL</span>
-            <span style="font-size:11px;color:var(--text-muted);">Muted gray — ISA-101 HPI principle</span>
-          </div>
-        </div>
-      </div>
-
-      <div class="settings-section">
-        <div class="settings-title">Display Hierarchy — ISA-101 §5.2</div>
-        <div style="margin:12px 0;font-size:12px;color:var(--text-secondary);line-height:1.8;">
-          <div><strong style="color:var(--accent);">L1 — Plant Overview:</strong> KPI strip, P&ID schematic, fleet grid, site map</div>
-          <div><strong style="color:var(--accent);">L2 — Area/System:</strong> Alarms, Health, Weather, Network, Operations, Historian, Cybersecurity</div>
-          <div><strong style="color:var(--accent);">L3 — Unit Detail:</strong> Asset drawer, Settings, Diagnostics</div>
-          <div><strong style="color:var(--accent);">L4 — Component:</strong> Individual vital trends, alarm detail</div>
-        </div>
-      </div>
-
-      <div class="settings-section">
-        <div class="settings-title">Typography</div>
-        <div style="margin:12px 0;">
-          <div class="settings-row"><span class="settings-label">Heading Font</span><span class="settings-val" style="font-family:var(--font-body);">Manrope 600/700</span></div>
-          <div class="settings-row"><span class="settings-label">Body Font</span><span class="settings-val" style="font-family:var(--font-body);">Manrope 400/500</span></div>
-          <div class="settings-row"><span class="settings-label">Mono / Data</span><span class="settings-val" style="font-family:var(--font-mono);">JetBrains Mono 400</span></div>
-          <div class="settings-row"><span class="settings-label">Min Body Size</span><span class="settings-val">16px</span></div>
-          <div class="settings-row"><span class="settings-label">Icon Style</span><span class="settings-val">Inline SVG, thin-line, strokeWidth 1.8</span></div>
-        </div>
-      </div>
     `;
-  }
-
-  function styleToken(name, hex, label) {
-    return '<div style="display:flex;align-items:center;gap:8px;padding:6px;border-radius:6px;background:var(--bg-card);border:1px solid var(--border);">' +
-      '<div style="width:24px;height:24px;border-radius:4px;background:' + hex + ';border:1px solid rgba(255,255,255,0.1);"></div>' +
-      '<div><div style="font-size:10px;color:var(--text-muted);font-family:var(--font-mono);">' + name + '</div>' +
-      '<div style="font-size:9px;color:var(--text-secondary);">' + hex + ' · ' + label + '</div></div></div>';
   }
 
 
@@ -4431,7 +3304,6 @@ document.addEventListener('click', function(e) {
     });
   }
   window.openAssetDrawer = openAssetDrawer;
-  window.showAlarmDetail = showAlarmDetail;
 
   function closeAssetDrawer() {
     drawerOpen = false;

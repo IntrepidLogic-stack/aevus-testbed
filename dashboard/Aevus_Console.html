@@ -1053,6 +1053,29 @@ body {
 .cab-device-badge.online { background: rgba(123,132,153,0.15) !important; color: #7B8499 !important; }
 .cab-port.up .cab-port-dot { background: #7B8499 !important; }
 
+
+/* ── Board Rec #3: Tiered Vital Display ── */
+.vital-item.tier-safety {
+  grid-column: span 2;
+  background: rgba(239,68,68,0.06);
+  border: 1px solid rgba(239,68,68,0.15);
+  padding: 10px 12px;
+}
+.vital-item.tier-safety .vi-value { font-size: 20px; }
+.vital-item.tier-safety .vi-label {
+  font-size: 9px;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  color: #EF4444;
+}
+.vital-item.tier-info {
+  opacity: 0.7;
+  padding: 4px 8px;
+}
+.vital-item.tier-info .vi-value { font-size: 12px; }
+.vital-item.tier-info .vi-label { font-size: 8px; }
+.vital-item.tier-info .vi-unit { font-size: 8px; }
+
 </style>
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>

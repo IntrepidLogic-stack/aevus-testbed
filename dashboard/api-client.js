@@ -364,6 +364,38 @@ document.addEventListener('click', function(e) {
     return '<div style="height:4px;background:rgba(255,255,255,0.10);border-radius:2px;margin-top:4px;width:100%;"><div style="height:100%;width:' + pct.toFixed(1) + '%;background:' + col + ';border-radius:2px;transition:width 0.5s;"></div></div>';
   }
 
+
+  // Board rec #3: Classify vitals into display tiers
+  var SAFETY_LABELS = ['H2S','LEL','ESD','Gas','Shutdown','Emergency','Flame'];
+  var INFO_LABELS = ['Run Hours','Hours','Battery','Signal','RSSI','SNR','Uptime','Firmware'];
+  function vitalTier(v) {
+    var label = (v.label||'').toLowerCase();
+    for (var i=0;i<SAFETY_LABELS.length;i++) if (label.indexOf(SAFETY_LABELS[i].toLowerCase())>=0) return 'safety';
+    if (v.status === 'critical' || v.status === 'warning') return 'critical';
+    for (var j=0;j<INFO_LABELS.length;j++) if (label.indexOf(INFO_LABELS[j].toLowerCase())>=0) return 'info';
+    return 'process';
+  }
+
+
+  // Board rec #1: Compact sparkline for process panel vitals
+  function compactSparkline(raw, unit, status) {
+    var n = parseFloat(raw);
+    if (isNaN(n)) return '';
+    var hist = fakeHistory(n, unit, 16);
+    if (!hist) return '';
+    var w = 60, h = 16, pad = 1;
+    var min = Math.min.apply(null, hist), max = Math.max.apply(null, hist);
+    var range = max - min || 1;
+    var pts = [];
+    for (var i = 0; i < hist.length; i++) {
+      var x = (pad + (i / (hist.length - 1)) * (w - 2 * pad)).toFixed(1);
+      var y = (h - pad - ((hist[i] - min) / range) * (h - 2 * pad)).toFixed(1);
+      pts.push(x + ',' + y);
+    }
+    var col = status === 'critical' ? '#EF4444' : status === 'warning' ? '#FBBF24' : '#4A5168';
+    return '<svg width="' + w + '" height="' + h + '" viewBox="0 0 ' + w + ' ' + h + '" style="display:block;margin-top:2px;opacity:0.7;"><polyline points="' + pts.join(' ') + '" fill="none" stroke="' + col + '" stroke-width="1" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+  }
+
   function renderProcessPanels() {
     const el = document.getElementById('scada-process-grid');
     if (!el || liveAssets.length === 0) return;
@@ -376,7 +408,7 @@ document.addEventListener('click', function(e) {
       const disc = (r.vitals||[]).filter(v => v.unit === 'bool');
       html += `<div class="process-panel"><div class="pp-title"><span class="live-dot"></span>${r.name} — PROCESS VALUES</div><div class="vitals-grid">${vitals.map(v => {
         const n = parseFloat(v.raw_value); const dv = isNaN(n)?v.value:(n%1===0?n.toFixed(0):n.toFixed(1));
-        return `<div class="vital-item ${v.status||''}"><div class="vi-label">${v.label}</div><div class="vi-value">${dv}<span class="vi-unit">${v.unit||''}</span></div>${analogBar(v.raw_value, v.unit, v.status)}</div>`;
+        return `<div class="vital-item ${v.status||''} tier-${vitalTier(v)}"><div class="vi-label">${v.label}</div><div class="vi-value">${dv}<span class="vi-unit">${v.unit||''}</span></div>${analogBar(v.raw_value, v.unit, v.status)}${compactSparkline(v.raw_value, v.unit, v.status)}</div>`;
       }).join('')}</div>${disc.length?`<div style="margin-top:12px;"><div style="font-size:9px;text-transform:uppercase;letter-spacing:0.8px;color:var(--text-muted);margin-bottom:8px;">DISCRETE INPUTS</div><div style="display:flex;gap:10px;flex-wrap:wrap;">${disc.map(v=>{const ok=v.value==='OK'||v.value==='STOPPED'||v.raw_value===0;const col=v.status==='good'?'var(--status-good)':ok?'var(--text-muted)':'var(--status-bad)';return `<div style="display:flex;align-items:center;gap:5px;font-size:11px;"><span style="width:6px;height:6px;border-radius:50%;background:${col};"></span><span style="color:var(--text-secondary);">${v.label}</span><span style="font-family:var(--font-mono);color:${col};">${v.value}</span></div>`;}).join('')}</div></div>`:''}</div>`;
     }
     if (net.length > 0) {
@@ -2753,12 +2785,40 @@ document.addEventListener('click', function(e) {
           '</tr></thead>' +
           '<tbody>' +
           (window.alarmsView === 'history'
-            ? liveAlerts.map(a => renderAlarmRow(a)).join('')
-            : active.map(a => renderAlarmRow(a)).join('') || '<tr><td colspan="8" style="text-align:center;padding:40px;color:var(--text-muted);">No active alarms — all systems nominal</td></tr>'
+            ? groupAlarms(liveAlerts).map(a => renderAlarmRow(a)).join('')
+            : groupAlarms(active).map(a => renderAlarmRow(a)).join('') || '<tr><td colspan="8" style="text-align:center;padding:40px;color:var(--text-muted);">No active alarms — all systems nominal</td></tr>'
           ) +
           '</tbody>' +
         '</table>' +
       '</div>';
+  }
+
+
+  // Board rec #2: Group duplicate alarms with count badges
+  function groupAlarms(alarms) {
+    var groups = {};
+    var order = [];
+    for (var i = 0; i < alarms.length; i++) {
+      var a = alarms[i];
+      var key = (a.asset_id||'') + '::' + (a.metric||a.message||'');
+      if (!groups[key]) {
+        groups[key] = {alarm: a, count: 1, latest: a.created_at||''};
+        order.push(key);
+      } else {
+        groups[key].count++;
+        if ((a.created_at||'') > groups[key].latest) {
+          groups[key].alarm = a;
+          groups[key].latest = a.created_at||'';
+        }
+      }
+    }
+    var result = [];
+    for (var j = 0; j < order.length; j++) {
+      var g = groups[order[j]];
+      g.alarm._groupCount = g.count;
+      result.push(g.alarm);
+    }
+    return result;
   }
 
   function renderAlarmRow(a) {
@@ -2768,7 +2828,7 @@ document.addEventListener('click', function(e) {
     return '<tr class="sev-' + sev + '" onclick="showAlarmDetail(\'' + (a.id||'') + '\')">' +
       '<td><span class="sev-badge ' + sev + '">' + sev + '</span></td>' +
       '<td><span class="mono">' + (a.asset_id||'—') + '</span></td>' +
-      '<td>' + (a.metric||a.message||'—') + '</td>' +
+      "<td>" + (a.metric||a.message||'—') + (a._groupCount > 1 ? ' <span style="font-size:9px;padding:1px 5px;border-radius:8px;background:rgba(96,165,250,0.15);color:#60A5FA;font-weight:600;">×' + a._groupCount + '</span>' : '') + '</td>' +
       '<td class="mono">' + (a.value != null ? a.value : '—') + '</td>' +
       '<td class="mono">' + age + '</td>' +
       '<td class="mono">' + dur + '</td>' +

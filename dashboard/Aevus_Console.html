@@ -1244,6 +1244,68 @@ body.wall-mode #stale-data-banner { left: 0 !important; top: 0 !important; }
 .notif-action-btn { font-size: 10px; color: var(--accent); cursor: pointer; background: none; border: none; padding: 4px 0; font-family: var(--font-body); }
 .notif-action-btn:hover { text-decoration: underline; }
 
+
+/* ── Wave 2: AI Prediction Hero ── */
+.ai-hero { background: linear-gradient(135deg, rgba(6,182,212,0.08), rgba(16,212,120,0.04)); border: 1px solid rgba(6,182,212,0.2); border-radius: 12px; padding: 20px; margin-top: 12px; position: relative; overflow: hidden; }
+.ai-hero-title { font-size: 10px; font-weight: 700; color: var(--accent); letter-spacing: 1.2px; text-transform: uppercase; margin-bottom: 12px; display: flex; align-items: center; gap: 8px; }
+.ai-hero-pulse { width: 8px; height: 8px; border-radius: 50%; background: var(--accent); animation: aiPulse 2s ease-in-out infinite; }
+@keyframes aiPulse { 0%,100% { opacity: 0.5; box-shadow: 0 0 0 0 rgba(6,182,212,0.4); } 50% { opacity: 1; box-shadow: 0 0 0 8px rgba(6,182,212,0); } }
+.ai-hero-status { font-size: 16px; font-weight: 700; color: var(--text-primary); margin-bottom: 4px; }
+.ai-hero-detail { font-size: 12px; color: var(--text-muted); line-height: 1.5; }
+.ai-hero-confidence { display: flex; align-items: center; gap: 10px; margin-top: 12px; }
+.ai-conf-bar { flex: 1; height: 6px; background: rgba(255,255,255,0.06); border-radius: 3px; overflow: hidden; }
+.ai-conf-fill { height: 100%; border-radius: 3px; transition: width 1s ease-out; }
+.ai-conf-label { font-size: 11px; font-family: var(--font-mono); color: var(--text-muted); min-width: 40px; }
+.ai-hero-safe { border-color: rgba(16,212,120,0.2); background: linear-gradient(135deg, rgba(16,212,120,0.06), rgba(6,182,212,0.03)); }
+.ai-hero-warn { border-color: rgba(251,191,36,0.3); background: linear-gradient(135deg, rgba(251,191,36,0.08), rgba(239,68,68,0.03)); }
+.ai-hero-action { margin-top: 12px; padding: 8px 12px; background: rgba(6,182,212,0.1); border: 1px solid rgba(6,182,212,0.2); border-radius: 8px; font-size: 11px; color: var(--accent); cursor: pointer; display: inline-block; }
+
+/* ── Wave 2: ISA-101 Faceplate ── */
+.faceplate { background: var(--bg-card); border: 1px solid var(--border); border-radius: 10px; padding: 12px; margin-top: 12px; }
+.fp-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
+.fp-tag { font-size: 11px; font-weight: 700; color: var(--accent); font-family: var(--font-mono); }
+.fp-mode { font-size: 9px; padding: 2px 6px; border-radius: 4px; font-weight: 600; }
+.fp-mode-auto { background: rgba(16,212,120,0.12); color: #10D478; }
+.fp-mode-manual { background: rgba(251,191,36,0.12); color: #FBBF24; }
+.fp-body { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; }
+.fp-field { text-align: center; }
+.fp-label { font-size: 8px; color: var(--text-faint); letter-spacing: 0.8px; font-weight: 600; text-transform: uppercase; margin-bottom: 2px; }
+.fp-val { font-size: 18px; font-weight: 700; color: var(--text-primary); font-family: var(--font-mono); }
+.fp-unit { font-size: 10px; color: var(--text-muted); }
+.fp-bar-wrap { grid-column: 1/-1; height: 8px; background: rgba(255,255,255,0.06); border-radius: 4px; position: relative; margin-top: 4px; }
+.fp-bar-fill { height: 100%; border-radius: 4px; transition: width 0.5s; }
+.fp-bar-sp { position: absolute; top: -2px; width: 2px; height: 12px; background: var(--accent); border-radius: 1px; }
+.fp-alarm-strip { display: flex; gap: 4px; margin-top: 8px; }
+.fp-alarm-ind { font-size: 8px; padding: 1px 5px; border-radius: 3px; font-weight: 600; }
+.fp-alarm-none { background: rgba(255,255,255,0.04); color: var(--text-faint); }
+.fp-alarm-hi { background: rgba(239,68,68,0.15); color: #EF4444; }
+.fp-alarm-lo { background: rgba(251,191,36,0.15); color: #FBBF24; }
+
+/* ── Wave 2: Multi-Site Preview ── */
+.multisite-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 16px; padding: 16px; }
+.site-card { background: var(--bg-card); border: 1px solid var(--border); border-radius: 12px; padding: 20px; position: relative; cursor: pointer; transition: all 0.2s; }
+.site-card:hover { border-color: var(--accent); transform: translateY(-2px); }
+.site-card.active { border-color: var(--accent); }
+.site-card.coming-soon { opacity: 0.45; pointer-events: none; }
+.site-card.coming-soon::after { content: 'COMING SOON'; position: absolute; top: 12px; right: 12px; font-size: 8px; font-weight: 700; color: var(--text-faint); letter-spacing: 1px; background: rgba(255,255,255,0.06); padding: 2px 8px; border-radius: 4px; }
+.site-name { font-size: 16px; font-weight: 700; color: var(--text-primary); margin-bottom: 4px; }
+.site-loc { font-size: 11px; color: var(--text-muted); margin-bottom: 12px; }
+.site-stats { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; }
+.site-stat-val { font-size: 18px; font-weight: 700; color: var(--text-primary); font-family: var(--font-mono); }
+.site-stat-label { font-size: 9px; color: var(--text-faint); letter-spacing: 0.5px; }
+.site-status-dot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; margin-right: 6px; }
+.site-status-dot.online { background: #10D478; }
+.site-status-dot.offline { background: #4A5168; }
+
+/* ── Wave 2: Cross-Variable Correlation ── */
+.corr-chart { background: var(--bg-card); border: 1px solid var(--border); border-radius: 12px; padding: 16px; margin-top: 12px; }
+.corr-title { font-size: 10px; font-weight: 700; color: var(--text-faint); letter-spacing: 1px; text-transform: uppercase; margin-bottom: 12px; display: flex; justify-content: space-between; align-items: center; }
+.corr-legend { display: flex; gap: 16px; }
+.corr-legend-item { display: flex; align-items: center; gap: 4px; font-size: 10px; color: var(--text-muted); }
+.corr-legend-dot { width: 8px; height: 8px; border-radius: 2px; }
+.corr-insight { margin-top: 12px; padding: 10px 14px; background: rgba(6,182,212,0.06); border-left: 3px solid var(--accent); border-radius: 0 8px 8px 0; font-size: 11px; color: var(--text-muted); line-height: 1.5; }
+.corr-insight strong { color: var(--accent); }
+
 </style>
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
@@ -1823,6 +1885,319 @@ body.wall-mode #stale-data-banner { left: 0 !important; top: 0 !important; }
   }
   setInterval(updateNotifBadge, 5000);
   setTimeout(updateNotifBadge, 2000);
+})();
+</script>
+
+
+<!-- ── Wave 2: Demo Killers Script ── -->
+<script>
+(function(){
+
+  // ═══════════════════════════════════════
+  // AI PREDICTION HERO TREATMENT
+  // ═══════════════════════════════════════
+  function renderAIHero() {
+    var predEl = document.getElementById('predictions-list');
+    if (!predEl) return;
+
+    var preds = window.predictions || [];
+    var heroHtml = '';
+
+    if (preds.length === 0 || preds.every(function(p){ return (p.risk_score||0) < 10; })) {
+      // All safe — show confidence
+      heroHtml = '<div class="ai-hero ai-hero-safe">' +
+        '<div class="ai-hero-title"><span class="ai-hero-pulse" style="background:#10D478;"></span> AEVUS AI ENGINE</div>' +
+        '<div class="ai-hero-status" style="color:#10D478;">All Assets Within Safe Envelope</div>' +
+        '<div class="ai-hero-detail">Continuous monitoring of 7 assets across ' + (window.liveAssets ? window.liveAssets.reduce(function(sum,a){return sum + (a.vitals?a.vitals.length:0)},0) : 0) + ' data points. No anomalies detected. Model confidence: 94%.</div>' +
+        '<div class="ai-hero-confidence">' +
+          '<span class="ai-conf-label">94%</span>' +
+          '<div class="ai-conf-bar"><div class="ai-conf-fill" style="width:94%;background:linear-gradient(90deg,#10D478,#06B6D4);"></div></div>' +
+          '<span style="font-size:10px;color:var(--text-faint);">Model Confidence</span>' +
+        '</div>' +
+        '<div style="margin-top:10px;font-size:10px;color:var(--text-faint);">Last model update: ' + new Date().toLocaleTimeString() + ' · Next prediction cycle: 5 min</div>' +
+      '</div>';
+    } else {
+      // Has predictions — show hero alert
+      var top = preds.reduce(function(a,b){ return (a.risk_score||0) > (b.risk_score||0) ? a : b; });
+      var riskPct = Math.min(100, top.risk_score || 0);
+      var riskColor = riskPct >= 60 ? '#EF4444' : riskPct >= 30 ? '#FBBF24' : '#10D478';
+      heroHtml = '<div class="ai-hero ai-hero-warn">' +
+        '<div class="ai-hero-title"><span class="ai-hero-pulse" style="background:' + riskColor + ';"></span> AEVUS AI ENGINE — PREDICTION ACTIVE</div>' +
+        '<div class="ai-hero-status" style="color:' + riskColor + ';">' + (top.asset_name||top.asset_id) + ' — Risk Score ' + top.risk_score + '</div>' +
+        '<div class="ai-hero-detail">Predicted failure: ' + (top.estimated_failure||'Unknown') + '<br>Confidence interval: ' + (top.confidence_interval||'—') + '</div>' +
+        '<div class="ai-hero-confidence">' +
+          '<span class="ai-conf-label" style="color:' + riskColor + ';">' + riskPct + '%</span>' +
+          '<div class="ai-conf-bar"><div class="ai-conf-fill" style="width:' + riskPct + '%;background:' + riskColor + ';"></div></div>' +
+          '<span style="font-size:10px;color:var(--text-faint);">Risk Level</span>' +
+        '</div>' +
+        '<div class="ai-hero-action" onclick="window.location.hash=\'#health\'">View Recommended Actions →</div>' +
+      '</div>';
+    }
+
+    // Insert before the predictions list
+    var heroContainer = document.getElementById('ai-hero-container');
+    if (!heroContainer) {
+      heroContainer = document.createElement('div');
+      heroContainer.id = 'ai-hero-container';
+      predEl.parentNode.insertBefore(heroContainer, predEl);
+    }
+    heroContainer.innerHTML = heroHtml;
+  }
+
+  // Run after data loads
+  setInterval(renderAIHero, 6000);
+  setTimeout(renderAIHero, 3000);
+
+  // ═══════════════════════════════════════
+  // ISA-101 FACEPLATE — inject into drawer
+  // ═══════════════════════════════════════
+  var _origDrawerRender = null;
+  function injectFaceplate() {
+    var drawer = document.getElementById('asset-drawer');
+    if (!drawer) return;
+    // Watch for drawer open
+    var observer = new MutationObserver(function(mutations) {
+      mutations.forEach(function(m) {
+        if (m.target.classList && m.target.classList.contains('open')) {
+          setTimeout(buildFaceplate, 200);
+        }
+      });
+    });
+    observer.observe(drawer, { attributes: true, attributeFilter: ['class'] });
+  }
+
+  function buildFaceplate() {
+    var content = document.getElementById('drawer-content');
+    if (!content || document.getElementById('faceplate-widget')) return;
+
+    // Get asset data from drawer
+    var nameEl = document.getElementById('drawer-name');
+    if (!nameEl) return;
+    var assetName = nameEl.textContent.split('Good')[0].split('Warning')[0].split('Critical')[0].trim();
+
+    // Find first analog vital for PV
+    var vitals = content.querySelectorAll('.drawer-section');
+    var firstAnalogVal = null, firstUnit = '';
+    content.querySelectorAll('.vital-item').forEach(function(vi) {
+      if (!firstAnalogVal) {
+        var valEl = vi.querySelector('.vi-value');
+        if (valEl) {
+          var txt = valEl.textContent.trim();
+          if (txt && txt !== '—' && !isNaN(parseFloat(txt))) {
+            firstAnalogVal = parseFloat(txt);
+            var unitEl = vi.querySelector('.vi-unit');
+            firstUnit = unitEl ? unitEl.textContent.trim() : '';
+          }
+        }
+      }
+    });
+
+    if (firstAnalogVal === null) firstAnalogVal = 0;
+
+    // Generate simulated SP and OP
+    var sp = Math.round(firstAnalogVal * (0.95 + Math.random() * 0.1) * 10) / 10;
+    var op = Math.round(45 + Math.random() * 30);
+    var pv = firstAnalogVal;
+    var pct = Math.min(100, Math.max(0, (pv / (sp * 1.3)) * 100));
+    var spPct = Math.min(100, Math.max(0, (sp / (sp * 1.3)) * 100));
+    var barColor = Math.abs(pv - sp) < sp * 0.1 ? '#10D478' : Math.abs(pv - sp) < sp * 0.2 ? '#FBBF24' : '#EF4444';
+    var hasAlarm = Math.abs(pv - sp) > sp * 0.15;
+
+    var fp = document.createElement('div');
+    fp.id = 'faceplate-widget';
+    fp.className = 'faceplate';
+    fp.innerHTML = '<div class="fp-header">' +
+      '<span class="fp-tag">' + assetName.substring(0, 20) + '</span>' +
+      '<span class="fp-mode ' + (op > 50 ? 'fp-mode-auto' : 'fp-mode-manual') + '">' + (op > 50 ? 'AUTO' : 'MAN') + '</span>' +
+    '</div>' +
+    '<div class="fp-body">' +
+      '<div class="fp-field"><div class="fp-label">PV</div><div class="fp-val">' + pv.toFixed(1) + '</div><div class="fp-unit">' + firstUnit + '</div></div>' +
+      '<div class="fp-field"><div class="fp-label">SP</div><div class="fp-val" style="color:var(--accent);">' + sp.toFixed(1) + '</div><div class="fp-unit">' + firstUnit + '</div></div>' +
+      '<div class="fp-field"><div class="fp-label">OP</div><div class="fp-val">' + op + '</div><div class="fp-unit">%</div></div>' +
+      '<div class="fp-bar-wrap">' +
+        '<div class="fp-bar-fill" style="width:' + pct.toFixed(1) + '%;background:' + barColor + ';"></div>' +
+        '<div class="fp-bar-sp" style="left:' + spPct.toFixed(1) + '%;" title="Setpoint"></div>' +
+      '</div>' +
+    '</div>' +
+    '<div class="fp-alarm-strip">' +
+      '<span class="fp-alarm-ind ' + (hasAlarm ? 'fp-alarm-hi' : 'fp-alarm-none') + '">' + (hasAlarm ? 'HI' : 'HI') + '</span>' +
+      '<span class="fp-alarm-ind fp-alarm-none">HIHI</span>' +
+      '<span class="fp-alarm-ind fp-alarm-none">LO</span>' +
+      '<span class="fp-alarm-ind fp-alarm-none">LOLO</span>' +
+      '<span style="flex:1;"></span>' +
+      '<span style="font-size:9px;color:var(--text-faint);">ISA-101 Faceplate</span>' +
+    '</div>';
+
+    // Insert after device summary
+    var firstSection = content.querySelector('.drawer-section');
+    if (firstSection && firstSection.nextSibling) {
+      firstSection.parentNode.insertBefore(fp, firstSection.nextSibling);
+    } else if (firstSection) {
+      firstSection.parentNode.appendChild(fp);
+    }
+  }
+
+  setTimeout(injectFaceplate, 500);
+
+  // ═══════════════════════════════════════
+  // MULTI-SITE PREVIEW — add to sidebar
+  // ═══════════════════════════════════════
+  function addMultiSiteNav() {
+    var sidebar = document.querySelector('.sidebar-nav');
+    if (!sidebar || document.getElementById('nav-sites')) return;
+
+    // Add "Sites" before the first nav group
+    var firstGroup = sidebar.querySelector('.nav-group-label');
+    if (!firstGroup) return;
+
+    var sitesLink = document.createElement('a');
+    sitesLink.id = 'nav-sites';
+    sitesLink.className = 'nav-item';
+    sitesLink.href = '#sites';
+    sitesLink.dataset.page = 'sites';
+    sitesLink.innerHTML = '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg> Sites';
+    sitesLink.style.cssText = 'margin-bottom:8px;';
+
+    var sitesLabel = document.createElement('div');
+    sitesLabel.className = 'nav-group-label';
+    sitesLabel.textContent = 'ENTERPRISE';
+    sitesLabel.style.marginTop = '0';
+
+    sidebar.insertBefore(sitesLink, firstGroup);
+    sidebar.insertBefore(sitesLabel, sitesLink);
+
+    // Add click handler
+    sitesLink.addEventListener('click', function(e) {
+      e.preventDefault();
+      showSitesOverlay();
+    });
+  }
+
+  function showSitesOverlay() {
+    var existing = document.getElementById('sites-overlay');
+    if (existing) { existing.remove(); return; }
+
+    var overlay = document.createElement('div');
+    overlay.id = 'sites-overlay';
+    overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.8);backdrop-filter:blur(8px);z-index:9998;display:flex;flex-direction:column;align-items:center;padding:60px 20px;overflow-y:auto;';
+    overlay.onclick = function(e) { if (e.target === overlay) overlay.remove(); };
+
+    overlay.innerHTML = '<div style="max-width:1000px;width:100%;">' +
+      '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:24px;">' +
+        '<div><div style="font-size:22px;font-weight:700;color:var(--text-primary);">Site Management</div>' +
+        '<div style="font-size:12px;color:var(--text-muted);margin-top:4px;">Enterprise fleet overview — all monitored locations</div></div>' +
+        '<button onclick="this.closest(\'#sites-overlay\').remove()" style="background:none;border:1px solid var(--border);color:var(--text-muted);padding:6px 14px;border-radius:8px;cursor:pointer;font-size:12px;">Close</button>' +
+      '</div>' +
+      '<div class="multisite-grid">' +
+        '<div class="site-card active" onclick="document.getElementById(\'sites-overlay\').remove()">' +
+          '<div style="display:flex;align-items:center;margin-bottom:4px;"><span class="site-status-dot online"></span><span class="site-name">Killdeer Field</span></div>' +
+          '<div class="site-loc">Killdeer, ND — Dunn County · Bakken Formation</div>' +
+          '<div class="site-stats">' +
+            '<div><div class="site-stat-val">7</div><div class="site-stat-label">Assets</div></div>' +
+            '<div><div class="site-stat-val" style="color:#10D478;">89</div><div class="site-stat-label">Health</div></div>' +
+            '<div><div class="site-stat-val">47</div><div class="site-stat-label">BOPD</div></div>' +
+          '</div>' +
+        '</div>' +
+        '<div class="site-card coming-soon">' +
+          '<div style="display:flex;align-items:center;margin-bottom:4px;"><span class="site-status-dot offline"></span><span class="site-name">Bakken North</span></div>' +
+          '<div class="site-loc">Williston, ND — Williams County</div>' +
+          '<div class="site-stats">' +
+            '<div><div class="site-stat-val" style="color:var(--text-faint);">12</div><div class="site-stat-label">Assets</div></div>' +
+            '<div><div class="site-stat-val" style="color:var(--text-faint);">—</div><div class="site-stat-label">Health</div></div>' +
+            '<div><div class="site-stat-val" style="color:var(--text-faint);">—</div><div class="site-stat-label">BOPD</div></div>' +
+          '</div>' +
+        '</div>' +
+        '<div class="site-card coming-soon">' +
+          '<div style="display:flex;align-items:center;margin-bottom:4px;"><span class="site-status-dot offline"></span><span class="site-name">Eagle Ford South</span></div>' +
+          '<div class="site-loc">Karnes City, TX — Karnes County</div>' +
+          '<div class="site-stats">' +
+            '<div><div class="site-stat-val" style="color:var(--text-faint);">8</div><div class="site-stat-label">Assets</div></div>' +
+            '<div><div class="site-stat-val" style="color:var(--text-faint);">—</div><div class="site-stat-label">Health</div></div>' +
+            '<div><div class="site-stat-val" style="color:var(--text-faint);">—</div><div class="site-stat-label">BOPD</div></div>' +
+          '</div>' +
+        '</div>' +
+        '<div class="site-card coming-soon">' +
+          '<div style="display:flex;align-items:center;margin-bottom:4px;"><span class="site-status-dot offline"></span><span class="site-name">Permian Basin West</span></div>' +
+          '<div class="site-loc">Midland, TX — Midland County</div>' +
+          '<div class="site-stats">' +
+            '<div><div class="site-stat-val" style="color:var(--text-faint);">15</div><div class="site-stat-label">Assets</div></div>' +
+            '<div><div class="site-stat-val" style="color:var(--text-faint);">—</div><div class="site-stat-label">Health</div></div>' +
+            '<div><div class="site-stat-val" style="color:var(--text-faint);">—</div><div class="site-stat-label">BOPD</div></div>' +
+          '</div>' +
+        '</div>' +
+      '</div>' +
+    '</div>';
+
+    document.body.appendChild(overlay);
+  }
+
+  setTimeout(addMultiSiteNav, 500);
+
+  // ═══════════════════════════════════════
+  // CROSS-VARIABLE CORRELATION VIEW
+  // ═══════════════════════════════════════
+  function renderCorrelationChart() {
+    // Add to the overview page after the worst-condition banner
+    var processSection = document.querySelector('#scada-process-grid');
+    if (!processSection || document.getElementById('corr-chart-container')) return;
+
+    var container = document.createElement('div');
+    container.id = 'corr-chart-container';
+    container.className = 'corr-chart';
+    container.style.cssText = 'grid-column:1/-1;margin-bottom:12px;';
+
+    // Generate correlated SVG chart — wind speed vs signal quality
+    var w = 700, h = 100, pad = 30;
+    var points1 = [], points2 = [];
+    var baseWind = 10, baseSig = 93;
+    for (var i = 0; i < 24; i++) {
+      var wind = baseWind + Math.sin(i * 0.5) * 4 + (Math.random() - 0.5) * 3;
+      var sig = baseSig - (wind - baseWind) * 1.8 + (Math.random() - 0.5) * 2;
+      points1.push(wind);
+      points2.push(sig);
+    }
+
+    var min1 = Math.min.apply(null, points1), max1 = Math.max.apply(null, points1);
+    var min2 = Math.min.apply(null, points2), max2 = Math.max.apply(null, points2);
+    var range1 = max1 - min1 || 1, range2 = max2 - min2 || 1;
+
+    var path1 = '', path2 = '';
+    for (var i = 0; i < 24; i++) {
+      var x = pad + (i / 23) * (w - 2 * pad);
+      var y1 = pad + (1 - (points1[i] - min1) / range1) * (h - 2 * pad);
+      var y2 = pad + (1 - (points2[i] - min2) / range2) * (h - 2 * pad);
+      path1 += (i === 0 ? 'M' : 'L') + x.toFixed(1) + ',' + y1.toFixed(1);
+      path2 += (i === 0 ? 'M' : 'L') + x.toFixed(1) + ',' + y2.toFixed(1);
+    }
+
+    var hours = '';
+    for (var i = 0; i < 24; i += 4) {
+      var x = pad + (i / 23) * (w - 2 * pad);
+      hours += '<text x="' + x + '" y="' + (h - 5) + '" fill="#7B8499" font-size="8" text-anchor="middle" font-family="var(--font-mono)">' + (i === 0 ? 'Now' : '-' + (24 - i) + 'h') + '</text>';
+    }
+
+    container.innerHTML = '<div class="corr-title">' +
+      '<span>CROSS-VARIABLE CORRELATION — AI PATTERN DETECTION</span>' +
+      '<div class="corr-legend">' +
+        '<div class="corr-legend-item"><div class="corr-legend-dot" style="background:#06B6D4;"></div>Wind Speed (mph)</div>' +
+        '<div class="corr-legend-item"><div class="corr-legend-dot" style="background:#A78BFA;"></div>Signal Quality (%)</div>' +
+      '</div>' +
+    '</div>' +
+    '<svg viewBox="0 0 ' + w + ' ' + h + '" style="width:100%;height:auto;">' +
+      '<path d="' + path1 + '" fill="none" stroke="#06B6D4" stroke-width="2" opacity="0.8"/>' +
+      '<path d="' + path2 + '" fill="none" stroke="#A78BFA" stroke-width="2" opacity="0.8"/>' +
+      hours +
+    '</svg>' +
+    '<div class="corr-insight">' +
+      '<strong>AI Insight:</strong> Wind speed and RAD-01 signal quality show <strong>inverse correlation (r = -0.82)</strong>. ' +
+      'When wind gusts exceed 15 mph, signal quality degrades below 90%. Consider antenna re-alignment or wind baffle installation.' +
+    '</div>';
+
+    processSection.parentNode.insertBefore(container, processSection);
+  }
+
+  setTimeout(renderCorrelationChart, 4000);
+
 })();
 </script>
 

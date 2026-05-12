@@ -27,6 +27,9 @@
   --status-warn: #FBBF24;
   --status-bad: #EF4444;
   --status-offline: #6B7280;
+  --status-info: #60A5FA;
+  --status-unknown: #A78BFA;
+
   --text-primary: #FFFFFF;
   --text-secondary: #B4BCD0;
   --text-muted: #7B8499;
@@ -35,7 +38,7 @@
   --sidebar-w: 240px;
   --topbar-h: 56px;
   --glass-blur: 16px;
-  --card-radius: 16px;
+  --card-radius: 12px;
   --glow-sm: 0 0 15px rgba(6,182,212,0.08);
   --glow-md: 0 0 30px rgba(6,182,212,0.12);
   --shadow-card: 0 4px 24px rgba(0,0,0,0.2), 0 1px 2px rgba(0,0,0,0.1);
@@ -50,7 +53,7 @@ body {
   background-image:
     radial-gradient(ellipse at 20% 50%, rgba(6,182,212,0.06) 0%, transparent 50%),
     radial-gradient(ellipse at 80% 20%, rgba(6,182,212,0.04) 0%, transparent 50%),
-    radial-gradient(ellipse at 50% 100%, rgba(16,185,129,0.03) 0%, transparent 50%);
+    radial-gradient(ellipse at 50% 100%, rgba(16,212,120,0.03) 0%, transparent 50%);
   background-attachment: fixed;
 }
 
@@ -79,7 +82,7 @@ body {
   display: flex; align-items: center; gap: 6px;
   font-size: 11px; color: var(--status-good); font-weight: 600;
   padding: 4px 12px; border-radius: 20px;
-  background: rgba(16,185,129,0.08); border: 1px solid rgba(16,185,129,0.15);
+  background: rgba(16,212,120,0.08); border: 1px solid rgba(16,212,120,0.15);
 }
 .topbar-status-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--status-good); animation: pulse-dot 2s ease-in-out infinite; }
 @keyframes pulse-dot { 0%,100%{opacity:1} 50%{opacity:0.4} }
@@ -151,7 +154,7 @@ body {
   box-shadow: inset 0 1px 0 rgba(255,255,255,0.03), var(--shadow-card);
 }
 .chassis-label { position: absolute; top: 10px; left: 12px; font-size: 12px; color: var(--text-muted); font-family: var(--font-mono); letter-spacing: 1px; text-transform: uppercase; }
-.chassis-model-label { position: absolute; top: 10px; right: 12px; font-size: 11px; color: rgba(16,185,129,0.5); font-family: var(--font-mono); }
+.chassis-model-label { position: absolute; top: 10px; right: 12px; font-size: 11px; color: rgba(16,212,120,0.5); font-family: var(--font-mono); }
 .chassis-screw { position: absolute; width: 10px; height: 10px; border-radius: 50%; border: 1px solid rgba(255,255,255,0.08); background: rgba(255,255,255,0.03); }
 .chassis-screw.tl { top: 4px; left: 4px; }
 .chassis-screw.tr { top: 4px; right: 4px; }
@@ -169,7 +172,7 @@ body {
 
 /* Individual port in wireframe */
 .wf-port { width: 42px; height: 28px; border-radius: 3px; display: flex; align-items: center; justify-content: center; font-size: 10px; font-weight: 600; font-family: var(--font-mono); border: 1.5px solid var(--border); cursor: default; position: relative; transition: all 0.2s; }
-.wf-port.up { background: rgba(16,185,129,0.15); border-color: rgba(16,185,129,0.4); color: var(--status-good); }
+.wf-port.up { background: rgba(16,212,120,0.15); border-color: rgba(16,212,120,0.4); color: var(--status-good); }
 .wf-port.down { background: rgba(239,68,68,0.12); border-color: rgba(239,68,68,0.35); color: var(--status-bad); }
 .wf-port.unused { background: rgba(255,255,255,0.02); border-color: rgba(255,255,255,0.06); color: rgba(255,255,255,0.15); }
 .wf-port.up::after { content: ''; position: absolute; top: 3px; right: 3px; width: 5px; height: 5px; border-radius: 50%; background: var(--status-good); box-shadow: 0 0 4px var(--status-good); }
@@ -194,8 +197,8 @@ body {
 .rtu-led.off { background: rgba(255,255,255,0.1); }
 
 /* Radio chassis (Trio JR900) */
-.radio-chassis { border-color: rgba(168,85,247,0.3); }
-.radio-chassis .chassis-label { color: rgba(168,85,247,0.5); }
+.radio-chassis { border-color: rgba(167,139,250,0.3); }
+.radio-chassis .chassis-label { color: rgba(167,139,250,0.5); }
 .radio-antenna { display: flex; flex-direction: column; align-items: center; }
 .radio-antenna-icon { width: 20px; height: 30px; }
 
@@ -220,7 +223,7 @@ body {
 .cab-device-name { font-size: 16px; font-weight: 600; color: var(--text-primary); }
 .cab-device-model { font-size: 11px; color: var(--text-muted); font-family: var(--font-mono); }
 .cab-device-badge { padding: 3px 10px; border-radius: 12px; font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; }
-.cab-device-badge.online { background: rgba(16,185,129,0.15); color: var(--status-good); }
+.cab-device-badge.online { background: rgba(16,212,120,0.15); color: var(--status-good); }
 .cab-device-badge.offline { background: rgba(239,68,68,0.15); color: var(--status-bad); }
 .cab-device-body {
   font-family: var(--font-body);
@@ -231,13 +234,13 @@ body {
   background-image:
     radial-gradient(ellipse at 20% 50%, rgba(6,182,212,0.06) 0%, transparent 50%),
     radial-gradient(ellipse at 80% 20%, rgba(6,182,212,0.04) 0%, transparent 50%),
-    radial-gradient(ellipse at 50% 100%, rgba(16,185,129,0.03) 0%, transparent 50%);
+    radial-gradient(ellipse at 50% 100%, rgba(16,212,120,0.03) 0%, transparent 50%);
   background-attachment: fixed;
 }
 .cab-ports-title { font-size: 11px; font-weight: 600; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.8px; margin-bottom: 10px; }
 .cab-port-grid { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 16px; }
 .cab-port { min-width: 48px; max-width: 72px; height: 44px; overflow: hidden; border-radius: 6px; display: flex; flex-direction: column; align-items: center; justify-content: center; font-size: 9px; font-weight: 600; font-family: var(--font-mono); border: 1px solid var(--border); transition: all 0.2s; cursor: default; position: relative; }
-.cab-port.up { background: rgba(16,185,129,0.12); border-color: rgba(16,185,129,0.3); color: var(--status-good); }
+.cab-port.up { background: rgba(16,212,120,0.12); border-color: rgba(16,212,120,0.3); color: var(--status-good); }
 .cab-port.down { background: rgba(239,68,68,0.1); border-color: rgba(239,68,68,0.3); color: var(--status-bad); }
 .cab-port.unused { background: var(--bg-sidebar); border-color: var(--border); color: var(--text-muted); opacity: 0.5; }
 .cab-port.notMonitored { background: var(--bg-sidebar); border-color: var(--border); color: var(--text-muted); }
@@ -280,7 +283,7 @@ body {
   margin-bottom: 24px;
   padding: 28px 32px;
   border-radius: var(--card-radius);
-  background: linear-gradient(135deg, rgba(6,182,212,0.15) 0%, rgba(6,182,212,0.1) 50%, rgba(16,185,129,0.05) 100%);
+  background: linear-gradient(135deg, rgba(6,182,212,0.15) 0%, rgba(6,182,212,0.1) 50%, rgba(16,212,120,0.05) 100%);
   border: 1px solid rgba(6,182,212,0.1);
   backdrop-filter: blur(10px);
   -webkit-backdrop-filter: blur(10px);
@@ -425,7 +428,7 @@ body {
   background-image:
     radial-gradient(ellipse at 20% 50%, rgba(6,182,212,0.06) 0%, transparent 50%),
     radial-gradient(ellipse at 80% 20%, rgba(6,182,212,0.04) 0%, transparent 50%),
-    radial-gradient(ellipse at 50% 100%, rgba(16,185,129,0.03) 0%, transparent 50%);
+    radial-gradient(ellipse at 50% 100%, rgba(16,212,120,0.03) 0%, transparent 50%);
   background-attachment: fixed;
 }
 .alert-meta-row { display: flex; align-items: center; gap: 6px; margin-bottom: 4px; }
@@ -466,7 +469,7 @@ body {
 .health-bar-wrap { display: flex; align-items: center; gap: 8px; }
 .health-bar { flex: 1; height: 6px; border-radius: 3px; background: rgba(255,255,255,0.04); overflow: hidden; }
 .health-bar-fill { height: 100%; border-radius: 3px; transition: width 0.5s ease; }
-.health-bar-fill.good { background: linear-gradient(90deg, var(--status-good), #34D399); box-shadow: 0 0 8px rgba(16,185,129,0.3); }
+.health-bar-fill.good { background: linear-gradient(90deg, var(--status-good), #10D478); box-shadow: 0 0 8px rgba(16,212,120,0.3); }
 .health-bar-fill.warn { background: linear-gradient(90deg, var(--status-warn), #FBBF24); box-shadow: 0 0 8px rgba(245,158,11,0.3); }
 .health-bar-fill.bad { background: linear-gradient(90deg, var(--status-bad), #F87171); box-shadow: 0 0 8px rgba(239,68,68,0.3); }
 .health-bar-fill.offline { background: var(--status-offline); }
@@ -588,7 +591,7 @@ body {
   background-image:
     radial-gradient(ellipse at 20% 50%, rgba(6,182,212,0.06) 0%, transparent 50%),
     radial-gradient(ellipse at 80% 20%, rgba(6,182,212,0.04) 0%, transparent 50%),
-    radial-gradient(ellipse at 50% 100%, rgba(16,185,129,0.03) 0%, transparent 50%);
+    radial-gradient(ellipse at 50% 100%, rgba(16,212,120,0.03) 0%, transparent 50%);
   background-attachment: fixed;
 }
 .drawer-section { padding: 20px 24px; border-bottom: 1px solid var(--border); }
@@ -697,7 +700,7 @@ body {
 .cmd-log-row { display:flex; align-items:center; gap:10px; padding:8px 0; border-bottom:1px solid var(--border); font-size:11px; }
 .cmd-log-row:last-child { border-bottom:none; }
 .cmd-result { font-family:var(--font-mono); font-size:10px; padding:2px 6px; border-radius:4px; }
-.cmd-result.ok { background:rgba(16,185,129,0.12); color:var(--status-good); }
+.cmd-result.ok { background:rgba(16,212,120,0.12); color:var(--status-good); }
 .cmd-result.fail { background:rgba(239,68,68,0.12); color:var(--status-bad); }
 
 /* ── Solar bar ── */
@@ -756,7 +759,7 @@ body {
     .ics-table .status-dot.good { background:#22C55E; }
     .ics-table .status-dot.warning { background:#FBBF24; }
     .ics-table .status-dot.critical { background:#EF4444; }
-    .ics-table .status-dot.offline { background:#64748B; }
+    .ics-table .status-dot.offline { background:#6B7280; }
     .ics-table .mono { font-family:var(--font-mono);font-size:11px; }
 
     /* Severity badges */
@@ -765,7 +768,7 @@ body {
     .sev-badge.high { background:rgba(249,115,22,0.15);color:#F97316;border:1px solid rgba(249,115,22,0.3); }
     .sev-badge.medium { background:rgba(245,158,11,0.15);color:#FBBF24;border:1px solid rgba(245,158,11,0.3); }
     .sev-badge.low { background:rgba(6,182,212,0.15);color:#06B6D4;border:1px solid rgba(6,182,212,0.3); }
-    .sev-badge.info { background:rgba(100,116,139,0.15);color:#94A3B8;border:1px solid rgba(100,116,139,0.3); }
+    .sev-badge.info { background:rgba(100,116,139,0.15);color:#B4BCD0;border:1px solid rgba(100,116,139,0.3); }
 
     /* Process flow / topology */
     .process-flow { position:relative;background:var(--surface);border:1px solid var(--border);border-radius:16px;padding:24px;min-height:280px;overflow:hidden; }
@@ -1042,7 +1045,7 @@ body {
 .ics-table tbody tr.sev-warning { border-left: 3px solid #FBBF24; }
 .ics-table tbody tr.sev-medium { border-left: 3px solid #FBBF24; }
 .ics-table tbody tr.sev-low { border-left: 3px solid #60A5FA; }
-.ics-table tbody tr.sev-info { border-left: 3px solid #94A3B8; }
+.ics-table tbody tr.sev-info { border-left: 3px solid #B4BCD0; }
 
 /* ── HPI: Muted Normal States ── */
 .fc-health.good { color: #7B8499 !important; }
@@ -1075,6 +1078,16 @@ body {
 .vital-item.tier-info .vi-value { font-size: 12px; }
 .vital-item.tier-info .vi-label { font-size: 8px; }
 .vital-item.tier-info .vi-unit { font-size: 8px; }
+
+
+/* ── Board Rec #4: Vital item tooltip styling ── */
+.vital-item[title] { cursor: help; }
+.vital-item:hover { background: var(--bg-elevated); transition: background 0.2s; }
+
+
+/* ── Accessibility: Focus visible ── */
+*:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+button:focus-visible, .nav-item:focus-visible, a:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 
 </style>
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
@@ -1194,6 +1207,7 @@ body {
 <!-- ── MAIN CONTENT ── -->
 <!-- ══════════════════════════════════════════ -->
 <main class="main">
+<div id="breadcrumb-bar" style="position:sticky;top:0;z-index:10;background:var(--bg-canvas);padding:6px 24px;font-size:11px;color:var(--text-secondary);letter-spacing:0.3px;border-bottom:1px solid rgba(255,255,255,0.04);"><span id="breadcrumb-trail"><span style="color:var(--accent);">Killdeer Field</span> <span style="color:var(--text-faint);margin:0 6px;">›</span> <span>Process Overview</span></span></div>
 
 <!-- ━━━ PAGE: OVERVIEW ━━━ -->
 <section class="page-section active" data-page="overview">

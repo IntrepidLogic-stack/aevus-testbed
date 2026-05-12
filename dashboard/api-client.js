@@ -226,6 +226,12 @@ document.addEventListener('click', function(e) {
     const nav = document.querySelector(`.nav-item[data-page="${page}"]`);
     if (sec) sec.classList.add('active');
     if (nav) nav.classList.add('active');
+    // Board rec #5: Update breadcrumb
+    var bc = document.getElementById('breadcrumb-trail');
+    if (bc) {
+      var pageNames = {overview:'Process Overview',assets:'Assets',alarms:'Alarm Management',health:'System Health',diagnostics:'Diagnostics',trends:'Historian',cabinet:'Cabinet View',operations:'Operations',weather:'Weather Intelligence',radio:'Radio Comms',map:'Site Map',network:'Network Topology',cybersecurity:'Cybersecurity',reports:'Reports',settings:'Settings'};
+      bc.innerHTML = '<span style="color:var(--accent);">Killdeer Field</span> <span style="color:var(--text-faint);margin:0 6px;">›</span> <span>' + (pageNames[page]||page) + '</span>';
+    }
     // Close mobile sidebar
     document.querySelector('.sidebar')?.classList.remove('open');
     // Render page content
@@ -365,6 +371,14 @@ document.addEventListener('click', function(e) {
   }
 
 
+
+  // Board rec #4: Range string for tooltips
+  function vitalRangeStr(unit) {
+    var r = typeof VITAL_RANGES !== 'undefined' ? VITAL_RANGES[unit] : null;
+    if (!r) return 'N/A';
+    return r[0] + '–' + r[1] + ' ' + (unit||'');
+  }
+
   // Board rec #3: Classify vitals into display tiers
   var SAFETY_LABELS = ['H2S','LEL','ESD','Gas','Shutdown','Emergency','Flame'];
   var INFO_LABELS = ['Run Hours','Hours','Battery','Signal','RSSI','SNR','Uptime','Firmware'];
@@ -408,7 +422,7 @@ document.addEventListener('click', function(e) {
       const disc = (r.vitals||[]).filter(v => v.unit === 'bool');
       html += `<div class="process-panel"><div class="pp-title"><span class="live-dot"></span>${r.name} — PROCESS VALUES</div><div class="vitals-grid">${vitals.map(v => {
         const n = parseFloat(v.raw_value); const dv = isNaN(n)?v.value:(n%1===0?n.toFixed(0):n.toFixed(1));
-        return `<div class="vital-item ${v.status||''} tier-${vitalTier(v)}"><div class="vi-label">${v.label}</div><div class="vi-value">${dv}<span class="vi-unit">${v.unit||''}</span></div>${analogBar(v.raw_value, v.unit, v.status)}${compactSparkline(v.raw_value, v.unit, v.status)}</div>`;
+        return `<div class="vital-item ${v.status||''} tier-${vitalTier(v)}" title="${v.label}: ${dv} ${v.unit||''} — Range: ${vitalRangeStr(v.unit)}"><div class="vi-label">${v.label}</div><div class="vi-value">${dv}<span class="vi-unit">${v.unit||''}</span></div>${analogBar(v.raw_value, v.unit, v.status)}${compactSparkline(v.raw_value, v.unit, v.status)}</div>`;
       }).join('')}</div>${disc.length?`<div style="margin-top:12px;"><div style="font-size:9px;text-transform:uppercase;letter-spacing:0.8px;color:var(--text-muted);margin-bottom:8px;">DISCRETE INPUTS</div><div style="display:flex;gap:10px;flex-wrap:wrap;">${disc.map(v=>{const ok=v.value==='OK'||v.value==='STOPPED'||v.raw_value===0;const col=v.status==='good'?'var(--status-good)':ok?'var(--text-muted)':'var(--status-bad)';return `<div style="display:flex;align-items:center;gap:5px;font-size:11px;"><span style="width:6px;height:6px;border-radius:50%;background:${col};"></span><span style="color:var(--text-secondary);">${v.label}</span><span style="font-family:var(--font-mono);color:${col};">${v.value}</span></div>`;}).join('')}</div></div>`:''}</div>`;
     }
     if (net.length > 0) {
@@ -440,10 +454,10 @@ document.addEventListener('click', function(e) {
     const sev = a.severity || 'info';
     const borderColor = sev === 'critical' ? '#EF4444' : sev === 'warning' ? '#FBBF24' : '#06B6D4';
     const isTrap = a.message && (a.message.toLowerCase().includes('link down') || a.message.toLowerCase().includes('cold start') || a.message.toLowerCase().includes('trap'));
-    const trapBadge = isTrap ? '<span style="font-size:9px;padding:2px 6px;border-radius:4px;background:rgba(168,85,247,0.15);color:#A855F7;font-weight:600;margin-left:6px;">TRAP</span>' : '';
+    const trapBadge = isTrap ? '<span style="font-size:9px;padding:2px 6px;border-radius:4px;background:rgba(167,139,250,0.15);color:#A78BFA;font-weight:600;margin-left:6px;">TRAP</span>' : '';
     const statusBadge = a.status !== 'open' ? `<span style="font-size:9px;padding:2px 6px;border-radius:4px;background:${a.status==='acknowledged'?'rgba(251,191,36,0.15)':'rgba(16,212,120,0.15)'};color:${a.status==='acknowledged'?'#FBBF24':'#10D478'};font-weight:600;margin-left:6px;">${a.status.toUpperCase()}</span>` : '';
     const actions = full && a.status !== 'resolved' ? `<div style="display:flex;gap:6px;margin-top:8px;">${a.status==='open'?`<button onclick="window.ackAlert('${a.id}')" style="font-size:10px;padding:4px 10px;border-radius:6px;border:1px solid rgba(251,191,36,0.3);background:rgba(251,191,36,0.1);color:#FBBF24;cursor:pointer;font-family:var(--font-body);">Acknowledge</button>`:''}<button onclick="window.resolveAlert('${a.id}')" style="font-size:10px;padding:4px 10px;border-radius:6px;border:1px solid rgba(16,212,120,0.3);background:rgba(16,212,120,0.1);color:#10D478;cursor:pointer;font-family:var(--font-body);">Resolve</button></div>` : '';
-    return `<div class="alert-card ${sev}" style="border-left:3px solid ${borderColor};${isTrap?'box-shadow:0 0 8px rgba(168,85,247,0.15);':''}">
+    return `<div class="alert-card ${sev}" style="border-left:3px solid ${borderColor};${isTrap?'box-shadow:0 0 8px rgba(167,139,250,0.15);':''}">
       <div class="alert-icon-wrap ${sev}">${alertSvgs[sev]||alertSvgs.info}</div>
       <div class="alert-body">
         <div class="alert-meta-row"><span class="severity-badge ${sev}">${sev.toUpperCase()}</span>${statusBadge}${trapBadge}<span class="alert-time">${timeAgo(a.detected_at)}</span></div>
@@ -756,7 +770,7 @@ document.addEventListener('click', function(e) {
   const TREND_CATEGORIES = [
     {
       id: 'process', label: 'Process',
-      color: '#10D478', colorDim: 'rgba(16,185,129,0.12)', borderColor: 'rgba(16,185,129,0.3)',
+      color: '#10D478', colorDim: 'rgba(16,212,120,0.12)', borderColor: 'rgba(16,212,120,0.3)',
       icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>',
       metrics: [
         { key: 'suction_pressure', label: 'Suction Press', unit: 'PSI', asset: 'RTU-01' },
@@ -792,7 +806,7 @@ document.addEventListener('click', function(e) {
     },
     {
       id: 'power', label: 'Power & Levels',
-      color: '#A855F7', colorDim: 'rgba(168,85,247,0.12)', borderColor: 'rgba(168,85,247,0.3)',
+      color: '#A78BFA', colorDim: 'rgba(167,139,250,0.12)', borderColor: 'rgba(167,139,250,0.3)',
       icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/></svg>',
       metrics: [
         { key: 'battery_voltage', label: 'Battery', unit: 'VDC', asset: 'RTU-01' },
@@ -1249,8 +1263,8 @@ document.addEventListener('click', function(e) {
     el.innerHTML = `
       <div class="kpi-tile"><div class="weather-tile"><div class="weather-icon" style="background:rgba(245,158,11,0.12);color:#FBBF24;">${condIcon}</div><div><div class="weather-val">${w.temp_f != null ? Math.round(w.temp_f) + '°' : '—'}</div><div class="weather-label">${condLabel}</div></div></div></div>
       <div class="kpi-tile"><div class="weather-tile"><div class="weather-icon" style="background:rgba(6,182,212,0.12);color:var(--accent);"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M9.59 4.59A2 2 0 1 1 11 8H2m10.59 11.41A2 2 0 1 0 14 16H2m15.73-8.27A2.5 2.5 0 1 1 19.5 12H2"/></svg></div><div><div class="weather-val">${w.wind_mph != null ? Math.round(w.wind_mph) : '—'}<span style="font-size:12px;color:var(--text-muted);"> mph</span></div><div class="weather-label">Wind${w.wind_gust_mph ? ' · Gust ' + Math.round(w.wind_gust_mph) : ''}</div></div></div></div>
-      <div class="kpi-tile"><div class="weather-tile"><div class="weather-icon" style="background:rgba(16,185,129,0.12);color:var(--status-good);"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/></svg></div><div><div class="weather-val" style="color:${solarCol};">${solarPct}%</div><div class="weather-label">Solar Factor</div><div class="solar-bar" style="width:80px;"><div class="solar-bar-fill" style="width:${solarPct}%;"></div></div></div></div></div>
-      <div class="kpi-tile"><div class="weather-tile"><div class="weather-icon" style="background:rgba(168,85,247,0.12);color:#A855F7;"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M17 18a5 5 0 0 0-10 0"/><line x1="12" y1="9" x2="12" y2="2"/><line x1="4.22" y1="10.22" x2="5.64" y2="11.64"/><line x1="1" y1="18" x2="3" y2="18"/><line x1="21" y1="18" x2="23" y2="18"/><line x1="18.36" y1="11.64" x2="19.78" y2="10.22"/></svg></div><div><div class="weather-val">${w.daylight_hours ? w.daylight_hours.toFixed(1) : '—'}<span style="font-size:12px;color:var(--text-muted);"> hrs</span></div><div class="weather-label">${w.is_daylight ? '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/></svg> Daylight' : '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg> Night'}</div></div></div></div>
+      <div class="kpi-tile"><div class="weather-tile"><div class="weather-icon" style="background:rgba(16,212,120,0.12);color:var(--status-good);"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/></svg></div><div><div class="weather-val" style="color:${solarCol};">${solarPct}%</div><div class="weather-label">Solar Factor</div><div class="solar-bar" style="width:80px;"><div class="solar-bar-fill" style="width:${solarPct}%;"></div></div></div></div></div>
+      <div class="kpi-tile"><div class="weather-tile"><div class="weather-icon" style="background:rgba(167,139,250,0.12);color:#A78BFA;"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M17 18a5 5 0 0 0-10 0"/><line x1="12" y1="9" x2="12" y2="2"/><line x1="4.22" y1="10.22" x2="5.64" y2="11.64"/><line x1="1" y1="18" x2="3" y2="18"/><line x1="21" y1="18" x2="23" y2="18"/><line x1="18.36" y1="11.64" x2="19.78" y2="10.22"/></svg></div><div><div class="weather-val">${w.daylight_hours ? w.daylight_hours.toFixed(1) : '—'}<span style="font-size:12px;color:var(--text-muted);"> hrs</span></div><div class="weather-label">${w.is_daylight ? '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/></svg> Daylight' : '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg> Night'}</div></div></div></div>
       <div class="kpi-tile"><div class="weather-tile"><div class="weather-icon" style="background:rgba(6,182,212,0.12);color:#06B6D4;"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 2.69l5.66 5.66a8 8 0 1 1-11.31 0z"/></svg></div><div><div class="weather-val">${w.precip_in != null ? w.precip_in.toFixed(2) : '0'}<span style="font-size:12px;color:var(--text-muted);"> in</span></div><div class="weather-label">Precipitation</div></div></div></div>
     `;
   }
@@ -1397,7 +1411,7 @@ document.addEventListener('click', function(e) {
 
     statusEl.innerHTML =
       '<span style="display:inline-flex;align-items:center;gap:4px;padding:2px 8px;border-radius:4px;font-size:10px;font-weight:600;background:' +
-      (asset.status==='good' ? 'rgba(16,185,129,0.15);color:var(--status-good)' : 'rgba(239,68,68,0.15);color:var(--status-bad)') + ';">' +
+      (asset.status==='good' ? 'rgba(16,212,120,0.15);color:var(--status-good)' : 'rgba(239,68,68,0.15);color:var(--status-bad)') + ';">' +
       '<span style="width:6px;height:6px;border-radius:50%;background:currentColor;"></span>' +
       asset.status.toUpperCase() + '</span>';
 
@@ -1642,7 +1656,7 @@ document.addEventListener('click', function(e) {
       '</div>' +
       '<div style="display:flex;justify-content:space-between;margin-top:8px;font-size:9px;font-family:var(--font-mono);">' +
         '<div><span style="color:var(--text-muted);">RISE</span> <span style="color:var(--status-warn);">' + (sunrise||'—') + '</span></div>' +
-        '<div><span style="color:var(--text-muted);">SET</span> <span style="color:#A855F7;">' + (sunset||'—') + '</span></div>' +
+        '<div><span style="color:var(--text-muted);">SET</span> <span style="color:#A78BFA;">' + (sunset||'—') + '</span></div>' +
       '</div>';
   }
 
@@ -1695,9 +1709,9 @@ document.addEventListener('click', function(e) {
     marker.bindPopup(
       '<div style="font-family:Manrope,sans-serif;padding:4px;min-width:200px;">' +
       '<div style="font-weight:700;font-size:14px;">Killdeer Field</div>' +
-      '<div style="font-size:11px;color:#64748B;">10102 Clydesdale Dr, Needville, TX 77461</div>' +
-      '<div style="font-size:11px;color:#64748B;">29.39°N, 95.84°W · Elev 85 ft</div>' +
-      (weatherData ? '<div style="margin-top:6px;padding-top:6px;border-top:1px solid #E2E8F0;font-size:12px;">' +
+      '<div style="font-size:11px;color:#6B7280;">10102 Clydesdale Dr, Needville, TX 77461</div>' +
+      '<div style="font-size:11px;color:#6B7280;">29.39°N, 95.84°W · Elev 85 ft</div>' +
+      (weatherData ? '<div style="margin-top:6px;padding-top:6px;border-top:1px solid rgba(148,163,184,0.08);font-size:12px;">' +
         '<span style="font-weight:600;font-size:16px;">' + Math.round(weatherData.temp_f) + '°F</span> · ' +
         Math.round(weatherData.wind_mph) + ' mph ' + (weatherData.wind_dir||'') + ' · ' +
         (weatherData.condition||'').replace(/_/g,' ') + '</div>' : '') +
@@ -2532,15 +2546,15 @@ document.addEventListener('click', function(e) {
     // N-type antenna connector (larger SVG ~36px)
     h += '<div style="display:flex;flex-direction:column;align-items:center;gap:2px;">';
     h += '<div class="chassis-inner-label">ANT</div>';
-    h += '<svg width="36" height="36" viewBox="0 0 36 36" fill="none" stroke="rgba(168,85,247,0.5)" stroke-width="1.5">';
+    h += '<svg width="36" height="36" viewBox="0 0 36 36" fill="none" stroke="rgba(167,139,250,0.5)" stroke-width="1.5">';
     h += '<circle cx="18" cy="18" r="14"/>';
     h += '<circle cx="18" cy="18" r="8"/>';
     h += '<circle cx="18" cy="18" r="3"/>';
-    h += '<circle cx="18" cy="18" r="1" fill="rgba(168,85,247,0.5)"/>';
+    h += '<circle cx="18" cy="18" r="1" fill="rgba(167,139,250,0.5)"/>';
     h += '</svg>';
     h += '</div>';
 
-    h += '<div class="port-section-divider" style="border-color:rgba(168,85,247,0.15);"></div>';
+    h += '<div class="port-section-divider" style="border-color:rgba(167,139,250,0.15);"></div>';
 
     // Green power terminal block (V+, V-)
     h += '<div style="display:flex;flex-direction:column;align-items:center;gap:2px;">';
@@ -2554,28 +2568,28 @@ document.addEventListener('click', function(e) {
     h += '<div style="width:20px;text-align:center;font-size:7px;color:rgba(34,197,94,0.6);font-family:var(--font-mono);">V-</div>';
     h += '</div></div>';
 
-    h += '<div class="port-section-divider" style="border-color:rgba(168,85,247,0.15);"></div>';
+    h += '<div class="port-section-divider" style="border-color:rgba(167,139,250,0.15);"></div>';
 
     // DB9 serial port — D-shaped trapezoid
     h += '<div style="display:flex;flex-direction:column;align-items:center;gap:2px;">';
     h += '<div class="chassis-inner-label">SERIAL</div>';
     h += '<svg width="44" height="28" viewBox="0 0 44 28" fill="none">';
-    h += '<path d="M6,2 L38,2 C40,2 42,4 42,6 L40,22 C40,24 38,26 36,26 L8,26 C6,26 4,24 4,22 L2,6 C2,4 4,2 6,2 Z" stroke="rgba(168,85,247,0.4)" stroke-width="1.5" fill="rgba(168,85,247,0.05)"/>';
-    h += '<text x="22" y="17" text-anchor="middle" fill="rgba(168,85,247,0.5)" font-size="8" font-family="var(--font-mono)">DB9</text>';
+    h += '<path d="M6,2 L38,2 C40,2 42,4 42,6 L40,22 C40,24 38,26 36,26 L8,26 C6,26 4,24 4,22 L2,6 C2,4 4,2 6,2 Z" stroke="rgba(167,139,250,0.4)" stroke-width="1.5" fill="rgba(167,139,250,0.05)"/>';
+    h += '<text x="22" y="17" text-anchor="middle" fill="rgba(167,139,250,0.5)" font-size="8" font-family="var(--font-mono)">DB9</text>';
     h += '</svg>';
     h += '</div>';
 
-    h += '<div class="port-section-divider" style="border-color:rgba(168,85,247,0.15);"></div>';
+    h += '<div class="port-section-divider" style="border-color:rgba(167,139,250,0.15);"></div>';
 
     // 2x RJ45 serial ports (Serial A, Serial B)
     h += '<div style="display:flex;flex-direction:column;gap:2px;">';
     h += '<div class="chassis-inner-label">SERIAL A/B</div>';
     h += '<div style="display:flex;gap:3px;">';
-    h += '<div class="wf-aux" style="width:42px;border-color:rgba(168,85,247,0.2);color:rgba(168,85,247,0.35);font-size:8px;">SER-A</div>';
-    h += '<div class="wf-aux" style="width:42px;border-color:rgba(168,85,247,0.2);color:rgba(168,85,247,0.35);font-size:8px;">SER-B</div>';
+    h += '<div class="wf-aux" style="width:42px;border-color:rgba(167,139,250,0.2);color:rgba(167,139,250,0.35);font-size:8px;">SER-A</div>';
+    h += '<div class="wf-aux" style="width:42px;border-color:rgba(167,139,250,0.2);color:rgba(167,139,250,0.35);font-size:8px;">SER-B</div>';
     h += '</div></div>';
 
-    h += '<div class="port-section-divider" style="border-color:rgba(168,85,247,0.15);"></div>';
+    h += '<div class="port-section-divider" style="border-color:rgba(167,139,250,0.15);"></div>';
 
     // Ethernet RJ45
     h += '<div style="display:flex;flex-direction:column;gap:2px;">';
@@ -2794,6 +2808,27 @@ document.addEventListener('click', function(e) {
   }
 
 
+
+  // Board rec #6: Tiny alarm trend sparkline
+  function alarmMiniSpark(a) {
+    if (a.value == null || isNaN(parseFloat(a.value))) return '';
+    var n = parseFloat(a.value);
+    var hist = fakeHistory(n, a.unit||'', 8);
+    if (!hist) return '';
+    var w = 40, h = 12, pad = 1;
+    var min = Math.min.apply(null, hist), max = Math.max.apply(null, hist);
+    var range = max - min || 1;
+    var pts = [];
+    for (var i = 0; i < hist.length; i++) {
+      var x = (pad + (i / (hist.length - 1)) * (w - 2 * pad)).toFixed(1);
+      var y = (h - pad - ((hist[i] - min) / range) * (h - 2 * pad)).toFixed(1);
+      pts.push(x + ',' + y);
+    }
+    var sev = a.severity || 'info';
+    var col = sev === 'critical' ? '#EF4444' : sev === 'warning' ? '#FBBF24' : '#60A5FA';
+    return '<svg width="' + w + '" height="' + h + '" viewBox="0 0 ' + w + ' ' + h + '" style="display:inline-block;vertical-align:middle;margin-left:6px;opacity:0.6;"><polyline points="' + pts.join(' ') + '" fill="none" stroke="' + col + '" stroke-width="1" stroke-linecap="round"/></svg>';
+  }
+
   // Board rec #2: Group duplicate alarms with count badges
   function groupAlarms(alarms) {
     var groups = {};
@@ -2829,7 +2864,7 @@ document.addEventListener('click', function(e) {
       '<td><span class="sev-badge ' + sev + '">' + sev + '</span></td>' +
       '<td><span class="mono">' + (a.asset_id||'—') + '</span></td>' +
       "<td>" + (a.metric||a.message||'—') + (a._groupCount > 1 ? ' <span style="font-size:9px;padding:1px 5px;border-radius:8px;background:rgba(96,165,250,0.15);color:#60A5FA;font-weight:600;">×' + a._groupCount + '</span>' : '') + '</td>' +
-      '<td class="mono">' + (a.value != null ? a.value : '—') + '</td>' +
+      '<td class="mono">' + (a.value != null ? a.value + (a.unit ? ' ' + a.unit : '') : '—') + alarmMiniSpark(a) + '</td>' +
       '<td class="mono">' + age + '</td>' +
       '<td class="mono">' + dur + '</td>' +
       '<td><span class="status-dot ' + (a.status||'') + '"></span>' + (a.status||'active') + '</td>' +
@@ -3279,9 +3314,9 @@ document.addEventListener('click', function(e) {
       var popup = new mapboxgl.Popup({offset:25, closeButton:false}).setHTML(
         '<div style="font-family:Manrope;padding:4px;">' +
           '<div style="font-weight:700;font-size:13px;margin-bottom:4px;">'+a.name+'</div>' +
-          '<div style="font-size:11px;color:#666;">'+a.id+' · '+(a.type||'')+'</div>' +
+          '<div style="font-size:11px;color:#7B8499;">'+a.id+' · '+(a.type||'')+'</div>' +
           '<div style="font-size:11px;margin-top:4px;">Health: <b style="color:'+c+'">'+h+'</b> · '+(a.status||'unknown')+'</div>' +
-          '<div style="font-size:10px;color:#888;margin-top:2px;">'+(a.ip_address||'')+'</div>' +
+          '<div style="font-size:10px;color:#7B8499;margin-top:2px;">'+(a.ip_address||'')+'</div>' +
         '</div>'
       );
 
@@ -3337,10 +3372,10 @@ document.addEventListener('click', function(e) {
         .setHTML(
           '<div style="font-family:Manrope,sans-serif;padding:4px;">' +
           '<div style="font-weight:600;font-size:13px;margin-bottom:4px;">' + (asset.name || asset.id) + '</div>' +
-          '<div style="font-size:11px;color:#94A3B8;">Status: <span style="color:' + color + ';font-weight:600;">' + (asset.status || 'unknown') + '</span></div>' +
-          '<div style="font-size:11px;color:#94A3B8;">Health: ' + (asset.health != null ? asset.health + '%' : 'N/A') + '</div>' +
-          '<div style="font-size:11px;color:#94A3B8;">Type: ' + (asset.type || '-') + '</div>' +
-          '<div style="font-size:10px;color:#64748B;margin-top:4px;">' + (asset.ip_address || '') + '</div>' +
+          '<div style="font-size:11px;color:#B4BCD0;">Status: <span style="color:' + color + ';font-weight:600;">' + (asset.status || 'unknown') + '</span></div>' +
+          '<div style="font-size:11px;color:#B4BCD0;">Health: ' + (asset.health != null ? asset.health + '%' : 'N/A') + '</div>' +
+          '<div style="font-size:11px;color:#B4BCD0;">Type: ' + (asset.type || '-') + '</div>' +
+          '<div style="font-size:10px;color:#6B7280;margin-top:4px;">' + (asset.ip_address || '') + '</div>' +
           '</div>'
         );
 

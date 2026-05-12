@@ -391,7 +391,7 @@ document.addEventListener('click', function(e) {
     shiftStart.setHours(shiftStart.getHours() - 12);
 
     var recentAlarms = liveAlerts.filter(function(a) {
-      return a.created_at && new Date(a.created_at) > shiftStart;
+      return (a.detected_at || a.created_at) && new Date(a.detected_at || a.created_at) > shiftStart;
     });
     var resolved = recentAlarms.filter(function(a){return a.status==='resolved';}).length;
     var newAlarms = recentAlarms.filter(function(a){return a.status==='open';}).length;

@@ -4073,7 +4073,7 @@ document.addEventListener('click', function(e) {
       var a = (liveAssets||[]).find(function(x){return x.id===assetId;});
       if (!a) return '#6B7280';
       var s = a.status;
-      return s==='good'?'#7B8499':s==='warn'||s==='warning'?'#FBBF24':s==='bad'||s==='critical'?'#EF4444':'#6B7280';
+      return s==='good'?'#10D478':s==='warn'||s==='warning'?'#FBBF24':s==='bad'||s==='critical'?'#EF4444':'#6B7280';
     }
     function nodeHealth(assetId) {
       var a = (liveAssets||[]).find(function(x){return x.id===assetId;});

@@ -158,6 +158,7 @@ document.addEventListener('click', function(e) {
   const SITE_LAT = 29.3905;
   const SITE_LON = -95.8375;
   let currentAlertFilter = 'all';
+  let currentAlertStatusFilter = 'open';
   let currentAssetFilter = 'all';
   let pageInitialized = {};
 
@@ -174,6 +175,15 @@ document.addEventListener('click', function(e) {
   }
   async function fetchAssets() { const d = await fetchJSON('/assets'); if (d) liveAssets = d; }
   async function fetchAlerts() { const d = await fetchJSON('/alerts?limit=50'); if (d) liveAlerts = d; }
+
+  window.ackAlert = async function(id) {
+    const r = await fetch(API + '/alerts/' + id + '/acknowledge', {method:'POST'});
+    if (r.ok) { const a = await r.json(); const i = liveAlerts.findIndex(x=>x.id===a.id); if(i>=0) liveAlerts[i]=a; renderAlertsPage(); renderLiveAlerts(); }
+  };
+  window.resolveAlert = async function(id) {
+    const r = await fetch(API + '/alerts/' + id + '/resolve', {method:'POST'});
+    if (r.ok) { const a = await r.json(); const i = liveAlerts.findIndex(x=>x.id===a.id); if(i>=0) liveAlerts[i]=a; renderAlertsPage(); renderLiveAlerts(); }
+  };
   async function fetchHealthSummary() { const d = await fetchJSON('/health/summary'); if (d) healthSummary = d; }
   async function fetchPredictions() { const d = await fetchJSON('/predictions'); if (d) predictions = d; }
   async function fetchTrend(metric) {
@@ -362,14 +372,19 @@ document.addEventListener('click', function(e) {
     info: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>',
   };
 
-  function alertCardHTML(a) {
+  function alertCardHTML(a, full) {
     const sev = a.severity || 'info';
-    return `<div class="alert-card ${sev}">
+    const borderColor = sev === 'critical' ? '#EF4444' : sev === 'warning' ? '#FBBF24' : '#06B6D4';
+    const isTrap = a.message && (a.message.toLowerCase().includes('link down') || a.message.toLowerCase().includes('cold start') || a.message.toLowerCase().includes('trap'));
+    const trapBadge = isTrap ? '<span style="font-size:9px;padding:2px 6px;border-radius:4px;background:rgba(168,85,247,0.15);color:#A855F7;font-weight:600;margin-left:6px;">TRAP</span>' : '';
+    const statusBadge = a.status !== 'open' ? `<span style="font-size:9px;padding:2px 6px;border-radius:4px;background:${a.status==='acknowledged'?'rgba(251,191,36,0.15)':'rgba(16,212,120,0.15)'};color:${a.status==='acknowledged'?'#FBBF24':'#10D478'};font-weight:600;margin-left:6px;">${a.status.toUpperCase()}</span>` : '';
+    const actions = full && a.status !== 'resolved' ? `<div style="display:flex;gap:6px;margin-top:8px;">${a.status==='open'?`<button onclick="window.ackAlert('${a.id}')" style="font-size:10px;padding:4px 10px;border-radius:6px;border:1px solid rgba(251,191,36,0.3);background:rgba(251,191,36,0.1);color:#FBBF24;cursor:pointer;font-family:var(--font-body);">Acknowledge</button>`:''}<button onclick="window.resolveAlert('${a.id}')" style="font-size:10px;padding:4px 10px;border-radius:6px;border:1px solid rgba(16,212,120,0.3);background:rgba(16,212,120,0.1);color:#10D478;cursor:pointer;font-family:var(--font-body);">Resolve</button></div>` : '';
+    return `<div class="alert-card ${sev}" style="border-left:3px solid ${borderColor};${isTrap?'box-shadow:0 0 8px rgba(168,85,247,0.15);':''}">
       <div class="alert-icon-wrap ${sev}">${alertSvgs[sev]||alertSvgs.info}</div>
       <div class="alert-body">
-        <div class="alert-meta-row"><span class="severity-badge ${sev}">${sev.toUpperCase()}</span><span class="alert-time">${timeAgo(a.detected_at)}</span></div>
+        <div class="alert-meta-row"><span class="severity-badge ${sev}">${sev.toUpperCase()}</span>${statusBadge}${trapBadge}<span class="alert-time">${timeAgo(a.detected_at)}</span></div>
         <div class="alert-asset">${a.asset_name||a.asset_id}</div>
-        <div class="alert-desc">${a.message}</div>
+        <div class="alert-desc">${a.message}</div>${actions}
       </div>
     </div>`;
   }
@@ -604,11 +619,27 @@ document.addEventListener('click', function(e) {
   // ═══════════════════════════════════════
   function renderAlertsPage() {
     const fb = document.getElementById('alert-filters');
-    fb.innerHTML = ['all','critical','warning','info'].map(f => `<button class="filter-btn ${f===currentAlertFilter?'active':''}" data-sev="${f}">${f==='all'?'All Alerts':f.charAt(0).toUpperCase()+f.slice(1)}</button>`).join('') +
-      `<span style="margin-left:auto;font-size:11px;color:var(--text-muted);">${liveAlerts.length} total alerts</span>`;
-    fb.querySelectorAll('.filter-btn').forEach(b => b.addEventListener('click', () => {
+    const sevCounts = {all:liveAlerts.length, critical:liveAlerts.filter(a=>a.severity==='critical').length, warning:liveAlerts.filter(a=>a.severity==='warning').length, info:liveAlerts.filter(a=>a.severity==='info').length};
+    const statusCounts = {open:liveAlerts.filter(a=>a.status==='open').length, acknowledged:liveAlerts.filter(a=>a.status==='acknowledged').length, resolved:liveAlerts.filter(a=>a.status==='resolved').length};
+    fb.innerHTML = `<div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center;">` +
+      ['all','critical','warning','info'].map(f => {
+        const clr = f==='critical'?'#EF4444':f==='warning'?'#FBBF24':f==='info'?'#06B6D4':'var(--text-primary)';
+        return `<button class="filter-btn sev-filter ${f===currentAlertFilter?'active':''}" data-sev="${f}" style="${f===currentAlertFilter?'background:rgba(6,182,212,0.1);border-color:rgba(6,182,212,0.3);':''}">${f==='all'?'All':f.charAt(0).toUpperCase()+f.slice(1)} <span style="font-size:9px;padding:1px 5px;border-radius:8px;background:rgba(123,132,153,0.2);color:${clr};margin-left:4px;">${sevCounts[f]}</span></button>`;
+      }).join('') +
+      `<span style="width:1px;height:20px;background:var(--border);margin:0 8px;"></span>` +
+      ['open','acknowledged','resolved'].map(s => {
+        const clr = s==='open'?'var(--text-primary)':s==='acknowledged'?'#FBBF24':'#10D478';
+        return `<button class="filter-btn status-filter ${s===currentAlertStatusFilter?'active':''}" data-status="${s}" style="${s===currentAlertStatusFilter?'background:rgba(6,182,212,0.1);border-color:rgba(6,182,212,0.3);':''}">${s.charAt(0).toUpperCase()+s.slice(1)} <span style="font-size:9px;padding:1px 5px;border-radius:8px;background:rgba(123,132,153,0.2);color:${clr};margin-left:4px;">${statusCounts[s]}</span></button>`;
+      }).join('') + `</div>`;
+    fb.querySelectorAll('.sev-filter').forEach(b => b.addEventListener('click', () => {
       currentAlertFilter = b.dataset.sev;
-      fb.querySelectorAll('.filter-btn').forEach(x => x.classList.remove('active'));
+      fb.querySelectorAll('.sev-filter').forEach(x => x.classList.remove('active'));
+      b.classList.add('active');
+      renderAlertsList();
+    }));
+    fb.querySelectorAll('.status-filter').forEach(b => b.addEventListener('click', () => {
+      currentAlertStatusFilter = b.dataset.status;
+      fb.querySelectorAll('.status-filter').forEach(x => x.classList.remove('active'));
       b.classList.add('active');
       renderAlertsList();
     }));
@@ -617,12 +648,13 @@ document.addEventListener('click', function(e) {
 
   function renderAlertsList() {
     const el = document.getElementById('alerts-full-list');
-    const filtered = currentAlertFilter === 'all' ? liveAlerts : liveAlerts.filter(a => a.severity === currentAlertFilter);
+    let filtered = currentAlertFilter === 'all' ? [...liveAlerts] : liveAlerts.filter(a => a.severity === currentAlertFilter);
+    filtered = filtered.filter(a => a.status === currentAlertStatusFilter);
     if (filtered.length === 0) {
       el.innerHTML = '<div style="padding:40px;text-align:center;color:var(--text-muted);font-size:13px;">No alerts matching filter</div>';
       return;
     }
-    el.innerHTML = `<div style="display:flex;flex-direction:column;gap:8px;">${filtered.map(a => alertCardHTML(a)).join('')}</div>`;
+    el.innerHTML = `<div style="display:flex;flex-direction:column;gap:8px;">${filtered.map(a => alertCardHTML(a, true)).join('')}</div>`;
   }
 
   // ═══════════════════════════════════════
@@ -2623,9 +2655,15 @@ document.addEventListener('click', function(e) {
   // ================================================================
   // ALARMS MODULE — ISA 18.2 Alarm Management
   // ================================================================
+  function buildKpi(label, value, status) {
+    var colors = {critical:'#EF4444',warning:'#FBBF24',good:'#10D478',neutral:'#60A5FA'};
+    var color = colors[status] || '#B4BCD0';
+    return '<div class="kpi-tile"><div class="kpi-label">' + label + '</div><div class="kpi-value" style="color:' + color + '">' + value + '</div></div>';
+  }
+
   function renderAlarmsPage() {
     // Reuse existing alerts data but present in ISA 18.2 format
-    const page = document.querySelector('[data-page="alarms"] > div') || document.querySelector('[data-page="alarms"]');
+    const page = document.querySelector('section[data-page="alarms"]');
     if (!page) return;
 
     const active = liveAlerts.filter(a => a.status !== 'resolved');
@@ -2727,18 +2765,23 @@ document.addEventListener('click', function(e) {
     }
   }
 
+
   // ================================================================
-  // HISTORIAN MODULE — Time-Series Query & Analysis
+  // HISTORIAN MODULE — Time-Series Query & Analysis (InfluxDB)
   // ================================================================
+  var _histData = [];
+  var _histAutoRefresh = null;
+
   function renderHistorianPage() {
     const page = document.getElementById('historian-page');
     if (!page) return;
+    if (_histAutoRefresh) { clearInterval(_histAutoRefresh); _histAutoRefresh = null; }
 
     const metrics = [];
     if (liveAssets && liveAssets.length) {
       liveAssets.forEach(function(a) {
         if (a.vitals) a.vitals.forEach(function(v) {
-          metrics.push({ asset: a.id, label: v.label, value: v.raw_value, unit: v.unit, status: v.status });
+          metrics.push({ asset: a.id, name: a.name, label: v.label, value: v.raw_value, unit: v.unit, status: v.status, group: v.group });
         });
       });
     }
@@ -2746,74 +2789,53 @@ document.addEventListener('click', function(e) {
     page.innerHTML =
       '<div class="module-header">' +
         '<div><h2 class="page-title">Historian</h2>' +
-        '<div class="module-subtitle">Time-series data analysis, trend queries, and data export</div></div>' +
+        '<div class="module-subtitle">Time-series data analysis from InfluxDB — real telemetry trends</div></div>' +
         '<div class="module-actions">' +
-          '<button class="module-btn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg> Export CSV</button>' +
-          '<button class="module-btn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M9 21V9"/></svg> Query Builder</button>' +
+          '<button class="module-btn" onclick="exportHistorianCSV()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" width="16" height="16"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg> Export CSV</button>' +
         '</div>' +
       '</div>' +
 
-      // Query bar
       '<div class="hist-query-bar">' +
-        '<div><label>Asset</label><br><select id="hist-asset" onchange="renderHistorianChart()">' +
-          '<option value="all">All Assets</option>' +
+        '<div><label>Asset</label><br><select id="hist-asset" onchange="updateHistMetrics()">' +
           (liveAssets||[]).map(function(a){ return '<option value="'+a.id+'">'+a.id+' — '+(a.name||a.type)+'</option>'; }).join('') +
         '</select></div>' +
-        '<div><label>Metric</label><br><select id="hist-metric" onchange="renderHistorianChart()">' +
-          '<option value="health">Health Score</option>' +
-          '<option value="cpu_load">CPU Load</option>' +
-          '<option value="memory_used">Memory Used</option>' +
-          '<option value="temperature">Temperature</option>' +
-          '<option value="uptime_pct">Uptime %</option>' +
-          '<option value="signal_strength">Signal Strength</option>' +
+        '<div><label>Metric</label><br><select id="hist-metric"></select></div>' +
+        '<div><label>Time Range</label><br><select id="hist-range">' +
+          '<option value="1">Last 1 Hour</option>' +
+          '<option value="6">Last 6 Hours</option>' +
+          '<option value="24" selected>Last 24 Hours</option>' +
+          '<option value="168">Last 7 Days</option>' +
+          '<option value="720">Last 30 Days</option>' +
         '</select></div>' +
-        '<div><label>Time Range</label><br><select id="hist-range" onchange="renderHistorianChart()">' +
-          '<option value="1h">Last 1 Hour</option>' +
-          '<option value="6h">Last 6 Hours</option>' +
-          '<option value="24h" selected>Last 24 Hours</option>' +
-          '<option value="7d">Last 7 Days</option>' +
-          '<option value="30d">Last 30 Days</option>' +
-        '</select></div>' +
-        '<div><label>Aggregation</label><br><select id="hist-agg">' +
-          '<option value="raw">Raw</option>' +
-          '<option value="1m">1 min avg</option>' +
-          '<option value="5m" selected>5 min avg</option>' +
-          '<option value="1h">1 hour avg</option>' +
-        '</select></div>' +
-        '<div style="margin-left:auto;align-self:flex-end;">' +
-          '<button class="module-btn primary" onclick="renderHistorianChart()">Query</button>' +
+        '<div style="align-self:flex-end;">' +
+          '<button class="module-btn primary" onclick="queryHistorian()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" width="14" height="14"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg> Query</button>' +
         '</div>' +
       '</div>' +
 
-      // Chart area
-      '<div class="panel-box" style="min-height:300px;padding:20px;">' +
-        '<div id="hist-chart" style="width:100%;height:260px;position:relative;"></div>' +
+      '<div class="panel-box" style="min-height:320px;padding:20px;">' +
+        '<div id="hist-chart-header" style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">' +
+          '<div id="hist-chart-title" style="font-size:13px;color:var(--text-secondary);font-weight:600;"></div>' +
+          '<div id="hist-chart-stats" style="display:flex;gap:16px;font-size:11px;font-family:var(--font-mono);color:var(--text-muted);"></div>' +
+        '</div>' +
+        '<div id="hist-chart" style="width:100%;height:260px;position:relative;cursor:crosshair;"></div>' +
+        '<div id="hist-tooltip" style="display:none;position:absolute;background:var(--bg-elevated);border:1px solid var(--border);border-radius:6px;padding:8px 12px;font-size:11px;font-family:var(--font-mono);pointer-events:none;z-index:100;color:var(--text-primary);"></div>' +
       '</div>' +
 
-      // Live data table
       '<div style="margin-top:16px;">' +
-        '<div class="tab-bar">' +
-          '<div class="tab-item active">Live Values</div>' +
-          '<div class="tab-item">Statistics</div>' +
-          '<div class="tab-item">Anomalies</div>' +
-        '</div>' +
+        '<div style="font-size:13px;font-weight:600;color:var(--text-secondary);margin-bottom:8px;">LIVE VALUES</div>' +
         '<div class="panel-box" style="padding:0;overflow:auto;max-height:400px;">' +
           '<table class="ics-table">' +
-            '<thead><tr><th>Asset</th><th>Metric</th><th>Value</th><th>Unit</th><th>Status</th><th>Min (24h)</th><th>Max (24h)</th><th>Avg (24h)</th></tr></thead>' +
+            '<thead><tr><th>Asset</th><th>Metric</th><th>Value</th><th>Unit</th><th>Status</th><th>Group</th></tr></thead>' +
             '<tbody>' +
-            metrics.slice(0, 40).map(function(m) {
-              var min = m.value != null ? (m.value * 0.85).toFixed(1) : '—';
-              var max = m.value != null ? (m.value * 1.12).toFixed(1) : '—';
-              var avg = m.value != null ? (m.value * 0.97).toFixed(1) : '—';
+            metrics.slice(0, 50).map(function(m) {
+              var sc = m.status==='good'?'var(--status-good)':m.status==='warning'||m.status==='warn'?'var(--status-warn)':m.status==='bad'||m.status==='critical'?'var(--status-bad)':'var(--text-muted)';
               return '<tr>' +
                 '<td class="mono">' + m.asset + '</td>' +
                 '<td>' + m.label + '</td>' +
-                '<td class="mono" style="font-weight:600;">' + (m.value != null ? m.value : '—') + '</td>' +
+                '<td class="mono" style="font-weight:600;">' + (m.value != null ? (typeof m.value==="number"?m.value.toFixed(1):m.value) : '—') + '</td>' +
                 '<td>' + (m.unit||'') + '</td>' +
-                '<td><span class="status-dot ' + (m.status||'') + '"></span>' + (m.status||'—') + '</td>' +
-                '<td class="mono">' + min + '</td>' +
-                '<td class="mono">' + max + '</td>' +
-                '<td class="mono">' + avg + '</td>' +
+                '<td><span style="display:inline-block;width:6px;height:6px;border-radius:50%;background:'+sc+';margin-right:4px;"></span>' + (m.status||'—') + '</td>' +
+                '<td style="color:var(--text-muted);text-transform:capitalize;">' + (m.group||'—') + '</td>' +
               '</tr>';
             }).join('') +
             '</tbody>' +
@@ -2821,367 +2843,353 @@ document.addEventListener('click', function(e) {
         '</div>' +
       '</div>';
 
-    renderHistorianChart();
+    updateHistMetrics();
+    setTimeout(queryHistorian, 300);
   }
 
-  window.renderHistorianChart = function() {
+  window.updateHistMetrics = function() {
+    var sel = document.getElementById('hist-asset');
+    var metricSel = document.getElementById('hist-metric');
+    if (!sel || !metricSel) return;
+    var assetId = sel.value;
+    var asset = liveAssets.find(function(a){ return a.id === assetId; });
+    if (!asset || !asset.vitals) return;
+    var seen = {};
+    var opts = '';
+    asset.vitals.forEach(function(v) {
+      var key = v.label.toLowerCase().replace(/ /g, '_');
+      if (!seen[key]) {
+        seen[key] = true;
+        opts += '<option value="'+key+'">'+v.label+' ('+v.unit+')</option>';
+      }
+    });
+    metricSel.innerHTML = opts;
+  };
+
+  window.queryHistorian = function() {
+    var assetId = document.getElementById('hist-asset')?.value;
+    var metric = document.getElementById('hist-metric')?.value;
+    var hours = document.getElementById('hist-range')?.value || '24';
+    if (!assetId || !metric) return;
+
+    var titleEl = document.getElementById('hist-chart-title');
+    if (titleEl) titleEl.textContent = 'Loading...';
+
+    fetch(API + '/health/trend?asset_id=' + assetId + '&metric=' + metric + '&hours=' + hours, {
+      headers: API_KEY ? { 'X-API-Key': API_KEY } : {}
+    })
+    .then(function(r){ return r.json(); })
+    .then(function(data){
+      _histData = data;
+      renderHistorianSVG(data, assetId, metric, hours);
+      // Auto-refresh for short ranges
+      if (_histAutoRefresh) clearInterval(_histAutoRefresh);
+      if (parseInt(hours) <= 1) {
+        _histAutoRefresh = setInterval(function(){ queryHistorian(); }, 30000);
+      }
+    })
+    .catch(function(e){
+      var el = document.getElementById('hist-chart');
+      if (el) el.innerHTML = '<div style="text-align:center;padding:60px;color:var(--text-muted);">Query failed: ' + e.message + '</div>';
+    });
+  };
+
+  function renderHistorianSVG(data, assetId, metric, hours) {
     var el = document.getElementById('hist-chart');
     if (!el) return;
-    // Render a simple SVG trend chart
-    var w = el.offsetWidth || 800;
-    var h = el.offsetHeight || 260;
-    var pts = [];
-    var count = 96;
-    var val = 50 + Math.random() * 30;
-    for (var i = 0; i < count; i++) {
-      val += (Math.random() - 0.48) * 5;
-      val = Math.max(10, Math.min(100, val));
-      pts.push(val);
+
+    if (!data || data.length === 0) {
+      el.innerHTML = '<div style="text-align:center;padding:60px;color:var(--text-muted);">No data for this metric/range. Try a different time range or metric.</div>';
+      document.getElementById('hist-chart-title').textContent = metric.toUpperCase().replace(/_/g, ' ') + ' — ' + assetId;
+      document.getElementById('hist-chart-stats').innerHTML = '';
+      return;
     }
-    var maxV = Math.max.apply(null, pts);
-    var minV = Math.min.apply(null, pts);
+
+    var w = el.offsetWidth || 800;
+    var h = 260;
+    var pad = { top: 10, right: 20, bottom: 30, left: 50 };
+    var cw = w - pad.left - pad.right;
+    var ch = h - pad.top - pad.bottom;
+
+    var values = data.map(function(d){ return d.value; });
+    var minV = Math.min.apply(null, values);
+    var maxV = Math.max.apply(null, values);
+    var avgV = values.reduce(function(s,v){return s+v;},0) / values.length;
     var range = maxV - minV || 1;
-    var pad = 40;
+    // Add 5% padding
+    minV -= range * 0.05;
+    maxV += range * 0.05;
+    range = maxV - minV;
 
-    var pathD = pts.map(function(v, i) {
-      var x = pad + (i / (count-1)) * (w - pad*2);
-      var y = pad + (1 - (v - minV) / range) * (h - pad*2);
-      return (i===0?'M':'L') + x.toFixed(1) + ',' + y.toFixed(1);
-    }).join(' ');
+    // Stats
+    var statsEl = document.getElementById('hist-chart-stats');
+    if (statsEl) {
+      statsEl.innerHTML =
+        '<span>Min: <b style="color:var(--status-info);">' + Math.min.apply(null,values).toFixed(1) + '</b></span>' +
+        '<span>Max: <b style="color:var(--status-warn);">' + Math.max.apply(null,values).toFixed(1) + '</b></span>' +
+        '<span>Avg: <b style="color:var(--accent);">' + avgV.toFixed(1) + '</b></span>' +
+        '<span>Points: <b>' + data.length + '</b></span>';
+    }
+    var titleEl = document.getElementById('hist-chart-title');
+    if (titleEl) titleEl.textContent = metric.toUpperCase().replace(/_/g, ' ') + ' — ' + assetId + ' — Last ' + hours + 'h';
 
-    var areaD = pathD + ' L' + (pad + (w-pad*2)).toFixed(1) + ',' + (h-pad) + ' L' + pad + ',' + (h-pad) + ' Z';
+    // Build path
+    var pathD = '';
+    var dots = '';
+    data.forEach(function(d, i) {
+      var x = pad.left + (i / (data.length - 1)) * cw;
+      var y = pad.top + (1 - (d.value - minV) / range) * ch;
+      pathD += (i === 0 ? 'M' : 'L') + x.toFixed(1) + ',' + y.toFixed(1);
+    });
+
+    var areaD = pathD + ' L' + (pad.left + cw).toFixed(1) + ',' + (pad.top + ch) + ' L' + pad.left + ',' + (pad.top + ch) + ' Z';
+
+    // Y-axis labels
+    var yLabels = '';
+    for (var yi = 0; yi <= 4; yi++) {
+      var yy = pad.top + (yi / 4) * ch;
+      var yVal = (maxV - (yi / 4) * range).toFixed(1);
+      yLabels += '<line x1="'+pad.left+'" y1="'+yy+'" x2="'+(w-pad.right)+'" y2="'+yy+'" stroke="rgba(255,255,255,0.06)" stroke-width="1"/>';
+      yLabels += '<text x="'+(pad.left-6)+'" y="'+(yy+3)+'" fill="rgba(255,255,255,0.3)" font-size="9" text-anchor="end" font-family="var(--font-mono)">'+yVal+'</text>';
+    }
+
+    // X-axis labels
+    var xLabels = '';
+    var labelCount = Math.min(6, data.length);
+    for (var xi = 0; xi < labelCount; xi++) {
+      var idx = Math.floor(xi / (labelCount-1) * (data.length-1));
+      var xx = pad.left + (idx / (data.length-1)) * cw;
+      var t = new Date(data[idx].time);
+      var tLabel = t.getHours().toString().padStart(2,'0') + ':' + t.getMinutes().toString().padStart(2,'0');
+      if (parseInt(hours) > 24) tLabel = (t.getMonth()+1)+'/'+t.getDate()+' '+tLabel;
+      xLabels += '<text x="'+xx+'" y="'+(h-4)+'" fill="rgba(255,255,255,0.3)" font-size="9" text-anchor="middle" font-family="var(--font-mono)">'+tLabel+'</text>';
+    }
+
+    // Average line
+    var avgY = pad.top + (1 - (avgV - minV) / range) * ch;
+    var avgLine = '<line x1="'+pad.left+'" y1="'+avgY.toFixed(1)+'" x2="'+(w-pad.right)+'" y2="'+avgY.toFixed(1)+'" stroke="rgba(6,182,212,0.4)" stroke-width="1" stroke-dasharray="4,4"/>';
 
     el.innerHTML =
-      '<svg width="' + w + '" height="' + h + '" style="display:block;">' +
-        '<defs><linearGradient id="hg" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#06B6D4" stop-opacity="0.3"/><stop offset="100%" stop-color="#06B6D4" stop-opacity="0"/></linearGradient></defs>' +
-        // Grid lines
-        [0,0.25,0.5,0.75,1].map(function(f) {
-          var y = pad + f * (h-pad*2);
-          var label = (maxV - f * range).toFixed(1);
-          return '<line x1="'+pad+'" y1="'+y+'" x2="'+(w-pad)+'" y2="'+y+'" stroke="rgba(255,255,255,0.06)" stroke-width="1"/>' +
-            '<text x="'+(pad-4)+'" y="'+(y+3)+'" fill="rgba(255,255,255,0.3)" font-size="9" text-anchor="end" font-family="var(--font-mono)">' + label + '</text>';
-        }).join('') +
-        '<path d="' + areaD + '" fill="url(#hg)"/>' +
-        '<path d="' + pathD + '" fill="none" stroke="#06B6D4" stroke-width="2" stroke-linejoin="round"/>' +
-        // X-axis labels
-        [0,0.25,0.5,0.75,1].map(function(f) {
-          var x = pad + f * (w-pad*2);
-          var hr = Math.round(f * 24);
-          return '<text x="'+x+'" y="'+(h-8)+'" fill="rgba(255,255,255,0.3)" font-size="9" text-anchor="middle" font-family="var(--font-mono)">' + hr + 'h ago</text>';
-        }).join('') +
+      '<svg width="'+w+'" height="'+h+'" style="display:block;" id="hist-svg">' +
+        '<defs><linearGradient id="hg2" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#06B6D4" stop-opacity="0.2"/><stop offset="100%" stop-color="#06B6D4" stop-opacity="0"/></linearGradient></defs>' +
+        yLabels + xLabels + avgLine +
+        '<path d="'+areaD+'" fill="url(#hg2)"/>' +
+        '<path d="'+pathD+'" fill="none" stroke="#06B6D4" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/>' +
+        '<circle cx="'+(pad.left + cw)+'" cy="'+(pad.top + (1 - (data[data.length-1].value - minV) / range) * ch).toFixed(1)+'" r="3" fill="#06B6D4"/>' +
+        '<rect id="hist-hover-area" x="'+pad.left+'" y="'+pad.top+'" width="'+cw+'" height="'+ch+'" fill="transparent"/>' +
       '</svg>';
+
+    // Hover tooltip
+    var svg = document.getElementById('hist-svg');
+    var tooltip = document.getElementById('hist-tooltip');
+    if (svg && tooltip) {
+      svg.addEventListener('mousemove', function(e) {
+        var rect = svg.getBoundingClientRect();
+        var mx = e.clientX - rect.left - pad.left;
+        if (mx < 0 || mx > cw) { tooltip.style.display='none'; return; }
+        var idx = Math.round((mx / cw) * (data.length - 1));
+        idx = Math.max(0, Math.min(data.length-1, idx));
+        var d = data[idx];
+        var t = new Date(d.time);
+        tooltip.style.display = 'block';
+        tooltip.style.left = (e.clientX - el.getBoundingClientRect().left + 12) + 'px';
+        tooltip.style.top = (e.clientY - el.getBoundingClientRect().top - 30) + 'px';
+        tooltip.innerHTML = '<div style="color:var(--accent);font-weight:600;">' + d.value.toFixed(2) + '</div><div style="color:var(--text-muted);font-size:10px;">' + t.toLocaleString() + '</div>';
+      });
+      svg.addEventListener('mouseleave', function() { tooltip.style.display='none'; });
+    }
+  }
+
+  window.exportHistorianCSV = function() {
+    if (!_histData || !_histData.length) { alert('No data to export. Run a query first.'); return; }
+    var assetId = document.getElementById('hist-asset')?.value || '';
+    var metric = document.getElementById('hist-metric')?.value || '';
+    var csv = 'timestamp,asset_id,metric,value\n';
+    _histData.forEach(function(d) { csv += d.time + ',' + assetId + ',' + metric + ',' + d.value + '\n'; });
+    var blob = new Blob([csv], {type:'text/csv'});
+    var a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = 'aevus_' + assetId + '_' + metric + '_' + new Date().toISOString().slice(0,10) + '.csv';
+    a.click();
   };
 
   // ================================================================
-  // NETWORK MODULE — ICS Network Topology & Protocol Analysis
+  // NETWORK MODULE — ICS Network Topology
   // ================================================================
   function renderNetworkPage() {
     var page = document.getElementById('network-page');
     if (!page) return;
 
-    // Build network nodes from live assets
-    var nodes = (liveAssets||[]).map(function(a) {
-      return { id: a.id, name: a.name||a.id, type: a.type, ip: a.ip_address, health: a.health, status: a.status, protocol: a.protocol };
-    });
+    function nodeColor(assetId) {
+      var a = (liveAssets||[]).find(function(x){return x.id===assetId;});
+      if (!a) return '#6B7280';
+      var s = a.status;
+      return s==='good'?'#10D478':s==='warn'||s==='warning'?'#FBBF24':s==='bad'||s==='critical'?'#EF4444':'#6B7280';
+    }
+    function nodeHealth(assetId) {
+      var a = (liveAssets||[]).find(function(x){return x.id===assetId;});
+      return a && a.health != null ? a.health : '—';
+    }
+    function nodeStatus(assetId) {
+      var a = (liveAssets||[]).find(function(x){return x.id===assetId;});
+      return a ? (a.status||'unknown') : 'unknown';
+    }
 
-    page.innerHTML =
-      '<div class="module-header">' +
-        '<div><h2 class="page-title">Network Topology</h2>' +
-        '<div class="module-subtitle">ICS network architecture, protocol analysis, and traffic monitoring</div></div>' +
-        '<div class="module-actions">' +
-          '<button class="module-btn" onclick="renderCabinetPage()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="2" y="2" width="20" height="8" rx="2"/><rect x="2" y="14" width="20" height="8" rx="2"/><circle cx="6" cy="6" r="1"/><circle cx="6" cy="18" r="1"/></svg> Cabinet View</button>' +
-        '</div>' +
-      '</div>' +
-
-      // KPIs
-      '<div class="kpi-strip">' +
-        buildKpi('DEVICES', nodes.length, 'neutral') +
-        buildKpi('ONLINE', nodes.filter(function(n){return n.status==='good';}).length, 'good') +
-        buildKpi('PROTOCOLS', [...new Set(nodes.map(function(n){return n.protocol||'—';}))].length, 'neutral') +
-        buildKpi('AVG LATENCY', '< 5 ms', 'good') +
-        buildKpi('PACKET LOSS', '0.0%', 'good') +
-        buildKpi('BANDWIDTH', '12 Mbps', 'neutral') +
-      '</div>' +
-
-      // Tabs
-      '<div class="tab-bar">' +
-        '<div class="tab-item active" onclick="renderNetTopology()">Topology Map</div>' +
-        '<div class="tab-item" onclick="renderNetProtocols()">Protocol Analysis</div>' +
-        '<div class="tab-item" onclick="renderNetTraffic()">Traffic Monitor</div>' +
-        '<div class="tab-item" onclick="window.location.hash=\'#diagnostics\'">Diagnostics</div>' +
-      '</div>' +
-
-      // Topology visualization
-      '<div id="net-content">' +
-        '<div class="split-panel">' +
-          '<div class="net-topo" id="net-topo-map" style="grid-column:span 2;"></div>' +
-        '</div>' +
-      '</div>' +
-
-      // Device table
-      '<div style="margin-top:16px;">' +
-        '<div class="panel-box" style="padding:0;overflow:auto;">' +
-          '<table class="ics-table">' +
-            '<thead><tr><th>Device</th><th>Type</th><th>IP Address</th><th>Protocol</th><th>Health</th><th>Status</th><th>Last Seen</th></tr></thead>' +
-            '<tbody>' +
-            nodes.map(function(n) {
-              return '<tr onclick="window.location.hash=\'#diagnostics\'">' +
-                '<td style="font-weight:600;">' + n.name + '</td>' +
-                '<td><span class="mono">' + (n.type||'—') + '</span></td>' +
-                '<td class="mono">' + (n.ip||'—') + '</td>' +
-                '<td>' + (n.protocol||'—').toUpperCase() + '</td>' +
-                '<td><span class="mono" style="color:' + (n.health > 80 ? '#10D478' : n.health > 50 ? '#FBBF24' : '#EF4444') + ';">' + (n.health||0) + '%</span></td>' +
-                '<td><span class="status-dot ' + (n.status||'offline') + '"></span>' + (n.status||'offline') + '</td>' +
-                '<td class="mono">' + (n.id||'—') + '</td>' +
-              '</tr>';
-            }).join('') +
-            '</tbody>' +
-          '</table>' +
-        '</div>' +
-      '</div>';
-
-    // Render topology map
-    renderNetTopologyMap(nodes);
-  }
-
-  function renderNetTopologyMap(nodes) {
-    var el = document.getElementById('net-topo-map');
-    if (!el) return;
-    var w = el.offsetWidth || 800;
-    var h = 360;
-
-    // Position nodes in a hierarchical layout
-    var positions = {
-      'RTR-01':  { x: w*0.5, y: 40, tier: 'core' },
-      'SW-01':   { x: w*0.5, y: 130, tier: 'distribution' },
-      'EDGE-01': { x: w*0.2, y: 240, tier: 'field' },
-      'RTU-01':  { x: w*0.4, y: 240, tier: 'field' },
-      'RAD-01':  { x: w*0.6, y: 240, tier: 'field' },
-      'RAD-02':  { x: w*0.8, y: 240, tier: 'field' },
-    };
-
-    // SVG links
-    var links = [
-      ['RTR-01','SW-01'],
-      ['SW-01','EDGE-01'],['SW-01','RTU-01'],['SW-01','RAD-01'],['SW-01','RAD-02']
+    var nodes = [
+      {id:'WAN', label:'WAN / Internet', x:400, y:30, icon:'cloud', ip:'', noClick:true},
+      {id:'RTR-01', label:'MikroTik L009', x:400, y:130, icon:'router', ip:'.1'},
+      {id:'SW-01', label:'Catalyst 2960', x:400, y:250, icon:'switch', ip:'.2'},
+      {id:'RAD-01', label:'Trio JR900 #1', x:180, y:380, icon:'radio', ip:'.11'},
+      {id:'RAD-02', label:'Trio JR900 #2', x:400, y:380, icon:'radio', ip:'.12'},
+      {id:'EDGE-01', label:'Raspberry Pi', x:620, y:380, icon:'server', ip:'.254'},
+      {id:'RTU-01', label:'SCADAPack 470', x:180, y:500, icon:'gauge', ip:'.21'},
+      {id:'EFM-01', label:'TotalFlow XFC G4', x:400, y:500, icon:'meter', ip:'DNP3'},
+    ];
+    var edges = [
+      {from:'WAN',to:'RTR-01',proto:'WireGuard'},
+      {from:'RTR-01',to:'SW-01',proto:'Ethernet'},
+      {from:'SW-01',to:'RAD-01',proto:'SNMP v2c'},
+      {from:'SW-01',to:'RAD-02',proto:'SNMP v2c'},
+      {from:'SW-01',to:'EDGE-01',proto:'SNMP v2c'},
+      {from:'RAD-01',to:'RTU-01',proto:'Modbus TCP'},
+      {from:'RAD-02',to:'EFM-01',proto:'DNP3'},
     ];
 
-    var svg = '<svg width="'+w+'" height="'+h+'" style="position:absolute;top:0;left:0;z-index:0;">';
-    links.forEach(function(l) {
-      var from = positions[l[0]], to = positions[l[1]];
-      if (from && to) {
-        svg += '<line x1="'+from.x+'" y1="'+(from.y+25)+'" x2="'+to.x+'" y2="'+(to.y-5)+'" stroke="rgba(6,182,212,0.3)" stroke-width="2" stroke-dasharray="6,4"/>';
-      }
+    var W=800, H=570;
+    var svg = '<svg viewBox="0 0 '+W+' '+H+'" width="100%" style="max-width:800px;display:block;margin:0 auto;">';
+
+    // Edges
+    edges.forEach(function(e){
+      var n1 = nodes.find(function(n){return n.id===e.from;});
+      var n2 = nodes.find(function(n){return n.id===e.to;});
+      if(!n1||!n2) return;
+      var c1 = nodeColor(e.from);
+      var c2 = nodeColor(e.to);
+      var active = nodeStatus(e.to)!=='offline' && nodeStatus(e.to)!=='unknown';
+      var stroke = active ? '#10D478' : '#EF4444';
+      var dash = active ? '' : ' stroke-dasharray="6,4"';
+      svg += '<line x1="'+n1.x+'" y1="'+(n1.y+25)+'" x2="'+n2.x+'" y2="'+(n2.y-25)+'" stroke="'+stroke+'" stroke-width="1.5" stroke-opacity="0.5"'+dash+'/>';
+      var mx=(n1.x+n2.x)/2, my=(n1.y+n2.y)/2;
+      svg += '<text x="'+mx+'" y="'+(my-4)+'" fill="rgba(255,255,255,0.25)" font-size="8" text-anchor="middle" font-family="var(--font-mono)">'+e.proto+'</text>';
     });
-    // Tier labels
-    svg += '<text x="30" y="55" fill="rgba(255,255,255,0.15)" font-size="10" font-weight="700">CORE</text>';
-    svg += '<text x="30" y="145" fill="rgba(255,255,255,0.15)" font-size="10" font-weight="700">DISTRIBUTION</text>';
-    svg += '<text x="30" y="255" fill="rgba(255,255,255,0.15)" font-size="10" font-weight="700">FIELD DEVICES</text>';
+
+    // Animated flow dots on active edges
+    svg += '<style>@keyframes flowDot{0%{offset-distance:0%}100%{offset-distance:100%}}</style>';
+
+    // Nodes
+    nodes.forEach(function(n){
+      var c = n.id==='WAN' ? '#6B7280' : nodeColor(n.id);
+      var h = n.id==='WAN' ? '' : nodeHealth(n.id);
+      var rw=140, rh=50;
+
+      // Node box
+      svg += '<g style="cursor:pointer;" onclick="'+(n.noClick?'':'openAssetDrawer(&quot;'+n.id+'&quot;)')+'">';
+      svg += '<rect x="'+(n.x-rw/2)+'" y="'+(n.y-rh/2)+'" width="'+rw+'" height="'+rh+'" rx="8" fill="#161E33" stroke="'+c+'" stroke-width="1.5"/>';
+
+      // Icon placeholder (simple text for now)
+      var iconMap = {cloud:'☁',router:'⟐',switch:'⏚',radio:'◎',server:'▣',gauge:'◉',meter:'◈'};
+      svg += '<text x="'+(n.x-rw/2+14)+'" y="'+(n.y+1)+'" fill="'+c+'" font-size="14" text-anchor="middle" dominant-baseline="middle">'+iconMap[n.icon]+'</text>';
+
+      // Label
+      svg += '<text x="'+(n.x-rw/2+28)+'" y="'+(n.y-6)+'" fill="#FFFFFF" font-size="10" font-weight="600" font-family="Manrope">'+n.label+'</text>';
+      svg += '<text x="'+(n.x-rw/2+28)+'" y="'+(n.y+8)+'" fill="#7B8499" font-size="8" font-family="var(--font-mono)">'+n.id+(n.ip?' · '+n.ip:'')+'</text>';
+
+      // Health badge
+      if (h !== '') {
+        svg += '<rect x="'+(n.x+rw/2-28)+'" y="'+(n.y-rh/2-8)+'" width="26" height="16" rx="4" fill="'+c+'"/>';
+        svg += '<text x="'+(n.x+rw/2-15)+'" y="'+(n.y-rh/2+4)+'" fill="#0B1020" font-size="9" font-weight="700" text-anchor="middle" font-family="var(--font-mono)">'+h+'</text>';
+      }
+      svg += '</g>';
+    });
+
+    // SNMP Trap indicator on MikroTik
+    svg += '<rect x="475" y="115" width="70" height="16" rx="4" fill="rgba(6,182,212,0.15)" stroke="rgba(6,182,212,0.3)" stroke-width="0.5"/>';
+    svg += '<text x="510" y="126" fill="#06B6D4" font-size="7" text-anchor="middle" font-family="var(--font-mono)">TRAP RECV ●</text>';
+
     svg += '</svg>';
 
-    var nodesHtml = '';
-    nodes.forEach(function(n) {
-      var pos = positions[n.id];
-      if (!pos) return;
-      var healthColor = n.health > 80 ? '#10D478' : n.health > 50 ? '#FBBF24' : '#EF4444';
-      var iconBg = pos.tier === 'core' ? 'rgba(139,92,246,0.15)' : pos.tier === 'distribution' ? 'rgba(6,182,212,0.15)' : 'rgba(34,197,94,0.15)';
-
-      nodesHtml += '<div class="pf-node" style="left:' + (pos.x-50) + 'px;top:' + pos.y + 'px;min-width:100px;text-align:center;" onclick="window.location.hash=\'#diagnostics\'">' +
-        '<div class="pf-health" style="background:' + healthColor + ';"></div>' +
-        '<div class="pf-name">' + (n.name||n.id) + '</div>' +
-        '<div class="pf-type">' + (n.type||'') + ' · ' + (n.ip||'') + '</div>' +
-        '<div style="font-family:var(--font-mono);font-size:10px;color:' + healthColor + ';margin-top:2px;">' + (n.health||0) + '% · ' + (n.protocol||'').toUpperCase() + '</div>' +
+    page.innerHTML =
+      '<div class="module-header"><div><h2 class="page-title">Network Topology</h2>' +
+      '<div class="module-subtitle">ICS network layout — Killdeer Field · 192.168.88.0/24</div></div></div>' +
+      '<div class="panel-box" style="padding:24px;text-align:center;">'+svg+'</div>' +
+      '<div style="display:flex;gap:16px;margin-top:12px;justify-content:center;flex-wrap:wrap;">' +
+        '<div style="display:flex;align-items:center;gap:6px;font-size:11px;color:var(--text-muted);"><span style="width:20px;height:2px;background:#10D478;display:inline-block;"></span> Active Link</div>' +
+        '<div style="display:flex;align-items:center;gap:6px;font-size:11px;color:var(--text-muted);"><span style="width:20px;height:2px;background:#EF4444;display:inline-block;border-top:1px dashed #EF4444;"></span> Down Link</div>' +
+        '<div style="display:flex;align-items:center;gap:6px;font-size:11px;color:var(--text-muted);"><span style="width:8px;height:8px;border-radius:50%;background:#10D478;display:inline-block;"></span> Good</div>' +
+        '<div style="display:flex;align-items:center;gap:6px;font-size:11px;color:var(--text-muted);"><span style="width:8px;height:8px;border-radius:50%;background:#FBBF24;display:inline-block;"></span> Warning</div>' +
+        '<div style="display:flex;align-items:center;gap:6px;font-size:11px;color:var(--text-muted);"><span style="width:8px;height:8px;border-radius:50%;background:#EF4444;display:inline-block;"></span> Critical</div>' +
       '</div>';
-    });
-
-    el.innerHTML = svg + nodesHtml;
   }
 
   // ================================================================
-  // CYBERSECURITY MODULE — ICS Threat Detection & Compliance
+  // MAP MODULE — Geographic Asset Map (Mapbox)
   // ================================================================
-  function renderCyberPage() {
-    var page = document.getElementById('cyber-page');
+  function renderMapPage() {
+    var page = document.querySelector('section[data-page="map"]');
     if (!page) return;
-
-    // Calculate compliance score from real data
-    var totalChecks = 12;
-    var passedChecks = 0;
-    // Check if assets have SNMP v3 (simulated)
-    var hasSNMPv3 = false;
-    var hasEncryption = true; // HTTPS is on
-    var hasAuth = true; // API key auth
-    var hasFirewall = true;
-    var hasBackup = false;
-    var hasPatching = false;
-    passedChecks = [hasEncryption, hasAuth, hasFirewall, true, true, true, true, true, false, false, false, true].filter(Boolean).length;
-    var complianceScore = Math.round((passedChecks / totalChecks) * 100);
-
-    var threats = [];
-    // Generate ICS-specific threat items from real system state
-    if (liveAlerts.length > 0) {
-      threats.push({ level: 'warning', title: 'Active System Alerts', desc: liveAlerts.length + ' unresolved alerts may indicate anomalous behavior', time: 'Ongoing' });
-    }
-    threats.push(
-      { level: 'info', title: 'SNMP Community String Exposure', desc: 'SNMP v2c community strings transmitted in plaintext on LAN', time: 'Persistent' },
-      { level: 'info', title: 'No SSL/TLS Certificate', desc: 'Dashboard accessible over HTTP — data in transit not encrypted', time: 'Configuration' },
-      { level: 'warning', title: 'Default Credentials Detected', desc: 'MikroTik router may have default admin password', time: 'Needs verification' },
-      { level: 'info', title: 'No Network Segmentation', desc: 'IT and OT networks on same subnet (192.168.88.0/24)', time: 'Architecture' }
-    );
+    page.style.position='relative';page.style.minHeight='calc(100vh - 60px)';page.style.overflow='hidden';
 
     page.innerHTML =
-      '<div class="module-header">' +
-        '<div><h2 class="page-title">ICS Cybersecurity</h2>' +
-        '<div class="module-subtitle">Threat detection, access monitoring, and NIST CSF compliance</div></div>' +
-        '<div class="module-actions">' +
-          '<button class="module-btn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg> Export Report</button>' +
-        '</div>' +
-      '</div>' +
+      '<div id="aevus-map" style="width:100%;height:calc(100vh - 60px);"></div>';
 
-      // KPIs
-      '<div class="kpi-strip">' +
-        buildKpi('THREAT LEVEL', threats.filter(function(t){return t.level==='critical';}).length > 0 ? 'HIGH' : 'MODERATE', threats.filter(function(t){return t.level==='critical';}).length > 0 ? 'critical' : 'warning') +
-        buildKpi('COMPLIANCE', complianceScore + '%', complianceScore > 80 ? 'good' : complianceScore > 60 ? 'warning' : 'critical') +
-        buildKpi('OPEN FINDINGS', threats.length, 'warning') +
-        buildKpi('ACCESS EVENTS', '47', 'neutral') +
-        buildKpi('LAST SCAN', '2h ago', 'neutral') +
-      '</div>' +
-
-      '<div class="split-panel">' +
-        // Left: Threats
-        '<div>' +
-          '<h3 style="font-size:14px;margin:0 0 12px;">Active Findings</h3>' +
-          threats.map(function(t) {
-            return '<div class="threat-item">' +
-              '<div class="threat-icon ' + t.level + '"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg></div>' +
-              '<div><div class="threat-title">' + t.title + '</div>' +
-              '<div class="threat-desc">' + t.desc + '</div>' +
-              '<div class="threat-meta">' + t.time + '</div></div>' +
-            '</div>';
-          }).join('') +
-        '</div>' +
-
-        // Right: Compliance & Access
-        '<div>' +
-          '<h3 style="font-size:14px;margin:0 0 12px;">NIST CSF Compliance</h3>' +
-          '<div class="panel-box" style="padding:16px;">' +
-            renderComplianceChecks(passedChecks, totalChecks) +
-          '</div>' +
-          '<h3 style="font-size:14px;margin:16px 0 12px;">Recent Access Log</h3>' +
-          '<div class="panel-box" style="padding:0;overflow:auto;max-height:240px;">' +
-            '<table class="ics-table">' +
-              '<thead><tr><th>Time</th><th>User</th><th>Action</th><th>Source</th></tr></thead>' +
-              '<tbody>' +
-                '<tr><td class="mono">07:15</td><td>api_key</td><td>Dashboard auth</td><td class="mono">local</td></tr>' +
-                '<tr><td class="mono">07:14</td><td>system</td><td>SNMP poll RTR-01</td><td class="mono">192.168.88.1</td></tr>' +
-                '<tr><td class="mono">07:14</td><td>system</td><td>SNMP poll SW-01</td><td class="mono">192.168.88.10</td></tr>' +
-                '<tr><td class="mono">07:14</td><td>system</td><td>Modbus read RTU-01</td><td class="mono">192.168.88.100</td></tr>' +
-                '<tr><td class="mono">07:12</td><td>system</td><td>Weather API fetch</td><td class="mono">api.open-meteo.com</td></tr>' +
-              '</tbody>' +
-            '</table>' +
-          '</div>' +
-        '</div>' +
-      '</div>';
-  }
-
-  function renderComplianceChecks(passed, total) {
-    var checks = [
-      { name: 'Identify', items: ['Asset Inventory ✓', 'Risk Assessment ○'] },
-      { name: 'Protect', items: ['Access Control ✓', 'Data Encryption ○', 'Network Segmentation ○'] },
-      { name: 'Detect', items: ['Anomaly Detection ✓', 'Continuous Monitoring ✓', 'Alert Logging ✓'] },
-      { name: 'Respond', items: ['Response Plan ○', 'Incident Comm ✓'] },
-      { name: 'Recover', items: ['Recovery Plan ○', 'Backup Strategy ○'] },
-    ];
-
-    return '<div style="display:flex;align-items:center;gap:20px;margin-bottom:16px;">' +
-      '<div style="font-family:var(--font-mono);font-size:36px;font-weight:700;color:' + (passed/total > 0.7 ? '#10D478' : '#FBBF24') + ';">' + Math.round(passed/total*100) + '%</div>' +
-      '<div style="font-size:11px;color:var(--text-muted);">' + passed + ' of ' + total + ' controls passed<br>NIST CSF Framework</div>' +
-    '</div>' +
-    checks.map(function(c) {
-      return '<div style="margin-bottom:8px;">' +
-        '<div style="font-size:10px;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:4px;">' + c.name + '</div>' +
-        c.items.map(function(item) {
-          var pass = item.includes('✓');
-          return '<div style="font-size:11px;color:' + (pass ? '#10D478' : 'var(--text-muted)') + ';padding:2px 0;">' + item.replace('✓','').replace('○','') +
-            '<span style="float:right;font-size:10px;">' + (pass ? '✓ PASS' : '○ OPEN') + '</span></div>';
-        }).join('') +
-      '</div>';
-    }).join('');
-  }
-
-  // ================================================================
-  // ENHANCED PROCESS OVERVIEW
-  // ================================================================
-  // Upgrade the existing overview to show process flow
-  var _origRenderOverview = typeof renderOverview === 'function' ? renderOverview : null;
-
-  // ================================================================
-  // HELPER FUNCTIONS
-  // ================================================================
-  function buildKpi(label, value, status) {
-    var color = status === 'good' ? '#10D478' : status === 'warning' ? '#FBBF24' : status === 'critical' ? '#EF4444' : 'var(--text-primary)';
-    return '<div class="kpi-card">' +
-      '<div class="kpi-label">' + label + '</div>' +
-      '<div class="kpi-value" style="color:' + color + ';">' + value + '</div>' +
-    '</div>';
-  }
-
-  function getTimeAgo(ts) {
-    if (!ts) return '—';
-    var diff = (Date.now() - new Date(ts).getTime()) / 1000;
-    if (diff < 60) return Math.round(diff) + 's ago';
-    if (diff < 3600) return Math.round(diff/60) + 'm ago';
-    if (diff < 86400) return Math.round(diff/3600) + 'h ago';
-    return Math.round(diff/86400) + 'd ago';
-  }
-
-  function getTimeDuration(ts) {
-    if (!ts) return '—';
-    var diff = (Date.now() - new Date(ts).getTime()) / 1000;
-    if (diff < 60) return Math.round(diff) + 's';
-    if (diff < 3600) return Math.round(diff/60) + 'm';
-    if (diff < 86400) return Math.round(diff/3600) + 'h ' + Math.round((diff%3600)/60) + 'm';
-    return Math.round(diff/86400) + 'd ' + Math.round((diff%86400)/3600) + 'h';
-  }
-
-  // Make functions globally accessible for onclick handlers
-  window.showAlarmDetail = showAlarmDetail;
-  window.renderNetTopology = function() { renderNetworkPage(); };
-  window.renderNetProtocols = function() { renderNetworkPage(); };
-  window.renderNetTraffic = function() { renderNetworkPage(); };
-
-
-  // =======================================
-  // PAGE: MAP
-  // =======================================
-  let mapInstance = null;
-  let mapMarkers = [];
-
-  function renderMapPage() {
-    const container = document.getElementById('aevus-map');
-    if (!container) return;
-
-    // If map already created, just resize
-    if (mapInstance) {
-      mapInstance.resize();
-      updateMapMarkers();
-      return;
+    if (typeof mapboxgl === 'undefined') {
+      // Load Mapbox GL JS
+      var link = document.createElement('link');
+      link.rel = 'stylesheet';
+      link.href = 'https://api.mapbox.com/mapbox-gl-js/v3.12.0/mapbox-gl.css';
+      document.head.appendChild(link);
+      var script = document.createElement('script');
+      script.src = 'https://api.mapbox.com/mapbox-gl-js/v3.12.0/mapbox-gl.js';
+      script.onload = function(){ initAevusMap(); };
+      document.head.appendChild(script);
+    } else {
+      setTimeout(initAevusMap, 100);
     }
+  }
 
-    mapboxgl.accessToken = MAPBOX_TOKEN;
-    mapInstance = new mapboxgl.Map({
+  function initAevusMap() {
+    mapboxgl.accessToken = 'pk.eyJ1Ijoid29vZHlpbCIsImEiOiJjbWR4eW5keTUwOTlvMmxxMXo1aGljdWdyIn0.f4ud1cQ6mf-oNM69iY6fEg';
+    var map = new mapboxgl.Map({
       container: 'aevus-map',
       style: 'mapbox://styles/mapbox/dark-v11',
-      center: [-95.84, 29.39],
-      zoom: 13
+      center: [-95.8375, 29.3905],
+      zoom: 17,
+      pitch: 45,
     });
+    map.addControl(new mapboxgl.NavigationControl(), 'top-right');
 
-    mapInstance.addControl(new mapboxgl.NavigationControl(), 'top-right');
+    var statusColors = {good:'#10D478',warn:'#FBBF24',warning:'#FBBF24',bad:'#EF4444',critical:'#EF4444',offline:'#6B7280',unknown:'#6B7280'};
 
-    mapInstance.on('load', () => {
-      updateMapMarkers();
+    (liveAssets||[]).forEach(function(a) {
+      if (!a.latitude || !a.longitude) return;
+      var c = statusColors[a.status] || '#6B7280';
+      var h = a.health != null ? a.health : '?';
+
+      // Custom marker element
+      var el = document.createElement('div');
+      el.style.cssText = 'width:36px;height:36px;border-radius:50%;background:'+c+';border:3px solid rgba(255,255,255,0.3);display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;color:#0B1020;font-family:var(--font-mono);cursor:pointer;box-shadow:0 0 12px '+c+'44;';
+      el.textContent = h;
+      el.title = a.name;
+
+      // Popup
+      var popup = new mapboxgl.Popup({offset:25, closeButton:false}).setHTML(
+        '<div style="font-family:Manrope;padding:4px;">' +
+          '<div style="font-weight:700;font-size:13px;margin-bottom:4px;">'+a.name+'</div>' +
+          '<div style="font-size:11px;color:#666;">'+a.id+' · '+(a.type||'')+'</div>' +
+          '<div style="font-size:11px;margin-top:4px;">Health: <b style="color:'+c+'">'+h+'</b> · '+(a.status||'unknown')+'</div>' +
+          '<div style="font-size:10px;color:#888;margin-top:2px;">'+(a.ip_address||'')+'</div>' +
+        '</div>'
+      );
+
+      var marker = new mapboxgl.Marker({element:el})
+        .setLngLat([a.longitude, a.latitude])
+        .setPopup(popup)
+        .addTo(map);
+
+      el.addEventListener('click', function(){ openAssetDrawer(a.id); });
     });
   }
+
 
   function updateMapMarkers() {
     if (!mapInstance) return;

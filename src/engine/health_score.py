@@ -59,7 +59,12 @@ def _vital_compliance_score(vitals: list[VitalSign]) -> float:
     Each vital with a status contributes equally.
     good = 100, warn = 50, bad = 0, "" (info) = excluded.
     """
-    scored = [(v.status, v) for v in vitals if v.status in ("good", "warn", "bad")]
+    scored = [
+        (v.status, v)
+        for v in vitals
+        if v.status in ("good", "warn", "bad")
+        and not (v.status == "bad" and v.group == "traffic" and v.value in ("DOWN", "UP"))
+    ]
     if not scored:
         return 100.0  # No threshold-monitored vitals = assume OK
 

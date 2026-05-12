@@ -34,3 +34,16 @@ async def acknowledge_alert(alert_id: str) -> Alert:
 
     app_state.db.save_alert(alert)
     return alert
+
+
+@router.post("/{alert_id}/resolve", response_model=Alert)
+async def resolve_alert(alert_id: str) -> Alert:
+    """Resolve an open or acknowledged alert."""
+    from src.main import app_state
+
+    alert = app_state.alert_engine.resolve(alert_id, db=app_state.db)
+    if alert is None:
+        raise HTTPException(status_code=404, detail=f"Alert {alert_id} not found or already resolved")
+
+    app_state.db.save_alert(alert)
+    return alert

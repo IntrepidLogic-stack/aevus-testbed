@@ -207,6 +207,27 @@ class AlertEngine:
 
         return None
 
+    def resolve(self, alert_id: str, db=None) -> "Alert | None":
+        """Resolve an open or acknowledged alert by ID."""
+        # Check in-memory first
+        for _key, alert in self._open_alerts.items():
+            if alert.id == alert_id and alert.status in ("open", "acknowledged"):
+                alert.status = "resolved"
+                alert.resolved_at = datetime.now(UTC)
+                self.log.info("alert_resolved", alert_id=alert_id)
+                return alert
+
+        # Fallback: check persistent storage
+        if db is not None:
+            alert = db.get_alert(alert_id)
+            if alert is not None and alert.status in ("open", "acknowledged"):
+                alert.status = "resolved"
+                alert.resolved_at = datetime.now(UTC)
+                self.log.info("alert_resolved", alert_id=alert_id, source="sqlite")
+                return alert
+
+        return None
+
     @staticmethod
     def _build_message(asset_name: str, vital: VitalSign) -> str:
         """Build a human-readable alert message."""

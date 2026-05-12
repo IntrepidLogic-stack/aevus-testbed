@@ -1,0 +1,187 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Aevus — Sign In</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/amazon-cognito-identity-js@6/dist/amazon-cognito-identity.min.js"></script>
+<style>
+:root {
+  --bg-primary: #070B16;
+  --bg-card: #0F172A;
+  --border: rgba(148, 163, 184, 0.12);
+  --accent: #3B82F6;
+  --accent-hover: #2563EB;
+  --text-primary: #F1F5F9;
+  --text-secondary: #94A3B8;
+  --text-muted: #64748B;
+  --status-bad: #EF4444;
+}
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+body {
+  font-family: 'Inter', sans-serif;
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background-image: radial-gradient(ellipse at 20% 50%, rgba(59,130,246,0.06) 0%, transparent 50%),
+    radial-gradient(ellipse at 80% 20%, rgba(59,130,246,0.04) 0%, transparent 50%);
+}
+.login-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  padding: 40px;
+  width: 380px;
+  max-width: 90vw;
+  box-shadow: 0 16px 64px rgba(0,0,0,0.4);
+}
+.logo { text-align: center; margin-bottom: 32px; }
+.logo-text { font-size: 28px; font-weight: 700; letter-spacing: 3px; color: var(--accent); }
+.logo-sub { font-size: 12px; color: var(--text-muted); margin-top: 4px; letter-spacing: 1px; }
+.form-group { margin-bottom: 20px; }
+.form-label { display: block; font-size: 12px; font-weight: 600; color: var(--text-secondary); margin-bottom: 6px; text-transform: uppercase; letter-spacing: 0.5px; }
+.form-input {
+  width: 100%; padding: 12px 14px; background: rgba(15,23,42,0.8); border: 1px solid var(--border);
+  border-radius: 8px; color: var(--text-primary); font-size: 14px; font-family: inherit;
+  transition: border-color 0.15s;
+}
+.form-input:focus { outline: none; border-color: var(--accent); }
+.btn-login {
+  width: 100%; padding: 12px; background: var(--accent); color: #fff; border: none;
+  border-radius: 8px; font-size: 14px; font-weight: 600; cursor: pointer;
+  font-family: inherit; transition: background 0.15s; min-height: 44px;
+}
+.btn-login:hover { background: var(--accent-hover); }
+.btn-login:disabled { opacity: 0.6; cursor: not-allowed; }
+.error-msg { background: rgba(239,68,68,0.1); border: 1px solid rgba(239,68,68,0.3); border-radius: 8px; padding: 10px 14px; font-size: 13px; color: var(--status-bad); margin-bottom: 16px; display: none; }
+.spinner { display: inline-block; width: 16px; height: 16px; border: 2px solid rgba(255,255,255,0.3); border-top-color: #fff; border-radius: 50%; animation: spin 0.6s linear infinite; margin-right: 8px; vertical-align: middle; }
+@keyframes spin { to { transform: rotate(360deg); } }
+.new-pw-section { display: none; }
+.footer { text-align: center; margin-top: 24px; font-size: 11px; color: var(--text-muted); }
+</style>
+</head>
+<body>
+<div class="login-card">
+  <div class="logo">
+    <div class="logo-text">AEVUS</div>
+    <div class="logo-sub">SCADA Intelligence Platform</div>
+  </div>
+  <div id="error-msg" class="error-msg"></div>
+  <form id="login-form">
+    <div class="form-group">
+      <label class="form-label">Email</label>
+      <input type="email" id="email" class="form-input" placeholder="you@company.com" required autocomplete="username">
+    </div>
+    <div class="form-group">
+      <label class="form-label">Password</label>
+      <input type="password" id="password" class="form-input" placeholder="Enter password" required autocomplete="current-password">
+    </div>
+    <div id="new-pw-section" class="new-pw-section">
+      <div class="form-group">
+        <label class="form-label">New Password (required on first login)</label>
+        <input type="password" id="new-password" class="form-input" placeholder="Choose a new password" autocomplete="new-password">
+      </div>
+    </div>
+    <button type="submit" id="btn-login" class="btn-login">Sign In</button>
+  </form>
+  <div class="footer">Intrepid Logic LLC</div>
+</div>
+
+<script>
+(function() {
+  var POOL_ID = 'us-east-1_CVFBcLJV3';
+  var CLIENT_ID = 'kro7k4ue2on51vqb6d6jvrj1e';
+  var REGION = 'us-east-1';
+
+  var poolData = { UserPoolId: POOL_ID, ClientId: CLIENT_ID };
+  var userPool = new AmazonCognitoIdentity.CognitoUserPool(poolData);
+
+  // Check if already logged in
+  var currentUser = userPool.getCurrentUser();
+  if (currentUser) {
+    currentUser.getSession(function(err, session) {
+      if (session && session.isValid()) {
+        localStorage.setItem('aevus_id_token', session.getIdToken().getJwtToken());
+        localStorage.setItem('aevus_access_token', session.getAccessToken().getJwtToken());
+        localStorage.setItem('aevus_user_email', currentUser.getUsername());
+        window.location.href = '/dashboard/Aevus_Console.html';
+      }
+    });
+  }
+
+  var form = document.getElementById('login-form');
+  var errorEl = document.getElementById('error-msg');
+  var btnLogin = document.getElementById('btn-login');
+  var cognitoUser = null;
+
+  function showError(msg) {
+    errorEl.textContent = msg;
+    errorEl.style.display = 'block';
+  }
+
+  form.addEventListener('submit', function(e) {
+    e.preventDefault();
+    errorEl.style.display = 'none';
+    var email = document.getElementById('email').value.trim();
+    var password = document.getElementById('password').value;
+
+    if (!email || !password) { showError('Email and password required'); return; }
+
+    btnLogin.disabled = true;
+    btnLogin.innerHTML = '<span class="spinner"></span>Signing in...';
+
+    var authDetails = new AmazonCognitoIdentity.AuthenticationDetails({ Username: email, Password: password });
+    cognitoUser = new AmazonCognitoIdentity.CognitoUser({ Username: email, Pool: userPool });
+
+    cognitoUser.authenticateUser(authDetails, {
+      onSuccess: function(result) {
+        localStorage.setItem('aevus_id_token', result.getIdToken().getJwtToken());
+        localStorage.setItem('aevus_access_token', result.getAccessToken().getJwtToken());
+        localStorage.setItem('aevus_user_email', email);
+        window.location.href = '/dashboard/Aevus_Console.html';
+      },
+      onFailure: function(err) {
+        btnLogin.disabled = false;
+        btnLogin.textContent = 'Sign In';
+        showError(err.message || 'Authentication failed');
+      },
+      newPasswordRequired: function(userAttributes) {
+        document.getElementById('new-pw-section').style.display = 'block';
+        btnLogin.disabled = false;
+        btnLogin.textContent = 'Set New Password';
+        showError('You must set a new password on first login.');
+
+        // Re-bind form for new password flow
+        form.onsubmit = function(e2) {
+          e2.preventDefault();
+          var newPw = document.getElementById('new-password').value;
+          if (!newPw || newPw.length < 8) { showError('New password must be at least 8 characters'); return; }
+          btnLogin.disabled = true;
+          btnLogin.innerHTML = '<span class="spinner"></span>Setting password...';
+          delete userAttributes.email_verified;
+          delete userAttributes.email;
+          cognitoUser.completeNewPasswordChallenge(newPw, userAttributes, {
+            onSuccess: function(result) {
+              localStorage.setItem('aevus_id_token', result.getIdToken().getJwtToken());
+              localStorage.setItem('aevus_access_token', result.getAccessToken().getJwtToken());
+              localStorage.setItem('aevus_user_email', email);
+              window.location.href = '/dashboard/Aevus_Console.html';
+            },
+            onFailure: function(err) {
+              btnLogin.disabled = false;
+              btnLogin.textContent = 'Set New Password';
+              showError(err.message || 'Failed to set password');
+            }
+          });
+        };
+      }
+    });
+  });
+})();
+</script>
+</body>
+</html>

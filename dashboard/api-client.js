@@ -5,6 +5,14 @@
 (function () {
   'use strict';
 
+  // ── Supabase Auth Guard ──
+  const SUPABASE_TOKEN = localStorage.getItem('aevus_supabase_token') || '';
+  if (!SUPABASE_TOKEN && !window.AEVUS_API_KEY) {
+    // No Supabase token and no hardcoded API key -- redirect to login
+    window.location.href = '/dashboard/login.html';
+    return;  // Stop IIFE execution
+  }
+
   const API_BASE = window.AEVUS_API_URL || `${location.protocol}//${location.host}`;
   const API_KEY = window.AEVUS_API_KEY || '';
   const API = `${API_BASE}/api/v1`;
@@ -27,6 +35,8 @@
   async function fetchJSON(path) {
     try {
       const h = {}; if (API_KEY) h['X-API-Key'] = API_KEY;
+        var idTok = localStorage.getItem('aevus_id_token');
+        if (idTok) h['Authorization'] = 'Bearer ' + idTok; if (SUPABASE_TOKEN) h['Authorization'] = 'Bearer ' + SUPABASE_TOKEN;
       const r = await fetch(`${API}${path}`, { headers: h });
       if (!r.ok) throw new Error(r.status);
       return await r.json();
@@ -1482,7 +1492,15 @@
             maxZoom: 19,
           });
         }
-      }).catch(function() {});
+      }).catch(function() {
+  // ── COGNITO AUTH GUARD ──
+  var idToken = localStorage.getItem('aevus_id_token');
+  var API_KEY_HARDCODED = true; // Set false to require Cognito login
+  if (!API_KEY_HARDCODED && !idToken) {
+    window.location.href = '/dashboard/login.html';
+    return;
+  }
+});
 
     // Satellite tile layer (toggle)
     var satLayer = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
@@ -1750,6 +1768,8 @@
     try {
       const h = { 'Content-Type': 'application/json' };
       if (API_KEY) h['X-API-Key'] = API_KEY;
+        var idTok = localStorage.getItem('aevus_id_token');
+        if (idTok) h['Authorization'] = 'Bearer ' + idTok;
       const r = await fetch(API + '/commands', {
         method: 'POST', headers: h,
         body: JSON.stringify({ asset_id: assetId, command: command, confirm: true })
@@ -3340,6 +3360,20 @@
   // ── INIT ──
   async function init() {
     console.log(`[Aevus] Connecting to ${API_BASE}`);
+
+    // Show user info and logout button if Supabase auth
+    const userEmail = localStorage.getItem('aevus_user_email');
+    if (SUPABASE_TOKEN && userEmail) {
+      const nameEl = document.getElementById('sidebar-user-name');
+      const roleEl = document.getElementById('sidebar-user-role');
+      const avatarEl = document.getElementById('sidebar-avatar');
+      const logoutBtn = document.getElementById('logout-btn');
+      if (nameEl) nameEl.textContent = userEmail;
+      if (roleEl) roleEl.textContent = 'Authenticated';
+      if (avatarEl) avatarEl.textContent = userEmail.substring(0, 2).toUpperCase();
+      if (logoutBtn) logoutBtn.style.display = 'block';
+    }
+
     addConnectionIndicator();
     await refreshAll();
     initRouter();

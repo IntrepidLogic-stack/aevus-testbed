@@ -12,12 +12,16 @@ from src.api.predictions import router as predictions_router
 from src.api.reports import router as reports_router
 from src.api.weather import router as weather_router
 from src.api.ws import router as ws_router
+from src.api.ingest import router as ingest_router
+from src.api.notes import router as notes_router
+from src.api.notes import journal_router
 
 __all__ = [
     "assets_router",
     "alerts_router",
     "commands_router",
     "correlations_router",
+    "ingest_router",
     "health_router",
     "deploy_router",
     "diagnostics_router",
@@ -26,4 +30,6 @@ __all__ = [
     "integrations_router",
     "weather_router",
     "ws_router",
+    "notes_router",
+    "journal_router",
 ]

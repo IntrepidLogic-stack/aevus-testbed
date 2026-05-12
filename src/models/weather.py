@@ -21,4 +21,6 @@ class WeatherData:
     daylight_hours: float = 0.0
     is_daylight: bool = False
     solar_production_factor: float = 0.0
+    cloud_cover: float = 50.0
+    wind_dir: str = ""
     fetched_at: datetime | None = None

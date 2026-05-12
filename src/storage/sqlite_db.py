@@ -39,6 +39,24 @@ CREATE TABLE IF NOT EXISTS assets (
     events_json TEXT NOT NULL DEFAULT '[]'
 );
 
+
+CREATE TABLE IF NOT EXISTS asset_notes (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    asset_id TEXT NOT NULL,
+    note TEXT NOT NULL,
+    author TEXT NOT NULL DEFAULT 'System',
+    created_at TEXT NOT NULL,
+    updated_at TEXT
+);
+
+CREATE TABLE IF NOT EXISTS journal (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    asset_id TEXT NOT NULL,
+    entry TEXT NOT NULL,
+    author TEXT NOT NULL DEFAULT 'System',
+    category TEXT NOT NULL DEFAULT 'general',
+    created_at TEXT NOT NULL
+);
 CREATE TABLE IF NOT EXISTS alerts (
     id TEXT PRIMARY KEY,
     severity TEXT NOT NULL,
@@ -232,6 +250,73 @@ class SQLiteDB:
             resolved_at=datetime.fromisoformat(row["resolved_at"]) if row["resolved_at"] else None,
             status=row["status"],
         )
+
+
+    # ── Notes CRUD ──
+
+    def add_note(self, asset_id: str, note: str, author: str = "System") -> int:
+        """Add a note to an asset. Returns the note ID."""
+        from datetime import datetime, UTC
+        now = datetime.now(UTC).isoformat()
+        cur = self._conn.execute(
+            "INSERT INTO asset_notes (asset_id, note, author, created_at) VALUES (?, ?, ?, ?)",
+            (asset_id, note, author, now),
+        )
+        self._conn.commit()
+        return cur.lastrowid
+
+    def update_note(self, note_id: int, note: str) -> bool:
+        """Update an existing note."""
+        from datetime import datetime, UTC
+        now = datetime.now(UTC).isoformat()
+        cur = self._conn.execute(
+            "UPDATE asset_notes SET note = ?, updated_at = ? WHERE id = ?",
+            (note, now, note_id),
+        )
+        self._conn.commit()
+        return cur.rowcount > 0
+
+    def delete_note(self, note_id: int) -> bool:
+        """Delete a note."""
+        cur = self._conn.execute("DELETE FROM asset_notes WHERE id = ?", (note_id,))
+        self._conn.commit()
+        return cur.rowcount > 0
+
+    def list_notes(self, asset_id: str) -> list[dict]:
+        """List all notes for an asset."""
+        rows = self._conn.execute(
+            "SELECT * FROM asset_notes WHERE asset_id = ? ORDER BY created_at DESC",
+            (asset_id,),
+        ).fetchall()
+        return [dict(r) for r in rows]
+
+    # ── Journal CRUD ──
+
+    def add_journal_entry(self, asset_id: str, entry: str, author: str = "System", category: str = "general") -> int:
+        """Add an immutable journal entry. Returns the entry ID."""
+        from datetime import datetime, UTC
+        now = datetime.now(UTC).isoformat()
+        cur = self._conn.execute(
+            "INSERT INTO journal (asset_id, entry, author, category, created_at) VALUES (?, ?, ?, ?, ?)",
+            (asset_id, entry, author, category, now),
+        )
+        self._conn.commit()
+        return cur.lastrowid
+
+    def list_journal(self, asset_id: str | None = None, category: str | None = None, limit: int = 100) -> list[dict]:
+        """List journal entries with optional filters."""
+        query = "SELECT * FROM journal WHERE 1=1"
+        params: list = []
+        if asset_id:
+            query += " AND asset_id = ?"
+            params.append(asset_id)
+        if category:
+            query += " AND category = ?"
+            params.append(category)
+        query += " ORDER BY created_at DESC LIMIT ?"
+        params.append(limit)
+        rows = self._conn.execute(query, params).fetchall()
+        return [dict(r) for r in rows]
 
     def close(self) -> None:
         """Close the database connection."""

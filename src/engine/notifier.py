@@ -1,16 +1,14 @@
 """
 Aevus — Notification Engine
-Sends alerts via email (SMTP) and SMS (Twilio-compatible webhook).
+Sends alerts via AWS SES (email) and AWS SNS (SMS).
 Rate-limited: max 1 notification per alert per 15 minutes.
 """
 from __future__ import annotations
 
 import asyncio
-import smtplib
 import time
-from email.mime.multipart import MIMEMultipart
-from email.mime.text import MIMEText
 
+import boto3
 import structlog
 
 from src.config import settings
@@ -18,30 +16,28 @@ from src.models.alert import Alert
 
 logger = structlog.get_logger()
 
-# Rate limit: 15 minutes per alert ID
 RATE_LIMIT_SECONDS = 900
+AWS_REGION = "us-east-1"
 
 
 class NotificationEngine:
-    """Sends alert notifications via email and SMS."""
+    """Sends alert notifications via AWS SES (email) and SNS (SMS)."""
 
     def __init__(self) -> None:
         self._last_notified: dict[str, float] = {}
+        self._ses = boto3.client("ses", region_name=AWS_REGION)
+        self._sns = boto3.client("sns", region_name=AWS_REGION)
         self.log = logger.bind(component="notifier")
+        self.log.info("notifier_init", backend="aws_ses_sns")
 
     def _is_rate_limited(self, alert_id: str) -> bool:
-        """Check if we recently notified for this alert."""
         last = self._last_notified.get(alert_id)
         if last is None:
             return False
         return (time.time() - last) < RATE_LIMIT_SECONDS
 
     async def notify(self, alert: Alert) -> None:
-        """Send notifications for a new alert.
-
-        Only notifies on NEW alerts (status=open).
-        Respects rate limiting and notifications_enabled flag.
-        """
+        """Send notifications for a new alert."""
         if not settings.notifications_enabled:
             return
 
@@ -54,7 +50,6 @@ class NotificationEngine:
 
         self._last_notified[alert.id] = time.time()
 
-        # Route by severity
         tasks = []
         if settings.notification_email_to:
             tasks.append(self._send_email(alert))
@@ -65,72 +60,80 @@ class NotificationEngine:
             await asyncio.gather(*tasks, return_exceptions=True)
 
     async def _send_email(self, alert: Alert) -> None:
-        """Send alert notification via SMTP."""
+        """Send alert notification via AWS SES."""
         recipients = [e.strip() for e in settings.notification_email_to.split(",") if e.strip()]
         if not recipients:
             return
 
         subject = f"[Aevus {alert.severity.upper()}] {alert.asset_name}: {alert.message}"
-        body = (
+        body_text = (
             f"Alert ID: {alert.id}\n"
             f"Severity: {alert.severity}\n"
             f"Asset: {alert.asset_name} ({alert.asset_id})\n"
             f"Message: {alert.message}\n"
             f"Detected: {alert.detected_at.isoformat()}\n"
+            f"\n---\nAevus SCADA Intelligence | Intrepid Logic LLC"
+        )
+        body_html = (
+            f"<h2 style='color:{self._severity_color(alert.severity)}'"
+            f">Aevus {alert.severity.upper()} Alert</h2>"
+            f"<table style='font-family:sans-serif;font-size:14px'>"
+            f"<tr><td><b>Asset:</b></td><td>{alert.asset_name} ({alert.asset_id})</td></tr>"
+            f"<tr><td><b>Severity:</b></td><td>{alert.severity}</td></tr>"
+            f"<tr><td><b>Message:</b></td><td>{alert.message}</td></tr>"
+            f"<tr><td><b>Detected:</b></td><td>{alert.detected_at.isoformat()}</td></tr>"
+            f"<tr><td><b>Alert ID:</b></td><td style='font-family:monospace'>{alert.id}</td></tr>"
+            f"</table>"
+            f"<hr><p style='color:#888;font-size:12px'>"
+            f"Aevus SCADA Intelligence | Intrepid Logic LLC</p>"
         )
 
-        msg = MIMEMultipart()
-        msg["From"] = settings.smtp_from
-        msg["To"] = ", ".join(recipients)
-        msg["Subject"] = subject
-        msg.attach(MIMEText(body, "plain"))
-
         try:
             loop = asyncio.get_running_loop()
-            await loop.run_in_executor(None, self._smtp_send, msg, recipients)
-            self.log.info("email_sent", alert_id=alert.id, recipients=recipients)
+            await loop.run_in_executor(None, lambda: self._ses.send_email(
+                Source=settings.smtp_from,
+                Destination={"ToAddresses": recipients},
+                Message={
+                    "Subject": {"Data": subject, "Charset": "UTF-8"},
+                    "Body": {
+                        "Text": {"Data": body_text, "Charset": "UTF-8"},
+                        "Html": {"Data": body_html, "Charset": "UTF-8"},
+                    },
+                },
+            ))
+            self.log.info("ses_email_sent", alert_id=alert.id, recipients=recipients)
         except Exception as e:
-            self.log.error("email_send_failed", alert_id=alert.id, error=str(e))
-
-    def _smtp_send(self, msg: MIMEMultipart, recipients: list[str]) -> None:
-        """Blocking SMTP send (run in executor)."""
-        with smtplib.SMTP(settings.smtp_host, settings.smtp_port) as server:
-            if settings.smtp_user and settings.smtp_password:
-                server.starttls()
-                server.login(settings.smtp_user, settings.smtp_password)
-            server.sendmail(settings.smtp_from, recipients, msg.as_string())
+            self.log.error("ses_email_failed", alert_id=alert.id, error=str(e))
 
     async def _send_sms(self, alert: Alert) -> None:
-        """Send SMS via Twilio-compatible HTTP webhook."""
+        """Send SMS via AWS SNS."""
         numbers = [n.strip() for n in settings.notification_sms_to.split(",") if n.strip()]
-        if not numbers or not settings.twilio_account_sid:
+        if not numbers:
             return
 
-        try:
-            import urllib.request
-            import urllib.parse
-            import base64
+        body = f"[Aevus {alert.severity.upper()}] {alert.asset_name}: {alert.message}"
 
-            url = (
-                f"https://api.twilio.com/2010-04-01/Accounts/"
-                f"{settings.twilio_account_sid}/Messages.json"
-            )
-            auth = base64.b64encode(
-                f"{settings.twilio_account_sid}:{settings.twilio_auth_token}".encode()
-            ).decode()
+        loop = asyncio.get_running_loop()
+        for number in numbers:
+            try:
+                await loop.run_in_executor(None, lambda n=number: self._sns.publish(
+                    PhoneNumber=n,
+                    Message=body,
+                    MessageAttributes={
+                        "AWS.SNS.SMS.SenderID": {
+                            "DataType": "String",
+                            "StringValue": "AEVUS",
+                        },
+                        "AWS.SNS.SMS.SMSType": {
+                            "DataType": "String",
+                            "StringValue": "Transactional",
+                        },
+                    },
+                ))
+                self.log.info("sns_sms_sent", alert_id=alert.id, to=number)
+            except Exception as e:
+                self.log.error("sns_sms_failed", alert_id=alert.id, to=number, error=str(e))
 
-            body_text = f"[Aevus {alert.severity.upper()}] {alert.asset_name}: {alert.message}"
-
-            loop = asyncio.get_running_loop()
-            for number in numbers:
-                data = urllib.parse.urlencode({
-                    "To": number,
-                    "From": settings.twilio_from_number,
-                    "Body": body_text,
-                }).encode()
-                req = urllib.request.Request(url, data=data)
-                req.add_header("Authorization", f"Basic {auth}")
-                await loop.run_in_executor(None, urllib.request.urlopen, req)
-                self.log.info("sms_sent", alert_id=alert.id, to=number)
-        except Exception as e:
-            self.log.error("sms_send_failed", alert_id=alert.id, error=str(e))
+    @staticmethod
+    def _severity_color(severity: str) -> str:
+        return {"critical": "#EF4444", "high": "#F59E0B", "warning": "#F59E0B", "medium": "#3B82F6", "low": "#6B7280"}.get(severity, "#6B7280")

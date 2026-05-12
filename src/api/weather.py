@@ -1,13 +1,35 @@
 """
-Aevus — Weather API Router
+Aevus — Weather API Router (with caching to avoid rate limits)
 """
 from __future__ import annotations
 
+import asyncio
+import json
+import time
+import urllib.request
 from dataclasses import asdict
 
 from fastapi import APIRouter
 
+from src.config import settings
+
 router = APIRouter(tags=["weather"])
+
+# ── In-memory cache ──────────────────────────────────────────
+_cache: dict[str, dict] = {}
+CACHE_TTL_CURRENT = 300      # 5 min
+CACHE_TTL_FORECAST = 1800    # 30 min
+
+
+def _get_cached(key: str, ttl: int):
+    entry = _cache.get(key)
+    if entry and (time.time() - entry["ts"]) < ttl:
+        return entry["data"]
+    return None
+
+
+def _set_cached(key: str, data):
+    _cache[key] = {"data": data, "ts": time.time()}
 
 
 @router.get("/weather")
@@ -20,7 +42,6 @@ async def get_weather():
         return {"status": "no_data", "message": "Weather data not yet available"}
 
     data = asdict(weather)
-    # Convert datetime to ISO string for JSON
     if data.get("fetched_at"):
         data["fetched_at"] = data["fetched_at"].isoformat()
     return data
@@ -28,11 +49,11 @@ async def get_weather():
 
 @router.get("/weather/forecast")
 async def get_weather_forecast():
-    """Return hourly (48h) and daily (7d) forecast for the site."""
-    import asyncio
-    import json
-    import urllib.request
-    from src.config import settings
+    """Return hourly (48h) and daily (7d) forecast — cached to avoid rate limits."""
+
+    cached = _get_cached("forecast", CACHE_TTL_FORECAST)
+    if cached:
+        return cached
 
     lat = settings.site_latitude
     lon = settings.site_longitude
@@ -46,7 +67,7 @@ async def get_weather_forecast():
         f"&daily=temperature_2m_max,temperature_2m_min,sunrise,sunset,"
         f"precipitation_sum,precipitation_probability_max,"
         f"wind_speed_10m_max,wind_gusts_10m_max,weather_code,"
-        f"uv_index_max"
+        f"uv_index_max,daylight_duration"
         f"&temperature_unit=fahrenheit"
         f"&wind_speed_unit=mph"
         f"&precipitation_unit=inch"
@@ -60,6 +81,23 @@ async def get_weather_forecast():
             None, lambda: urllib.request.urlopen(url, timeout=15).read()
         )
         data = json.loads(response)
+        if not data.get("error"):
+            _set_cached("forecast", data)
+            import pathlib
+            pathlib.Path("/home/ubuntu/aevus-testbed/forecast_cache.json").write_text(json.dumps(data))
         return data
     except Exception as e:
+        # Return cached even if expired
+        stale = _cache.get("forecast")
+        if stale:
+            return stale["data"]
+        # Try disk cache
+        import pathlib
+        disk = pathlib.Path("/home/ubuntu/aevus-testbed/forecast_cache.json")
+        if disk.exists():
+            data = json.loads(disk.read_text())
+            _set_cached("forecast", data)
+            import pathlib
+            pathlib.Path("/home/ubuntu/aevus-testbed/forecast_cache.json").write_text(json.dumps(data))
+            return data
         return {"error": str(e)}

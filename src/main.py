@@ -25,6 +25,7 @@ from starlette.responses import Response
 # API routers
 from src.api import (
     alerts_router,
+    ingest_router,
     assets_router,
     commands_router,
     correlations_router,
@@ -35,6 +36,8 @@ from src.api import (
     predictions_router,
     reports_router,
     weather_router,
+    journal_router,
+    notes_router,
     ws_router,
 )
 from src.api.ws import ws_manager
@@ -45,6 +48,7 @@ from src.collectors.snmp_edge import SNMPEdgeCollector
 from src.collectors.snmp_router import SNMPNetworkCollector
 from src.collectors.snmp_switch import SNMPSwitchCollector
 from src.collectors.modbus_rtu import SCADAPack470Collector
+from src.collectors.dnp3_master import DNP3Collector
 from src.config import settings
 from src.engine.alert_engine import AlertEngine
 from src.engine.commander import Commander
@@ -155,6 +159,18 @@ def _register_collectors() -> None:
     app_state.scheduler.register("RTU-01", scadapack)
     logger.info("registered_modbus_collector", asset="RTU-01", host=settings.scadapack_ip)
 
+    # DNP3 Meter Station — live DNP3 over TCP
+    dnp3 = DNP3Collector(
+        asset_id="EFM-01",
+        host=settings.dnp3_host,
+        port=settings.dnp3_port,
+        master_addr=settings.dnp3_master_addr,
+        outstation_addr=settings.dnp3_outstation_addr,
+        poll_interval=settings.poll_interval_dnp3,
+    )
+    app_state.scheduler.register("EFM-01", dnp3)
+    logger.info("registered_dnp3_collector", asset="EFM-01", host=settings.dnp3_host, port=settings.dnp3_port)
+
 
 def _seed_assets() -> None:
     """Seed the asset registry with lab hardware definitions."""
@@ -215,6 +231,17 @@ def _seed_assets() -> None:
             ip_address=settings.catalyst_ip,
             protocol="snmp",
             poll_interval=settings.poll_interval_switch,
+        ),
+        Asset(
+            id="EFM-01",
+            type="rtu",
+            name="TotalFlow XFC G4",
+            location="Meter Station",
+            vendor="ABB",
+            model="TotalFlow XFC G4",
+            ip_address=settings.dnp3_host,
+            protocol="dnp3",
+            poll_interval=settings.poll_interval_dnp3,
         ),
         Asset(
             id="EDGE-01",
@@ -299,6 +326,9 @@ app.include_router(ws_router, prefix="/api/v1")
 app.include_router(weather_router, prefix="/api/v1")
 app.include_router(commands_router, prefix="/api/v1")
 app.include_router(correlations_router, prefix="/api/v1")
+app.include_router(ingest_router, prefix="/api/v1")
+app.include_router(notes_router, prefix="/api/v1")
+app.include_router(journal_router, prefix="/api/v1")
 
 
 # Serve dashboard static files

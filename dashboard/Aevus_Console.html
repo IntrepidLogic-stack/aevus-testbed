@@ -821,6 +821,95 @@ body {
     .split-panel.thirds { grid-template-columns:1fr 1fr 1fr; }
     @media (max-width:900px) { .split-panel, .split-panel.thirds { grid-template-columns:1fr; } }
 
+
+/* ── SCADA Weather Intelligence ── */
+.wx-scada-grid {
+  display: grid;
+  grid-template-columns: 280px 1fr 280px;
+  grid-template-rows: 1fr auto;
+  gap: 8px;
+  height: calc(100vh - 80px);
+  overflow: hidden;
+}
+.wx-col-left {
+  display: flex; flex-direction: column; gap: 8px;
+  overflow-y: auto; overflow-x: hidden;
+  min-height: 0;
+}
+.wx-col-center {
+  display: flex; flex-direction: column; min-height: 0;
+}
+.wx-col-right {
+  display: flex; flex-direction: column; gap: 8px;
+  overflow-y: auto; overflow-x: hidden;
+  min-height: 0;
+}
+.wx-hourly-bar {
+  grid-column: 1 / -1;
+  display: flex; align-items: center; gap: 8px;
+  background: var(--bg-card); border: 1px solid var(--border);
+  border-radius: 8px; padding: 6px 10px;
+  overflow: hidden; min-height: 80px; max-height: 100px;
+}
+.wx-map-wrap {
+  flex: 1; position: relative; border-radius: 8px; overflow: hidden;
+  border: 1px solid var(--border); min-height: 0;
+}
+.wx-current-header {
+  padding: 10px 12px; background: var(--bg-card); border: 1px solid var(--border);
+  border-radius: 8px;
+}
+.wx-ops-panel {
+  background: var(--bg-card); border: 1px solid var(--border);
+  border-radius: 8px; padding: 10px; flex-shrink: 0;
+}
+.wx-panel-label {
+  display: flex; align-items: center; gap: 6px;
+  font-size: 9px; font-weight: 700; letter-spacing: 1.5px;
+  color: var(--text-muted); text-transform: uppercase;
+  font-family: var(--font-mono); margin-bottom: 8px;
+}
+.wx-conditions-grid {
+  display: grid; grid-template-columns: 1fr 1fr; gap: 4px;
+}
+.wx-cond-tile {
+  padding: 8px; background: var(--bg-card); border: 1px solid var(--border);
+  border-radius: 6px; text-align: center;
+}
+.wx-cond-label { font-size: 8px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px; font-family: var(--font-mono); }
+.wx-cond-val { font-size: 18px; font-weight: 700; font-family: var(--font-mono); color: var(--text-primary); line-height: 1.2; }
+.wx-cond-sub { font-size: 8px; color: var(--text-muted); }
+.wx-solar-compact {
+  padding: 10px; background: var(--bg-card); border: 1px solid var(--border);
+  border-radius: 8px;
+}
+.wx-forecast-panel {
+  background: var(--bg-card); border: 1px solid var(--border);
+  border-radius: 8px; padding: 10px; flex: 1; min-height: 0; overflow-y: auto;
+}
+.wx-trend-panel {
+  background: var(--bg-card); border: 1px solid var(--border);
+  border-radius: 8px; padding: 10px; flex-shrink: 0;
+}
+.wx-impact-item { padding: 8px 10px; border-radius: 6px; background: rgba(255,255,255,0.02); border: 1px solid var(--border); margin-bottom: 4px; }
+.wx-impact-item:last-child { margin-bottom: 0; }
+.wx-impact-item.high { border-left: 3px solid var(--status-bad); }
+.wx-impact-item.medium { border-left: 3px solid var(--status-warn); }
+.wx-impact-item.low { border-left: 3px solid var(--status-good); }
+.wx-impact-label { font-size: 11px; font-weight: 700; color: var(--text-primary); margin-bottom: 2px; display: flex; align-items: center; gap: 6px; }
+.wx-impact-desc { font-size: 10px; color: var(--text-muted); line-height: 1.3; }
+.wx-day-row { display:flex; align-items:center; gap:6px; padding:5px 0; border-bottom:1px solid var(--border); }
+.wx-day-row:last-child { border-bottom:none; }
+
+@media (max-width: 1100px) {
+  .wx-scada-grid {
+    grid-template-columns: 1fr;
+    grid-template-rows: auto 300px auto auto;
+    height: auto; overflow: auto;
+  }
+  .wx-hourly-bar { grid-column: 1; }
+}
+
 </style>
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
@@ -970,56 +1059,84 @@ body {
 
 <!-- ━━━ PAGE: WEATHER ━━━ -->
 <section class="page-section" data-page="weather">
-  <!-- Single-screen weather intelligence layout -->
-  <div style="display:grid;grid-template-columns:1fr 1fr 1fr;grid-template-rows:2fr auto minmax(0,1fr);gap:4px;height:calc(100vh - 80px);overflow:hidden;">
+  <!-- SCADA Weather Intelligence — single viewport, operator-focused -->
+  <div class="wx-scada-grid">
 
-    <!-- Row 1 Col 1: Map -->
-    <div class="panel-box" style="padding:0;overflow:hidden;position:relative;grid-row:span 2;min-height:0;">
-      <div id="wx-map" style="width:100%;height:100%;min-height:200px;"></div>
-      <div id="wx-map-controls"></div>
-      <div id="wx-map-overlay" style="position:absolute;bottom:8px;left:8px;right:8px;display:flex;gap:6px;z-index:10;"></div>
-    </div>
-
-    <!-- Row 1 Col 2: Current conditions (compact 2x3 grid) -->
-    <div style="display:flex;flex-direction:column;gap:8px;">
-      <div style="display:flex;align-items:center;gap:12px;padding:8px 12px;background:var(--surface);border:1px solid var(--border);border-radius:10px;">
+    <!-- LEFT: Operational Impact + Current Conditions -->
+    <div class="wx-col-left">
+      <!-- Current Conditions Header -->
+      <div class="wx-current-header">
         <div id="wx-current-badge" style="display:flex;align-items:center;gap:12px;flex:1;"></div>
       </div>
-      <div class="stat-grid" id="wx-conditions" style="grid-template-columns:repeat(3,1fr);gap:6px;flex:1;"></div>
-    </div>
 
-    <!-- Row 1 Col 3: Solar + Impact -->
-    <div style="display:flex;flex-direction:column;gap:8px;">
-      <div class="panel-box" id="wx-solar-panel" style="margin:0;flex:1;padding:10px;"></div>
-      <div class="panel-box" style="margin:0;flex:1;padding:10px;">
-        <div class="panel-title" style="font-size:9px;margin-bottom:6px;">Operational Impact</div>
+      <!-- Operational Impact Alerts — THE MOST IMPORTANT PANEL -->
+      <div class="wx-ops-panel">
+        <div class="wx-panel-label">
+          <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+          OPERATIONAL IMPACT
+        </div>
         <div id="wx-impact-panel"></div>
       </div>
-    </div>
 
-    <!-- Row 2 Col 2-3: Hourly forecast strip -->
-    <div class="panel-box" style="margin:0;padding:8px;grid-column:span 2;overflow:hidden;">
-      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;">
-        <span class="panel-title" style="font-size:9px;margin:0;">24-Hour Forecast</span>
-        <div id="wx-hourly-toggle" style="display:flex;gap:4px;"></div>
+      <!-- Conditions Grid — 2x3 instrument readouts -->
+      <div class="wx-panel-label">
+        <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+        CONDITIONS
       </div>
-      <div id="wx-hourly-strip" style="display:flex;gap:0;overflow-x:auto;padding:2px 0;"></div>
+      <div id="wx-conditions" class="wx-conditions-grid"></div>
+
+      <!-- Solar & Daylight -->
+      <div id="wx-solar-panel" class="wx-solar-compact"></div>
     </div>
 
-    <!-- Row 3: 7-day + wind + precip (three equal columns) -->
-    <div class="panel-box" style="margin:0;padding:8px;overflow:auto;min-height:0;">
-      <div class="panel-title" style="font-size:9px;margin-bottom:4px;">7-Day Forecast</div>
-      <div id="wx-daily-forecast"></div>
+    <!-- CENTER: Radar Map -->
+    <div class="wx-col-center">
+      <div class="wx-map-wrap">
+        <div id="wx-map" style="width:100%;height:100%;"></div>
+        <div id="wx-map-controls"></div>
+        <div id="wx-map-overlay" style="position:absolute;bottom:8px;left:8px;right:8px;display:flex;gap:6px;z-index:10;"></div>
+      </div>
     </div>
-    <div class="chart-container" style="padding:8px;">
-      <div class="chart-title" style="font-size:9px;">Wind Speed — 48h (mph)</div>
-      <div id="wx-wind-chart" class="bar-chart" style="height:80px;"></div>
-      <div id="wx-wind-labels" class="chart-labels"></div>
+
+    <!-- RIGHT: Forecast + Trend Charts -->
+    <div class="wx-col-right">
+      <!-- 7-Day Forecast -->
+      <div class="wx-forecast-panel">
+        <div class="wx-panel-label">
+          <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+          7-DAY FORECAST
+        </div>
+        <div id="wx-daily-forecast"></div>
+      </div>
+
+      <!-- Wind Speed Trend -->
+      <div class="wx-trend-panel">
+        <div class="wx-panel-label">
+          <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M9.59 4.59A2 2 0 1 1 11 8H2m10.59 11.41A2 2 0 1 0 14 16H2m15.73-8.27A2.5 2.5 0 1 1 19.5 12H2"/></svg>
+          WIND — 48H
+        </div>
+        <div id="wx-wind-chart" class="bar-chart" style="height:60px;"></div>
+        <div id="wx-wind-labels" class="chart-labels"></div>
+      </div>
+
+      <!-- Precip Probability Trend -->
+      <div class="wx-trend-panel">
+        <div class="wx-panel-label">
+          <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 2.69l5.66 5.66a8 8 0 1 1-11.31 0z"/></svg>
+          PRECIP — 48H
+        </div>
+        <div id="wx-precip-chart" class="bar-chart" style="height:60px;"></div>
+        <div id="wx-precip-labels" class="chart-labels"></div>
+      </div>
     </div>
-    <div class="chart-container" style="padding:8px;">
-      <div class="chart-title" style="font-size:9px;">Precip Probability — 48h (%)</div>
-      <div id="wx-precip-chart" class="bar-chart" style="height:80px;"></div>
-      <div id="wx-precip-labels" class="chart-labels"></div>
+
+    <!-- BOTTOM: 24h Hourly Strip -->
+    <div class="wx-hourly-bar">
+      <div class="wx-panel-label" style="margin:0;flex-shrink:0;">
+        <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.8"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+        24H
+      </div>
+      <div id="wx-hourly-strip" style="display:flex;gap:0;overflow-x:auto;flex:1;padding:2px 0;"></div>
     </div>
   </div>
 </section>

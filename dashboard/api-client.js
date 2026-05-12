@@ -1137,9 +1137,15 @@
     var el = document.getElementById('wx-current-badge');
     if (!el || !weatherData) return;
     var w = weatherData;
-    var icon = WX_ICONS[w.condition] || '☁';
+    var wxSvg = '<svg viewBox="0 0 24 24" width="32" height="32" fill="none" stroke="currentColor" stroke-width="1.5">';
+    if (w.condition==='clear'||w.condition==='mostly_clear') wxSvg += '<circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/>';
+    else if (w.condition==='rain'||w.condition==='heavy_rain'||w.condition==='showers'||w.condition==='heavy_showers'||w.condition==='drizzle') wxSvg += '<path d="M20 17.58A5 5 0 0 0 18 8h-1.26A8 8 0 1 0 4 16.25"/><line x1="8" y1="16" x2="8" y2="20"/><line x1="12" y1="18" x2="12" y2="22"/><line x1="16" y1="16" x2="16" y2="20"/>';
+    else if (w.condition==='snow'||w.condition==='heavy_snow'||w.condition==='snow_showers'||w.condition==='ice') wxSvg += '<path d="M20 17.58A5 5 0 0 0 18 8h-1.26A8 8 0 1 0 4 16.25"/><path d="M8 16h.01M8 20h.01M12 18h.01M12 22h.01M16 16h.01M16 20h.01"/>';
+    else if (w.condition==='thunderstorm'||w.condition==='thunderstorm_hail') wxSvg += '<path d="M19 16.9A5 5 0 0 0 18 7h-1.26a8 8 0 1 0-11.62 9"/><polyline points="13 11 9 17 15 17 11 23"/>';
+    else wxSvg += '<path d="M18 10h-1.26A8 8 0 1 0 9 20h9a5 5 0 0 0 0-10z"/>';
+    wxSvg += '</svg>';
     el.innerHTML =
-      '<div style="font-size:28px;">' + icon + '</div>' +
+      '<div style="color:var(--accent);">' + wxSvg + '</div>' +
       '<div>' +
         '<div style="font-family:var(--font-mono);font-size:28px;font-weight:700;line-height:1;">' + Math.round(w.temp_f) + '<span style="font-size:14px;">°F</span></div>' +
         '<div style="font-size:10px;color:var(--text-muted);text-transform:capitalize;">' + (w.condition||'').replace(/_/g,' ') + '</div>' +
@@ -1154,8 +1160,7 @@
     var el = document.getElementById('wx-conditions');
     if (!el) return;
     var w = weatherData || {};
-    // Get current hour data from forecast for fields not in weatherData
-    var hum = 0, pres = 0, vis = 0, uv = 0, cloud = 50;
+    var hum = 0, pres = 0, vis = 0, uv = 0;
     if (forecastData && forecastData.hourly) {
       var h = forecastData.hourly;
       var now = new Date();
@@ -1165,25 +1170,26 @@
       }
       hum = h.relative_humidity_2m ? h.relative_humidity_2m[idx] : 0;
       pres = h.surface_pressure ? h.surface_pressure[idx] : 0;
-      vis = h.visibility ? (h.visibility[idx] / 1609.34).toFixed(1) : 0; // m to miles
+      vis = h.visibility ? (h.visibility[idx] / 1609.34).toFixed(1) : 0;
       uv = h.uv_index ? h.uv_index[idx] : 0;
-      cloud = h.cloud_cover ? h.cloud_cover[idx] : 50;
     }
-    var items = [
-      { icon: '💨', label: 'WIND', val: Math.round(w.wind_mph||0) + ' <span style="font-size:10px;">mph</span>', sub: 'Gust: ' + Math.round(w.wind_gust_mph||0) + ' mph' },
-      { icon: '🌧', label: 'PRECIP', val: (w.precip_in||0).toFixed(2) + ' <span style="font-size:10px;">in</span>', sub: 'Current hour' },
-      { icon: '💧', label: 'HUMIDITY', val: Math.round(hum) + '<span style="font-size:10px;">%</span>', sub: 'Relative' },
-      { icon: '🌡', label: 'PRESSURE', val: Math.round(pres) + ' <span style="font-size:10px;">hPa</span>', sub: 'Surface' },
-      { icon: '👁', label: 'VISIBILITY', val: vis + ' <span style="font-size:10px;">mi</span>', sub: '' },
-      { icon: '☀', label: 'UV INDEX', val: uv.toFixed ? uv.toFixed(1) : uv, sub: uv < 3 ? 'Low' : uv < 6 ? 'Moderate' : 'High' },
-    ];
-    el.innerHTML = items.map(function(i) {
-      return '<div class="stat-box" style="padding:6px 8px;">' +
-        '<div class="stat-label" style="font-size:8px;">' + i.icon + ' ' + i.label + '</div>' +
-        '<div class="stat-value" style="font-size:16px;">' + i.val + '</div>' +
-        '<div style="font-size:8px;color:var(--text-muted);">' + i.sub + '</div>' +
+    var windColor = (w.wind_mph||0) > 30 ? 'var(--status-bad)' : (w.wind_mph||0) > 20 ? 'var(--status-warn)' : 'var(--text-primary)';
+    var humColor = hum > 90 ? 'var(--status-warn)' : 'var(--text-primary)';
+    var uvColor = uv > 7 ? 'var(--status-bad)' : uv > 4 ? 'var(--status-warn)' : 'var(--text-primary)';
+    function tile(label, val, unit, color, sub) {
+      return '<div class="wx-cond-tile">' +
+        '<div class="wx-cond-label">' + label + '</div>' +
+        '<div class="wx-cond-val" style="color:' + (color||'var(--text-primary)') + ';">' + val + '<span style="font-size:10px;color:var(--text-muted);">' + unit + '</span></div>' +
+        (sub ? '<div class="wx-cond-sub">' + sub + '</div>' : '') +
       '</div>';
-    }).join('');
+    }
+    el.innerHTML =
+      tile('WIND', Math.round(w.wind_mph||0), ' mph', windColor, 'Gust ' + Math.round(w.wind_gust_mph||0)) +
+      tile('PRECIP', (w.precip_in||0).toFixed(2), ' in', 'var(--text-primary)', 'Current hr') +
+      tile('HUMIDITY', Math.round(hum), '%', humColor, 'Relative') +
+      tile('PRESSURE', Math.round(pres), ' hPa', 'var(--text-primary)', 'Surface') +
+      tile('VISIBILITY', vis, ' mi', 'var(--text-primary)', '') +
+      tile('UV INDEX', uv.toFixed?uv.toFixed(1):uv, '', uvColor, uv<3?'Low':uv<6?'Mod':'High');
   }
 
   function renderWxSolarPanel() {
@@ -1199,19 +1205,30 @@
     var factor = Math.max(0, Math.sin((hr - 6) / 12 * Math.PI));
     var cloud = weatherData ? (weatherData.cloud_cover || 50) : 50;
     var solar = Math.round(factor * (1 - cloud/100) * 100);
-    var daylight = d.daylight_duration ? (d.daylight_duration[0]/3600).toFixed(1) : '—';
+    var daylight = d.daylight_duration ? (d.daylight_duration[0]/3600).toFixed(1) : (weatherData ? weatherData.daylight_hours.toFixed(1) : '—');
     var barW = Math.max(2, solar);
+    var solarColor = solar > 60 ? 'var(--status-good)' : solar > 25 ? 'var(--status-warn)' : 'var(--text-muted)';
 
     el.innerHTML =
-      '<div class="panel-title" style="font-size:9px;margin-bottom:6px;">☀ Solar & Daylight</div>' +
-      '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">' +
-        '<div style="text-align:center;"><div style="font-size:8px;color:var(--text-muted);">SOLAR</div><div style="font-family:var(--font-mono);font-size:20px;font-weight:700;">' + solar + '%</div>' +
-          '<div style="height:4px;background:rgba(255,255,255,0.06);border-radius:2px;margin-top:2px;"><div style="height:100%;width:' + barW + '%;background:linear-gradient(90deg,#F59E0B,#EF4444);border-radius:2px;"></div></div></div>' +
-        '<div style="text-align:center;"><div style="font-size:8px;color:var(--text-muted);">DAYLIGHT</div><div style="font-family:var(--font-mono);font-size:20px;font-weight:700;">' + daylight + '<span style="font-size:10px;">h</span></div></div>' +
+      '<div class="wx-panel-label">' +
+        '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/></svg>' +
+        'SOLAR & DAYLIGHT</div>' +
+      '<div style="display:flex;gap:12px;align-items:center;">' +
+        '<div style="text-align:center;flex:1;">' +
+          '<div style="font-family:var(--font-mono);font-size:22px;font-weight:700;color:' + solarColor + ';">' + solar + '%</div>' +
+          '<div style="font-size:8px;color:var(--text-muted);margin-top:2px;">SOLAR FACTOR</div>' +
+          '<div style="height:4px;background:rgba(255,255,255,0.06);border-radius:2px;margin-top:4px;">' +
+            '<div style="height:100%;width:' + barW + '%;background:' + solarColor + ';border-radius:2px;transition:width 0.5s;"></div>' +
+          '</div>' +
+        '</div>' +
+        '<div style="text-align:center;flex:1;">' +
+          '<div style="font-family:var(--font-mono);font-size:22px;font-weight:700;">' + daylight + '<span style="font-size:10px;color:var(--text-muted);">h</span></div>' +
+          '<div style="font-size:8px;color:var(--text-muted);margin-top:2px;">DAYLIGHT</div>' +
+        '</div>' +
       '</div>' +
-      '<div style="display:flex;justify-content:space-between;margin-top:6px;font-size:9px;">' +
-        '<div><span style="color:var(--text-muted);">Rise</span> <span style="font-family:var(--font-mono);color:#F59E0B;">' + (sunrise||'—') + '</span></div>' +
-        '<div><span style="color:var(--text-muted);">Set</span> <span style="font-family:var(--font-mono);color:#A855F7;">' + (sunset||'—') + '</span></div>' +
+      '<div style="display:flex;justify-content:space-between;margin-top:8px;font-size:9px;font-family:var(--font-mono);">' +
+        '<div><span style="color:var(--text-muted);">RISE</span> <span style="color:var(--status-warn);">' + (sunrise||'—') + '</span></div>' +
+        '<div><span style="color:var(--text-muted);">SET</span> <span style="color:#A855F7;">' + (sunset||'—') + '</span></div>' +
       '</div>';
   }
 
@@ -1407,7 +1424,7 @@
     const globalRange = globalMax - globalMin || 1;
 
     let html = '';
-    for (let i = 0; i < Math.min(d.time.length, 5); i++) {
+    for (let i = 0; i < Math.min(d.time.length, 7); i++) {
       const date = new Date(d.time[i] + 'T12:00:00');
       const dayName = i === 0 ? 'Today' : i === 1 ? 'Tomorrow' : date.toLocaleDateString('en-US',{weekday:'short'});
       const dateStr = date.toLocaleDateString('en-US',{month:'short',day:'numeric'});
@@ -1427,9 +1444,8 @@
       html += '<div class="wx-day-row">' +
         '<div class="wx-day-name">' + dayName + '</div>' +
         '<div class="wx-day-icon">' + icon + '</div>' +
-        '<div class="wx-day-temps"><span class="wx-day-lo">' + lo + '°</span><span style="color:var(--text-muted);font-size:10px;">—</span><span class="wx-day-hi">' + hi + '°</span></div>' +
-        '<div class="wx-day-bar"><div class="wx-day-bar-fill" style="left:' + barLeft + '%;width:' + Math.max(barWidth,4) + '%;"></div></div>' +
-        '<div class="wx-day-detail">💨 ' + wind + ' mph' + (precipProb > 20 ? ' · 💧 ' + precipProb + '%' : '') + '</div>' +
+        '<div class="wx-day-temps"><span class="wx-day-lo">' + lo + '°</span><span style="color:var(--text-muted);font-size:10px;"> – </span><span class="wx-day-hi">' + hi + '°</span></div>' +
+        (precipProb > 20 ? '<div style="font-size:9px;color:var(--accent);font-family:var(--font-mono);">' + precipProb + '%</div>' : '') +
       '</div>';
     }
     el.innerHTML = html;
@@ -1475,7 +1491,7 @@
 
     el.innerHTML = impacts.map(i =>
       '<div class="wx-impact-item ' + i.level + '">' +
-        '<div class="wx-impact-label">' + (i.level==='high'?'🔴':i.level==='medium'?'🟡':'🟢') + ' ' + i.label + '</div>' +
+        '<div class="wx-impact-label">' + '<span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:' + (i.level==='high'?'var(--status-bad)':i.level==='medium'?'var(--status-warn)':'var(--status-good)') + ';margin-right:4px;"></span>' + i.label + '</div>' +
         '<div class="wx-impact-desc">' + i.desc + '</div>' +
       '</div>'
     ).join('');

@@ -26,6 +26,13 @@ class Settings(BaseSettings):
     # ── SCADAPack 470 Protocols ──
     modbus_port: int = 502
     modbus_slave_id: int = 1
+
+    # DNP3
+    dnp3_host: str = "127.0.0.1"
+    dnp3_port: int = 20000
+    dnp3_master_addr: int = 1
+    dnp3_outstation_addr: int = 10
+    poll_interval_dnp3: int = 10
     dnp3_port: int = 20000
     dnp3_outstation_addr: int = 10
     dnp3_master_addr: int = 1

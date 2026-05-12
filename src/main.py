@@ -52,6 +52,7 @@ from src.collectors.snmp_router import SNMPNetworkCollector
 from src.collectors.snmp_switch import SNMPSwitchCollector
 from src.collectors.modbus_rtu import SCADAPack470Collector
 from src.collectors.dnp3_master import DNP3Collector
+from src.collectors.snmp_trap_receiver import SNMPTrapReceiver
 from src.config import settings
 from src.engine.alert_engine import AlertEngine
 from src.engine.commander import Commander
@@ -78,6 +79,7 @@ class AppState:
         self.comm_quality_engine = CommQualityEngine()
         self.correlator = CorrelationEngine()
         self.commander = Commander()
+        self.trap_receiver: SNMPTrapReceiver | None = None
         self.scheduler = PollScheduler(
             db=self.db,
             influx=self.influx,
@@ -282,12 +284,24 @@ async def lifespan(app: FastAPI):
     # Start polling
     await app_state.scheduler.start()
 
+    # Start SNMP trap receiver
+    if settings.snmp_trap_enabled:
+        from src.api.ws import ws_manager as _ws
+        app_state.trap_receiver = SNMPTrapReceiver(
+            db=app_state.db,
+            ws_manager=_ws,
+            port=settings.snmp_trap_port,
+        )
+        await app_state.trap_receiver.start()
+
     logger.info("aevus_ready", assets=len(app_state.db.list_assets()))
 
     yield
 
     # Shutdown
     logger.info("aevus_shutting_down")
+    if app_state.trap_receiver:
+        await app_state.trap_receiver.stop()
     await app_state.scheduler.stop()
     app_state.influx.close()
     app_state.db.close()

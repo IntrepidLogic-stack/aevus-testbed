@@ -106,6 +106,10 @@ class Settings(BaseSettings):
     twilio_from_number: str = ""
     notifications_enabled: bool = False
 
+    # ── SNMP Trap Receiver ──
+    snmp_trap_port: int = 1162
+    snmp_trap_enabled: bool = True
+
     # ── Weather + Daylight ──
     site_latitude: float = 29.3905
     site_longitude: float = -95.8375

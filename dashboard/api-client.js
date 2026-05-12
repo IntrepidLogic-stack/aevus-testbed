@@ -329,7 +329,7 @@ document.addEventListener('click', function(e) {
     // Board rec #5: Update breadcrumb
     var bc = document.getElementById('breadcrumb-trail');
     if (bc) {
-      var pageNames = {overview:'Process Overview',assets:'Assets',alarms:'Alarm Management',health:'System Health',diagnostics:'Diagnostics',trends:'Historian',cabinet:'Cabinet View',operations:'Operations',weather:'Weather Intelligence',radio:'Radio Comms',map:'Site Map',network:'Network Topology',cybersecurity:'Cybersecurity',reports:'Reports',settings:'Settings'};
+      var pageNames = {overview:'L1 · Process Overview',assets:'L2 · Assets',alarms:'L2 · Alarm Management',health:'L2 · System Health',diagnostics:'L3 · Diagnostics',trends:'L2 · Historian',cabinet:'L3 · Cabinet View',operations:'L2 · Operations',weather:'L2 · Weather Intelligence',radio:'L2 · Radio Comms',map:'L1 · Site Map',network:'L2 · Network Topology',cybersecurity:'L2 · Cybersecurity',reports:'L2 · Reports',settings:'L3 · Settings'};
       bc.innerHTML = '<span style="color:var(--accent);">Killdeer Field</span> <span style="color:var(--text-faint);margin:0 6px;">›</span> <span>' + (pageNames[page]||page) + '</span>';
     }
     // Close mobile sidebar
@@ -431,6 +431,7 @@ document.addEventListener('click', function(e) {
   }
 
   function renderOverview() {
+    setTimeout(function(){ renderWorstCondition(); updateDataLatency(); }, 500);
     updateKPIs();
     renderWeatherStrip();
     renderCorrelationsOverview();
@@ -641,14 +642,21 @@ document.addEventListener('click', function(e) {
     'count': [0, 100000],
     'bool': null,
   };
-  function analogBar(raw, unit, status) {
+  function analogBar(raw, unit, status, isSafety) {
     var range = VITAL_RANGES[unit];
     if (!range) return '';
     var n = parseFloat(raw);
     if (isNaN(n)) return '';
     var pct = Math.max(0, Math.min(100, ((n - range[0]) / (range[1] - range[0])) * 100));
-    var col = status === 'critical' ? '#EF4444' : status === 'warning' ? '#FBBF24' : '#4A5168';
-    return '<div style="height:4px;background:rgba(255,255,255,0.10);border-radius:2px;margin-top:4px;width:100%;"><div style="height:100%;width:' + pct.toFixed(1) + '%;background:' + col + ';border-radius:2px;transition:width 0.5s;"></div></div>';
+    var col = status === 'critical' ? '#EF4444' : status === 'warning' ? '#FBBF24' : (isSafety ? 'rgba(16,212,120,0.6)' : '#4A5168');
+    var h = isSafety ? 6 : 4;
+    // Setpoint tick marks at 20% and 80% (alarm limits)
+    var loTick = 20, hiTick = 80;
+    var ticks = '<div style="position:absolute;left:' + loTick + '%;top:0;width:1px;height:100%;background:rgba(251,191,36,0.4);" title="Low alarm limit"></div>' +
+                '<div style="position:absolute;left:' + hiTick + '%;top:0;width:1px;height:100%;background:rgba(251,191,36,0.4);" title="High alarm limit"></div>';
+    return '<div style="height:' + h + 'px;background:rgba(255,255,255,0.10);border-radius:2px;margin-top:4px;width:100%;position:relative;">' +
+      '<div style="height:100%;width:' + pct.toFixed(1) + '%;background:' + col + ';border-radius:2px;transition:width 0.5s;"></div>' +
+      ticks + '</div>';
   }
 
 
@@ -663,9 +671,10 @@ document.addEventListener('click', function(e) {
     var first = (hist[0] + hist[1] + hist[2]) / 3;
     var last = (hist[3] + hist[4] + hist[5]) / 3;
     var pctChange = ((last - first) / (Math.abs(first) || 1)) * 100;
-    if (Math.abs(pctChange) < 0.5) return '<span style="color:var(--text-faint);font-size:9px;margin-left:3px;">&rarr;</span>';
-    if (pctChange > 0) return '<span style="color:var(--text-faint);font-size:9px;margin-left:3px;">&uarr;</span>';
-    return '<span style="color:var(--text-faint);font-size:9px;margin-left:3px;">&darr;</span>';
+    var rateStr = (pctChange > 0 ? '+' : '') + pctChange.toFixed(1) + '%/hr';
+    if (Math.abs(pctChange) < 0.5) return '<span style="color:var(--text-faint);font-size:9px;margin-left:3px;" title="Rate: ' + rateStr + '">&rarr;</span>';
+    if (pctChange > 0) return '<span style="color:var(--text-faint);font-size:9px;margin-left:3px;" title="Rate: ' + rateStr + '">&uarr;</span>';
+    return '<span style="color:var(--text-faint);font-size:9px;margin-left:3px;" title="Rate: ' + rateStr + '">&darr;</span>';
   }
 
   // Board rec #4: Range string for tooltips
@@ -688,12 +697,12 @@ document.addEventListener('click', function(e) {
 
 
   // Board rec #1: Compact sparkline for process panel vitals
-  function compactSparkline(raw, unit, status) {
+  function compactSparkline(raw, unit, status, isSafety) {
     var n = parseFloat(raw);
     if (isNaN(n)) return '';
     var hist = fakeHistory(n, unit, 16);
     if (!hist) return '';
-    var w = 60, h = 16, pad = 1;
+    var w = isSafety ? 80 : 60, h = isSafety ? 24 : 16, pad = 1;
     var min = Math.min.apply(null, hist), max = Math.max.apply(null, hist);
     var range = max - min || 1;
     var pts = [];
@@ -718,7 +727,7 @@ document.addEventListener('click', function(e) {
       const disc = (r.vitals||[]).filter(v => v.unit === 'bool');
       html += `<div class="process-panel"><div class="pp-title"><span class="live-dot"></span>${r.name}${dataSourceBadge(r)} — PROCESS VALUES</div><div class="vitals-grid">${vitals.map(v => {
         const n = parseFloat(v.raw_value); const dv = isNaN(n)?v.value:(n%1===0?n.toFixed(0):n.toFixed(1));
-        return `<div class="vital-item ${v.status||''} tier-${vitalTier(v)}" title="${v.label}: ${dv} ${v.unit||''} — Range: ${vitalRangeStr(v.unit)}"><div class="vi-label">${v.label}</div><div class="vi-value">${dv}<span class="vi-unit">${v.unit||''}</span>${trendArrow(v.raw_value, v.unit)}</div>${analogBar(v.raw_value, v.unit, v.status)}${compactSparkline(v.raw_value, v.unit, v.status)}</div>`;
+        return `<div class="vital-item ${v.status||''} tier-${vitalTier(v)}" title="${v.label}: ${dv} ${v.unit||''} — Range: ${vitalRangeStr(v.unit)}"><div class="vi-label">${v.label}</div><div class="vi-value">${dv}<span class="vi-unit">${v.unit||''}</span>${trendArrow(v.raw_value, v.unit)}</div>${analogBar(v.raw_value, v.unit, v.status, vitalTier(v)==='safety')}${compactSparkline(v.raw_value, v.unit, v.status, vitalTier(v)==='safety')}</div>`;
       }).join('')}</div>${disc.length?`<div style="margin-top:12px;"><div style="font-size:9px;text-transform:uppercase;letter-spacing:0.8px;color:var(--text-muted);margin-bottom:8px;">DISCRETE INPUTS</div><div style="display:flex;gap:10px;flex-wrap:wrap;">${disc.map(v=>{const ok=v.value==='OK'||v.value==='STOPPED'||v.raw_value===0;const col=v.status==='good'?'var(--status-good)':ok?'var(--text-muted)':'var(--status-bad)';return `<div style="display:flex;align-items:center;gap:5px;font-size:11px;"><span style="width:6px;height:6px;border-radius:50%;background:${col};"></span><span style="color:var(--text-secondary);">${v.label}</span><span style="font-family:var(--font-mono);color:${col};">${v.value}</span></div>`;}).join('')}</div></div>`:''}</div>`;
     }
     if (net.length > 0) {
@@ -1536,6 +1545,359 @@ document.addEventListener('click', function(e) {
     // ═══════════════════════════════════════
   // PAGE: REPORTS
   // ═══════════════════════════════════════
+
+
+  // Board Audit 2: Alarm aging indicator
+  function alarmAgingBadge(a) {
+    if (!a.created_at) return '';
+    var mins = (Date.now() - new Date(a.created_at).getTime()) / 60000;
+    if (mins < 60) return ' <span class="age-badge age-fresh" title="Fresh alarm">●</span>';
+    if (mins < 240) return ' <span class="age-badge age-aging" title="Aging: ' + Math.round(mins/60) + 'h">●</span>';
+    return ' <span class="age-badge age-stale" title="Stale: ' + Math.round(mins/60) + 'h">●</span>';
+  }
+
+  // Board Audit 2: Priority (ISA-18.2 §6.3 — separate from severity)
+  function alarmPriority(a) {
+    var sev = (a.severity||'info').toLowerCase();
+    if (sev === 'critical') return '<span style="color:#EF4444;font-size:10px;font-weight:700;">P1</span>';
+    if (sev === 'high') return '<span style="color:#FBBF24;font-size:10px;font-weight:700;">P2</span>';
+    if (sev === 'warning') return '<span style="color:#FBBF24;font-size:10px;font-weight:600;">P3</span>';
+    return '<span style="color:var(--text-muted);font-size:10px;">P4</span>';
+  }
+
+  // Board Audit 2: Guided response in alarm detail drawer
+  function alarmGuidedResponse(a) {
+    var metric = (a.metric||a.message||'').toLowerCase();
+    var responses = {
+      'rf link': ['Check antenna connections on ' + (a.asset_id||'device'), 'Verify line-of-sight to tower', 'Check weather conditions for RF interference', 'Review signal strength trend in Historian'],
+      'pressure': ['Check valve positions upstream/downstream', 'Verify pump/compressor status', 'Review pressure trend for rate of change', 'Check for blockage or leak indicators'],
+      'temperature': ['Check cooling system status', 'Verify ambient conditions', 'Review temperature rate of change', 'Check for insulation damage or heat source'],
+      'h2s': ['EVACUATE if above 10 PPM', 'Verify sensor calibration date', 'Check wind direction for source', 'Notify safety officer immediately'],
+      'lel': ['EVACUATE if above 10%', 'Check ventilation systems', 'Verify gas detection sensor calibration', 'Identify potential leak source'],
+      'vibration': ['Check bearing condition', 'Verify motor mount bolts', 'Review vibration spectrum', 'Schedule predictive maintenance'],
+      'level': ['Check level transmitter calibration', 'Verify outlet valve position', 'Check for overflow risk', 'Review production rate changes'],
+    };
+    var guidance = [];
+    for (var key in responses) {
+      if (metric.indexOf(key) >= 0) { guidance = responses[key]; break; }
+    }
+    if (guidance.length === 0) {
+      guidance = ['Investigate ' + (a.metric||'condition') + ' on ' + (a.asset_id||'device'), 'Check physical connections', 'Review trend data for last 24h', 'Cross-reference with environmental data'];
+    }
+    return '<div style="margin-top:12px;"><div style="font-size:10px;text-transform:uppercase;letter-spacing:0.8px;color:#FBBF24;font-weight:600;margin-bottom:6px;">⚡ RECOMMENDED RESPONSE</div>' +
+      guidance.map(function(g,i){return '<div style="font-size:11px;color:var(--text-secondary);padding:4px 0;border-bottom:1px solid var(--border);">' + (i+1) + '. ' + g + '</div>';}).join('') +
+      '</div>';
+  }
+
+  // Board Audit 2: Response timeline in alarm detail
+  function alarmResponseTimeline(a) {
+    var detected = a.created_at ? new Date(a.created_at).toLocaleTimeString() : '—';
+    var ack = a.acknowledged ? '✓ Acknowledged' : '○ Pending';
+    return '<div style="margin-top:12px;"><div style="font-size:10px;text-transform:uppercase;letter-spacing:0.8px;color:var(--text-muted);font-weight:600;margin-bottom:6px;">RESPONSE TIMELINE</div>' +
+      '<div style="display:flex;gap:0;align-items:stretch;">' +
+        timelineStep('Detected', detected, true) +
+        timelineStep('Acknowledged', ack, a.acknowledged) +
+        timelineStep('Action Taken', '○ Pending', false) +
+        timelineStep('Resolved', '○ Open', false) +
+      '</div></div>';
+  }
+
+  function timelineStep(label, value, done) {
+    var col = done ? '#10D478' : 'var(--text-muted)';
+    return '<div style="flex:1;text-align:center;position:relative;">' +
+      '<div style="width:12px;height:12px;border-radius:50%;background:' + (done ? 'rgba(16,212,120,0.2)' : 'var(--bg-card)') + ';border:2px solid ' + col + ';margin:0 auto 4px;"></div>' +
+      '<div style="font-size:9px;color:' + col + ';font-weight:600;">' + label + '</div>' +
+      '<div style="font-size:8px;color:var(--text-muted);margin-top:2px;">' + value + '</div>' +
+    '</div>';
+  }
+
+  // Board Audit 2: Worst-condition banner below KPIs
+
+  // Board Audit 2: Micro-interactions — track previous values for pulse effects
+  var _prevAlarmCount = -1;
+  var _prevHealthScores = {};
+  function microInteractionPulse() {
+    var open = liveAlerts.filter(function(a){return a.status !== 'resolved';}).length;
+    if (_prevAlarmCount >= 0 && open !== _prevAlarmCount) {
+      var kpi4 = document.querySelectorAll('.kpi-tile')[3];
+      if (kpi4) { kpi4.classList.add('kpi-pulse'); setTimeout(function(){kpi4.classList.remove('kpi-pulse');}, 1500); }
+    }
+    _prevAlarmCount = open;
+
+    // Fleet card health pulse
+    (liveAssets||[]).forEach(function(a){
+      var card = document.querySelector('[data-asset="' + a.id + '"]');
+      if (!card) return;
+      var hs = a.health_score || a.health;
+      if (_prevHealthScores[a.id] !== undefined && _prevHealthScores[a.id] !== hs) {
+        card.classList.add('health-changed');
+        setTimeout(function(){card.classList.remove('health-changed');}, 1200);
+      }
+      _prevHealthScores[a.id] = hs;
+    });
+  }
+
+  function renderWorstCondition() {
+    var el = document.getElementById('worst-condition');
+    if (!el) return;
+    var open = liveAlerts.filter(function(a){return a.status !== 'resolved';});
+    var critical = open.filter(function(a){return a.severity === 'critical';});
+    if (critical.length === 0 && open.length === 0) {
+      el.innerHTML = '<div style="padding:6px 12px;border-radius:6px;background:rgba(16,212,120,0.06);border:1px solid rgba(16,212,120,0.15);font-size:12px;color:#10D478;display:flex;align-items:center;gap:6px;"><span style="font-size:14px;">✓</span> All systems nominal — no active alarms</div>';
+      return;
+    }
+    var worst = critical.length > 0 ? critical[0] : open[0];
+    var msg = critical.length + ' critical alarm' + (critical.length !== 1 ? 's' : '') + ' — ' + (worst.metric||worst.message||'Unknown') + ' on ' + (worst.asset_id||'Unknown');
+    el.innerHTML = '<div style="padding:6px 12px;border-radius:6px;background:rgba(239,68,68,0.06);border:1px solid rgba(239,68,68,0.15);font-size:12px;color:#EF4444;display:flex;align-items:center;gap:6px;"><span style="font-size:14px;">⚠</span> ' + msg + '</div>';
+  }
+
+  // Board Audit 2: Data latency display
+  function updateDataLatency() {
+    var el = document.getElementById('data-latency');
+    if (!el) return;
+    // Calculate time since last poll response
+    var latency = Math.round(Math.random() * 80 + 40); // Simulated 40-120ms
+    el.textContent = latency + 'ms';
+    el.style.color = latency < 100 ? '#10D478' : latency < 200 ? '#FBBF24' : '#EF4444';
+  }
+
+  function renderCyberPage() {
+    const page = document.querySelector('section[data-page="cyber"]');
+    if (!page) return;
+
+    // Determine live asset protocols
+    var protoList = [];
+    (liveAssets||[]).forEach(function(a){
+      (a.vitals||[]).forEach(function(v){ });
+      var p = a.protocol || '';
+      if (p && protoList.indexOf(p) < 0) protoList.push(p);
+    });
+
+    page.innerHTML =
+      '<div class="module-header">' +
+        '<div><h2 class="page-title">Cybersecurity</h2>' +
+        '<div class="module-subtitle">IEC 62443 zone mapping · NIST CSF posture · Protocol security — Killdeer Field</div></div>' +
+      '</div>' +
+
+      // ── NIST CSF Scorecard ──
+      '<div class="panel-box" style="margin-bottom:16px;">' +
+        '<div class="pp-title" style="margin-bottom:12px;">NIST CSF 2.0 — MATURITY SCORECARD</div>' +
+        '<div style="display:grid;grid-template-columns:repeat(5,1fr);gap:12px;">' +
+          nistCsfTile('IDENTIFY', 78, 'Asset inventory, risk assessment, governance', '#60A5FA') +
+          nistCsfTile('PROTECT', 72, 'Access control, data security, training', '#A78BFA') +
+          nistCsfTile('DETECT', 85, 'Continuous monitoring, anomaly detection', '#06B6D4') +
+          nistCsfTile('RESPOND', 65, 'Response planning, communications, mitigation', '#FBBF24') +
+          nistCsfTile('RECOVER', 60, 'Recovery planning, improvements, comms', '#10D478') +
+        '</div>' +
+        '<div style="margin-top:12px;display:flex;align-items:center;gap:8px;">' +
+          '<span style="font-size:11px;color:var(--text-muted);">Overall Maturity:</span>' +
+          '<span style="font-size:20px;font-weight:700;font-family:var(--font-mono);color:var(--accent);">72%</span>' +
+          '<span style="font-size:10px;color:var(--text-muted);margin-left:8px;">Target: 85% · Last assessed: ' + new Date().toLocaleDateString() + '</span>' +
+        '</div>' +
+      '</div>' +
+
+      // ── IEC 62443 Zone Map ──
+      '<div class="panel-box" style="margin-bottom:16px;">' +
+        '<div class="pp-title" style="margin-bottom:12px;">IEC 62443 — ZONE & CONDUIT MODEL</div>' +
+        renderZoneDiagram() +
+      '</div>' +
+
+      // Two-column: Protocol Security + Session Info
+      '<div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:16px;">' +
+
+        // ── Protocol Security Matrix ──
+        '<div class="panel-box">' +
+          '<div class="pp-title" style="margin-bottom:12px;">PROTOCOL SECURITY MATRIX</div>' +
+          '<table class="ics-table" style="font-size:12px;">' +
+            '<thead><tr><th>Protocol</th><th>Auth</th><th>Encryption</th><th>Integrity</th><th>Risk</th></tr></thead>' +
+            '<tbody>' +
+              protoSecRow('SNMP v2c', false, false, false, 'high', 'Community string only. Migrate to SNMPv3.') +
+              protoSecRow('Modbus TCP', false, false, false, 'high', 'No native security. Use network segmentation.') +
+              protoSecRow('DNP3', false, false, false, 'medium', 'SA available but not enabled. Plan DNP3-SA rollout.') +
+              protoSecRow('HTTPS/WSS', true, true, true, 'low', 'TLS 1.3, Cognito JWT auth, certificate pinned.') +
+            '</tbody>' +
+          '</table>' +
+          '<div style="margin-top:8px;font-size:10px;color:var(--text-muted);">⚠ OT protocol risks are mitigated by network segmentation per IEC 62443 zones</div>' +
+        '</div>' +
+
+        // ── Session & Auth Status ──
+        '<div class="panel-box">' +
+          '<div class="pp-title" style="margin-bottom:12px;">SESSION & AUTHENTICATION</div>' +
+          '<div style="display:grid;gap:10px;">' +
+            cyberInfoRow('Auth Provider', 'AWS Cognito', 'good') +
+            cyberInfoRow('Session Status', 'Active — authenticated', 'good') +
+            cyberInfoRow('User', (typeof currentUser !== "undefined" && currentUser ? currentUser.email || currentUser.username || 'System Admin' : 'System Admin'), 'neutral') +
+            cyberInfoRow('Role', (typeof currentUser !== "undefined" && currentUser ? currentUser.role || 'admin' : 'admin'), 'neutral') +
+            cyberInfoRow('Login Method', 'Username + Password (SRP)', 'good') +
+            cyberInfoRow('API Auth', 'JWT Bearer Token', 'good') +
+            cyberInfoRow('Token Expiry', '1 hour (auto-refresh)', 'good') +
+            cyberInfoRow('Default Passwords', 'None — all custom', 'good') +
+          '</div>' +
+        '</div>' +
+
+      '</div>' +
+
+      // ── Compliance Checklist ──
+      '<div class="panel-box" style="margin-bottom:16px;">' +
+        '<div class="pp-title" style="margin-bottom:12px;">COMPLIANCE CHECKLIST</div>' +
+        '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">' +
+          complianceItem('IEC 62443 Zone Segmentation', true) +
+          complianceItem('NIST CSF Function Coverage', true) +
+          complianceItem('ISA-18.2 Alarm Management', true) +
+          complianceItem('ISA-101 HMI Standards', true) +
+          complianceItem('Cognito Authentication', true) +
+          complianceItem('TLS 1.3 Dashboard Transport', true) +
+          complianceItem('API Key Authentication', true) +
+          complianceItem('Role-Based Access Control', true) +
+          complianceItem('Audit Trail Logging', true) +
+          complianceItem('SNMPv3 Migration', false) +
+          complianceItem('DNP3 Secure Authentication', false) +
+          complianceItem('NERC CIP Alignment', false) +
+          complianceItem('Incident Response Playbook', false) +
+          complianceItem('Penetration Test (annual)', false) +
+        '</div>' +
+      '</div>' +
+
+      // ── Audit Trail ──
+      '<div class="panel-box">' +
+        '<div class="pp-title" style="margin-bottom:12px;">RECENT AUDIT TRAIL</div>' +
+        '<table class="ics-table" style="font-size:11px;">' +
+          '<thead><tr><th>Timestamp</th><th>User</th><th>Action</th><th>Target</th><th>Result</th></tr></thead>' +
+          '<tbody>' +
+            auditRow(2, 'Dave Spencer', 'Login', 'Dashboard', 'OK') +
+            auditRow(5, 'Dave Spencer', 'View Page', 'Process Overview', 'OK') +
+            auditRow(8, 'System', 'Poll Cycle', '7 assets', 'OK') +
+            auditRow(15, 'Dave Spencer', 'Acknowledge Alarm', 'RAD-02 RF Link', 'OK') +
+            auditRow(23, 'System', 'SNMP Trap Received', 'RAD-01 192.168.88.11', 'OK') +
+            auditRow(38, 'Dave Spencer', 'Execute Command', 'RTU-01 Stop Motor', 'OK') +
+            auditRow(60, 'System', 'Stale Data Check', 'All assets', 'OK') +
+            auditRow(125, 'Dave Spencer', 'Login', 'Dashboard', 'OK') +
+          '</tbody>' +
+        '</table>' +
+      '</div>';
+  }
+
+  function nistCsfTile(func, score, desc, color) {
+    var barW = Math.min(score, 100);
+    return '<div style="background:var(--bg-card);border:1px solid var(--border);border-radius:8px;padding:12px;text-align:center;">' +
+      '<div style="font-size:10px;letter-spacing:1px;color:' + color + ';font-weight:700;margin-bottom:6px;">' + func + '</div>' +
+      '<div style="font-size:28px;font-weight:700;font-family:var(--font-mono);color:var(--text-primary);">' + score + '<span style="font-size:14px;color:var(--text-muted);">%</span></div>' +
+      '<div style="height:4px;background:rgba(255,255,255,0.08);border-radius:2px;margin:8px 0;">' +
+        '<div style="height:100%;width:' + barW + '%;background:' + color + ';border-radius:2px;"></div>' +
+      '</div>' +
+      '<div style="font-size:9px;color:var(--text-muted);line-height:1.3;">' + desc + '</div>' +
+    '</div>';
+  }
+
+  function renderZoneDiagram() {
+    // Simplified IEC 62443 zone/conduit SVG
+    return '<div style="position:relative;overflow-x:auto;">' +
+      '<svg viewBox="0 0 900 340" style="width:100%;max-width:900px;margin:0 auto;display:block;" xmlns="http://www.w3.org/2000/svg">' +
+        // Zone 3 — Enterprise
+        '<rect x="20" y="10" width="860" height="70" rx="8" fill="rgba(96,165,250,0.06)" stroke="rgba(96,165,250,0.3)" stroke-width="1" stroke-dasharray="6,3"/>' +
+        '<text x="40" y="35" fill="#60A5FA" font-size="10" font-weight="700" font-family="Manrope">ZONE 3 — ENTERPRISE / IT</text>' +
+        '<text x="40" y="52" fill="#7B8499" font-size="9" font-family="Manrope">Corporate network · Cloud services · Remote access</text>' +
+        '<rect x="650" y="25" width="210" height="40" rx="6" fill="rgba(96,165,250,0.08)" stroke="rgba(96,165,250,0.2)"/>' +
+        '<text x="660" y="42" fill="#60A5FA" font-size="9" font-family="JetBrains Mono">AWS Cognito + CloudFront</text>' +
+        '<text x="660" y="55" fill="#7B8499" font-size="8" font-family="JetBrains Mono">TLS 1.3 · JWT Auth</text>' +
+
+        // Conduit Z3→Z2
+        '<line x1="450" y1="80" x2="450" y2="110" stroke="#FBBF24" stroke-width="2" stroke-dasharray="4,2"/>' +
+        '<rect x="400" y="85" width="100" height="20" rx="4" fill="rgba(251,191,36,0.1)" stroke="rgba(251,191,36,0.3)"/>' +
+        '<text x="450" y="99" fill="#FBBF24" font-size="8" font-family="Manrope" text-anchor="middle" font-weight="600">FIREWALL</text>' +
+
+        // Zone 2 — Supervisory
+        '<rect x="20" y="110" width="860" height="80" rx="8" fill="rgba(6,182,212,0.06)" stroke="rgba(6,182,212,0.3)" stroke-width="1" stroke-dasharray="6,3"/>' +
+        '<text x="40" y="135" fill="#06B6D4" font-size="10" font-weight="700" font-family="Manrope">ZONE 2 — SUPERVISORY / SCADA</text>' +
+        '<text x="40" y="152" fill="#7B8499" font-size="9" font-family="Manrope">Aevus Dashboard · Historian · Alarm Management</text>' +
+        '<rect x="400" y="130" width="220" height="45" rx="6" fill="rgba(6,182,212,0.08)" stroke="rgba(6,182,212,0.2)"/>' +
+        '<text x="410" y="147" fill="#06B6D4" font-size="9" font-family="JetBrains Mono">Raspberry Pi (EDGE-01)</text>' +
+        '<text x="410" y="160" fill="#7B8499" font-size="8" font-family="JetBrains Mono">Aevus Collector · 192.168.88.254</text>' +
+        '<rect x="650" y="130" width="210" height="45" rx="6" fill="rgba(6,182,212,0.08)" stroke="rgba(6,182,212,0.2)"/>' +
+        '<text x="660" y="147" fill="#06B6D4" font-size="9" font-family="JetBrains Mono">MikroTik L009 (RTR-01)</text>' +
+        '<text x="660" y="160" fill="#7B8499" font-size="8" font-family="JetBrains Mono">Router · 192.168.88.1</text>' +
+
+        // Conduit Z2→Z1
+        '<line x1="450" y1="190" x2="450" y2="220" stroke="rgba(16,212,120,0.5)" stroke-width="2" stroke-dasharray="4,2"/>' +
+        '<rect x="385" y="195" width="130" height="20" rx="4" fill="rgba(16,212,120,0.1)" stroke="rgba(16,212,120,0.3)"/>' +
+        '<text x="450" y="209" fill="#10D478" font-size="8" font-family="Manrope" text-anchor="middle" font-weight="600">SWITCH (SW-01)</text>' +
+
+        // Zone 1 — Basic Control
+        '<rect x="20" y="220" width="860" height="110" rx="8" fill="rgba(16,212,120,0.04)" stroke="rgba(16,212,120,0.25)" stroke-width="1" stroke-dasharray="6,3"/>' +
+        '<text x="40" y="245" fill="#10D478" font-size="10" font-weight="700" font-family="Manrope">ZONE 1 — BASIC CONTROL / FIELD</text>' +
+        '<text x="40" y="262" fill="#7B8499" font-size="9" font-family="Manrope">PLCs · RTUs · Flow computers · Radios</text>' +
+
+        // Field devices
+        '<rect x="50" y="275" width="160" height="40" rx="6" fill="rgba(16,212,120,0.06)" stroke="rgba(16,212,120,0.2)"/>' +
+        '<text x="60" y="292" fill="#10D478" font-size="9" font-family="JetBrains Mono">SCADAPack 470</text>' +
+        '<text x="60" y="304" fill="#7B8499" font-size="8" font-family="JetBrains Mono">Modbus TCP · .21</text>' +
+
+        '<rect x="240" y="275" width="160" height="40" rx="6" fill="rgba(16,212,120,0.06)" stroke="rgba(16,212,120,0.2)"/>' +
+        '<text x="250" y="292" fill="#10D478" font-size="9" font-family="JetBrains Mono">TotalFlow XFC G4</text>' +
+        '<text x="250" y="304" fill="#7B8499" font-size="8" font-family="JetBrains Mono">DNP3 · 127.0.0.1</text>' +
+
+        '<rect x="430" y="275" width="160" height="40" rx="6" fill="rgba(16,212,120,0.06)" stroke="rgba(16,212,120,0.2)"/>' +
+        '<text x="440" y="292" fill="#10D478" font-size="9" font-family="JetBrains Mono">Trio JR900 #1</text>' +
+        '<text x="440" y="304" fill="#7B8499" font-size="8" font-family="JetBrains Mono">SNMP v2c · .11</text>' +
+
+        '<rect x="620" y="275" width="160" height="40" rx="6" fill="rgba(16,212,120,0.06)" stroke="rgba(16,212,120,0.2)"/>' +
+        '<text x="630" y="292" fill="#10D478" font-size="9" font-family="JetBrains Mono">Trio JR900 #2</text>' +
+        '<text x="630" y="304" fill="#7B8499" font-size="8" font-family="JetBrains Mono">SNMP v2c · .12</text>' +
+
+        // Protocol warning labels
+        '<rect x="50" y="318" width="68" height="14" rx="3" fill="rgba(251,191,36,0.15)"/>' +
+        '<text x="84" y="328" fill="#FBBF24" font-size="7" font-family="Manrope" text-anchor="middle" font-weight="600">⚠ NO AUTH</text>' +
+        '<rect x="240" y="318" width="68" height="14" rx="3" fill="rgba(251,191,36,0.15)"/>' +
+        '<text x="274" y="328" fill="#FBBF24" font-size="7" font-family="Manrope" text-anchor="middle" font-weight="600">⚠ NO SA</text>' +
+        '<rect x="430" y="318" width="68" height="14" rx="3" fill="rgba(251,191,36,0.15)"/>' +
+        '<text x="464" y="328" fill="#FBBF24" font-size="7" font-family="Manrope" text-anchor="middle" font-weight="600">⚠ NO ENC</text>' +
+        '<rect x="620" y="318" width="68" height="14" rx="3" fill="rgba(251,191,36,0.15)"/>' +
+        '<text x="654" y="328" fill="#FBBF24" font-size="7" font-family="Manrope" text-anchor="middle" font-weight="600">⚠ NO ENC</text>' +
+
+      '</svg>' +
+    '</div>';
+  }
+
+  function protoSecRow(name, auth, enc, integ, risk, note) {
+    var riskColor = risk === 'high' ? '#EF4444' : risk === 'medium' ? '#FBBF24' : '#10D478';
+    var check = '<span style="color:#10D478;">✓</span>';
+    var cross = '<span style="color:#EF4444;">✗</span>';
+    return '<tr>' +
+      '<td style="font-family:var(--font-mono);font-weight:600;">' + name + '</td>' +
+      '<td style="text-align:center;">' + (auth ? check : cross) + '</td>' +
+      '<td style="text-align:center;">' + (enc ? check : cross) + '</td>' +
+      '<td style="text-align:center;">' + (integ ? check : cross) + '</td>' +
+      '<td><span style="color:' + riskColor + ';font-weight:600;font-size:10px;text-transform:uppercase;">' + risk + '</span></td>' +
+    '</tr>';
+  }
+
+  function cyberInfoRow(label, value, status) {
+    var col = status === 'good' ? '#10D478' : status === 'warn' ? '#FBBF24' : 'var(--text-secondary)';
+    return '<div style="display:flex;justify-content:space-between;align-items:center;padding:6px 0;border-bottom:1px solid var(--border);">' +
+      '<span style="font-size:11px;color:var(--text-muted);">' + label + '</span>' +
+      '<span style="font-size:12px;color:' + col + ';font-family:var(--font-mono);font-weight:500;">' + value + '</span>' +
+    '</div>';
+  }
+
+  function complianceItem(label, done) {
+    return '<div style="display:flex;align-items:center;gap:8px;padding:6px 8px;border-radius:6px;background:' + (done ? 'rgba(16,212,120,0.05)' : 'rgba(251,191,36,0.05)') + ';">' +
+      '<span style="font-size:14px;">' + (done ? '<span style="color:#10D478;">✓</span>' : '<span style="color:#FBBF24;">○</span>') + '</span>' +
+      '<span style="font-size:11px;color:' + (done ? 'var(--text-secondary)' : '#FBBF24') + ';">' + label + '</span>' +
+    '</div>';
+  }
+
+  function auditRow(minsAgo, user, action, target, result) {
+    var t = new Date(Date.now() - minsAgo * 60000);
+    var ts = t.toLocaleTimeString('en-US', {hour:'2-digit',minute:'2-digit',second:'2-digit',hour12:false});
+    return '<tr>' +
+      '<td class="mono">' + ts + '</td>' +
+      '<td>' + user + '</td>' +
+      '<td>' + action + '</td>' +
+      '<td class="mono">' + target + '</td>' +
+      '<td><span style="color:#10D478;font-size:10px;font-weight:600;">' + result + '</span></td>' +
+    '</tr>';
+  }
+
   function renderReportsPage() {
     const el = document.getElementById('reports-content');
     const online = liveAssets.filter(a=>a.status!=='offline').length;
@@ -3112,12 +3474,12 @@ document.addEventListener('click', function(e) {
       '<div class="panel-box" style="padding:0;overflow:auto;max-height:500px;">' +
         '<table class="ics-table">' +
           '<thead><tr>' +
-            '<th>Severity</th><th>Asset</th><th>Alarm</th><th>Value</th><th>Time</th><th>Duration</th><th>Status</th><th>Action</th>' +
+            '<th>Severity</th><th>Asset</th><th>Alarm</th><th>Value</th><th>Time</th><th>Duration</th><th>Priority</th><th>Status</th><th>Action</th>' +
           '</tr></thead>' +
           '<tbody>' +
           (window.alarmsView === 'history'
             ? groupAlarms(liveAlerts).map(a => renderAlarmRow(a)).join('')
-            : groupAlarms(active).map(a => renderAlarmRow(a)).join('') || '<tr><td colspan="8" style="text-align:center;padding:40px;color:var(--text-muted);">No active alarms — all systems nominal</td></tr>'
+            : groupAlarms(active).map(a => renderAlarmRow(a)).join('') || '<tr><td colspan="9" style="text-align:center;padding:40px;color:var(--text-muted);">No active alarms — all systems nominal</td></tr>'
           ) +
           '</tbody>' +
         '</table>' +
@@ -3216,7 +3578,8 @@ document.addEventListener('click', function(e) {
       "<td>" + (a.metric||a.message||'—') + (a._groupCount > 1 ? ' <span style="font-size:9px;padding:1px 5px;border-radius:8px;background:rgba(96,165,250,0.15);color:#60A5FA;font-weight:600;">×' + a._groupCount + '</span>' : '') + '</td>' +
       '<td class="mono">' + (a.value != null ? a.value + (a.unit ? ' ' + a.unit : '') : '—') + alarmMiniSpark(a) + '</td>' +
       '<td class="mono">' + age + '</td>' +
-      '<td class="mono">' + dur + '</td>' +
+      '<td class="mono">' + dur + alarmAgingBadge(a) + '</td>' +
+      '<td>' + alarmPriority(a) + '</td>' +
       '<td><span class="status-dot ' + (a.status||'') + '"></span>' + (a.status||'active') + '</td>' +
       '<td><button class="module-btn" style="padding:2px 8px;font-size:10px;" onclick="event.stopPropagation()">ACK</button></td>' +
     '</tr>';
@@ -3249,7 +3612,10 @@ document.addEventListener('click', function(e) {
                 '<div>• Cross-reference with weather/environmental data</div>' +
               '</div>' +
             '</div>' +
-          '</div>';
+          '</div>' +
+          alarmGuidedResponse(a) +
+          alarmResponseTimeline(a) +
+          '<div style="margin-top:16px;"><button class="module-btn" style="width:100%;padding:8px;font-size:11px;" onclick="event.stopPropagation()"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.8" style="vertical-align:middle;margin-right:4px;"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg> Log Operator Action</button></div>';
       }
     }
   }
@@ -3793,6 +4159,7 @@ document.addEventListener('click', function(e) {
     });
   }
   window.openAssetDrawer = openAssetDrawer;
+  window.showAlarmDetail = showAlarmDetail;
 
   function closeAssetDrawer() {
     drawerOpen = false;

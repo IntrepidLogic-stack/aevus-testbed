@@ -3790,7 +3790,37 @@ document.addEventListener('click', function(e) {
   var _histData = [];
   var _histAutoRefresh = null;
 
+  function updateHistLiveValues() {
+    // Only update the live values table, not the selects or chart
+    var tbody = document.querySelector('#historian-page .ics-table tbody');
+    if (!tbody) return;
+    var metrics = [];
+    if (liveAssets && liveAssets.length) {
+      liveAssets.forEach(function(a) {
+        if (a.vitals) a.vitals.forEach(function(v) {
+          metrics.push({ asset: a.id, label: v.label, value: v.raw_value, unit: v.unit, status: v.status, group: v.group });
+        });
+      });
+    }
+    tbody.innerHTML = metrics.slice(0, 50).map(function(m) {
+      var sc = m.status==='good'?'var(--status-good)':m.status==='warning'||m.status==='warn'?'var(--status-warn)':m.status==='bad'||m.status==='critical'?'var(--status-bad)':'var(--text-muted)';
+      return '<tr>' +
+        '<td class="mono">' + m.asset + '</td>' +
+        '<td>' + m.label + '</td>' +
+        '<td class="mono" style="font-weight:600;">' + (m.value != null ? (typeof m.value==="number"?m.value.toFixed(1):m.value) : '—') + '</td>' +
+        '<td>' + (m.unit||'') + '</td>' +
+        '<td><span style="display:inline-block;width:6px;height:6px;border-radius:50%;background:'+sc+';margin-right:4px;"></span>' + (m.status||'—') + '</td>' +
+        '<td style="color:var(--text-muted);text-transform:capitalize;">' + (m.group||'—') + '</td>' +
+      '</tr>';
+    }).join('');
+  }
+
   function renderHistorianPage() {
+    // Skip full rebuild if already rendered (prevents select dropdown destruction)
+    if (document.getElementById("hist-asset")) {
+      updateHistLiveValues();
+      return;
+    }
     const page = document.getElementById('historian-page');
     if (!page) return;
     if (_histAutoRefresh) { clearInterval(_histAutoRefresh); _histAutoRefresh = null; }

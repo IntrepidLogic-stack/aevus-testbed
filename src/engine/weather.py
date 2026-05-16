@@ -101,6 +101,8 @@ class WeatherEngine:
                     is_daylight=d.get("is_daylight", True),
                     solar_production_factor=d.get("solar_production_factor", 0),
                     cloud_cover=d.get("cloud_cover", 50),
+                    ghi=d.get("ghi", 0.0),
+                    dni=d.get("dni", 0.0),
                     wind_dir=d.get("wind_dir", ""),
                     fetched_at=datetime.now(UTC),
                 )
@@ -123,6 +125,7 @@ class WeatherEngine:
                 "is_daylight": w.is_daylight,
                 "solar_production_factor": w.solar_production_factor,
                 "cloud_cover": w.cloud_cover, "wind_dir": w.wind_dir,
+                "ghi": w.ghi, "dni": w.dni,
             }))
         except Exception:
             pass
@@ -138,7 +141,7 @@ class WeatherEngine:
             f"https://api.open-meteo.com/v1/forecast?"
             f"latitude={lat}&longitude={lon}"
             f"&current=temperature_2m,wind_speed_10m,wind_gusts_10m,"
-            f"wind_direction_10m,cloud_cover,precipitation,weather_code"
+            f"wind_direction_10m,cloud_cover,precipitation,weather_code,shortwave_radiation,direct_radiation"
         )
 
         now = datetime.now(UTC)
@@ -169,6 +172,9 @@ class WeatherEngine:
             wind_dir_deg = current.get("wind_direction_10m", 0)
             wind_dir = COMPASS_DIRS[int((wind_dir_deg + 11.25) / 22.5) % 16]
             condition = WMO_CODES.get(weather_code, "unknown")
+            # Solar irradiance from Open-Meteo (W/m2)
+            ghi = current.get("shortwave_radiation", 0.0)  # Global Horizontal Irradiance
+            dni = current.get("direct_radiation", 0.0)      # Direct Normal Irradiance
 
         except Exception as e:
             self.log.error("weather_fetch_failed", error=str(e))
@@ -183,10 +189,16 @@ class WeatherEngine:
             precip_in = 0.0
             cloud_cover = 50
             wind_dir = ""
+            ghi = 0.0
+            dni = 0.0
 
         time_factor = _solar_factor_time(now, sunrise, sunset)
         weather_factor = WEATHER_SOLAR_FACTOR.get(condition, 0.5)
-        solar_production_factor = round(time_factor * weather_factor, 3)
+        # Use real GHI irradiance if available (1000 W/m2 = STC = factor 1.0)
+        if ghi > 0:
+            solar_production_factor = round(min(1.0, ghi / 1000.0), 3)
+        else:
+            solar_production_factor = round(time_factor * weather_factor, 3)
 
         weather = WeatherData(
             temp_f=round(temp_f, 1),
@@ -201,6 +213,8 @@ class WeatherEngine:
             solar_production_factor=solar_production_factor,
             cloud_cover=cloud_cover,
             wind_dir=wind_dir,
+            ghi=round(ghi, 1),
+            dni=round(dni, 1),
             fetched_at=now,
         )
 
@@ -208,5 +222,5 @@ class WeatherEngine:
         self._save_cache(weather)
         self.log.info("weather_updated",
                       temp_f=weather.temp_f, condition=condition,
-                      solar_factor=solar_production_factor)
+                      solar_factor=solar_production_factor, ghi=ghi)
         return weather

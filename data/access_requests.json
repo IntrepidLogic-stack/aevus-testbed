@@ -1,0 +1,42 @@
+[
+  {
+    "name": "Test Prospect",
+    "email": "prospect@energy-co.com",
+    "company": "Western Energy Partners",
+    "phone": "432-555-0199",
+    "role": "operator",
+    "reason": "Evaluating SCADA solutions for Permian Basin field operations",
+    "timestamp": "2026-05-12T22:51:46.123821+00:00",
+    "status": "denied",
+    "id": "0001",
+    "decided_at": "2026-05-12T23:13:28.435580+00:00",
+    "decided_by": "admin"
+  },
+  {
+    "name": "Dave Spencer",
+    "email": "woody@intrepidlogic.io",
+    "company": "Intrepid Logic",
+    "phone": "555-0100",
+    "role": "operator",
+    "reason": "Testing branded email",
+    "timestamp": "2026-05-12T22:54:09.782550+00:00",
+    "status": "approved",
+    "id": "0002",
+    "cognito_error": "An error occurred (UsernameExistsException) when calling the AdminCreateUser operation: User account already exists",
+    "decided_at": "2026-05-12T23:13:43.871595+00:00",
+    "decided_by": "admin"
+  },
+  {
+    "name": "Test",
+    "email": "test@test.com",
+    "company": "Test",
+    "phone": "",
+    "role": "viewer",
+    "reason": "test",
+    "timestamp": "2026-05-13T17:13:58.627020+00:00",
+    "status": "denied",
+    "id": "0003",
+    "decided_at": "2026-05-13T17:28:52.007500+00:00",
+    "decided_by": "woody@intrepidlogic.io"
+  }
+]

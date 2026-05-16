@@ -63,7 +63,7 @@ async def get_weather_forecast():
         f"&hourly=temperature_2m,wind_speed_10m,wind_gusts_10m,"
         f"precipitation_probability,precipitation,weather_code,"
         f"relative_humidity_2m,surface_pressure,visibility,"
-        f"uv_index,cloud_cover"
+        f"uv_index,cloud_cover,shortwave_radiation,direct_radiation"
         f"&daily=temperature_2m_max,temperature_2m_min,sunrise,sunset,"
         f"precipitation_sum,precipitation_probability_max,"
         f"wind_speed_10m_max,wind_gusts_10m_max,weather_code,"

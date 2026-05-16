@@ -1,0 +1,393 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>Aevus Loading Animation</title>
+<style>
+* { margin:0; padding:0; box-sizing:border-box; }
+html, body { width:1920px; height:1080px; overflow:hidden; }
+canvas { display:block; width:1920px; height:1080px; }
+</style>
+</head>
+<body>
+<canvas id="c" width="1920" height="1080"></canvas>
+<script>
+const C = document.getElementById('c');
+const X = C.getContext('2d');
+const W = 1920, H = 1080;
+const startTime = performance.now();
+
+// Colors
+const BG = '#0B1120';
+const CYAN = '#00D4FF';
+const BLUE = '#1490EB';
+const DBLUE = '#1560C0';
+const VDBLUE = '#0B2252';
+const PURPLE = '#6D5BD0';
+const LPURPLE = '#9B70F6';
+const MUTED = '#7B8499';
+
+// Easing functions
+function easeInOutCubic(t) { return t < 0.5 ? 4*t*t*t : 1-Math.pow(-2*t+2,3)/2; }
+function easeOutCubic(t) { return 1-Math.pow(1-t,3); }
+function clamp01(t) { return Math.max(0, Math.min(1, t)); }
+
+// Particles
+const particles = [];
+for (let i = 0; i < 14; i++) {
+  particles.push({
+    x: Math.random() * W,
+    y: Math.random() * H,
+    size: 1.5 + Math.random() * 2.5,
+    speed: 0.3 + Math.random() * 0.5,
+    phase: Math.random() * Math.PI * 2,
+    period: 2.5 + Math.random() * 1.5,
+    color: i % 3 === 0 ? PURPLE : i % 3 === 1 ? LPURPLE : CYAN
+  });
+}
+
+// Logo path data — simplified A shape
+function drawLogoPath(ctx, cx, cy, scale, progress, fillProgress) {
+  ctx.save();
+  ctx.translate(cx, cy);
+  ctx.scale(scale, scale);
+
+  // Left leg: M48,0 L2,95 L33,95 L48,42 Z
+  const leftPts = [[48,0],[2,95],[33,95],[48,42]];
+  // Right leg: M48,0 L96,64 L70,64 L48,42 Z
+  const rightPts = [[48,0],[96,64],[70,64],[48,42]];
+  // Bar: rect at 24,68 w68 h14 rx4
+  const barX=24, barY=68, barW=68, barH=14, barR=4;
+
+  // Create gradients
+  const g1 = ctx.createLinearGradient(-50, -50, -50, 50);
+  g1.addColorStop(0, CYAN);
+  g1.addColorStop(0.2, BLUE);
+  g1.addColorStop(0.5, DBLUE);
+  g1.addColorStop(1, VDBLUE);
+
+  const g2 = ctx.createLinearGradient(-28, 0, 42, 0);
+  g2.addColorStop(0, '#102A5C');
+  g2.addColorStop(0.45, PURPLE);
+  g2.addColorStop(1, LPURPLE);
+
+  // Draw left leg
+  const leftProg = clamp01((progress - 0.05) / 0.35);
+  if (leftProg > 0) {
+    drawPathProgress(ctx, leftPts, leftProg, fillProgress > 0.3 ? g1 : null, g1);
+  }
+
+  // Draw right leg
+  const rightProg = clamp01((progress - 0.15) / 0.3);
+  if (rightProg > 0) {
+    drawPathProgress(ctx, rightPts, rightProg, fillProgress > 0.3 ? g1 : null, g1);
+  }
+
+  // Draw bar
+  const barProg = clamp01((progress - 0.35) / 0.2);
+  if (barProg > 0) {
+    const bw = barW * barProg;
+    ctx.beginPath();
+    const bx = barX - 50, by = barY - 50;
+    roundRect(ctx, bx, by, bw, barH, barR);
+
+    if (fillProgress > 0.3) {
+      ctx.fillStyle = g2;
+      ctx.fill();
+      // Glow on bar
+      const glowPhase = (performance.now() - startTime) / 1000;
+      const glowAmt = Math.sin(glowPhase * 1.2) * 0.5 + 0.5;
+      ctx.shadowColor = PURPLE;
+      ctx.shadowBlur = 8 * glowAmt;
+      ctx.fill();
+      ctx.shadowBlur = 0;
+    } else {
+      ctx.strokeStyle = g2;
+      ctx.lineWidth = 2;
+      ctx.stroke();
+    }
+  }
+
+  ctx.restore();
+}
+
+function drawPathProgress(ctx, pts, progress, fill, stroke) {
+  ctx.beginPath();
+  const totalSegs = pts.length;
+  const drawn = progress * totalSegs;
+
+  for (let i = 0; i < Math.min(Math.ceil(drawn), totalSegs); i++) {
+    const p = pts[i];
+    const x = p[0] - 50, y = p[1] - 50;
+    if (i === 0) {
+      ctx.moveTo(x, y);
+    } else if (i < drawn) {
+      const prev = pts[i-1];
+      const px = prev[0]-50, py = prev[1]-50;
+      const frac = Math.min(1, drawn - i + 1);
+      ctx.lineTo(px + (x-px)*frac, py + (y-py)*frac);
+    }
+  }
+  if (progress >= 1) ctx.closePath();
+
+  if (fill && progress >= 1) {
+    ctx.fillStyle = fill;
+    ctx.fill();
+  } else {
+    ctx.strokeStyle = stroke;
+    ctx.lineWidth = 2;
+    ctx.stroke();
+  }
+}
+
+function roundRect(ctx, x, y, w, h, r) {
+  ctx.moveTo(x+r, y);
+  ctx.lineTo(x+w-r, y);
+  ctx.arcTo(x+w, y, x+w, y+r, r);
+  ctx.lineTo(x+w, y+h-r);
+  ctx.arcTo(x+w, y+h, x+w-r, y+h, r);
+  ctx.lineTo(x+r, y+h);
+  ctx.arcTo(x, y+h, x, y+h-r, r);
+  ctx.lineTo(x, y+r);
+  ctx.arcTo(x, y, x+r, y, r);
+}
+
+// Text rendering
+function drawGradientText(ctx, text, x, y, size, alpha) {
+  if (alpha <= 0) return;
+  ctx.save();
+  ctx.globalAlpha = alpha;
+  ctx.font = `700 ${size}px -apple-system, BlinkMacSystemFont, Inter, sans-serif`;
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+
+  const grad = ctx.createLinearGradient(x - 120, y, x + 120, y);
+  grad.addColorStop(0, CYAN);
+  grad.addColorStop(0.5, BLUE);
+  grad.addColorStop(1, PURPLE);
+  ctx.fillStyle = grad;
+  ctx.fillText(text, x, y);
+  ctx.restore();
+}
+
+// Rotating words
+const words = ['P R E D I C T', 'P R E V E N T', 'P E R F O R M'];
+const wordColors = [CYAN, PURPLE, LPURPLE];
+
+function drawRotatingWord(ctx, t, x, y) {
+  if (t < 2.1) return; // don't show until 2.1s
+  const alpha = clamp01((t - 2.1) / 0.5);
+  const cycleTime = 4.5; // seconds per full cycle
+  const wordTime = cycleTime / 3;
+  const elapsed = Math.max(0, t - 2.4);
+  const cycle = elapsed % cycleTime;
+
+  // Determine current and next word with transition
+  let idx, transProgress;
+  if (cycle < wordTime * 0.85) { idx = 0; transProgress = 0; }
+  else if (cycle < wordTime) { idx = 0; transProgress = (cycle - wordTime*0.85) / (wordTime*0.15); }
+  else if (cycle < wordTime * 1.85) { idx = 1; transProgress = 0; }
+  else if (cycle < wordTime * 2) { idx = 1; transProgress = (cycle - wordTime*1.85) / (wordTime*0.15); }
+  else if (cycle < wordTime * 2.85) { idx = 2; transProgress = 0; }
+  else { idx = 2; transProgress = (cycle - wordTime*2.85) / (wordTime*0.15); }
+
+  const nextIdx = (idx + 1) % 3;
+
+  ctx.save();
+  ctx.globalAlpha = alpha;
+  ctx.font = '600 13px -apple-system, BlinkMacSystemFont, Inter, sans-serif';
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.letterSpacing = '5px';
+
+  // Current word sliding up and fading
+  const slideOut = easeInOutCubic(transProgress);
+  ctx.globalAlpha = alpha * (1 - slideOut);
+  ctx.fillStyle = wordColors[idx];
+  ctx.fillText(words[idx], x, y - slideOut * 22);
+
+  // Next word sliding in from below
+  if (transProgress > 0) {
+    ctx.globalAlpha = alpha * slideOut;
+    ctx.fillStyle = wordColors[nextIdx];
+    ctx.fillText(words[nextIdx], x, y + (1-slideOut) * 22);
+  }
+
+  ctx.restore();
+}
+
+// Progress bar
+function drawProgressBar(ctx, t, cx, y) {
+  if (t < 2.3) return;
+  const alpha = clamp01((t - 2.3) / 0.4);
+  const barW = 200, barH = 4;
+  const x = cx - barW/2;
+
+  ctx.save();
+  ctx.globalAlpha = alpha;
+
+  // Track
+  ctx.fillStyle = 'rgba(148,163,184,0.06)';
+  ctx.beginPath();
+  roundRect(ctx, x, y, barW, barH, 2);
+  ctx.fill();
+
+  // Fill
+  const fillT = clamp01((t - 2.5) / 3);
+  const fillProg = easeOutCubic(fillT);
+  const fillW = barW * fillProg;
+
+  if (fillW > 0) {
+    const grad = ctx.createLinearGradient(x, y, x + barW, y);
+    grad.addColorStop(0, BLUE);
+    grad.addColorStop(0.5, PURPLE);
+    grad.addColorStop(1, LPURPLE);
+    ctx.fillStyle = grad;
+    ctx.beginPath();
+    roundRect(ctx, x, y, fillW, barH, 2);
+    ctx.fill();
+
+    // Glow at tip
+    if (fillProg < 1) {
+      const gx = x + fillW;
+      const grd = ctx.createRadialGradient(gx, y+barH/2, 0, gx, y+barH/2, 15);
+      grd.addColorStop(0, 'rgba(14,165,233,0.5)');
+      grd.addColorStop(1, 'transparent');
+      ctx.fillStyle = grd;
+      ctx.fillRect(gx-15, y-10, 30, barH+20);
+    }
+  }
+
+  ctx.restore();
+}
+
+// Status text
+function drawStatus(ctx, t, x, y) {
+  if (t < 2.5) return;
+  const alpha = clamp01((t - 2.5) / 0.4);
+  const pulseAlpha = 0.5 + 0.5 * Math.sin((t - 2.5) * 2);
+
+  ctx.save();
+  ctx.globalAlpha = alpha * pulseAlpha;
+  ctx.font = '400 12px -apple-system, BlinkMacSystemFont, Inter, sans-serif';
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillStyle = MUTED;
+  ctx.letterSpacing = '1.5px';
+  ctx.fillText('LOADING', x, y);
+  ctx.restore();
+}
+
+// Scanline
+function drawScanline(ctx, t) {
+  const period = 4;
+  const phase = ((t - 1) % period) / period;
+  if (phase < 0) return;
+  const y = phase * H;
+  const alpha = phase < 0.1 ? phase/0.1 : phase > 0.9 ? (1-phase)/0.1 : 1;
+
+  ctx.save();
+  ctx.globalAlpha = 0.06 * alpha;
+  const grad = ctx.createLinearGradient(0, y, W, y);
+  grad.addColorStop(0, 'transparent');
+  grad.addColorStop(0.5, BLUE);
+  grad.addColorStop(1, 'transparent');
+  ctx.fillStyle = grad;
+  ctx.fillRect(0, y-1, W, 2);
+  ctx.restore();
+}
+
+// Main render loop
+function render() {
+  const t = (performance.now() - startTime) / 1000;
+
+  // Background
+  X.fillStyle = BG;
+  X.fillRect(0, 0, W, H);
+
+  // Radial glow
+  const grd = X.createRadialGradient(W/2, H*0.42, 0, W/2, H*0.42, 450);
+  grd.addColorStop(0, 'rgba(14,165,233,0.1)');
+  grd.addColorStop(1, 'transparent');
+  X.fillStyle = grd;
+  X.fillRect(0, 0, W, H);
+
+  // Particles
+  for (const p of particles) {
+    const phase = (t * (Math.PI*2) / p.period) + p.phase;
+    const yOff = Math.sin(phase) * 30;
+    const alpha = (Math.sin(phase) * 0.5 + 0.5) * 0.6;
+    X.save();
+    X.globalAlpha = alpha;
+    X.fillStyle = p.color;
+    X.beginPath();
+    X.arc(p.x, p.y + yOff, p.size, 0, Math.PI*2);
+    X.fill();
+    X.restore();
+  }
+
+  // Scanline
+  drawScanline(X, t);
+
+  // Logo
+  const logoProgress = clamp01(t / 1.6);
+  const fillProgress = clamp01((t - 1.6) / 0.6);
+  drawLogoPath(X, W/2, H*0.38, 1.4, logoProgress, fillProgress);
+
+  // Drop shadow on logo after fill
+  if (fillProgress > 0.5) {
+    X.save();
+    X.shadowColor = 'rgba(14,165,233,0.35)';
+    X.shadowBlur = 30;
+    // Re-draw filled logo with shadow
+    X.globalAlpha = fillProgress * 0.5;
+    drawLogoPath(X, W/2, H*0.38, 1.4, 1, 1);
+    X.restore();
+  }
+
+  // AEVUS text
+  const textAlpha = clamp01((t - 1.8) / 0.7);
+  drawGradientText(X, 'A E V U S', W/2, H*0.54, 48, textAlpha);
+
+  // Rotating words
+  drawRotatingWord(X, t, W/2, H*0.595);
+
+  // Progress bar
+  drawProgressBar(X, t, W/2, H*0.645);
+
+  // Status
+  drawStatus(X, t, W/2, H*0.69);
+
+  requestAnimationFrame(render);
+}
+
+render();
+
+// Auto-record: capture canvas stream and download as webm
+(function autoRecord() {
+  const stream = C.captureStream(30);
+  const recorder = new MediaRecorder(stream, {
+    mimeType: 'video/webm;codecs=vp8',
+    videoBitsPerSecond: 20000000
+  });
+  const chunks = [];
+  recorder.ondataavailable = e => { if (e.data.size > 0) chunks.push(e.data); };
+  recorder.onstop = () => {
+    const blob = new Blob(chunks, { type: 'video/webm' });
+    const url = URL.createObjectURL(blob);
+    window._videoBlob = blob;
+    window._videoUrl = url;
+    console.log('RECORDING_DONE: ' + blob.size + ' bytes, chunks: ' + chunks.length);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'aevus-loading-1920x1080.webm';
+    a.click();
+  };
+
+  recorder.start(200);
+  setTimeout(() => recorder.stop(), 13000);
+  console.log('Recording started... will stop in 12s');
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,20 @@
+{
+  "name": "Aevus SCADA Console",
+  "short_name": "Aevus",
+  "description": "AI-Enhanced SCADA Intelligence Platform",
+  "start_url": "/dashboard/Aevus_Console.html",
+  "display": "standalone",
+  "background_color": "#070B16",
+  "theme_color": "#06B6D4",
+  "orientation": "any",
+  "categories": ["business", "utilities"],
+  "icons": [
+    {"src": "/dashboard/icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any maskable"},
+    {"src": "/dashboard/icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any maskable"}
+  ],
+  "screenshots": [],
+  "shortcuts": [
+    {"name": "Alarms", "url": "/dashboard/Aevus_Console.html#alarms", "description": "View active alarms"},
+    {"name": "Health", "url": "/dashboard/Aevus_Console.html#health", "description": "Fleet health scores"}
+  ]
+}

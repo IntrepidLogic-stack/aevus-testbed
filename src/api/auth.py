@@ -91,8 +91,18 @@ class APIKeyMiddleware(BaseHTTPMiddleware):
                      "/api/v1/notes", "/api/v1/journal", "/api/v1/auth/config"):
             return await call_next(request)
 
+        # Allow unauthenticated access request submissions (POST only) and auth config
+        if path == "/api/v1/access-requests" and request.method == "POST":
+            return await call_next(request)
+
         # Skip if no API key configured (dev mode)
         if not settings.api_key:
+            return await call_next(request)
+
+        # Demo mode: allow read-only API access for demo sessions
+        referer = request.headers.get("referer", "")
+        demo_header = request.headers.get("x-aevus-demo", "")
+        if ("demo=true" in referer or demo_header == "true") and (request.method == "GET" or path.startswith("/api/v1/ai/")):
             return await call_next(request)
 
         # 1. Check session cookie

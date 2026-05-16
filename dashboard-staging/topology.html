@@ -1,0 +1,1105 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Aevus — Network Topology</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg-app: #0B1020;
+  --bg-canvas: #0F1629;
+  --bg-card: #161E33;
+  --bg-elevated: #1E2742;
+  --border-subtle: rgba(255,255,255,0.06);
+  --border-default: rgba(255,255,255,0.10);
+  --border-strong: rgba(6,182,212,0.30);
+  --accent: #06B6D4;
+  --accent-bright: #22D3EE;
+  --accent-dim: #0E7490;
+  --accent-glow: rgba(6,182,212,0.18);
+  --text-primary: #FFFFFF;
+  --text-secondary: #B4BCD0;
+  --text-muted: #7B8499;
+  --text-faint: #4A5168;
+  --status-good: #10D478;
+  --status-good-tint: rgba(16,212,120,0.16);
+  --status-warn: #FBBF24;
+  --status-warn-tint: rgba(251,191,36,0.16);
+  --status-bad: #EF4444;
+  --status-bad-tint: rgba(239,68,68,0.16);
+  --status-info: #60A5FA;
+  --status-unknown: #A78BFA;
+  --status-offline: #6B7280;
+  --font: 'Manrope', system-ui, sans-serif;
+  --font-mono: 'JetBrains Mono', ui-monospace, monospace;
+  --radius-sm: 6px;
+  --radius-md: 10px;
+  --radius-lg: 14px;
+}
+
+* { margin: 0; padding: 0; box-sizing: border-box; }
+html, body { height: 100%; }
+body {
+  font-family: var(--font);
+  background: var(--bg-canvas);
+  color: var(--text-primary);
+  font-size: 14px;
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* ── HEADER ── */
+.header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 32px;
+  background: var(--bg-app);
+  border-bottom: 1px solid var(--border-default);
+}
+.header-left {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.header-logo {
+  width: 28px; height: 28px;
+}
+.header-title {
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--accent-bright);
+  letter-spacing: -0.3px;
+}
+.header-subtitle {
+  font-size: 13px;
+  color: var(--text-muted);
+  margin-left: 8px;
+}
+.header-right {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+.status-badge {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 12px;
+  border-radius: 20px;
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+.status-badge.online { background: var(--status-good-tint); color: var(--status-good); }
+.status-badge.partial { background: var(--status-warn-tint); color: var(--status-warn); }
+.status-badge .dot {
+  width: 6px; height: 6px;
+  border-radius: 50%;
+  background: currentColor;
+  animation: pulse 2s ease-in-out infinite;
+}
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.4; }
+}
+
+/* ── SUMMARY BAR ── */
+.summary-bar {
+  display: flex;
+  gap: 16px;
+  padding: 20px 32px;
+  background: var(--bg-app);
+  border-bottom: 1px solid var(--border-subtle);
+  overflow-x: auto;
+}
+.summary-card {
+  flex: 1;
+  min-width: 140px;
+  background: var(--bg-card);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  padding: 14px 16px;
+}
+.summary-card .label {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-bottom: 4px;
+}
+.summary-card .value {
+  font-family: var(--font-mono);
+  font-size: 24px;
+  font-weight: 700;
+}
+.summary-card .sub {
+  font-size: 11px;
+  color: var(--text-muted);
+  margin-top: 2px;
+}
+
+/* ── TOPOLOGY CANVAS ── */
+.topology-container {
+  padding: 24px 32px;
+  display: flex;
+  gap: 24px;
+}
+.topology-canvas {
+  flex: 1;
+  min-height: 600px;
+  position: relative;
+}
+
+/* ── SVG CONNECTIONS ── */
+.connections-svg {
+  position: absolute;
+  top: 0; left: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  z-index: 0;
+}
+
+/* ── DEVICE NODES ── */
+.device-node {
+  position: absolute;
+  background: var(--bg-card);
+  border: 1.5px solid var(--border-default);
+  border-radius: var(--radius-md);
+  padding: 14px 18px;
+  min-width: 180px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  z-index: 1;
+}
+.device-node:hover {
+  border-color: var(--accent);
+  box-shadow: 0 0 20px var(--accent-glow);
+  transform: translateY(-2px);
+}
+.device-node.selected {
+  border-color: var(--accent-bright);
+  box-shadow: 0 0 24px var(--accent-glow);
+}
+.device-node .node-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 6px;
+}
+.device-node .node-icon {
+  width: 20px; height: 20px;
+  flex-shrink: 0;
+}
+.device-node .node-name {
+  font-size: 13px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+.device-node .node-ip {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  color: var(--accent);
+  margin-bottom: 4px;
+}
+.device-node .node-role {
+  font-size: 11px;
+  color: var(--text-muted);
+}
+.device-node .node-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  margin-top: 6px;
+  padding: 2px 8px;
+  border-radius: 10px;
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+}
+.node-status.online { background: var(--status-good-tint); color: var(--status-good); }
+.node-status.link-up { background: var(--status-warn-tint); color: var(--status-warn); }
+.node-status.offline { background: var(--status-bad-tint); color: var(--status-bad); }
+.node-status.unknown { background: rgba(167,139,250,0.16); color: var(--status-unknown); }
+.node-status .sdot {
+  width: 5px; height: 5px;
+  border-radius: 50%;
+  background: currentColor;
+}
+
+/* Port labels on connections */
+.port-tag {
+  position: absolute;
+  font-family: var(--font-mono);
+  font-size: 9px;
+  color: var(--text-muted);
+  background: var(--bg-app);
+  padding: 1px 5px;
+  border-radius: 3px;
+  border: 1px solid var(--border-subtle);
+  white-space: nowrap;
+  z-index: 2;
+  pointer-events: none;
+}
+
+/* ── DETAIL PANEL ── */
+.detail-panel {
+  width: 320px;
+  flex-shrink: 0;
+  background: var(--bg-card);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-lg);
+  padding: 20px;
+  height: fit-content;
+  position: sticky;
+  top: 24px;
+  transition: opacity 0.2s;
+}
+.detail-panel.empty {
+  opacity: 0.5;
+}
+.detail-panel .panel-title {
+  font-size: 15px;
+  font-weight: 700;
+  margin-bottom: 4px;
+}
+.detail-panel .panel-role {
+  font-size: 12px;
+  color: var(--text-muted);
+  margin-bottom: 16px;
+}
+.detail-section {
+  margin-bottom: 16px;
+}
+.detail-section .section-label {
+  font-size: 10px;
+  font-weight: 700;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.6px;
+  margin-bottom: 8px;
+}
+.detail-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 6px 0;
+  border-bottom: 1px solid var(--border-subtle);
+}
+.detail-row:last-child { border-bottom: none; }
+.detail-row .key {
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+.detail-row .val {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  color: var(--text-primary);
+}
+.detail-row .val.accent { color: var(--accent); }
+
+.port-list {
+  list-style: none;
+}
+.port-list li {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 5px 0;
+  font-size: 12px;
+  border-bottom: 1px solid var(--border-subtle);
+}
+.port-list li:last-child { border-bottom: none; }
+.port-list .port-name {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--accent);
+  min-width: 60px;
+}
+.port-list .port-dest {
+  color: var(--text-secondary);
+  font-size: 11px;
+}
+.port-list .port-status-dot {
+  width: 6px; height: 6px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+/* ── LEGEND ── */
+.legend {
+  display: flex;
+  gap: 20px;
+  padding: 12px 32px;
+  background: var(--bg-app);
+  border-top: 1px solid var(--border-subtle);
+  font-size: 11px;
+  color: var(--text-muted);
+}
+.legend-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.legend-line {
+  width: 30px;
+  height: 2px;
+}
+.legend-line.solid { background: var(--text-muted); }
+.legend-line.dashed {
+  background: repeating-linear-gradient(90deg, var(--text-muted) 0 6px, transparent 6px 10px);
+}
+.legend-line.serial {
+  background: repeating-linear-gradient(90deg, #808090 0 3px, transparent 3px 6px);
+}
+</style>
+</head>
+<body>
+
+<!-- HEADER -->
+<div class="header">
+  <div class="header-left">
+    <svg class="header-logo" viewBox="0 0 28 28" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <circle cx="14" cy="14" r="13" stroke="#06B6D4" stroke-width="1.8" fill="none"/>
+      <path d="M14 5 L22 22 H6 Z" stroke="#06B6D4" stroke-width="1.8" fill="none" stroke-linejoin="round"/>
+      <circle cx="14" cy="16" r="2.5" stroke="#06B6D4" stroke-width="1.8" fill="none"/>
+    </svg>
+    <span class="header-title">Aevus</span>
+    <span class="header-subtitle">Network Topology</span>
+  </div>
+  <div class="header-right">
+    <div class="status-badge partial">
+      <span class="dot"></span>
+      Lab Testbed — Partial
+    </div>
+    <span id="wsStatus" style="font-family:var(--font-mono);font-size:10px;color:var(--status-warn)">WS: CONNECTING</span>
+    <span id="lastUpdateTime" style="font-family:var(--font-mono);font-size:10px;color:var(--text-muted)">Last update: —</span>
+    <span style="font-size:12px;color:var(--text-muted)">Katy, TX</span>
+  </div>
+</div>
+
+<!-- SUMMARY BAR -->
+<div class="summary-bar">
+  <div class="summary-card">
+    <div class="label">Total Devices</div>
+    <div class="value" style="color:var(--text-primary)">8</div>
+    <div class="sub">Lab Cabinet</div>
+  </div>
+  <div class="summary-card">
+    <div class="label">Online</div>
+    <div class="value" style="color:var(--status-good)" id="count-online">4</div>
+    <div class="sub">Live from API</div>
+  </div>
+  <div class="summary-card">
+    <div class="label">Link Up</div>
+    <div class="value" style="color:var(--status-warn)" id="count-linkup">1</div>
+    <div class="sub">L2 only, no IP</div>
+  </div>
+  <div class="summary-card">
+    <div class="label">Offline</div>
+    <div class="value" style="color:var(--status-bad)" id="count-offline">2</div>
+    <div class="sub">No response</div>
+  </div>
+  <div class="summary-card">
+    <div class="label">Unknown</div>
+    <div class="value" style="color:var(--status-unknown)" id="count-unknown">1</div>
+    <div class="sub">No visibility</div>
+  </div>
+</div>
+
+<!-- TOPOLOGY + DETAIL -->
+<div class="topology-container">
+  <div class="topology-canvas" id="canvas">
+
+    <!-- SVG CONNECTION LINES -->
+    <svg class="connections-svg" id="connSvg"></svg>
+
+    <!-- INTERNET -->
+    <div class="device-node" id="node-internet" style="left:360px;top:0px;min-width:160px;" data-device="internet">
+      <div class="node-header">
+        <svg class="node-icon" viewBox="0 0 20 20" fill="none" stroke="#808090" stroke-width="1.8"><circle cx="10" cy="10" r="8"/><ellipse cx="10" cy="10" rx="4" ry="8"/><line x1="2" y1="10" x2="18" y2="10"/></svg>
+        <span class="node-name" style="color:#B4BCD0">Internet</span>
+      </div>
+      <div class="node-role">Spectrum Cable Modem</div>
+    </div>
+
+    <!-- EC2 -->
+    <div class="device-node" id="node-ec2" style="left:620px;top:0px;min-width:160px;" data-device="ec2">
+      <div class="node-header">
+        <svg class="node-icon" viewBox="0 0 20 20" fill="none" stroke="#60A5FA" stroke-width="1.8"><rect x="3" y="6" width="14" height="9" rx="2"/><line x1="7" y1="3" x2="7" y2="6"/><line x1="13" y1="3" x2="13" y2="6"/><line x1="5" y1="3" x2="15" y2="3"/></svg>
+        <span class="node-name" style="color:#60A5FA">EC2</span>
+      </div>
+      <div class="node-ip">10.99.0.1</div>
+      <div class="node-role">AWS Cloud (WireGuard)</div>
+      <div class="node-status online"><span class="sdot"></span>Online</div>
+    </div>
+
+    <!-- MIKROTIK -->
+    <div class="device-node" id="node-mikrotik" style="left:360px;top:110px;" data-device="mikrotik">
+      <div class="node-header">
+        <svg class="node-icon" viewBox="0 0 20 20" fill="none" stroke="#00d4aa" stroke-width="1.8"><rect x="2" y="7" width="16" height="6" rx="1.5"/><circle cx="5" cy="10" r="1"/><circle cx="8" cy="10" r="1"/><line x1="12" y1="9" x2="16" y2="9"/><line x1="12" y1="11" x2="16" y2="11"/></svg>
+        <span class="node-name">MikroTik L009</span>
+      </div>
+      <div class="node-ip">192.168.88.1</div>
+      <div class="node-role">Router / WAN / WireGuard / DHCP</div>
+      <div class="node-status online"><span class="sdot"></span>Online</div>
+    </div>
+
+    <!-- SHOP-01 -->
+    <div class="device-node" id="node-shop01" style="left:40px;top:240px;" data-device="shop01">
+      <div class="node-header">
+        <svg class="node-icon" viewBox="0 0 20 20" fill="none" stroke="#ff6b6b" stroke-width="1.8"><rect x="3" y="3" width="14" height="10" rx="1.5"/><line x1="7" y1="16" x2="13" y2="16"/><line x1="10" y1="13" x2="10" y2="16"/></svg>
+        <span class="node-name">SHOP-01</span>
+      </div>
+      <div class="node-ip">192.168.88.253</div>
+      <div class="node-role">Windows PC / RustDesk / PuTTY</div>
+      <div class="node-status online"><span class="sdot"></span>Online</div>
+    </div>
+
+    <!-- CATALYST 2960 -->
+    <div class="device-node" id="node-catalyst" style="left:370px;top:240px;" data-device="catalyst">
+      <div class="node-header">
+        <svg class="node-icon" viewBox="0 0 20 20" fill="none" stroke="#4a9eff" stroke-width="1.8"><rect x="2" y="8" width="16" height="5" rx="1"/><line x1="4" y1="10.5" x2="6" y2="10.5"/><line x1="7" y1="10.5" x2="9" y2="10.5"/><line x1="10" y1="10.5" x2="12" y2="10.5"/><line x1="13" y1="10.5" x2="15" y2="10.5"/><line x1="16" y1="10.5" x2="18" y2="10.5"/></svg>
+        <span class="node-name">Cisco Catalyst 2960</span>
+      </div>
+      <div class="node-ip">192.168.88.2</div>
+      <div class="node-role">L2 Switch — WS-C2960-24TC-L</div>
+      <div class="node-status online"><span class="sdot"></span>Online</div>
+    </div>
+
+    <!-- TRIO #1 -->
+    <div class="device-node" id="node-trio1" style="left:40px;top:400px;" data-device="trio1">
+      <div class="node-header">
+        <svg class="node-icon" viewBox="0 0 20 20" fill="none" stroke="#ffd93d" stroke-width="1.8"><path d="M10 3 L10 8"/><path d="M6 8 L14 8 L16 14 H4 Z"/><line x1="4" y1="17" x2="16" y2="17"/><line x1="10" y1="14" x2="10" y2="17"/></svg>
+        <span class="node-name">Trio JR900 #1</span>
+      </div>
+      <div class="node-ip">192.168.88.11</div>
+      <div class="node-role">Radio — RAD-01</div>
+      <div class="node-status link-up"><span class="sdot"></span>Link Up</div>
+    </div>
+
+    <!-- TRIO #2 -->
+    <div class="device-node" id="node-trio2" style="left:120px;top:510px;" data-device="trio2">
+      <div class="node-header">
+        <svg class="node-icon" viewBox="0 0 20 20" fill="none" stroke="#ffd93d" stroke-width="1.8"><path d="M10 3 L10 8"/><path d="M6 8 L14 8 L16 14 H4 Z"/><line x1="4" y1="17" x2="16" y2="17"/><line x1="10" y1="14" x2="10" y2="17"/></svg>
+        <span class="node-name">Trio JR900 #2</span>
+      </div>
+      <div class="node-ip">192.168.88.12</div>
+      <div class="node-role">Radio — RAD-02</div>
+      <div class="node-status offline"><span class="sdot"></span>No Link</div>
+    </div>
+
+    <!-- SCADAPACK -->
+    <div class="device-node" id="node-scadapack" style="left:340px;top:510px;" data-device="scadapack">
+      <div class="node-header">
+        <svg class="node-icon" viewBox="0 0 20 20" fill="none" stroke="#ff8c42" stroke-width="1.8"><rect x="4" y="3" width="12" height="14" rx="1.5"/><line x1="7" y1="6" x2="13" y2="6"/><line x1="7" y1="9" x2="13" y2="9"/><circle cx="10" cy="13" r="1.5"/></svg>
+        <span class="node-name">SCADAPack 470</span>
+      </div>
+      <div class="node-ip">192.168.88.21</div>
+      <div class="node-role">RTU — RTU-01</div>
+      <div class="node-status offline"><span class="sdot"></span>No Response</div>
+    </div>
+
+    <!-- UPLOGIX -->
+    <div class="device-node" id="node-uplogix" style="left:560px;top:510px;" data-device="uplogix">
+      <div class="node-header">
+        <svg class="node-icon" viewBox="0 0 20 20" fill="none" stroke="#c084fc" stroke-width="1.8"><rect x="3" y="5" width="14" height="10" rx="1.5"/><line x1="6" y1="8" x2="14" y2="8"/><line x1="6" y1="11" x2="10" y2="11"/><circle cx="14" cy="12" r="1"/></svg>
+        <span class="node-name">Uplogix 5000</span>
+      </div>
+      <div class="node-ip">192.168.88.5</div>
+      <div class="node-role">OOB Management</div>
+      <div class="node-status unknown"><span class="sdot"></span>Unknown</div>
+    </div>
+
+    <!-- RASPBERRY PI -->
+    <div class="device-node" id="node-pi" style="left:740px;top:400px;" data-device="pi">
+      <div class="node-header">
+        <svg class="node-icon" viewBox="0 0 20 20" fill="none" stroke="#34d399" stroke-width="1.8"><rect x="4" y="5" width="12" height="10" rx="1.5"/><line x1="2" y1="8" x2="4" y2="8"/><line x1="2" y1="12" x2="4" y2="12"/><line x1="16" y1="8" x2="18" y2="8"/><line x1="16" y1="12" x2="18" y2="12"/><circle cx="10" cy="10" r="2"/></svg>
+        <span class="node-name">Raspberry Pi</span>
+      </div>
+      <div class="node-ip">192.168.88.254</div>
+      <div class="node-role">Edge Collector</div>
+      <div class="node-status online"><span class="sdot"></span>Online</div>
+    </div>
+
+    <!-- PORT TAGS -->
+    <div class="port-tag" id="pt-mt-wan" style="left:425px;top:72px;">ether1 — DO NOT TOUCH</div>
+    <div class="port-tag" id="pt-mt-wg" style="left:555px;top:62px;">WireGuard Tunnel</div>
+    <div class="port-tag" id="pt-mt-e3" style="left:200px;top:178px;">MikroTik ether3 → NIC</div>
+    <div class="port-tag" id="pt-mt-e4" style="left:130px;top:330px;">MikroTik ether4 → ETH</div>
+    <div class="port-tag" id="pt-mt-e5" style="left:345px;top:195px;">ether5 → Gi0/1</div>
+    <div class="port-tag" id="pt-cat-console" style="left:220px;top:268px;">CONSOLE (RJ45) → COM6</div>
+    <div class="port-tag" id="pt-cat-fa1" style="left:230px;top:445px;">Catalyst Fa0/1 → ETH</div>
+    <div class="port-tag" id="pt-cat-fa2" style="left:390px;top:420px;">Catalyst Fa0/2 → ETH1</div>
+    <div class="port-tag" id="pt-cat-fa3" style="left:555px;top:420px;">Catalyst Fa0/3 → MGMT</div>
+    <div class="port-tag" id="pt-cat-fa4" style="left:680px;top:350px;">Catalyst Fa0/4 → ETH0</div>
+    <div class="port-tag" id="pt-upx-serial" style="left:430px;top:590px;">Uplogix Serial 1 → Catalyst CONSOLE</div>
+  </div>
+
+  <!-- DETAIL PANEL -->
+  <div class="detail-panel empty" id="detailPanel">
+    <div class="panel-title" id="panelTitle">Select a device</div>
+    <div class="panel-role" id="panelRole">Click any device node to view details</div>
+    <div id="panelBody"></div>
+  </div>
+</div>
+
+<!-- LEGEND -->
+<div class="legend">
+  <div class="legend-item">
+    <div class="legend-line solid"></div>
+    <span>Existing connection</span>
+  </div>
+  <div class="legend-item">
+    <div class="legend-line dashed"></div>
+    <span>Plug in during site visit</span>
+  </div>
+  <div class="legend-item">
+    <div class="legend-line serial"></div>
+    <span>Serial / Console</span>
+  </div>
+</div>
+
+<script>
+// ── API CONFIG ──
+const API_KEY = '8U7_JghqHK-nmG5bDwUx5w-A9uFg8F7tiVmvR9WJDyY';
+const API_BASE = '/api/v1';
+const POLL_INTERVAL = 30000; // 30 seconds
+let lastUpdate = null;
+let wsConnected = false;
+
+// ── ASSET ID → TOPOLOGY NODE MAPPING ──
+const assetToNode = {
+  'RAD-01': 'trio1',
+  'RAD-02': 'trio2',
+  'RTR-01': 'mikrotik',
+  'RTU-01': 'scadapack',
+  'SW-01':  'catalyst',
+  'EDGE-01': 'pi'
+};
+
+// ── API STATUS → TOPOLOGY STATUS MAPPING ──
+function mapApiStatus(apiStatus) {
+  const map = { good: 'online', warn: 'link-up', bad: 'offline', unknown: 'unknown', offline: 'offline' };
+  return map[apiStatus] || 'unknown';
+}
+
+// ── DEVICE DATA (static baseline, updated by API) ──
+const devices = {
+  internet: {
+    name: 'Internet',
+    role: 'Spectrum Cable Modem',
+    status: 'online',
+    apiId: null,
+    details: [
+      { key: 'Provider', val: 'Spectrum' },
+      { key: 'Type', val: 'Cable Modem' },
+      { key: 'Connection', val: 'DHCP to MikroTik ether1' }
+    ],
+    ports: []
+  },
+  ec2: {
+    name: 'EC2 Cloud',
+    role: 'AWS us-east-1',
+    status: 'online',
+    apiId: null,
+    details: [
+      { key: 'IP', val: '54.211.59.53' },
+      { key: 'Tunnel IP', val: '10.99.0.1' },
+      { key: 'Services', val: 'InfluxDB, FastAPI, Nginx' },
+      { key: 'Tunnel', val: 'WireGuard (wg-aevus)' }
+    ],
+    ports: []
+  },
+  mikrotik: {
+    name: 'MikroTik L009',
+    role: 'Router / WAN Edge / WireGuard',
+    status: 'online',
+    apiId: 'RTR-01',
+    details: [
+      { key: 'Model', val: 'L009UiGS-2HaxD-IN' },
+      { key: 'IP', val: '192.168.88.1' },
+      { key: 'MAC', val: '78:9A:18:B9:B8:4C' },
+      { key: 'SNMP', val: 'aevus_ro (v2c)' },
+      { key: 'WireGuard', val: '10.99.0.2' }
+    ],
+    ports: [
+      { name: 'ether1', dest: 'WAN (Cable Modem)', status: 'good', note: 'DO NOT TOUCH' },
+      { name: 'ether3', dest: 'SHOP-01 NIC', status: 'good' },
+      { name: 'ether4', dest: 'Trio JR900 #1 ETH', status: 'warn' },
+      { name: 'ether5', dest: 'Catalyst 2960 Gi0/1', status: 'good' },
+      { name: 'ether6', dest: '(available)', status: 'off' },
+      { name: 'ether7', dest: '(available)', status: 'off' },
+      { name: 'ether8', dest: '(available)', status: 'off' }
+    ]
+  },
+  shop01: {
+    name: 'SHOP-01',
+    role: 'Windows PC — Configuration Station',
+    status: 'online',
+    apiId: null,
+    details: [
+      { key: 'IP', val: '192.168.88.253' },
+      { key: 'MAC', val: '84:47:09:42:40:EC' },
+      { key: 'OS', val: 'Windows' },
+      { key: 'Remote', val: 'RustDesk' },
+      { key: 'Tools', val: 'PuTTY, WinBox, curl' }
+    ],
+    ports: [
+      { name: 'NIC', dest: 'MikroTik ether3', status: 'good' },
+      { name: 'COM6', dest: 'Catalyst CONSOLE (RJ45)', status: 'good', note: 'USB-to-RJ45' }
+    ]
+  },
+  catalyst: {
+    name: 'Cisco Catalyst 2960',
+    role: 'L2 Switch — WS-C2960-24TC-L',
+    status: 'online',
+    apiId: 'SW-01',
+    details: [
+      { key: 'IP', val: '192.168.88.2 (pending)' },
+      { key: 'MAC', val: '68:BD:AB:61:AA:00' },
+      { key: 'IOS', val: '15.0(2)SE11' },
+      { key: 'Serial', val: 'FOC1434Y0HP' },
+      { key: 'Enable PW', val: 'UNKNOWN — needs recovery' },
+      { key: 'SNMP', val: 'Not yet configured' }
+    ],
+    ports: [
+      { name: 'Gi0/1', dest: 'MikroTik ether5 (uplink)', status: 'good' },
+      { name: 'Fa0/1', dest: 'Trio JR900 #2 ETH', status: 'off', note: 'PLUG IN' },
+      { name: 'Fa0/2', dest: 'SCADAPack 470 ETH1', status: 'off', note: 'PLUG IN' },
+      { name: 'Fa0/3', dest: 'Uplogix 5000 MGMT', status: 'off', note: 'PLUG IN' },
+      { name: 'Fa0/4', dest: 'Raspberry Pi ETH0', status: 'good' },
+      { name: 'Fa0/5-24', dest: '(available)', status: 'off' },
+      { name: 'Gi0/2', dest: '(available)', status: 'off' },
+      { name: 'CONSOLE', dest: 'SHOP-01 COM6 (USB-RJ45)', status: 'good' }
+    ]
+  },
+  trio1: {
+    name: 'Trio JR900 #1',
+    role: 'Radio — RAD-01',
+    status: 'link-up',
+    apiId: 'RAD-01',
+    details: [
+      { key: 'IP', val: '192.168.88.11 (pending)' },
+      { key: 'MAC', val: '00:1F:EB:00:75:6F' },
+      { key: 'Protocol', val: 'SNMP v2c' },
+      { key: 'Community', val: 'aevus_ro (pending)' },
+      { key: 'Config', val: 'Needs serial console' }
+    ],
+    ports: [
+      { name: 'ETH', dest: 'MikroTik ether4', status: 'warn' },
+      { name: 'Serial', dest: '(for config via USB-DB9)', status: 'off' }
+    ]
+  },
+  trio2: {
+    name: 'Trio JR900 #2',
+    role: 'Radio — RAD-02',
+    status: 'offline',
+    apiId: 'RAD-02',
+    details: [
+      { key: 'IP', val: '192.168.88.12 (pending)' },
+      { key: 'MAC', val: 'TBD' },
+      { key: 'Protocol', val: 'SNMP v2c' },
+      { key: 'Status', val: 'Not powered on' }
+    ],
+    ports: [
+      { name: 'ETH', dest: 'Catalyst Fa0/1', status: 'off', note: 'PLUG IN' },
+      { name: 'Serial', dest: '(for config via USB-DB9)', status: 'off' }
+    ]
+  },
+  scadapack: {
+    name: 'SCADAPack 470',
+    role: 'RTU — RTU-01 (Schneider Electric)',
+    status: 'offline',
+    apiId: 'RTU-01',
+    details: [
+      { key: 'IP (old)', val: '192.168.1.201' },
+      { key: 'IP (target)', val: '192.168.88.21' },
+      { key: 'Serial', val: '410021' },
+      { key: 'Protocols', val: 'Modbus TCP :502, DNP3 :20000' },
+      { key: 'Status', val: 'Powered off' }
+    ],
+    ports: [
+      { name: 'ETH1', dest: 'Catalyst Fa0/2', status: 'off', note: 'PLUG IN' },
+      { name: 'Serial', dest: '(for config backup)', status: 'off' }
+    ]
+  },
+  uplogix: {
+    name: 'Uplogix 5000',
+    role: 'Out-of-Band Management',
+    status: 'unknown',
+    apiId: null,
+    details: [
+      { key: 'IP', val: '192.168.88.5 (pending)' },
+      { key: 'MAC', val: 'TBD' },
+      { key: 'Default Login', val: 'admin / (check label)' },
+      { key: 'Status', val: 'No visibility' }
+    ],
+    ports: [
+      { name: 'MGMT', dest: 'Catalyst Fa0/3', status: 'off', note: 'PLUG IN' },
+      { name: 'Serial 1', dest: 'Catalyst CONSOLE', status: 'off', note: 'Future OOB' },
+      { name: 'Serial 2', dest: '(available)', status: 'off' }
+    ]
+  },
+  pi: {
+    name: 'Raspberry Pi',
+    role: 'Edge Collector — aevus-edge',
+    status: 'online',
+    apiId: null,
+    details: [
+      { key: 'IP', val: '192.168.88.254' },
+      { key: 'MAC', val: '2C:CF:67:34:E1:92' },
+      { key: 'Hostname', val: 'rasp1' },
+      { key: 'SSH', val: 'DISABLED — needs boot flag' },
+      { key: 'Packages', val: 'snmpd, python3-pip (pending)' }
+    ],
+    ports: [
+      { name: 'ETH0', dest: 'Catalyst Fa0/4', status: 'good' }
+    ]
+  }
+};
+
+// ── LIVE API FETCH ──
+async function fetchAssets() {
+  try {
+    const resp = await fetch(`${API_BASE}/assets`, {
+      headers: { 'X-API-Key': API_KEY }
+    });
+    if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+    const assets = await resp.json();
+    applyAssetUpdates(assets);
+    lastUpdate = new Date();
+    updateTimestamp();
+    console.log(`[Topology] Fetched ${assets.length} assets`);
+  } catch (err) {
+    console.error('[Topology] API fetch failed:', err);
+  }
+}
+
+function applyAssetUpdates(assets) {
+  const counts = { online: 0, 'link-up': 0, offline: 0, unknown: 0 };
+
+  assets.forEach(asset => {
+    const nodeKey = assetToNode[asset.id];
+    if (!nodeKey || !devices[nodeKey]) return;
+    const dev = devices[nodeKey];
+
+    // Map API status
+    const newStatus = mapApiStatus(asset.status);
+    dev.status = newStatus;
+
+    // Update health if present
+    if (asset.health !== null && asset.health !== undefined) {
+      // Update or add health in details
+      const healthIdx = dev.details.findIndex(d => d.key === 'Health');
+      const healthVal = `${asset.health}/100`;
+      if (healthIdx >= 0) dev.details[healthIdx].val = healthVal;
+      else dev.details.push({ key: 'Health', val: healthVal });
+    }
+
+    // Update last_seen
+    if (asset.last_seen) {
+      const ago = timeAgo(new Date(asset.last_seen));
+      const lsIdx = dev.details.findIndex(d => d.key === 'Last Seen');
+      if (lsIdx >= 0) dev.details[lsIdx].val = ago;
+      else dev.details.push({ key: 'Last Seen', val: ago });
+    }
+
+    // Update vitals in details
+    if (asset.vitals && asset.vitals.length) {
+      // Remove old vitals section marker
+      const vitIdx = dev.details.findIndex(d => d.key === '── Vitals ──');
+      if (vitIdx >= 0) {
+        // Remove from marker to end
+        dev.details.splice(vitIdx);
+      }
+      dev.details.push({ key: '── Vitals ──', val: '' });
+      asset.vitals.forEach(v => {
+        dev.details.push({ key: v.label, val: v.value });
+      });
+    }
+
+    // Update firmware
+    if (asset.firmware) {
+      const fwIdx = dev.details.findIndex(d => d.key === 'Firmware');
+      if (fwIdx >= 0) dev.details[fwIdx].val = asset.firmware;
+      else dev.details.unshift({ key: 'Firmware', val: asset.firmware });
+    }
+
+    // Update node DOM
+    updateNodeDOM(nodeKey, dev);
+  });
+
+  // Count all device statuses for summary bar
+  Object.values(devices).forEach(d => {
+    if (counts[d.status] !== undefined) counts[d.status]++;
+  });
+  // Internet + EC2 are always online, add to count
+  // They're already in the devices object
+
+  updateSummaryBar(counts);
+
+  // Re-render detail panel if one is selected
+  const selected = document.querySelector('.device-node.selected');
+  if (selected) showDetail(selected.dataset.device);
+}
+
+function updateNodeDOM(nodeKey, dev) {
+  const el = document.getElementById(`node-${nodeKey}`);
+  if (!el) return;
+
+  // Update status badge
+  const badge = el.querySelector('.node-status');
+  if (badge) {
+    const labels = { online: 'Online', 'link-up': 'Link Up', offline: 'Offline', unknown: 'Unknown' };
+    const classes = { online: 'online', 'link-up': 'link-up', offline: 'offline', unknown: 'unknown' };
+    badge.className = `node-status ${classes[dev.status] || 'unknown'}`;
+    badge.innerHTML = `<span class="sdot"></span>${labels[dev.status] || 'Unknown'}`;
+  }
+
+  // Pulse animation on update
+  el.style.transition = 'box-shadow 0.3s';
+  el.style.boxShadow = `0 0 12px ${dev.status === 'online' ? 'rgba(16,212,120,0.3)' : dev.status === 'link-up' ? 'rgba(251,191,36,0.3)' : 'rgba(239,68,68,0.2)'}`;
+  setTimeout(() => { el.style.boxShadow = ''; }, 1500);
+}
+
+function updateSummaryBar(counts) {
+  const onlineEl = document.getElementById('count-online');
+  const linkupEl = document.getElementById('count-linkup');
+  const offlineEl = document.getElementById('count-offline');
+  const unknownEl = document.getElementById('count-unknown');
+  if (onlineEl) onlineEl.textContent = counts.online;
+  if (linkupEl) linkupEl.textContent = counts['link-up'];
+  if (offlineEl) offlineEl.textContent = counts.offline;
+  if (unknownEl) unknownEl.textContent = counts.unknown;
+}
+
+function updateTimestamp() {
+  const el = document.getElementById('lastUpdateTime');
+  if (el && lastUpdate) {
+    el.textContent = `Last update: ${lastUpdate.toLocaleTimeString()}`;
+  }
+}
+
+function timeAgo(date) {
+  const secs = Math.floor((Date.now() - date.getTime()) / 1000);
+  if (secs < 60) return `${secs}s ago`;
+  if (secs < 3600) return `${Math.floor(secs/60)}m ago`;
+  if (secs < 86400) return `${Math.floor(secs/3600)}h ago`;
+  return `${Math.floor(secs/86400)}d ago`;
+}
+
+// ── WEBSOCKET ──
+function connectWebSocket() {
+  const protocol = location.protocol === 'https:' ? 'wss:' : 'ws:';
+  const wsUrl = `${protocol}//${location.host}/api/v1/ws?key=${API_KEY}`;
+  console.log(`[Topology] Connecting WebSocket: ${wsUrl}`);
+
+  const ws = new WebSocket(wsUrl);
+
+  ws.onopen = () => {
+    wsConnected = true;
+    console.log('[Topology] WebSocket connected');
+    const wsIndicator = document.getElementById('wsStatus');
+    if (wsIndicator) {
+      wsIndicator.textContent = 'WS: LIVE';
+      wsIndicator.style.color = 'var(--status-good)';
+    }
+  };
+
+  ws.onmessage = (event) => {
+    try {
+      const msg = JSON.parse(event.data);
+      console.log('[Topology] WS message:', msg.type);
+
+      if (msg.type === 'asset_update' && msg.data) {
+        applyAssetUpdates(Array.isArray(msg.data) ? msg.data : [msg.data]);
+      } else if (msg.type === 'health_update' && msg.data) {
+        // Health updates may contain asset-level health changes
+        applyAssetUpdates(Array.isArray(msg.data) ? msg.data : [msg.data]);
+      } else if (msg.type === 'alert' && msg.data) {
+        // Flash the affected node
+        const nodeKey = assetToNode[msg.data.asset_id];
+        if (nodeKey) {
+          const el = document.getElementById(`node-${nodeKey}`);
+          if (el) {
+            el.style.boxShadow = '0 0 20px rgba(239,68,68,0.5)';
+            setTimeout(() => { el.style.boxShadow = ''; }, 3000);
+          }
+        }
+      }
+
+      lastUpdate = new Date();
+      updateTimestamp();
+    } catch (err) {
+      console.error('[Topology] WS parse error:', err);
+    }
+  };
+
+  ws.onclose = () => {
+    wsConnected = false;
+    console.log('[Topology] WebSocket closed, reconnecting in 5s...');
+    const wsIndicator = document.getElementById('wsStatus');
+    if (wsIndicator) {
+      wsIndicator.textContent = 'WS: RECONNECTING';
+      wsIndicator.style.color = 'var(--status-warn)';
+    }
+    setTimeout(connectWebSocket, 5000);
+  };
+
+  ws.onerror = (err) => {
+    console.error('[Topology] WebSocket error:', err);
+    ws.close();
+  };
+}
+
+// ── CONNECTION DEFINITIONS ──
+const connections = [
+  { from: 'node-internet', to: 'node-mikrotik', color: '#606080', style: 'solid', width: 2 },
+  { from: 'node-ec2', to: 'node-mikrotik', color: '#60A5FA', style: 'dashed', width: 1.8 },
+  { from: 'node-mikrotik', to: 'node-shop01', color: '#ff6b6b', style: 'solid', width: 1.8 },
+  { from: 'node-mikrotik', to: 'node-trio1', color: '#ffd93d', style: 'solid', width: 1.8 },
+  { from: 'node-mikrotik', to: 'node-catalyst', color: '#4a9eff', style: 'solid', width: 1.8 },
+  { from: 'node-catalyst', to: 'node-shop01', color: '#808090', style: 'serial', width: 1 },
+  { from: 'node-catalyst', to: 'node-trio2', color: '#ffd93d', style: 'dashed', width: 1.8 },
+  { from: 'node-catalyst', to: 'node-scadapack', color: '#ff8c42', style: 'dashed', width: 1.8 },
+  { from: 'node-catalyst', to: 'node-uplogix', color: '#c084fc', style: 'dashed', width: 1.8 },
+  { from: 'node-catalyst', to: 'node-pi', color: '#34d399', style: 'solid', width: 1.8 },
+  { from: 'node-uplogix', to: 'node-catalyst', color: '#808090', style: 'serial', width: 1, label: 'serial' }
+];
+
+// ── DRAW CONNECTIONS ──
+function drawConnections() {
+  const svg = document.getElementById('connSvg');
+  const canvas = document.getElementById('canvas');
+  const canvasRect = canvas.getBoundingClientRect();
+  svg.setAttribute('width', canvas.scrollWidth);
+  svg.setAttribute('height', canvas.scrollHeight);
+  svg.innerHTML = '';
+
+  connections.forEach(conn => {
+    const fromEl = document.getElementById(conn.from);
+    const toEl = document.getElementById(conn.to);
+    if (!fromEl || !toEl) return;
+
+    const fRect = fromEl.getBoundingClientRect();
+    const tRect = toEl.getBoundingClientRect();
+
+    const fx = fRect.left - canvasRect.left + fRect.width / 2;
+    const fy = fRect.top - canvasRect.top + fRect.height / 2;
+    const tx = tRect.left - canvasRect.left + tRect.width / 2;
+    const ty = tRect.top - canvasRect.top + tRect.height / 2;
+
+    // Edge clipping
+    const p1 = clipToRect(fx, fy, tx, ty, fRect, canvasRect);
+    const p2 = clipToRect(tx, ty, fx, fy, tRect, canvasRect);
+
+    const line = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+    line.setAttribute('x1', p1.x);
+    line.setAttribute('y1', p1.y);
+    line.setAttribute('x2', p2.x);
+    line.setAttribute('y2', p2.y);
+    line.setAttribute('stroke', conn.color);
+    line.setAttribute('stroke-width', conn.width);
+    line.setAttribute('stroke-opacity', '0.7');
+
+    if (conn.style === 'dashed') {
+      line.setAttribute('stroke-dasharray', '8,4');
+    } else if (conn.style === 'serial') {
+      line.setAttribute('stroke-dasharray', '3,3');
+    }
+
+    svg.appendChild(line);
+  });
+}
+
+function clipToRect(fx, fy, tx, ty, rect, canvasRect) {
+  const cx = rect.left - canvasRect.left + rect.width / 2;
+  const cy = rect.top - canvasRect.top + rect.height / 2;
+  const hw = rect.width / 2;
+  const hh = rect.height / 2;
+  const dx = tx - fx;
+  const dy = ty - fy;
+  if (dx === 0 && dy === 0) return { x: cx, y: cy };
+  const sx = Math.abs(dx) > 0 ? hw / Math.abs(dx) : Infinity;
+  const sy = Math.abs(dy) > 0 ? hh / Math.abs(dy) : Infinity;
+  const s = Math.min(sx, sy);
+  return { x: cx + dx * s, y: cy + dy * s };
+}
+
+// ── DETAIL PANEL ──
+function showDetail(deviceId) {
+  const d = devices[deviceId];
+  if (!d) return;
+
+  const panel = document.getElementById('detailPanel');
+  panel.classList.remove('empty');
+  document.getElementById('panelTitle').textContent = d.name;
+  document.getElementById('panelRole').textContent = d.role;
+
+  // Highlight selected node
+  document.querySelectorAll('.device-node').forEach(n => n.classList.remove('selected'));
+  const node = document.querySelector(`[data-device="${deviceId}"]`);
+  if (node) node.classList.add('selected');
+
+  let html = '';
+
+  // Status
+  const statusColors = { online: 'var(--status-good)', 'link-up': 'var(--status-warn)', offline: 'var(--status-bad)', unknown: 'var(--status-unknown)' };
+  html += `<div class="detail-section"><div class="section-label">Status</div>`;
+  html += `<div style="display:inline-flex;align-items:center;gap:6px;padding:3px 10px;border-radius:10px;font-size:11px;font-weight:600;color:${statusColors[d.status] || '#808090'};background:${statusColors[d.status] || '#808090'}22;text-transform:uppercase">${d.status}</div></div>`;
+
+  // Details
+  if (d.details.length) {
+    html += `<div class="detail-section"><div class="section-label">Configuration</div>`;
+    d.details.forEach(r => {
+      html += `<div class="detail-row"><span class="key">${r.key}</span><span class="val${r.key === 'IP' || r.key === 'Tunnel IP' || r.key === 'IP (target)' ? ' accent' : ''}">${r.val}</span></div>`;
+    });
+    html += `</div>`;
+  }
+
+  // Ports
+  if (d.ports && d.ports.length) {
+    html += `<div class="detail-section"><div class="section-label">Ports</div><ul class="port-list">`;
+    d.ports.forEach(p => {
+      const color = p.status === 'good' ? 'var(--status-good)' : p.status === 'warn' ? 'var(--status-warn)' : 'var(--status-offline)';
+      const noteHtml = p.note ? ` <span style="color:${p.note === 'PLUG IN' ? 'var(--status-warn)' : 'var(--status-bad)'};font-size:9px;font-weight:700">${p.note}</span>` : '';
+      html += `<li><span class="port-status-dot" style="background:${color}"></span><span class="port-name">${p.name}</span><span class="port-dest">${p.dest}${noteHtml}</span></li>`;
+    });
+    html += `</ul></div>`;
+  }
+
+  document.getElementById('panelBody').innerHTML = html;
+}
+
+// ── EVENT LISTENERS ──
+document.querySelectorAll('.device-node').forEach(node => {
+  node.addEventListener('click', () => {
+    showDetail(node.dataset.device);
+  });
+});
+
+// ── INIT ──
+window.addEventListener('load', () => {
+  drawConnections();
+  window.addEventListener('resize', drawConnections);
+
+  // Initial API fetch
+  fetchAssets();
+
+  // Poll every 30s as fallback
+  setInterval(fetchAssets, POLL_INTERVAL);
+
+  // Connect WebSocket for real-time push
+  connectWebSocket();
+});
+</script>
+</body>
+</html>

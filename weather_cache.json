@@ -1,1 +1,1 @@
-{"temp_f": 80.6, "wind_mph": 9.1, "wind_gust_mph": 10.3, "precip_in": 0.0, "condition": "clear", "sunrise": "11:41 UTC", "sunset": "01:05 UTC", "daylight_hours": 13.41, "is_daylight": true, "solar_production_factor": 0.993, "cloud_cover": 3, "wind_dir": "N"}
+{"temp_f": 79.7, "wind_mph": 13.5, "wind_gust_mph": 21.7, "precip_in": 0.0, "condition": "overcast", "sunrise": "11:38 UTC", "sunset": "01:08 UTC", "daylight_hours": 13.49, "is_daylight": true, "solar_production_factor": 0.563, "cloud_cover": 96, "wind_dir": "SSE", "ghi": 563.0, "dni": 355.0}

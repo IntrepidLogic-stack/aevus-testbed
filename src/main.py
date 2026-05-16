@@ -24,6 +24,7 @@ from starlette.responses import Response
 
 # API routers
 from src.api import (
+    access_requests_router,
     alerts_router,
     ingest_router,
     assets_router,
@@ -40,6 +41,7 @@ from src.api import (
     notes_router,
     ping_diag_router,
     csv_io_router,
+    ai_router,
     ws_router,
 )
 from src.api.ws import ws_manager
@@ -341,6 +343,7 @@ app.include_router(reports_router, prefix="/api/v1")
 app.include_router(integrations_router, prefix="/api/v1")
 app.include_router(ws_router, prefix="/api/v1")
 app.include_router(weather_router, prefix="/api/v1")
+app.include_router(ai_router, prefix="/api/v1")
 app.include_router(commands_router, prefix="/api/v1")
 app.include_router(correlations_router, prefix="/api/v1")
 app.include_router(ingest_router, prefix="/api/v1")
@@ -349,10 +352,17 @@ app.include_router(journal_router, prefix="/api/v1")
 app.include_router(ping_diag_router, prefix="/api/v1")
 app.include_router(csv_io_router, prefix="/api/v1")
 app.include_router(auth_config_router, prefix="/api/v1")
+app.include_router(access_requests_router, prefix="/api/v1")
 
 
 # Serve dashboard static files
 DASHBOARD_DIR = Path(__file__).resolve().parent.parent / "dashboard"
+
+# Serve staging dashboard
+STAGING_DIR = DASHBOARD_DIR.parent / "dashboard-staging"
+if STAGING_DIR.exists():
+    app.mount("/staging", StaticFiles(directory=str(STAGING_DIR), html=True), name="staging")
+
 if DASHBOARD_DIR.exists():
     app.mount("/dashboard", StaticFiles(directory=str(DASHBOARD_DIR), html=True), name="dashboard")
 

@@ -17,6 +17,8 @@ from src.api.notes import router as notes_router
 from src.api.notes import journal_router
 from src.api.ping_diag import router as ping_diag_router
 from src.api.csv_io import router as csv_io_router
+from src.api.access_requests import router as access_requests_router
+from src.api.ai import router as ai_router
 
 __all__ = [
     "assets_router",
@@ -36,4 +38,6 @@ __all__ = [
     "journal_router",
     "ping_diag_router",
     "csv_io_router",
+    "access_requests_router",
+    "ai_router",
 ]

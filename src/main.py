@@ -17,7 +17,10 @@ from contextlib import asynccontextmanager
 from pathlib import Path
 
 import structlog
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
+from slowapi import Limiter, _rate_limit_exceeded_handler
+from slowapi.util import get_remote_address
+from slowapi.errors import RateLimitExceeded
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from starlette.responses import Response
@@ -46,6 +49,8 @@ from src.api import (
 )
 from src.api.ws import ws_manager
 from src.api.auth_config import auth_config_router
+from src.api.audit import router as audit_router
+from src.api.audit_middleware import AuditMiddleware
 
 # Collectors
 from src.collectors.simulator import SimulatorCollector
@@ -315,8 +320,16 @@ app = FastAPI(
     title="Aevus SCADA Intelligence API",
     description="Real-time telemetry, health scoring, and alerts for midstream oil & gas infrastructure",
     version="0.1.0",
+    docs_url=None,
+    redoc_url=None,
+    openapi_url=None,
     lifespan=lifespan,
 )
+
+# ── Rate Limiting (40th Audit §2A) ──
+limiter = Limiter(key_func=get_remote_address, default_limits=["60/minute"])
+app.state.limiter = limiter
+app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
 # API Key Authentication
 from src.api.auth import SESSION_TOKEN, APIKeyMiddleware
@@ -353,6 +366,7 @@ app.include_router(ping_diag_router, prefix="/api/v1")
 app.include_router(csv_io_router, prefix="/api/v1")
 app.include_router(auth_config_router, prefix="/api/v1")
 app.include_router(access_requests_router, prefix="/api/v1")
+app.include_router(audit_router)
 
 
 # Serve dashboard static files

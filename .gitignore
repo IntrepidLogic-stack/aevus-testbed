@@ -14,3 +14,4 @@ dashboard/api-client.src.js
 dashboard/api-client.src.js.patch
 dashboard-staging/api-client.src.js
 dashboard-staging/src/
+*.bak.*

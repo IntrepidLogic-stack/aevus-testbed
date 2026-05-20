@@ -13,7 +13,11 @@ pysnmp>=6.2.0            # SNMP polling + trap receiver (Phase 1)
 pymodbus>=3.7.0          # Modbus TCP (SCADAPack 470, port 502)
 icmplib>=3.0.4           # Async ICMP probe (Phase 2 layer-3 reachability)
 aiomqtt>=2.3.0           # Async MQTT publisher (Phase 4 IoT Core bridge)
-dnp3-python>=0.1.5       # DNP3 unsolicited responses (Phase 3 — patent path)
+# dnp3-python>=0.1.5     # DNP3 unsolicited responses (Phase 3 — patent path)
+                          # Install manually on the Pi when the SCADAPack is
+                          # online. The receiver module lazy-imports it so
+                          # the rest of the platform installs and runs fine
+                          # without it. See deploy/pi/README.md §5b.
 
 # ── Storage ──
 influxdb-client[async]>=1.46.0   # InfluxDB 2.x async client

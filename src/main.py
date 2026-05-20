@@ -36,6 +36,7 @@ from src.api import (
     alerts_router,
     health_router,
     diagnostics_router,
+    metrics_router,
     predictions_router,
     ws_router,
 )
@@ -183,6 +184,7 @@ app.include_router(alerts_router, prefix="/api/v1")
 app.include_router(health_router, prefix="/api/v1")
 app.include_router(diagnostics_router, prefix="/api/v1")
 app.include_router(predictions_router, prefix="/api/v1")
+app.include_router(metrics_router, prefix="/api/v1")
 app.include_router(ws_router, prefix="/api/v1")
 
 

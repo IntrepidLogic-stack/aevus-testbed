@@ -23,6 +23,7 @@ from src.collectors.base import BaseCollector
 from src.collectors.dnp3_unsolicited import DNP3Event, DNP3UnsolicitedReceiver
 from src.collectors.icmp_probe import ICMPProbe, ReachabilityEvent
 from src.collectors.snmp_trap_receiver import SNMPTrapReceiver, TrapEvent
+from src.integrations import latency_tracker
 from src.integrations.mqtt_publisher import MQTTPublisher
 from src.models.telemetry import RawTelemetry
 from src.config import settings
@@ -644,6 +645,8 @@ class PollScheduler:
                 metric=event.metric,
                 latency_ms=round(latency_ms, 2),
             )
+            # Roll into the histogram exposed at /api/v1/metrics/latency.
+            latency_tracker.record_detection_latency(latency_ms)
 
         # Coerce DNP3Event value to a float for RawTelemetry compatibility.
         # Boolean inputs become 0.0/1.0; analog inputs already float.

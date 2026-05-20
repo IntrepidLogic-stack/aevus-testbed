@@ -17,6 +17,7 @@ dashboard/
 ├── topology.html           # existing — UNCHANGED
 ├── mqtt-client.js          # NEW — MQTT-over-WS subscriber, dispatches by topic class
 ├── rca-panel.js            # NEW — slide-up RCA narrative panel (uses mqtt-client.js)
+├── latency-widget.js       # NEW — live p95 latency ticker (polls /api/v1/metrics/latency)
 └── README.md               # this file
 ```
 
@@ -128,6 +129,7 @@ Add **at the bottom of `Aevus_Console.html`**, right before the closing `</body>
 <script src="https://unpkg.com/mqtt/dist/mqtt.min.js"></script>
 <script src="mqtt-client.js"></script>
 <script src="rca-panel.js"></script>
+<script src="latency-widget.js"></script>
 ```
 
 That's it. The existing alert list / asset map continues to work via `api-client.js`; the new MQTT path layers on top.

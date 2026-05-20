@@ -62,6 +62,10 @@ DEVICE_PROFILES = {
 class SimulatorCollector(BaseCollector):
     """Generates simulated telemetry for testing without hardware."""
 
+    # expected_metrics is populated per-instance in __init__ based on the
+    # configured device_type, since one class serves radio / rtu / router
+    # simulations with different metric sets.
+
     def __init__(
         self,
         asset_id: str,
@@ -73,6 +77,9 @@ class SimulatorCollector(BaseCollector):
         self.device_type = device_type
         self.degradation = degradation  # 0.0 = healthy, 1.0 = failing
         self.profiles = DEVICE_PROFILES.get(device_type, RADIO_PROFILES)
+        # Shadow the class attribute with a per-instance frozenset matching
+        # the configured device profile.
+        self.expected_metrics = frozenset(self.profiles.keys())
         self._tick = 0
 
     async def is_reachable(self) -> bool:

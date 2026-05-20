@@ -1,0 +1,17 @@
+# Terraform state — backed by remote S3 (see versions.tf)
+*.tfstate
+*.tfstate.*
+*.tfstate.backup
+.terraform/
+.terraform.lock.hcl
+
+# Local cert / key artifacts written by aws-iot-core.tf
+.secrets/
+
+# Plan output / lock files
+*.tfplan
+crash.log
+crash.*.log
+
+# Build artifacts (Lambda zips packaged by archive_file)
+.build/

@@ -1,0 +1,10 @@
+# Aevus RCA Lambda — runtime dependencies
+#
+# boto3 is provided by the Lambda runtime so we don't pin it here
+# (pinning would force us to ship 100+ MB of layer we don't need).
+#
+# Everything else this Lambda needs is in the standard library
+# (json, dataclasses, datetime, logging, os, time, typing).
+
+# Listed here as a placeholder so the package step picks up an
+# explicit empty requirements file rather than silently skipping.

@@ -54,6 +54,60 @@ class Settings(BaseSettings):
     poll_interval_switch: int = 30
     poll_interval_router: int = 30
 
+    # ── MQTT Publisher (Phase 4 — IoT Core / Mosquitto bridge) ──
+    # Local Mosquitto in dev mode; AWS IoT Core with X.509 mutual TLS
+    # in production. Per docs/AWS_LANDING_ZONE.md the edge keeps
+    # sub-second alarming local — MQTT is the bridge to the cloud
+    # fleet view, never on the critical path for local alarms.
+    mqtt_enabled: bool = False                      # off by default until configured
+    mqtt_broker_host: str = "localhost"             # IoT Core: "<endpoint>-ats.iot.<region>.amazonaws.com"
+    mqtt_broker_port: int = 1883                    # IoT Core MQTT-over-TLS: 8883
+    mqtt_site_id: str = "lab"                       # used in topic hierarchy
+    mqtt_client_id: str = "aevus-edge-lab-01"       # must be unique per Greengrass core
+    mqtt_tls_enabled: bool = False                  # true for IoT Core
+    mqtt_ca_cert_path: str = ""                     # Amazon root CA for IoT Core
+    mqtt_client_cert_path: str = ""                 # X.509 device cert
+    mqtt_client_key_path: str = ""                  # X.509 device private key
+    mqtt_username: str = ""                         # only for local Mosquitto with auth
+    mqtt_password: str = ""
+    mqtt_qos: int = 1                               # 1 = at-least-once (IoT Core max)
+    mqtt_keepalive: int = 60
+    mqtt_initial_backoff: float = 2.0
+    mqtt_max_backoff: float = 60.0
+
+    # ── DNP3 Unsolicited Responses (Phase 3 — patent-relevant edge path) ──
+    # SCADAPack 470 outstation pushes Class 1/2/3 events to us in
+    # milliseconds without being polled. Beats Modbus discrete-input
+    # polling for process alarms (high pressure, low battery, comm fault)
+    # by 5+ seconds. This is the P-008 patent claim.
+    dnp3_unsolicited_enabled: bool = True
+    dnp3_reconnect_interval: float = 5.0     # seconds between TCP reconnect attempts
+    dnp3_integrity_poll_interval: int = 300  # fallback Class 0 poll cadence (sec)
+    dnp3_connect_timeout: float = 5.0
+    dnp3_keep_alive_interval: int = 60       # DNP3 link-status keep-alive cadence
+
+    # ── ICMP Layer-3 Probe (Phase 2) ──
+    # Sub-second reachability check that runs independently of any
+    # application-layer poll. Lets the dashboard distinguish "device
+    # dead" from "agent dead" from "path broken".
+    icmp_probe_interval: float = 1.0        # seconds between pings per asset
+    icmp_timeout: float = 0.8               # per-ping timeout (must be < interval)
+    icmp_window_size: int = 10              # rolling window of recent results
+    icmp_loss_warn_pct: float = 10.0        # % loss → degraded warning
+    icmp_consecutive_down: int = 3          # consecutive timeouts → critical down
+    icmp_privileged: bool = False           # False = use unprivileged DGRAM socket
+                                            # (requires net.ipv4.ping_group_range);
+                                            # True = raw socket (needs CAP_NET_RAW)
+
+    # ── Comms-Loss / Staleness Detection ──
+    # An asset is flagged OFFLINE after this many consecutive missed poll
+    # intervals. Tightened from the legacy "5x" rule so OT operators see
+    # comms loss within ~3 poll cycles (15s for RTU @ 5s, 90s for radio @ 30s).
+    missed_polls_offline: int = 3
+    # Independent sweep loop tick. Even if a poll task hangs or dies, the
+    # sweep evaluates staleness for every registered asset on this cadence.
+    staleness_sweep_interval: int = 5
+
     # ── Alert Thresholds — Radio (Trio JR900) ──
     threshold_health_warn: int = 80
     threshold_health_crit: int = 50

@@ -1,0 +1,86 @@
+---
+RecipeFormatVersion: "2020-01-25"
+ComponentName: io.intrepid.aevus.icmp-probe
+ComponentVersion: "1.0.0"
+ComponentDescription: >-
+  Aevus Edge — ICMP layer-3 reachability probe. 1-second cadence
+  ping of every registered asset, emits state-transition events
+  (up / degraded / down). Lets the dashboard distinguish "device
+  dead" from "agent dead" from "path broken". Phase 2.
+ComponentPublisher: "Intrepid Logic LLC"
+
+ComponentConfiguration:
+  DefaultConfiguration:
+    # Comma-separated asset_id=host pairs. The orchestrator
+    # component (Phase 4+) will replace this with a dynamic list
+    # sourced from the asset registry over IPC.
+    Targets: "RTR-01=192.168.88.1,RAD-01=192.168.88.11,RTU-01=192.168.88.21"
+    ProbeInterval: 1.0
+    Timeout: 0.8
+    WindowSize: 10
+    LossWarnPct: 10.0
+    ConsecutiveDown: 3
+    # false = use unprivileged DGRAM socket (requires
+    # net.ipv4.ping_group_range sysctl; install-nucleus.sh sets
+    # this); true = raw socket via CAP_NET_RAW.
+    Privileged: "false"
+    LogLevel: "INFO"
+
+ComponentDependencies: {}
+
+Manifests:
+  - Platform:
+      os: linux
+    Lifecycle:
+      Install:
+        RequiresPrivilege: true
+        Timeout: 300
+        Script: |
+          set -euo pipefail
+          ART={artifacts:decompressedPath}/aevus-icmp-probe
+          python3 -m venv "$ART/.venv"
+          "$ART/.venv/bin/pip" install --quiet --upgrade pip wheel
+          "$ART/.venv/bin/pip" install --quiet \
+              icmplib>=3.0.4 \
+              structlog>=24.4.0 \
+              pydantic>=2.10.0 \
+              pydantic-settings>=2.6.0 \
+              python-dotenv>=1.0.0
+          # CAP_NET_RAW for raw-socket mode; harmless if we use
+          # the unprivileged DGRAM path instead.
+          PY_REAL="$(readlink -f "$ART/.venv/bin/python3")"
+          setcap 'cap_net_raw=+ep' "$PY_REAL"
+          # Unprivileged ICMP DGRAM range — set once per Pi.
+          if ! grep -q "net.ipv4.ping_group_range" /etc/sysctl.d/99-aevus-icmp.conf 2>/dev/null; then
+              echo 'net.ipv4.ping_group_range = 0 65535' > /etc/sysctl.d/99-aevus-icmp.conf
+              sysctl --system >/dev/null
+          fi
+
+      Run:
+        RequiresPrivilege: false
+        Script: |
+          set -euo pipefail
+          ART={artifacts:decompressedPath}/aevus-icmp-probe
+          export PYTHONPATH="$ART"
+          export PYTHONUNBUFFERED=1
+          export ICMP_PROBE_INTERVAL='{configuration:/ProbeInterval}'
+          export ICMP_TIMEOUT='{configuration:/Timeout}'
+          export ICMP_WINDOW_SIZE='{configuration:/WindowSize}'
+          export ICMP_LOSS_WARN_PCT='{configuration:/LossWarnPct}'
+          export ICMP_CONSECUTIVE_DOWN='{configuration:/ConsecutiveDown}'
+          export ICMP_PRIVILEGED='{configuration:/Privileged}'
+          # Targets argument expansion: convert comma list → CLI args.
+          TARGETS='{configuration:/Targets}'
+          IFS=',' read -ra TGT_ARRAY <<< "$TARGETS"
+          exec "$ART/.venv/bin/python3" -m src.collectors.icmp_probe "${TGT_ARRAY[@]}"
+
+      Shutdown:
+        Timeout: 10
+        Script: |
+          true
+
+    Artifacts:
+      - URI: "file:///greengrass/v2/packages/artifacts-local/io.intrepid.aevus.icmp-probe-1.0.0/aevus-icmp-probe.zip"
+        Unarchive: ZIP
+        Permission:
+          Read: ALL

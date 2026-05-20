@@ -1,0 +1,79 @@
+---
+RecipeFormatVersion: "2020-01-25"
+ComponentName: io.intrepid.aevus.dnp3-receiver
+ComponentVersion: "1.0.0"
+ComponentDescription: >-
+  Aevus Edge — DNP3 unsolicited-response receiver. Persistent TCP
+  master to the SCADAPack 470 outstation; receives Class 1/2/3
+  events with sub-500ms latency. Patent-relevant edge path (P-008).
+  Phase 3.
+ComponentPublisher: "Intrepid Logic LLC"
+
+ComponentConfiguration:
+  DefaultConfiguration:
+    OutstationHost: "192.168.88.21"
+    OutstationPort: 20000
+    OutstationAddress: 10
+    MasterAddress: 1
+    ReconnectInterval: 5.0
+    IntegrityPollInterval: 300
+    ConnectTimeout: 5.0
+    KeepAliveInterval: 60
+    LogLevel: "INFO"
+
+ComponentDependencies: {}
+
+Manifests:
+  - Platform:
+      os: linux
+    Lifecycle:
+      Install:
+        RequiresPrivilege: true
+        Timeout: 600    # dnp3-python wheel build can be slow on ARM
+        Script: |
+          set -euo pipefail
+          ART={artifacts:decompressedPath}/aevus-dnp3-receiver
+          # Build prerequisites for dnp3-python on ARM (Raspberry Pi).
+          apt-get install -y --no-install-recommends \
+              libstdc++-12-dev cmake build-essential
+          python3 -m venv "$ART/.venv"
+          "$ART/.venv/bin/pip" install --quiet --upgrade pip wheel
+          "$ART/.venv/bin/pip" install --quiet \
+              dnp3-python>=0.1.5 \
+              structlog>=24.4.0 \
+              pydantic>=2.10.0 \
+              pydantic-settings>=2.6.0 \
+              python-dotenv>=1.0.0
+
+      Run:
+        RequiresPrivilege: false
+        Script: |
+          set -euo pipefail
+          ART={artifacts:decompressedPath}/aevus-dnp3-receiver
+          export PYTHONPATH="$ART"
+          export PYTHONUNBUFFERED=1
+          export DNP3_UNSOLICITED_ENABLED=true
+          export DNP3_RECONNECT_INTERVAL='{configuration:/ReconnectInterval}'
+          export DNP3_INTEGRITY_POLL_INTERVAL='{configuration:/IntegrityPollInterval}'
+          export DNP3_CONNECT_TIMEOUT='{configuration:/ConnectTimeout}'
+          export DNP3_KEEP_ALIVE_INTERVAL='{configuration:/KeepAliveInterval}'
+          # The smoke-main entry point takes the outstation host as
+          # its first positional arg; the cloud-side scheduler will
+          # call into the receiver class directly instead.
+          exec "$ART/.venv/bin/python3" -m src.collectors.dnp3_unsolicited \
+              '{configuration:/OutstationHost}'
+
+      Shutdown:
+        Timeout: 20
+        Script: |
+          true
+
+    Artifacts:
+      - URI: "file:///greengrass/v2/packages/artifacts-local/io.intrepid.aevus.dnp3-receiver-1.0.0/aevus-dnp3-receiver.zip"
+        Unarchive: ZIP
+        Permission:
+          Read: ALL
+
+# IL-9000 reminder: this component is READ-ONLY. If a future
+# version adds DNP3 control points (group 12 / 41), it MUST go
+# through a separate audited component with IL_009_ENFORCED.

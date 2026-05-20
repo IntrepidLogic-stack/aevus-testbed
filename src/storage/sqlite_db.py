@@ -111,6 +111,21 @@ class SQLiteDB:
             return None
         return self._row_to_asset(row)
 
+    def get_asset_by_ip(self, ip_address: str) -> Optional[Asset]:
+        """Resolve an asset by its registered IP address.
+
+        Used by the SNMP trap receiver to map trap source IPs to asset
+        IDs. Returns None when no asset matches — the caller should log
+        and drop unknown sources.
+        """
+        row = self._conn.execute(
+            "SELECT * FROM assets WHERE ip_address = ? LIMIT 1",
+            (ip_address,),
+        ).fetchone()
+        if row is None:
+            return None
+        return self._row_to_asset(row)
+
     def list_assets(
         self,
         type_filter: Optional[str] = None,

@@ -4,8 +4,10 @@ All equipment collectors inherit from this.
 """
 
 import abc
+import typing
 import structlog
 from datetime import datetime, timezone
+from typing import ClassVar
 
 from src.models.telemetry import RawTelemetry
 
@@ -13,7 +15,34 @@ logger = structlog.get_logger()
 
 
 class BaseCollector(abc.ABC):
-    """Abstract base for all device collectors."""
+    """Abstract base for all device collectors.
+
+    Subclass contract:
+
+    * Implement ``poll()`` — returns a list of ``RawTelemetry``. Raise on
+      hard failures (connection refused, timeout). The base class's
+      ``safe_poll()`` will catch the exception and return ``[]``, which
+      the scheduler interprets as a missed poll and feeds into the
+      comms-loss alarm path.
+
+    * Implement ``is_reachable()`` — a cheap liveness probe used by tools
+      and tests. Should not raise.
+
+    * Declare ``expected_metrics`` — the set of metric names this collector
+      is *expected* to emit on every healthy poll. The scheduler compares
+      this set against actual readings to detect partial-telemetry faults
+      (e.g. a sensor channel dropping while the device is otherwise up).
+      Leave empty only for collectors with intrinsically dynamic metric
+      sets (such as per-interface counters).
+
+    * Do NOT override ``safe_poll()``. It is the integration point with
+      the scheduler's failure-handling and alarm pipeline. Marked
+      ``@typing.final``.
+    """
+
+    #: Metric names this collector promises to emit when the device is
+    #: healthy. Used by the scheduler to detect PARTIAL TELEMETRY faults.
+    expected_metrics: ClassVar[frozenset[str]] = frozenset()
 
     def __init__(self, asset_id: str, host: str, poll_interval: int = 30):
         self.asset_id = asset_id
@@ -61,8 +90,15 @@ class BaseCollector(abc.ABC):
             modbus_register=modbus_register,
         )
 
+    @typing.final
     async def safe_poll(self) -> list[RawTelemetry]:
-        """Poll with error handling and failure tracking."""
+        """Poll with error handling and failure tracking.
+
+        This is the scheduler's integration point. **Do not override.**
+        A failed poll returns ``[]`` (never raises) so the scheduler can
+        feed staleness into the comms-loss alarm path. Subclasses should
+        implement ``poll()`` and let exceptions propagate to here.
+        """
         try:
             readings = await self.poll()
             self.last_poll = self._now()

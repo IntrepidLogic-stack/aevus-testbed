@@ -43,6 +43,13 @@ DISCRETE_INPUTS = {
 class SCADAPack470Collector(BaseCollector):
     """Collects telemetry from a SCADAPack 470 RTU via Modbus TCP."""
 
+    # All holding registers and discrete inputs must respond on a healthy
+    # RTU. A missing process value (e.g. suction_pressure absent while
+    # battery_voltage still reports) indicates a sensor or channel fault.
+    expected_metrics = frozenset(HOLDING_REGISTERS.keys()) | frozenset(
+        DISCRETE_INPUTS.keys()
+    )
+
     def __init__(
         self,
         asset_id: str,

@@ -43,6 +43,11 @@ MIKROTIK_OIDS = {
 class SNMPNetworkCollector(BaseCollector):
     """Collects telemetry from a network device (MikroTik or Cisco) via SNMP v2c."""
 
+    # Only the stable, always-present metrics are listed here. Per-interface
+    # counters are intentionally excluded — interface presence is dynamic
+    # and an admin-down port is not a partial-telemetry fault.
+    expected_metrics = frozenset({"cpu_load", "memory_usage", "uptime"})
+
     def __init__(
         self,
         asset_id: str,

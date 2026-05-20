@@ -49,6 +49,11 @@ METRIC_UNITS = {
 class TrioJR900Collector(BaseCollector):
     """Collects telemetry from a Trio JR900 radio via SNMP v2c."""
 
+    # Every Trio OID should respond on a healthy radio. If any go missing
+    # while sysDescr still responds, that's a partial-telemetry fault
+    # (e.g. SNMP agent up but RF subsystem stalled).
+    expected_metrics = frozenset(TRIO_OIDS.keys())
+
     def __init__(
         self,
         asset_id: str,

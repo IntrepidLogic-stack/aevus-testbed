@@ -9,9 +9,11 @@ pydantic-settings>=2.6.0
 python-dotenv>=1.0.0
 
 # ── Data Collection ──
-pysnmp>=6.2.0            # SNMP polling (Trio JR900, MikroTik, Catalyst 2960)
+pysnmp>=6.2.0            # SNMP polling + trap receiver (Phase 1)
 pymodbus>=3.7.0          # Modbus TCP (SCADAPack 470, port 502)
-# dnp3-python            # DNP3 (SCADAPack 470, port 20000) — Phase 5, install manually when needed
+icmplib>=3.0.4           # Async ICMP probe (Phase 2 layer-3 reachability)
+aiomqtt>=2.3.0           # Async MQTT publisher (Phase 4 IoT Core bridge)
+dnp3-python>=0.1.5       # DNP3 unsolicited responses (Phase 3 — patent path)
 
 # ── Storage ──
 influxdb-client[async]>=1.46.0   # InfluxDB 2.x async client

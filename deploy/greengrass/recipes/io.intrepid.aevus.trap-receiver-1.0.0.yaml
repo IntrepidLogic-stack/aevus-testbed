@@ -1,0 +1,83 @@
+---
+RecipeFormatVersion: "2020-01-25"
+ComponentName: io.intrepid.aevus.trap-receiver
+ComponentVersion: "1.0.0"
+ComponentDescription: >-
+  Aevus Edge — SNMP v2c trap receiver. Listens on UDP 162 for traps
+  from lab gear (Trio JR900, MikroTik L009, Cisco Catalyst 2960,
+  SCADAPack 470) and emits decoded events to the alert pipeline.
+  Phase 1 of the event-driven edge.
+ComponentPublisher: "Intrepid Logic LLC"
+
+ComponentConfiguration:
+  DefaultConfiguration:
+    ListenHost: "0.0.0.0"
+    Port: 162
+    Community: "aevus_trap"
+    # Forward to local alert engine via IPC. When the alert-engine
+    # component is also deployed, traps flow directly to it. Until
+    # then the receiver runs in standalone-print mode for smoke test.
+    StandaloneSmokeMode: "true"
+    LogLevel: "INFO"
+
+# No inter-component dependencies for the standalone smoke mode.
+# When the umbrella alert-engine component lands, add it here as a
+# HARD dependency.
+ComponentDependencies: {}
+
+Manifests:
+  - Platform:
+      os: linux
+    Lifecycle:
+      # Install — set up a per-component venv, install minimum deps,
+      # grant the bind capability.
+      Install:
+        RequiresPrivilege: true
+        Timeout: 300
+        Script: |
+          set -euo pipefail
+          ART={artifacts:decompressedPath}/aevus-trap-receiver
+          python3 -m venv "$ART/.venv"
+          "$ART/.venv/bin/pip" install --quiet --upgrade pip wheel
+          "$ART/.venv/bin/pip" install --quiet \
+              pysnmp>=6.2.0 \
+              structlog>=24.4.0 \
+              pydantic>=2.10.0 \
+              pydantic-settings>=2.6.0 \
+              python-dotenv>=1.0.0
+          # CAP_NET_BIND_SERVICE on the venv python so we can bind
+          # UDP 162 without root. Survives reboot because it's an
+          # extended attribute on the file.
+          PY_REAL="$(readlink -f "$ART/.venv/bin/python3")"
+          setcap 'cap_net_bind_service=+ep' "$PY_REAL"
+
+      Run:
+        RequiresPrivilege: false
+        Script: |
+          set -euo pipefail
+          ART={artifacts:decompressedPath}/aevus-trap-receiver
+          export PYTHONPATH="$ART"
+          export PYTHONUNBUFFERED=1
+          # Map recipe configuration → env vars consumed by src/config.py
+          export AEVUS_TRAP_LISTEN_HOST='{configuration:/ListenHost}'
+          export AEVUS_TRAP_PORT='{configuration:/Port}'
+          export AEVUS_TRAP_COMMUNITY='{configuration:/Community}'
+          exec "$ART/.venv/bin/python3" -m src.collectors.snmp_trap_receiver
+
+      # Greengrass sends SIGTERM, waits ShutdownTimeout, then SIGKILL.
+      # The trap receiver handles SIGTERM in src/collectors/snmp_trap_receiver.py
+      # by closing its UDP dispatcher cleanly.
+      Shutdown:
+        Timeout: 15
+        Script: |
+          # noop — Run script gets SIGTERM and exits cleanly.
+          true
+
+    Artifacts:
+      - URI: "file:///greengrass/v2/packages/artifacts-local/io.intrepid.aevus.trap-receiver-1.0.0/aevus-trap-receiver.zip"
+        Unarchive: ZIP
+        Permission:
+          Read: ALL
+
+# When deploying from the cloud, swap the file:// URI for an
+# s3://aevus-edge-artifacts/... URI with KMS-managed encryption.

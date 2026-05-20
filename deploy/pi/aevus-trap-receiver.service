@@ -4,6 +4,11 @@ Documentation=https://github.com/IntrepidLogic-stack/aevus-testbed
 After=network-online.target
 Wants=network-online.target
 
+# Restart rate-limit belongs in [Unit], not [Service]. systemd warns
+# (and ignores the directive) if placed under [Service].
+StartLimitBurst=10
+StartLimitIntervalSec=60
+
 # NOTE: This file is a TEMPLATE. install.sh sed-replaces the @AEVUS_*@
 # tokens with the actual user/group/repo path of the host before
 # copying to /etc/systemd/system/. Do not run this file directly.
@@ -42,11 +47,10 @@ RestrictSUIDSGID=true
 SystemCallFilter=@system-service
 SystemCallErrorNumber=EPERM
 
-# Restart aggressively — trap receiver is the canary for the whole edge
+# Restart aggressively — trap receiver is the canary for the whole edge.
+# (StartLimitBurst / StartLimitIntervalSec live in [Unit] above.)
 Restart=always
 RestartSec=5
-StartLimitBurst=10
-StartLimitIntervalSec=60
 
 [Install]
 WantedBy=multi-user.target

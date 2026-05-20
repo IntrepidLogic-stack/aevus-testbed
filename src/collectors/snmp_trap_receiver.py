@@ -142,11 +142,18 @@ class SNMPTrapReceiver:
 
         # UDP transport on (host, port). Will raise PermissionError if the
         # process lacks CAP_NET_BIND_SERVICE on Linux.
+        #
+        # pysnmp 7.x note: the API was renamed from camelCase to
+        # snake_case. We use the new names directly; aliases still
+        # work but generate deprecation warnings on every call AND may
+        # have subtle behavioral differences (observed: trap socket
+        # appearing bound but not actually receiving). The new names
+        # take the same arguments — see pysnmp.entity.config docs.
         try:
-            config.addTransport(
+            config.add_transport(
                 snmp_engine,
-                udp.domainName + (1,),
-                udp.UdpTransport().openServerMode((self.host, self.port)),
+                udp.DOMAIN_NAME + (1,),
+                udp.UdpTransport().open_server_mode((self.host, self.port)),
             )
         except Exception as e:
             self.log.error("trap_bind_failed", host=self.host, port=self.port, error=str(e))
@@ -155,11 +162,11 @@ class SNMPTrapReceiver:
         # SNMPv2c community config: accept traps from any source IP that
         # presents the configured community string. v3 authPriv comes
         # later — for now this is the lab posture.
-        config.addV1System(snmp_engine, "aevus-trap-area", self.community)
+        config.add_v1_system(snmp_engine, "aevus-trap-area", self.community)
 
         # Notification receiver wires the PDU-decode callback.
         ntfrcv.NotificationReceiver(snmp_engine, self._on_trap)
-        snmp_engine.transportDispatcher.jobStarted(1)
+        snmp_engine.transport_dispatcher.job_started(1)
 
         self.log.info("trap_receiver_started", host=self.host, port=self.port)
 
@@ -171,7 +178,7 @@ class SNMPTrapReceiver:
 
         try:
             if self._engine is not None:
-                self._engine.transportDispatcher.closeDispatcher()
+                self._engine.transport_dispatcher.close_dispatcher()
         except Exception as e:
             self.log.warning("trap_receiver_stop_error", error=str(e))
         self.log.info("trap_receiver_stopped")
@@ -196,9 +203,17 @@ class SNMPTrapReceiver:
         the event loop thread.
         """
         try:
-            transport_domain, transport_address = snmp_engine.msgAndPduDsp.getTransportInfo(
-                state_reference
-            )
+            # pysnmp 7.x: snake_case API. msg_and_pdu_dsp.get_transport_info().
+            # Falls back to the legacy name if running against pysnmp 6.x for
+            # any reason — both attributes exist in 7.x but the camelCase
+            # one emits a deprecation warning.
+            dsp = getattr(snmp_engine, "msg_and_pdu_dsp", None) \
+                or getattr(snmp_engine, "msgAndPduDsp", None)
+            if dsp is None:
+                raise AttributeError("snmp_engine has no msg_and_pdu_dsp")
+            get_info = getattr(dsp, "get_transport_info", None) \
+                or getattr(dsp, "getTransportInfo")
+            transport_domain, transport_address = get_info(state_reference)
             source_ip = str(transport_address[0])
         except Exception as e:
             self.log.warning("trap_transport_info_failed", error=str(e))

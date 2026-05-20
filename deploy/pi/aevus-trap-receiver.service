@@ -4,29 +4,33 @@ Documentation=https://github.com/IntrepidLogic-stack/aevus-testbed
 After=network-online.target
 Wants=network-online.target
 
+# NOTE: This file is a TEMPLATE. install.sh sed-replaces the @AEVUS_*@
+# tokens with the actual user/group/repo path of the host before
+# copying to /etc/systemd/system/. Do not run this file directly.
+
 [Service]
 Type=simple
-# Run as the pi user; CAP_NET_BIND_SERVICE has been set on the venv
-# python binary by deploy/pi/install.sh, so we do NOT need root.
-User=pi
-Group=pi
-WorkingDirectory=/home/pi/aevus-testbed
+# Run as the deploying user; CAP_NET_BIND_SERVICE has been set on the
+# venv python binary by deploy/pi/install.sh, so we do NOT need root.
+User=@AEVUS_USER@
+Group=@AEVUS_GROUP@
+WorkingDirectory=@AEVUS_REPO_DIR@
 Environment=PYTHONUNBUFFERED=1
-Environment=PYTHONPATH=/home/pi/aevus-testbed
-EnvironmentFile=-/home/pi/aevus-testbed/.env
+Environment=PYTHONPATH=@AEVUS_REPO_DIR@
+EnvironmentFile=-@AEVUS_REPO_DIR@/.env
 
 # Standalone trap receiver — useful as the first thing we light up on
 # the Pi while the full FastAPI app is still being brought up. Once
 # the full Aevus service is running, swap this unit for `aevus.service`
 # which starts the entire scheduler (including the trap consumer).
-ExecStart=/home/pi/aevus-testbed/.venv/bin/python3 -m src.collectors.snmp_trap_receiver
+ExecStart=@AEVUS_REPO_DIR@/.venv/bin/python3 -m src.collectors.snmp_trap_receiver
 
 # Hardening
 NoNewPrivileges=true
 PrivateTmp=true
 ProtectSystem=strict
 ProtectHome=read-only
-ReadWritePaths=/home/pi/aevus-testbed/data /home/pi/aevus-testbed/logs
+ReadWritePaths=@AEVUS_REPO_DIR@/data @AEVUS_REPO_DIR@/logs
 ProtectKernelTunables=true
 ProtectKernelModules=true
 ProtectControlGroups=true

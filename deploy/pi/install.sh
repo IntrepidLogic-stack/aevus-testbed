@@ -31,6 +31,10 @@ sudo apt-get install -y --no-install-recommends \
 
 echo "==> Creating Python venv at $VENV_DIR..."
 [ -d "$VENV_DIR" ] || python3 -m venv "$VENV_DIR"
+
+# Pre-create the directories the systemd hardening (ReadWritePaths=) references.
+# Without these the service refuses to start with a 'No such file or directory'.
+mkdir -p "$REPO_DIR/data" "$REPO_DIR/logs"
 # shellcheck source=/dev/null
 source "$VENV_DIR/bin/activate"
 pip install --upgrade pip wheel
@@ -41,8 +45,20 @@ echo "    bind UDP 162 without running as root..."
 PY_REAL="$(readlink -f "$PY_BIN_LINK")"
 sudo setcap 'cap_net_bind_service=+ep cap_net_raw=+ep' "$PY_REAL"
 
-echo "==> Installing systemd unit for the trap receiver..."
-sudo cp "$REPO_DIR/deploy/pi/aevus-trap-receiver.service" "$SERVICE_DIR/aevus-trap-receiver.service"
+echo "==> Installing systemd unit for the trap receiver (rendering for user '$USER' at '$REPO_DIR')..."
+# Render the unit file with the actual user and repo path. The template
+# is parametrized so any user (pi, admin, ubuntu, etc.) works without
+# editing the source. The destination unit ends up at the standard
+# /etc/systemd/system/ path with the user-specific values baked in.
+TEMPLATE_FILE="$REPO_DIR/deploy/pi/aevus-trap-receiver.service"
+RENDERED_FILE="$(mktemp)"
+sed \
+    -e "s|@AEVUS_USER@|$USER|g" \
+    -e "s|@AEVUS_GROUP@|$USER|g" \
+    -e "s|@AEVUS_REPO_DIR@|$REPO_DIR|g" \
+    "$TEMPLATE_FILE" > "$RENDERED_FILE"
+sudo install -m 644 "$RENDERED_FILE" "$SERVICE_DIR/aevus-trap-receiver.service"
+rm -f "$RENDERED_FILE"
 sudo systemctl daemon-reload
 sudo systemctl enable aevus-trap-receiver.service
 

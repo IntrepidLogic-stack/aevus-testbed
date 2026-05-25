@@ -2731,6 +2731,54 @@ body.light-theme .prefs-panel { background: #FFFFFF !important; border-color: #E
 body.light-theme .help-panel { background: #FFFFFF !important; border-color: #E2E8F0 !important; box-shadow: 0 8px 32px rgba(0,0,0,0.12) !important; }
 /* Light theme — Footer */
 body.light-theme .footer { background: #FFFFFF !important; border-top: 1px solid #E2E8F0 !important; color: #64748B !important; }
+/* Light theme — Bell-dropdown (alarms notification panel).
+   Inline styles on the element require !important to override. */
+body.light-theme #bell-dropdown {
+  background: #FFFFFF !important;
+  border: 1px solid #E2E8F0 !important;
+  box-shadow: 0 8px 32px rgba(0,0,0,0.08) !important;
+}
+body.light-theme #bell-dropdown > div:first-child {
+  border-bottom: 1px solid #E2E8F0 !important;
+  color: #475569 !important;
+}
+body.light-theme #bell-dropdown > div:first-child span:first-child { color: #0F172A !important; }
+body.light-theme #bell-dropdown #bell-dropdown-list > div { color: #475569 !important; }
+body.light-theme #bell-dropdown #bell-dropdown-list > div[style*="text-align:center"] { color: #64748B !important; }
+/* Light theme — Command strip (bottom production-status bar). */
+body.light-theme .command-strip-wrap {
+  background: rgba(255,255,255,0.92) !important;
+  border-top: 1px solid #E2E8F0 !important;
+}
+body.light-theme .cmd-strip .cmd-btn {
+  border-color: rgba(148,163,184,0.2) !important;
+  color: #475569 !important;
+}
+body.light-theme .cmd-strip .cmd-btn:hover {
+  background: rgba(148,163,184,0.08) !important;
+  border-color: rgba(148,163,184,0.3) !important;
+  color: #0F172A !important;
+}
+/* Wall button — reflect active state when body.wall-mode is on. */
+.wall-btn {
+  transition: background 0.2s, border-color 0.2s, color 0.2s;
+}
+body.wall-mode .wall-btn,
+.wall-btn.active {
+  background: rgba(14,165,233,0.12) !important;
+  border-color: var(--accent) !important;
+  color: var(--accent) !important;
+}
+body.light-theme .wall-btn {
+  border-color: rgba(148,163,184,0.25) !important;
+  color: #475569 !important;
+}
+body.light-theme.wall-mode .wall-btn,
+body.light-theme .wall-btn.active {
+  background: rgba(14,165,233,0.08) !important;
+  border-color: #0EA5E9 !important;
+  color: #0EA5E9 !important;
+}
 /* Light theme — Scrollbar */
 body.light-theme ::-webkit-scrollbar-track { background: #F1F5F9 !important; }
 body.light-theme ::-webkit-scrollbar-thumb { background: #CBD5E1 !important; }

@@ -1,5 +1,10 @@
-import json, time, math, random, boto3
+import math
+import random
+import time
 from datetime import datetime
+
+import boto3
+
 sw = boto3.client('iotsitewise', region_name='us-east-1')
 _s = {}
 ASSETS = {
@@ -56,7 +61,8 @@ def lambda_handler(event, context):
     for aid, props in ASSETS.items():
         for pid, base, var in props:
             k = f"{aid}:{pid}"
-            if k not in _s: _s[k] = base
+            if k not in _s:
+                _s[k] = base
             cur = _s[k]
             drift = random.gauss(0, var * 0.05)
             revert = (base - cur) * 0.02
@@ -69,6 +75,8 @@ def lambda_handler(event, context):
                 'propertyValues': [{'value': {'doubleValue': round(_s[k], 2)}, 'timestamp': {'timeInSeconds': now}, 'quality': 'GOOD'}]
             })
     for i in range(0, len(entries), 10):
-        try: sw.batch_put_asset_property_value(entries=entries[i:i+10])
-        except Exception as e: print(f"Batch {i} error: {e}")
+        try:
+            sw.batch_put_asset_property_value(entries=entries[i:i+10])
+        except Exception as e:
+            print(f"Batch {i} error: {e}")
     return {'statusCode': 200, 'body': f'{len(entries)} values published'}

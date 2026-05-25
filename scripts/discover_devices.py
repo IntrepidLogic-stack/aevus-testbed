@@ -12,12 +12,12 @@ Usage:
 """
 
 import argparse
-import subprocess
 import ipaddress
 import json
+import subprocess
 import sys
-from pathlib import Path
 from datetime import datetime
+from pathlib import Path
 
 # Lab subnets from .env defaults
 DEFAULT_SUBNETS = {

@@ -4,6 +4,7 @@ Serves public Supabase config to the frontend (URL + anon key only).
 """
 
 from fastapi import APIRouter
+
 from src.config import settings
 
 auth_config_router = APIRouter(tags=["auth"])

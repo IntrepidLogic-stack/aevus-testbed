@@ -271,7 +271,7 @@ class SQLiteDB:
 
     def add_note(self, asset_id: str, note: str, author: str = "System") -> int:
         """Add a note to an asset. Returns the note ID."""
-        from datetime import datetime, UTC
+        from datetime import UTC, datetime
         now = datetime.now(UTC).isoformat()
         cur = self._conn.execute(
             "INSERT INTO asset_notes (asset_id, note, author, created_at) VALUES (?, ?, ?, ?)",
@@ -282,7 +282,7 @@ class SQLiteDB:
 
     def update_note(self, note_id: int, note: str) -> bool:
         """Update an existing note."""
-        from datetime import datetime, UTC
+        from datetime import UTC, datetime
         now = datetime.now(UTC).isoformat()
         cur = self._conn.execute(
             "UPDATE asset_notes SET note = ?, updated_at = ? WHERE id = ?",
@@ -309,7 +309,7 @@ class SQLiteDB:
 
     def add_journal_entry(self, asset_id: str, entry: str, author: str = "System", category: str = "general") -> int:
         """Add an immutable journal entry. Returns the entry ID."""
-        from datetime import datetime, UTC
+        from datetime import UTC, datetime
         now = datetime.now(UTC).isoformat()
         cur = self._conn.execute(
             "INSERT INTO journal (asset_id, entry, author, category, created_at) VALUES (?, ?, ?, ?, ?)",

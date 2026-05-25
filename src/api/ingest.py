@@ -6,13 +6,11 @@ Injects data into the same pipeline as local collectors.
 from __future__ import annotations
 
 import time
-from datetime import datetime, UTC
-from fastapi import APIRouter
-from pydantic import BaseModel
+from datetime import UTC, datetime
 
 import structlog
-
-from src.models.telemetry import RawTelemetry
+from fastapi import APIRouter
+from pydantic import BaseModel
 
 logger = structlog.get_logger()
 router = APIRouter(prefix="/ingest", tags=["ingest"])

@@ -6,7 +6,9 @@ Usage: python3 scripts/demo_seed.py [--mixed]
 --mixed: Set 2 assets to warning/critical for alarm workflow demo
 Default: All assets healthy (for clean demo)
 """
-import sys, os, json, sqlite3, time
+import os
+import sqlite3
+import sys
 from datetime import datetime, timedelta
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
@@ -88,7 +90,7 @@ def seed(mixed=False):
     
     mode = "MIXED (2 degraded + 3 alarms)" if mixed else "CLEAN (all healthy)"
     print(f"\n  Aevus Demo Seed Applied — {mode}")
-    print(f"  Site: Killdeer Field — 10102 Clydesdale Dr, Needville TX 77461")
+    print("  Site: Killdeer Field — 10102 Clydesdale Dr, Needville TX 77461")
     print(f"  Assets: {len(ASSETS)}")
     for a in ASSETS:
         status = a["status"]

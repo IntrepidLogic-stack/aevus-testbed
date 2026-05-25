@@ -33,7 +33,6 @@ from __future__ import annotations
 
 import asyncio
 import struct
-from datetime import UTC, datetime
 
 import structlog
 
@@ -153,9 +152,9 @@ def _parse_response(data: bytes, expected_src: int = 0) -> dict:
         return result
 
     length = data[2]
-    ctrl = data[3]
-    src_addr = struct.unpack("<H", data[4:6])[0]
-    dst_addr = struct.unpack("<H", data[6:8])[0]
+    data[3]
+    struct.unpack("<H", data[4:6])[0]
+    struct.unpack("<H", data[6:8])[0]
 
     # Verify header CRC
     header_crc = struct.unpack("<H", data[8:10])[0]
@@ -182,10 +181,10 @@ def _parse_response(data: bytes, expected_src: int = 0) -> dict:
         return result
 
     # Transport header
-    transport = payload[0]
+    payload[0]
 
     # Application layer
-    app_ctrl = payload[1]
+    payload[1]
     func_code = payload[2]
 
     if func_code != FUNC_RESPONSE:
@@ -219,14 +218,14 @@ def _parse_response(data: bytes, expected_src: int = 0) -> dict:
             start_idx = payload[offset]
             stop_idx = payload[offset + 1]
             offset += 2
-            count = stop_idx - start_idx + 1
+            stop_idx - start_idx + 1
         elif qualifier == QUAL_RANGE_16BIT:
             if offset + 4 > len(payload):
                 break
             start_idx = struct.unpack("<H", payload[offset:offset + 2])[0]
             stop_idx = struct.unpack("<H", payload[offset + 2:offset + 4])[0]
             offset += 4
-            count = stop_idx - start_idx + 1
+            stop_idx - start_idx + 1
         else:
             break
 

@@ -5,11 +5,11 @@ Simulates complete oil & gas wellsite: compressor, well, separator, tanks, safet
 Handles FC3 (read holding) and FC2 (read discrete).
 """
 import asyncio
+import logging
 import math
 import random
 import struct
 import time
-import logging
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(message)s", datefmt="%H:%M:%S")
 log = logging.getLogger("sim")

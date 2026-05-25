@@ -6,14 +6,12 @@ Enterprise access control: submit, review, approve/deny with Cognito integration
 from __future__ import annotations
 
 import json
-import os
 from datetime import datetime, timezone
 from pathlib import Path
 
 import structlog
-from fastapi import APIRouter, Request
-from pydantic import BaseModel, EmailStr
-from typing import Optional
+from fastapi import APIRouter
+from pydantic import BaseModel
 
 logger = structlog.get_logger()
 

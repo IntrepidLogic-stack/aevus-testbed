@@ -6,7 +6,7 @@ import csv
 import io
 from datetime import datetime
 
-from fastapi import APIRouter, UploadFile, File
+from fastapi import APIRouter, File, UploadFile
 from starlette.responses import StreamingResponse
 
 router = APIRouter(prefix="/csv", tags=["csv"])

@@ -4,10 +4,11 @@ SCADAPack 470 Register Writer — simulates realistic oil & gas process values.
 Writes Float32 values to Modbus TCP holding registers (matching collector's register map).
 """
 import asyncio
-import random
 import math
+import random
 import struct
 import time
+
 from pymodbus.client import AsyncModbusTcpClient
 
 HOST = "172.16.1.200"
@@ -111,7 +112,7 @@ async def write_registers():
             await asyncio.sleep(10)
             try:
                 await client.connect()
-            except:
+            except Exception:  # noqa: BLE001 - reconnect tolerates any failure
                 pass
 
 

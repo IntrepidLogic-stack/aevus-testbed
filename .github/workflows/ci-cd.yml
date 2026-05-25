@@ -55,7 +55,7 @@ jobs:
     # asked for a hotfix deploy. Push events always run CI.
     if: github.event_name != 'workflow_dispatch' || github.event.inputs.skip_ci != 'true'
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
@@ -80,7 +80,7 @@ jobs:
     runs-on: ubuntu-latest
     environment: production
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       # ── Record a GitHub Deployment so the UI shows the rocket icon ──
       - name: Start GitHub Deployment

@@ -2779,6 +2779,45 @@ body.light-theme .wall-btn.active {
   border-color: #0EA5E9 !important;
   color: #0EA5E9 !important;
 }
+/* PR#12: light-theme alert-toast + mobile-nav + alerts panel */
+/* Light theme — Alert toast popups (CRITICAL ALERT floating cards).
+   Children are built in JS with inline dark styles; need !important. */
+body.light-theme .alert-toast,
+body.light-theme .alert-toast > div {
+  background: #FFFFFF !important;
+  border: 1px solid #E2E8F0 !important;
+  box-shadow: 0 4px 16px rgba(0,0,0,0.1) !important;
+  color: #0F172A !important;
+}
+body.light-theme .alert-toast * { color: #0F172A !important; }
+body.light-theme .alert-toast button,
+body.light-theme .alert-toast [role="button"] {
+  background: #F1F5F9 !important;
+  border: 1px solid #CBD5E1 !important;
+  color: #475569 !important;
+}
+body.light-theme .alert-toast button:hover {
+  background: #E2E8F0 !important;
+}
+/* Light theme — Mobile / bottom navigation bar. */
+body.light-theme .mobile-bottom-nav {
+  background: #FFFFFF !important;
+  border-top: 1px solid #E2E8F0 !important;
+}
+body.light-theme .mob-nav-btn { color: #64748B !important; }
+body.light-theme .mob-nav-btn.active { color: #0891B2 !important; }
+body.light-theme .mob-nav-btn:active {
+  background: rgba(8,145,178,0.08) !important;
+}
+/* Light theme — Alerts page panels (Active / History / Shelved / Analytics). */
+body.light-theme #alerts-full-list,
+body.light-theme #alarm-history-panel,
+body.light-theme #alarm-shelved-panel,
+body.light-theme #alarm-analytics-panel,
+body.light-theme .alarm-tab-panel {
+  background: #FFFFFF !important;
+  color: #0F172A !important;
+}
 /* Light theme — Scrollbar */
 body.light-theme ::-webkit-scrollbar-track { background: #F1F5F9 !important; }
 body.light-theme ::-webkit-scrollbar-thumb { background: #CBD5E1 !important; }

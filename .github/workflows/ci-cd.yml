@@ -104,14 +104,26 @@ jobs:
         id: ssm
         run: |
           set -euo pipefail
+          # deploy.sh requires a $VERSION argument (it errors out with
+          # "Usage:" otherwise — that's why prior auto-deploys all
+          # failed silently). Format: vYYYY.MM.DD-<short-sha> —
+          # monotonic, human-readable, unique per commit, and matches
+          # the git-tag convention deploy.sh wants to create.
+          SHORT_SHA="${GITHUB_SHA:0:7}"
+          VERSION="v$(date +%Y.%m.%d)-${SHORT_SHA}"
+          echo "Deploying version: $VERSION"
+          # jq builds the JSON-quoted commands array so the version
+          # interpolates safely without shell-quoting hell.
+          COMMANDS=$(jq -nc --arg cmd "sudo -u ubuntu bash /home/ubuntu/aevus-testbed/deploy.sh $VERSION" '[$cmd]')
           CMD_ID=$(aws ssm send-command \
             --instance-ids "${EC2_INSTANCE_ID}" \
             --document-name AWS-RunShellScript \
-            --parameters 'commands=["sudo -u ubuntu bash /home/ubuntu/aevus-testbed/deploy.sh"]' \
-            --comment "Deploy from ${GITHUB_SHA::7} by ${GITHUB_ACTOR}" \
+            --parameters "commands=$COMMANDS" \
+            --comment "Deploy $VERSION by ${GITHUB_ACTOR}" \
             --query 'Command.CommandId' --output text)
           echo "command_id=$CMD_ID" >> "$GITHUB_OUTPUT"
-          echo "SSM command: $CMD_ID"
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "SSM command: $CMD_ID  (version $VERSION)"
 
           # Wait for completion; surface logs on either path
           if ! aws ssm wait command-executed \

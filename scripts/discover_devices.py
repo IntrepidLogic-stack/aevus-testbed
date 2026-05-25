@@ -102,13 +102,18 @@ def discover_host(host: str) -> dict | None:
     return {"ip": host, "oids": oids}
 
 def main():
+    # `global` must appear before any reference to the name in the
+    # function body (Python SyntaxError otherwise). The argparse
+    # default below reads SNMP_COMMUNITY at parse-build time, so the
+    # declaration has to come first.
+    global SNMP_COMMUNITY
+
     parser = argparse.ArgumentParser(description="Aevus device discovery via SNMP")
     parser.add_argument("--subnet", help="Scan a specific subnet (e.g., 10.0.1.0/24)")
     parser.add_argument("--host", help="Full SNMP walk of a single host IP")
     parser.add_argument("--community", default=SNMP_COMMUNITY, help="SNMP community string")
     args = parser.parse_args()
-    
-    global SNMP_COMMUNITY
+
     SNMP_COMMUNITY = args.community
     
     # Check snmpwalk is installed

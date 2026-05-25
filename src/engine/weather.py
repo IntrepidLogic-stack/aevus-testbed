@@ -7,7 +7,7 @@ from __future__ import annotations
 import json
 import math
 import pathlib
-from datetime import UTC, datetime, timezone, timedelta
+from datetime import UTC, datetime, timedelta
 
 import structlog
 
@@ -132,8 +132,8 @@ class WeatherEngine:
 
     async def poll(self) -> WeatherData:
         """Fetch current weather from Open-Meteo and compute solar factors."""
-        import urllib.request
         import asyncio
+        import urllib.request
 
         lat = settings.site_latitude
         lon = settings.site_longitude

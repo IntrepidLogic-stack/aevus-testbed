@@ -62,7 +62,10 @@ jobs:
       - name: Ruff lint (errors + imports only, line-length ignored)
         run: |
           pip install ruff
-          ruff check . --select E,F,I --ignore E501
+          # E501 ignored: line-length handled by formatter.
+          # E402 ignored: matches pyproject.toml policy — the
+          #   secrets_loader pattern legitimately needs late imports.
+          ruff check . --select E,F,I --ignore E501,E402
       - name: Python syntax check
         run: find . -name "*.py" -not -path "./.venv/*" -exec python -m py_compile {} +
 

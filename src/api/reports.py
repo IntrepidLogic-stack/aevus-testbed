@@ -1,7 +1,8 @@
+import math
+from datetime import UTC, datetime
+
 from fastapi import APIRouter
 from fastapi.responses import HTMLResponse
-from datetime import datetime, UTC
-import math
 
 router = APIRouter(prefix="/reports", tags=["reports"])
 
@@ -19,8 +20,8 @@ async def site_summary_report():
     online = sum(1 for a in assets if a.status in ('good','warn','warning'))
     healths = [a.health for a in assets if a.health is not None]
     avg_health = round(sum(healths)/len(healths)) if healths else 0
-    critical_alerts = sum(1 for a in alerts if a.severity == 'critical' and a.status == 'open')
-    warning_alerts = sum(1 for a in alerts if a.severity == 'warning' and a.status == 'open')
+    sum(1 for a in alerts if a.severity == 'critical' and a.status == 'open')
+    sum(1 for a in alerts if a.severity == 'warning' and a.status == 'open')
     total_open = sum(1 for a in alerts if a.status == 'open')
 
     # Status counts for donut

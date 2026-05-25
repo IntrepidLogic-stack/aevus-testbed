@@ -17,53 +17,52 @@ from contextlib import asynccontextmanager
 from pathlib import Path
 
 import structlog
-from fastapi import FastAPI, Request
-from slowapi import Limiter, _rate_limit_exceeded_handler
-from slowapi.util import get_remote_address
-from slowapi.errors import RateLimitExceeded
+from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
+from slowapi import Limiter, _rate_limit_exceeded_handler
+from slowapi.errors import RateLimitExceeded
+from slowapi.util import get_remote_address
 from starlette.responses import Response
 
 # API routers
 from src.api import (
     access_requests_router,
+    ai_router,
     alerts_router,
-    ingest_router,
     assets_router,
     commands_router,
     correlations_router,
+    csv_io_router,
     deploy_router,
     diagnostics_router,
     health_router,
+    ingest_router,
     integrations_router,
-    predictions_router,
-    reports_router,
-    weather_router,
     journal_router,
     notes_router,
     ping_diag_router,
-    csv_io_router,
-    ai_router,
+    predictions_router,
+    reports_router,
+    weather_router,
     ws_router,
 )
-from src.api.ws import ws_manager
-from src.api.auth_config import auth_config_router
 from src.api.audit import router as audit_router
-from src.api.audit_middleware import AuditMiddleware
+from src.api.auth_config import auth_config_router
+from src.api.ws import ws_manager
+from src.collectors.dnp3_master import DNP3Collector
+from src.collectors.modbus_rtu import SCADAPack470Collector
 
 # Collectors
-from src.collectors.simulator import SimulatorCollector
 from src.collectors.snmp_edge import SNMPEdgeCollector
 from src.collectors.snmp_router import SNMPNetworkCollector
 from src.collectors.snmp_switch import SNMPSwitchCollector
-from src.collectors.modbus_rtu import SCADAPack470Collector
-from src.collectors.dnp3_master import DNP3Collector
 from src.collectors.snmp_trap_receiver import SNMPTrapReceiver
 from src.config import settings
 from src.engine.alert_engine import AlertEngine
-from src.engine.commander import Commander
 from src.engine.comm_quality import CommQualityEngine
+from src.engine.commander import Commander
 from src.engine.correlator import CorrelationEngine
 from src.engine.notifier import NotificationEngine
 from src.engine.weather import WeatherEngine

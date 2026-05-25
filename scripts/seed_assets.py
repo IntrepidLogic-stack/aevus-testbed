@@ -12,9 +12,8 @@ Usage:
 
 import argparse
 import sqlite3
-import json
-from pathlib import Path
 from datetime import datetime
+from pathlib import Path
 
 DB_PATH = Path("data/aevus.db")
 

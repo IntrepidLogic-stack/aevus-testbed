@@ -66,7 +66,7 @@ def _validate_cognito_jwt(token: str) -> bool:
         jwk_client = PyJWKClient(jwks_url)
         signing_key = jwk_client.get_signing_key_from_jwt(token)
         
-        payload = jwt.decode(
+        jwt.decode(
             token,
             signing_key.key,
             algorithms=["RS256"],

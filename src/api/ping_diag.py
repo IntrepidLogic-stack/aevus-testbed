@@ -7,9 +7,9 @@ from __future__ import annotations
 import asyncio
 import re
 import time
-from datetime import datetime, UTC
+from datetime import UTC, datetime
 
-from fastapi import APIRouter, Query
+from fastapi import APIRouter
 from pydantic import BaseModel
 
 router = APIRouter(prefix="/diagnostics/ping", tags=["diagnostics"])
@@ -55,7 +55,7 @@ async def _run_ping(target: str, count: int, interval: float, packet_size: int, 
                 stderr=asyncio.subprocess.PIPE,
             )
             stdout, _ = await asyncio.wait_for(proc.communicate(), timeout=timeout + 2)
-            elapsed = (time.monotonic() - start) * 1000
+            (time.monotonic() - start) * 1000
             output = stdout.decode()
 
             # Parse RTT from ping output

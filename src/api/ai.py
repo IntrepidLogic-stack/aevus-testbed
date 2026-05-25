@@ -19,14 +19,13 @@ Patent Pending: Edge-Cloud Hybrid Inference Architecture (Provisional #8)
 """
 from __future__ import annotations
 
+import hashlib
 import json
 import time
-import hashlib
 from datetime import datetime, timezone
-from typing import Optional
 
 import structlog
-from fastapi import APIRouter, HTTPException, UploadFile, File, Form
+from fastapi import APIRouter, File, Form, HTTPException, UploadFile
 from pydantic import BaseModel
 
 logger = structlog.get_logger()
@@ -270,7 +269,7 @@ _finetune_samples: list[dict] = []
 async def ai_ask(req: AIRequest):
     try:
         client = _get_client()
-    except Exception as e:
+    except Exception:
         raise HTTPException(502, "AI service unavailable")
 
     t0 = time.time()
@@ -392,7 +391,7 @@ async def voice_query(req: VoiceRequest):
     model_key, reason = _route_model(classification)
     
     ctx_text = _sanitize_context(_build_context(req.context))
-    user_msg = f"[Voice query from field operator — keep response under 3 sentences for audio playback]\n\n"
+    user_msg = "[Voice query from field operator — keep response under 3 sentences for audio playback]\n\n"
     if ctx_text:
         user_msg += f"System state:\n{ctx_text}\n\n"
     user_msg += f"Operator says: {req.text}"
@@ -530,7 +529,7 @@ async def vision_inspect(
     if len(image_bytes) > 5_000_000:
         raise HTTPException(400, "Image must be under 5MB")
     
-    b64_image = base64.b64encode(image_bytes).decode()
+    base64.b64encode(image_bytes).decode()
     
     # Determine media type
     ct = image.content_type or "image/jpeg"

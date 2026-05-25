@@ -170,7 +170,7 @@ class DNP3OutstationServer:
         # Parse request to determine what to return
         if len(req_data) >= 3:
             req_group = req_data[0]
-            req_var = req_data[1]
+            req_data[1]
             req_qual = req_data[2]
 
             if req_group == GROUP_CLASS_0:
@@ -276,7 +276,7 @@ class DNP3OutstationServer:
 
                 # Parse header
                 length = data[2]
-                ctrl = data[3]
+                data[3]
                 dst_addr = struct.unpack("<H", data[4:6])[0]
                 src_addr = struct.unpack("<H", data[6:8])[0]
 
@@ -299,7 +299,7 @@ class DNP3OutstationServer:
                 if len(payload) < 3:
                     continue
 
-                transport = payload[0]
+                payload[0]
                 app_ctrl = payload[1]
                 func_code = payload[2]
                 seq = app_ctrl & 0x0F
@@ -332,10 +332,10 @@ class DNP3OutstationServer:
             self.handle_client, "0.0.0.0", self.port
         )
         print(f"[DNP3] Outstation simulator running on port {self.port}, address {self.addr}")
-        print(f"[DNP3] Simulating: Gas Pipeline Meter Station (EFM)")
-        print(f"[DNP3]   Analog Inputs:  20 points (pressures, temps, flow, gas quality)")
-        print(f"[DNP3]   Binary Inputs:  10 points (valve status, alarms, ESD)")
-        print(f"[DNP3]   Counters:        4 points (volumes, comm stats)")
+        print("[DNP3] Simulating: Gas Pipeline Meter Station (EFM)")
+        print("[DNP3]   Analog Inputs:  20 points (pressures, temps, flow, gas quality)")
+        print("[DNP3]   Binary Inputs:  10 points (valve status, alarms, ESD)")
+        print("[DNP3]   Counters:        4 points (volumes, comm stats)")
 
         async with server:
             await server.serve_forever()

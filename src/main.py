@@ -29,6 +29,7 @@ from src.api.ws import ws_manager
 
 # Collectors
 from src.collectors.simulator import SimulatorCollector
+from src.collectors.snmp_trap_receiver import SNMPTrapReceiver
 
 # API routers
 from src.api import (
@@ -56,6 +57,12 @@ class AppState:
             influx=self.influx,
             alert_engine=self.alert_engine,
         )
+        self.trap_receiver = SNMPTrapReceiver(
+            host="0.0.0.0",
+            port=162,
+            community="aevus_trap",
+        )
+        self.scheduler.register_trap_receiver(self.trap_receiver)
 
     @property
     def ws_clients(self) -> int:
@@ -142,6 +149,10 @@ async def lifespan(app: FastAPI):
     # Register collectors (simulators for now)
     _register_simulators()
 
+    # Start SNMP trap receiver (UDP 162) — wire to scheduler consumer loop
+    await app_state.trap_receiver.start()
+    logger.info("trap_receiver_wired", host="0.0.0.0", port=162, community="aevus_trap")
+
     # Start polling
     await app_state.scheduler.start()
 
@@ -152,6 +163,7 @@ async def lifespan(app: FastAPI):
     # Shutdown
     logger.info("aevus_shutting_down")
     await app_state.scheduler.stop()
+    await app_state.trap_receiver.stop()
     app_state.influx.close()
     app_state.db.close()
 

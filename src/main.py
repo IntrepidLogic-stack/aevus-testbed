@@ -30,6 +30,7 @@ from src.api.ws import ws_manager
 # Collectors
 from src.collectors.simulator import SimulatorCollector
 from src.collectors.snmp_trap_receiver import SNMPTrapReceiver
+from src.integrations.mqtt_publisher import MQTTPublisher
 
 # API routers
 from src.api import (
@@ -63,6 +64,14 @@ class AppState:
             community="aevus_trap",
         )
         self.scheduler.register_trap_receiver(self.trap_receiver)
+
+        # MQTT publisher (Phase 4) — optional, off until MQTT_ENABLED=true in .env.
+        # Construction picks up broker host/port/TLS/certs from settings automatically.
+        if settings.mqtt_enabled:
+            self.mqtt_publisher = MQTTPublisher()
+            self.scheduler.register_mqtt_publisher(self.mqtt_publisher)
+        else:
+            self.mqtt_publisher = None
 
     @property
     def ws_clients(self) -> int:

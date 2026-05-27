@@ -48,6 +48,7 @@ from src.api.predictions import router as predictions_router  # noqa: E402
 from src.api.reports import router as reports_router  # noqa: E402
 from src.api.weather import router as weather_router  # noqa: E402
 from src.api.ws import router as ws_router  # noqa: E402
+from src.collectors.pi_self_metrics import PiSelfMetricsCollector  # noqa: E402
 from src.collectors.simulator import SimulatorCollector  # noqa: E402
 from src.collectors.snmp_radio import TrioJR900Collector  # noqa: E402
 from src.collectors.snmp_router import SNMPNetworkCollector  # noqa: E402
@@ -147,6 +148,24 @@ def _register_real_snmp_collectors() -> None:
                 asset_id=asset_id,
                 error=str(e),
             )
+
+    # EDGE-01 (this Pi) — self-metrics via local syscalls. Always-on; no IP/SNMP
+    # required. Overrides the simulator entry for EDGE-01. asset_id is forced to
+    # EDGE-01 (NOT the collector's PI-01 default) to avoid the Task #97 seed
+    # conflict where a separate PI-01 row got created and broke the registry.
+    try:
+        edge_collector = PiSelfMetricsCollector(
+            asset_id="EDGE-01",
+            poll_interval=15,
+        )
+        app_state.scheduler.register("EDGE-01", edge_collector)
+        logger.info("edge_self_metrics_collector_registered", asset_id="EDGE-01")
+    except Exception as e:
+        logger.warning(
+            "edge_self_metrics_failed_fallback_to_sim",
+            asset_id="EDGE-01",
+            error=str(e),
+        )
 
     # Trio JR900 radios — dormant until IPs are set in .env (rad_01_ip / rad_02_ip)
     radio_targets = [

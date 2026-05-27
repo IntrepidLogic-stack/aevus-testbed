@@ -10,7 +10,7 @@ from __future__ import annotations
 import asyncio
 import sys
 import types
-from datetime import datetime, timezone
+from datetime import UTC, datetime, timezone
 from typing import Any
 from unittest.mock import MagicMock
 
@@ -23,13 +23,24 @@ class _PermissiveModule(types.ModuleType):
 
 
 for _name in (
-    "pymodbus", "pymodbus.client", "pymodbus.exceptions",
-    "pysnmp", "pysnmp.hlapi", "pysnmp.hlapi.asyncio",
-    "pysnmp.entity", "pysnmp.entity.rfc3413",
-    "pysnmp.carrier", "pysnmp.carrier.asyncio", "pysnmp.carrier.asyncio.dgram",
+    "pymodbus",
+    "pymodbus.client",
+    "pymodbus.exceptions",
+    "pysnmp",
+    "pysnmp.hlapi",
+    "pysnmp.hlapi.asyncio",
+    "pysnmp.entity",
+    "pysnmp.entity.rfc3413",
+    "pysnmp.carrier",
+    "pysnmp.carrier.asyncio",
+    "pysnmp.carrier.asyncio.dgram",
     "icmplib",
-    "influxdb_client", "influxdb_client.client", "influxdb_client.client.write_api",
-    "apscheduler", "apscheduler.schedulers", "apscheduler.schedulers.asyncio",
+    "influxdb_client",
+    "influxdb_client.client",
+    "influxdb_client.client.write_api",
+    "apscheduler",
+    "apscheduler.schedulers",
+    "apscheduler.schedulers.asyncio",
 ):
     if _name not in sys.modules:
         sys.modules[_name] = _PermissiveModule(_name)
@@ -49,7 +60,7 @@ def _fake_asset(asset_id: str = "RTU-01", host: str = "192.168.88.21") -> Asset:
         name="SCADAPack 470",
         location="Lab",
         health=92,
-        last_seen=datetime.now(timezone.utc),
+        last_seen=datetime.now(UTC),
         vendor="Schneider",
         model="SCADAPack 470",
         ip_address=host,
@@ -108,17 +119,26 @@ async def test_handle_reachability_up_resolves_down(monkeypatch):
     sched, db, engine = _build_scheduler()
 
     async def _noop(*a, **kw): ...
+
     monkeypatch.setattr("src.scheduler.ws_manager.broadcast", _noop)
 
     down = ReachabilityEvent(
-        asset_id="RTU-01", host="192.168.88.21",
-        state="down", previous_state="up",
-        loss_pct=100.0, avg_rtt_ms=None, consecutive_failures=3,
+        asset_id="RTU-01",
+        host="192.168.88.21",
+        state="down",
+        previous_state="up",
+        loss_pct=100.0,
+        avg_rtt_ms=None,
+        consecutive_failures=3,
     )
     up = ReachabilityEvent(
-        asset_id="RTU-01", host="192.168.88.21",
-        state="up", previous_state="down",
-        loss_pct=0.0, avg_rtt_ms=2.5, consecutive_failures=0,
+        asset_id="RTU-01",
+        host="192.168.88.21",
+        state="up",
+        previous_state="down",
+        loss_pct=0.0,
+        avg_rtt_ms=2.5,
+        consecutive_failures=0,
     )
 
     await sched._handle_reachability_event(down)
@@ -135,16 +155,23 @@ async def test_icmp_consumer_loop_drains_queue(monkeypatch):
     sched, db, engine = _build_scheduler()
 
     async def _noop(*a, **kw): ...
+
     monkeypatch.setattr("src.scheduler.ws_manager.broadcast", _noop)
 
     probe = ICMPProbe()
     sched.register_icmp_probe(probe)
 
-    await probe.events.put(ReachabilityEvent(
-        asset_id="RTU-01", host="192.168.88.21",
-        state="degraded", previous_state="up",
-        loss_pct=25.0, avg_rtt_ms=45.0, consecutive_failures=0,
-    ))
+    await probe.events.put(
+        ReachabilityEvent(
+            asset_id="RTU-01",
+            host="192.168.88.21",
+            state="degraded",
+            previous_state="up",
+            loss_pct=25.0,
+            avg_rtt_ms=45.0,
+            consecutive_failures=0,
+        )
+    )
 
     sched._icmp_probe = probe
     task = asyncio.create_task(sched._icmp_consumer_loop())

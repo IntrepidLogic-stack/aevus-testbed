@@ -21,11 +21,11 @@ from __future__ import annotations
 import json
 import logging
 import os
-from datetime import datetime, timezone, timedelta
-from typing import Any, Optional
+from datetime import UTC, datetime, timedelta
+from typing import Any
 
 import boto3
-from botocore.exceptions import ClientError, BotoCoreError
+from botocore.exceptions import BotoCoreError, ClientError
 
 logger = logging.getLogger()
 
@@ -107,7 +107,7 @@ def _fetch_recent_events(
     we list backwards from today.
     """
     s3 = _s3()
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     window_start = now - timedelta(minutes=EVENT_WINDOW_MIN)
 
     keys: list[str] = []

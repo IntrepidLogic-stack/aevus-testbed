@@ -1,10 +1,11 @@
 """Tests for the stateful alert engine."""
 
-import pytest
-from datetime import datetime, timezone, timedelta
+from datetime import UTC, datetime, timedelta, timezone
 
+import pytest
+
+from src.engine.alert_engine import ALERTABLE_METRICS, AlertEngine
 from src.models.telemetry import VitalSign
-from src.engine.alert_engine import AlertEngine, ALERTABLE_METRICS
 
 
 def _vital(label: str, value: str, raw: float, status: str) -> VitalSign:
@@ -120,13 +121,13 @@ class TestAlertEngineOffline:
 
     def test_no_alert_when_fresh(self):
         engine = AlertEngine()
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         result = engine.evaluate_offline("RAD-01", "Trio #1", now, poll_interval=30)
         assert result is None
 
     def test_fires_when_stale(self):
         engine = AlertEngine()
-        old = datetime.now(timezone.utc) - timedelta(seconds=200)
+        old = datetime.now(UTC) - timedelta(seconds=200)
         result = engine.evaluate_offline("RAD-01", "Trio #1", old, poll_interval=30)
         assert result is not None
         assert result.severity == "critical"
@@ -134,17 +135,17 @@ class TestAlertEngineOffline:
 
     def test_no_duplicate_offline(self):
         engine = AlertEngine()
-        old = datetime.now(timezone.utc) - timedelta(seconds=200)
+        old = datetime.now(UTC) - timedelta(seconds=200)
         engine.evaluate_offline("RAD-01", "Trio #1", old, poll_interval=30)
         result = engine.evaluate_offline("RAD-01", "Trio #1", old, poll_interval=30)
         assert result is None
 
     def test_resolves_when_back(self):
         engine = AlertEngine()
-        old = datetime.now(timezone.utc) - timedelta(seconds=200)
+        old = datetime.now(UTC) - timedelta(seconds=200)
         engine.evaluate_offline("RAD-01", "Trio #1", old, poll_interval=30)
         # Now it's back
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         result = engine.evaluate_offline("RAD-01", "Trio #1", now, poll_interval=30)
         assert result is not None
         assert result.status == "resolved"
@@ -159,10 +160,8 @@ class TestAlertEngineOffline:
         should alarm well under 30s — the SCADAPack scenario from the
         comms-loss regression."""
         engine = AlertEngine()
-        old = datetime.now(timezone.utc) - timedelta(seconds=20)
-        result = engine.evaluate_offline(
-            "RTU-01", "SCADAPack 470", old, poll_interval=5
-        )
+        old = datetime.now(UTC) - timedelta(seconds=20)
+        result = engine.evaluate_offline("RTU-01", "SCADAPack 470", old, poll_interval=5)
         assert result is not None
         assert result.severity == "critical"
         assert "comms loss" in result.message.lower()
@@ -172,14 +171,16 @@ class TestAlertEngineOffline:
         intentionally lossy links)."""
         engine = AlertEngine()
         # 80s stale, 30s poll: 2.6x missed. Default (3x=90s) → no alert.
-        old = datetime.now(timezone.utc) - timedelta(seconds=80)
-        assert engine.evaluate_offline(
-            "RAD-01", "Trio #1", old, poll_interval=30, missed_polls=3
-        ) is None
+        old = datetime.now(UTC) - timedelta(seconds=80)
+        assert (
+            engine.evaluate_offline("RAD-01", "Trio #1", old, poll_interval=30, missed_polls=3)
+            is None
+        )
         # Same staleness, override to 2x=60s → alert fires.
-        assert engine.evaluate_offline(
-            "RAD-01", "Trio #1", old, poll_interval=30, missed_polls=2
-        ) is not None
+        assert (
+            engine.evaluate_offline("RAD-01", "Trio #1", old, poll_interval=30, missed_polls=2)
+            is not None
+        )
 
 
 class TestAlertEnginePartial:
@@ -193,9 +194,7 @@ class TestAlertEnginePartial:
 
     def test_fires_when_metrics_missing(self):
         engine = AlertEngine()
-        result = engine.evaluate_partial(
-            "RTU-01", "SCADAPack", {"suction_pressure", "vibration"}
-        )
+        result = engine.evaluate_partial("RTU-01", "SCADAPack", {"suction_pressure", "vibration"})
         assert result is not None
         assert result.severity == "warning"
         assert result.status == "open"
@@ -216,9 +215,7 @@ class TestAlertEnginePartial:
         current gap."""
         engine = AlertEngine()
         engine.evaluate_partial("RTU-01", "SCADAPack", {"suction_pressure"})
-        engine.evaluate_partial(
-            "RTU-01", "SCADAPack", {"suction_pressure", "vibration"}
-        )
+        engine.evaluate_partial("RTU-01", "SCADAPack", {"suction_pressure", "vibration"})
         alert = engine.open_alerts[0]
         assert "vibration" in alert.message
         assert "2 metric" in alert.message
@@ -247,9 +244,7 @@ class TestAlertEngineEvent:
 
     def test_cold_start_fires_warning(self):
         engine = AlertEngine()
-        changes = engine.evaluate_event(
-            "RTR-01", "MikroTik L009", "coldStart", {}
-        )
+        changes = engine.evaluate_event("RTR-01", "MikroTik L009", "coldStart", {})
         assert len(changes) == 1
         assert changes[0].severity == "warning"
         assert "cold start" in changes[0].message.lower()
@@ -276,19 +271,13 @@ class TestAlertEngineEvent:
         assert len(engine.open_alerts) == 1
         changes = engine.evaluate_event("SW-01", "Catalyst", "linkUp", {})
         # The linkDown alert is in changes with status=resolved.
-        assert any(
-            a.status == "resolved" and "link" in a.message.lower() for a in changes
-        )
+        assert any(a.status == "resolved" and "link" in a.message.lower() for a in changes)
         # No open link alerts remain.
-        assert not any(
-            "link" in a.message.lower() for a in engine.open_alerts
-        )
+        assert not any("link" in a.message.lower() for a in engine.open_alerts)
 
     def test_auth_failure_critical(self):
         engine = AlertEngine()
-        changes = engine.evaluate_event(
-            "RTR-01", "MikroTik L009", "authenticationFailure", {}
-        )
+        changes = engine.evaluate_event("RTR-01", "MikroTik L009", "authenticationFailure", {})
         assert len(changes) == 1
         assert changes[0].severity == "critical"
         assert "authentication" in changes[0].message.lower()
@@ -311,8 +300,9 @@ class TestAlertEngineEvent:
         must auto-resolve the OFFLINE alert. This closes the feedback
         loop between the comms-loss path and the trap path."""
         from datetime import timedelta
+
         engine = AlertEngine()
-        old = datetime.now(timezone.utc) - timedelta(seconds=200)
+        old = datetime.now(UTC) - timedelta(seconds=200)
         engine.evaluate_offline("RAD-01", "Trio JR900", old, poll_interval=30)
         assert len(engine.open_alerts) == 1
 
@@ -350,8 +340,11 @@ class TestAlertEngineReachability:
     def test_degraded_fires_warning(self):
         engine = AlertEngine()
         changes = engine.evaluate_reachability(
-            "RTU-01", "SCADAPack 470", state="degraded",
-            loss_pct=20.0, avg_rtt_ms=85.0,
+            "RTU-01",
+            "SCADAPack 470",
+            state="degraded",
+            loss_pct=20.0,
+            avg_rtt_ms=85.0,
         )
         assert len(changes) == 1
         assert changes[0].severity == "warning"
@@ -409,14 +402,16 @@ class TestAlertEngineReachability:
         """ICMP coming back is proof-of-life and must auto-resolve the
         OFFLINE comms-loss alert too — same loop as the trap path."""
         from datetime import timedelta
+
         engine = AlertEngine()
-        old = datetime.now(timezone.utc) - timedelta(seconds=200)
+        old = datetime.now(UTC) - timedelta(seconds=200)
         engine.evaluate_offline("RTU-01", "SCADAPack", old, poll_interval=5)
         assert any(a.message and "comms loss" in a.message.lower() for a in engine.open_alerts)
 
         changes = engine.evaluate_reachability("RTU-01", "SCADAPack", "up")
         resolved_offline = [
-            c for c in changes
+            c
+            for c in changes
             if c.status == "resolved" and c.message and "comms loss" in c.message.lower()
         ]
         assert len(resolved_offline) == 1

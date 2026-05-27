@@ -11,7 +11,7 @@ from __future__ import annotations
 import asyncio
 import sys
 import types
-from datetime import datetime, timezone
+from datetime import UTC, datetime, timezone
 from typing import Any
 from unittest.mock import AsyncMock, MagicMock
 
@@ -24,13 +24,26 @@ class _PermissiveModule(types.ModuleType):
 
 
 for _name in (
-    "pymodbus", "pymodbus.client", "pymodbus.exceptions",
-    "pysnmp", "pysnmp.hlapi", "pysnmp.hlapi.asyncio",
-    "pysnmp.entity", "pysnmp.entity.rfc3413",
-    "pysnmp.carrier", "pysnmp.carrier.asyncio", "pysnmp.carrier.asyncio.dgram",
-    "icmplib", "dnp3_python", "aiomqtt",
-    "influxdb_client", "influxdb_client.client", "influxdb_client.client.write_api",
-    "apscheduler", "apscheduler.schedulers", "apscheduler.schedulers.asyncio",
+    "pymodbus",
+    "pymodbus.client",
+    "pymodbus.exceptions",
+    "pysnmp",
+    "pysnmp.hlapi",
+    "pysnmp.hlapi.asyncio",
+    "pysnmp.entity",
+    "pysnmp.entity.rfc3413",
+    "pysnmp.carrier",
+    "pysnmp.carrier.asyncio",
+    "pysnmp.carrier.asyncio.dgram",
+    "icmplib",
+    "dnp3_python",
+    "aiomqtt",
+    "influxdb_client",
+    "influxdb_client.client",
+    "influxdb_client.client.write_api",
+    "apscheduler",
+    "apscheduler.schedulers",
+    "apscheduler.schedulers.asyncio",
 ):
     if _name not in sys.modules:
         sys.modules[_name] = _PermissiveModule(_name)
@@ -53,7 +66,7 @@ def _fake_asset(asset_id: str = "RTU-01", host: str = "192.168.88.21") -> Asset:
         name="SCADAPack 470",
         location="Lab",
         health=92,
-        last_seen=datetime.now(timezone.utc),
+        last_seen=datetime.now(UTC),
         vendor="Schneider",
         model="SCADAPack 470",
         ip_address=host,
@@ -98,6 +111,7 @@ async def test_dnp3_event_fans_out_to_mqtt(monkeypatch):
     sched, db, engine = _build(mqtt)
 
     async def _noop(*a, **kw): ...
+
     monkeypatch.setattr("src.scheduler.ws_manager.broadcast", _noop)
 
     event = DNP3Event(
@@ -108,7 +122,7 @@ async def test_dnp3_event_fans_out_to_mqtt(monkeypatch):
         value=True,
         unit="bool",
         quality_flags=0x81,
-        device_timestamp=datetime.now(timezone.utc),
+        device_timestamp=datetime.now(UTC),
     )
 
     await sched._handle_dnp3_event(event)
@@ -127,6 +141,7 @@ async def test_trap_event_publishes_to_mqtt(monkeypatch):
     sched, db, engine = _build(mqtt)
 
     async def _noop(*a, **kw): ...
+
     monkeypatch.setattr("src.scheduler.ws_manager.broadcast", _noop)
 
     trap = TrapEvent(
@@ -153,6 +168,7 @@ async def test_reachability_state_publishes_to_mqtt(monkeypatch):
     sched, db, engine = _build(mqtt)
 
     async def _noop(*a, **kw): ...
+
     monkeypatch.setattr("src.scheduler.ws_manager.broadcast", _noop)
 
     event = ReachabilityEvent(
@@ -186,6 +202,7 @@ async def test_mqtt_publish_failure_does_not_break_alarming(monkeypatch):
     sched, db, engine = _build(mqtt)
 
     async def _noop(*a, **kw): ...
+
     monkeypatch.setattr("src.scheduler.ws_manager.broadcast", _noop)
 
     event = DNP3Event(
@@ -196,7 +213,7 @@ async def test_mqtt_publish_failure_does_not_break_alarming(monkeypatch):
         value=True,
         unit="bool",
         quality_flags=0x81,
-        device_timestamp=datetime.now(timezone.utc),
+        device_timestamp=datetime.now(UTC),
     )
 
     # Should NOT raise even though MQTT calls raise.
@@ -223,6 +240,7 @@ async def test_no_mqtt_publisher_registered_is_a_noop(monkeypatch):
     # Note: no register_mqtt_publisher() call.
 
     async def _noop(*a, **kw): ...
+
     monkeypatch.setattr("src.scheduler.ws_manager.broadcast", _noop)
 
     event = DNP3Event(
@@ -233,7 +251,7 @@ async def test_no_mqtt_publisher_registered_is_a_noop(monkeypatch):
         value=True,
         unit="bool",
         quality_flags=0x81,
-        device_timestamp=datetime.now(timezone.utc),
+        device_timestamp=datetime.now(UTC),
     )
     await sched._handle_dnp3_event(event)
     assert len(engine.open_alerts) >= 1

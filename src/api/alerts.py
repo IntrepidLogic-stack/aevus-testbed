@@ -5,7 +5,6 @@ Aevus Testbed --- Alert API Routes
 from __future__ import annotations
 
 from fastapi import APIRouter, HTTPException, Query
-from typing import Optional
 
 from src.models.alert import Alert
 
@@ -14,12 +13,13 @@ router = APIRouter(prefix="/alerts", tags=["alerts"])
 
 @router.get("", response_model=list[Alert])
 async def list_alerts(
-    severity: Optional[str] = Query(None, description="Filter by severity"),
-    status: Optional[str] = Query(None, description="Filter by status"),
+    severity: str | None = Query(None, description="Filter by severity"),
+    status: str | None = Query(None, description="Filter by status"),
     limit: int = Query(100, ge=1, le=1000),
 ) -> list[Alert]:
     """List alerts with optional severity/status filters."""
     from src.main import app_state
+
     return app_state.db.list_alerts(severity=severity, status=status, limit=limit)
 
 
@@ -30,7 +30,9 @@ async def acknowledge_alert(alert_id: str) -> Alert:
 
     alert = app_state.alert_engine.acknowledge(alert_id)
     if alert is None:
-        raise HTTPException(status_code=404, detail=f"Alert {alert_id} not found or already acknowledged")
+        raise HTTPException(
+            status_code=404, detail=f"Alert {alert_id} not found or already acknowledged"
+        )
 
     app_state.db.save_alert(alert)
     return alert

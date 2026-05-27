@@ -133,19 +133,20 @@
   }
 
   function connectCloud() {
-    // AWS IoT Core MQTT-over-WSS uses a SigV4-signed URL. We don't
-    // sign here directly — the page must inject AWS_SIGNED_WSS_URL
-    // (computed via aws-sdk-v3 in a small init script that runs
-    // before mqtt-client.js). Sketch:
-    //
-    //   const signer = new SignatureV4({ ... });
-    //   const signedUrl = await signer.presign({ method: 'GET',
-    //       hostname: AWS_IOT_ENDPOINT, path: '/mqtt' });
-    //   window.AEVUS_MQTT_CONFIG.brokerUrl = signedUrl;
-    //
-    // See dashboard/README.md §3 for the full Cognito identity flow.
-    console.log(`[Aevus MQTT] Connecting (cloud): ${config.brokerUrl}`);
-    client = mqtt.connect(config.brokerUrl, {
+    // AWS IoT Core MQTT-over-WSS uses a SigV4-signed URL. The page's
+    // cognito-iot-init.js script presigns it and writes it onto
+    // window.AEVUS_IOT_SIGNED_URL (and window.AEVUS_MQTT_CONFIG.brokerUrl).
+    // We always pull the LIVE value here, not the cached `config` copy,
+    // because the signed URL is only present after the async Cognito
+    // credentials fetch resolves.
+    const liveCfg = window.AEVUS_MQTT_CONFIG || {};
+    const brokerUrl = window.AEVUS_IOT_SIGNED_URL || liveCfg.brokerUrl || config.brokerUrl;
+    if (!brokerUrl || !brokerUrl.startsWith('wss://')) {
+      console.error('[Aevus MQTT] Cloud transport requested but no signed wss:// URL found. Got:', brokerUrl);
+      return;
+    }
+    console.log('[Aevus MQTT] Connecting (cloud):', brokerUrl.slice(0, 80) + '...');
+    client = mqtt.connect(brokerUrl, {
       clientId: config.clientId,
       reconnectPeriod: config.reconnectPeriod,
       keepalive: config.keepalive,
@@ -199,7 +200,10 @@
 
       fire('raw', envelope);
 
+      // Pi publishes singular topic classes (alert/event/telemetry/state);
+      // older docs/tests referenced plurals — accept both.
       switch (parsed.class) {
+        case 'alert':
         case 'alerts':
           fire('alert', envelope);
           break;
@@ -209,6 +213,7 @@
         case 'state':
           fire('state', envelope);
           break;
+        case 'event':
         case 'events':
           fire('event', envelope);
           break;
@@ -245,11 +250,31 @@
   };
 
   // ── Auto-connect on DOM ready unless the page disables it ──────────
-  if (window.AEVUS_MQTT_AUTO_CONNECT !== false) {
-    if (document.readyState === 'loading') {
-      document.addEventListener('DOMContentLoaded', connect);
+  // For cloud transport, wait for cognito-iot-init.js to presign the
+  // wss URL and fire `aevus:mqtt-ready`. For local transport, connect
+  // immediately on DOM-ready.
+  function autoConnect() {
+    if (config.transport === 'cloud') {
+      // If the signed URL is already on the config (cognito init beat us
+      // to it), connect now; otherwise wait for the ready event.
+      if (window.AEVUS_IOT_SIGNED_URL || config.brokerUrl?.startsWith('wss://')) {
+        connect();
+      } else {
+        console.log('[Aevus MQTT] Waiting for aevus:mqtt-ready (Cognito presign)...');
+        window.addEventListener('aevus:mqtt-ready', function () {
+          connect();
+        }, { once: true });
+      }
     } else {
       connect();
+    }
+  }
+
+  if (window.AEVUS_MQTT_AUTO_CONNECT !== false) {
+    if (document.readyState === 'loading') {
+      document.addEventListener('DOMContentLoaded', autoConnect);
+    } else {
+      autoConnect();
     }
   }
 })();

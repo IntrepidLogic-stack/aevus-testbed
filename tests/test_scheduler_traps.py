@@ -12,7 +12,7 @@ from __future__ import annotations
 import asyncio
 import sys
 import types
-from datetime import datetime, timezone, timedelta
+from datetime import UTC, datetime, timedelta, timezone
 from typing import Any
 from unittest.mock import MagicMock
 
@@ -62,7 +62,7 @@ def _fake_asset(asset_id: str, name: str, ip: str = "192.168.88.11") -> Asset:
         name=name,
         location="Lab Cabinet",
         health=92,
-        last_seen=datetime.now(timezone.utc),
+        last_seen=datetime.now(UTC),
         vendor="Trio",
         model="JR900",
         ip_address=ip,
@@ -155,6 +155,7 @@ async def test_handle_trap_late_binds_asset_from_ip(monkeypatch):
     sched, db, engine = _build_scheduler(asset)
 
     async def _noop(*a, **kw): ...
+
     monkeypatch.setattr("src.scheduler.ws_manager.broadcast", _noop)
 
     event = TrapEvent(
@@ -181,6 +182,7 @@ async def test_trap_consumer_loop_drains_queue(monkeypatch):
     sched, db, engine = _build_scheduler(asset)
 
     async def _noop(*a, **kw): ...
+
     monkeypatch.setattr("src.scheduler.ws_manager.broadcast", _noop)
 
     # Register a receiver with a pre-populated queue. We never call
@@ -189,22 +191,26 @@ async def test_trap_consumer_loop_drains_queue(monkeypatch):
     receiver = SNMPTrapReceiver()
     sched.register_trap_receiver(receiver)
 
-    await receiver.events.put(TrapEvent(
-        event_type="linkDown",
-        trap_oid="1.3.6.1.6.3.1.1.5.3",
-        source_ip="192.168.88.2",
-        asset_id="SW-01",
-        community="aevus_trap",
-        varbinds={},
-    ))
-    await receiver.events.put(TrapEvent(
-        event_type="linkUp",
-        trap_oid="1.3.6.1.6.3.1.1.5.4",
-        source_ip="192.168.88.2",
-        asset_id="SW-01",
-        community="aevus_trap",
-        varbinds={},
-    ))
+    await receiver.events.put(
+        TrapEvent(
+            event_type="linkDown",
+            trap_oid="1.3.6.1.6.3.1.1.5.3",
+            source_ip="192.168.88.2",
+            asset_id="SW-01",
+            community="aevus_trap",
+            varbinds={},
+        )
+    )
+    await receiver.events.put(
+        TrapEvent(
+            event_type="linkUp",
+            trap_oid="1.3.6.1.6.3.1.1.5.4",
+            source_ip="192.168.88.2",
+            asset_id="SW-01",
+            community="aevus_trap",
+            varbinds={},
+        )
+    )
 
     # Start the consumer task directly (avoids receiver.start()'s UDP bind).
     sched._trap_receiver = receiver

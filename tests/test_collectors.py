@@ -1,7 +1,8 @@
 """Tests for the simulator collector."""
 
-import pytest
 from datetime import datetime, timezone
+
+import pytest
 
 from src.collectors.simulator import SimulatorCollector
 from src.models.telemetry import RawTelemetry

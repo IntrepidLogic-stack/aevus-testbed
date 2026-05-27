@@ -15,28 +15,29 @@ Pipeline per poll cycle:
 from __future__ import annotations
 
 import asyncio
-import structlog
-from datetime import datetime, timezone
-from typing import Optional, TYPE_CHECKING
+from datetime import UTC, datetime
+from typing import TYPE_CHECKING
 
+import structlog
+
+from src.api.ws import ws_manager
 from src.collectors.base import BaseCollector
 from src.collectors.dnp3_unsolicited import DNP3Event, DNP3UnsolicitedReceiver
 from src.collectors.icmp_probe import ICMPProbe, ReachabilityEvent
 from src.collectors.snmp_trap_receiver import SNMPTrapReceiver, TrapEvent
+from src.config import settings
+from src.engine.alert_engine import AlertEngine
+from src.engine.health_score import compute_health, health_status
+from src.engine.normalizer import normalize_batch
+from src.engine.prediction import PredictionEngine
 from src.integrations import latency_tracker
 from src.integrations.mqtt_publisher import MQTTPublisher
 from src.models.telemetry import RawTelemetry
-from src.config import settings
-from src.engine.normalizer import normalize_batch
-from src.engine.health_score import compute_health, health_status
-from src.engine.alert_engine import AlertEngine
-from src.engine.prediction import PredictionEngine
 from src.storage.influx import InfluxStorage
 from src.storage.sqlite_db import SQLiteDB
-from src.api.ws import ws_manager
 
 if TYPE_CHECKING:
-    from src.models.asset import Asset
+    pass
 
 logger = structlog.get_logger()
 
@@ -56,15 +57,15 @@ class PollScheduler:
         self.prediction_engine = PredictionEngine(influx)
         self._collectors: dict[str, BaseCollector] = {}
         self._tasks: dict[str, asyncio.Task] = {}
-        self._prediction_task: Optional[asyncio.Task] = None
-        self._staleness_task: Optional[asyncio.Task] = None
-        self._trap_receiver: Optional[SNMPTrapReceiver] = None
-        self._trap_consumer_task: Optional[asyncio.Task] = None
-        self._icmp_probe: Optional[ICMPProbe] = None
-        self._icmp_consumer_task: Optional[asyncio.Task] = None
+        self._prediction_task: asyncio.Task | None = None
+        self._staleness_task: asyncio.Task | None = None
+        self._trap_receiver: SNMPTrapReceiver | None = None
+        self._trap_consumer_task: asyncio.Task | None = None
+        self._icmp_probe: ICMPProbe | None = None
+        self._icmp_consumer_task: asyncio.Task | None = None
         self._dnp3_receivers: dict[str, DNP3UnsolicitedReceiver] = {}
         self._dnp3_consumer_tasks: dict[str, asyncio.Task] = {}
-        self._mqtt_publisher: Optional[MQTTPublisher] = None
+        self._mqtt_publisher: MQTTPublisher | None = None
         self.log = logger.bind(component="scheduler")
 
     def register(self, asset_id: str, collector: BaseCollector) -> None:
@@ -231,7 +232,7 @@ class PollScheduler:
             await self._handle_offline(asset_id, collector)
             return
 
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
 
         # 2. Write to InfluxDB
         self.influx.write_readings(readings)
@@ -270,9 +271,7 @@ class PollScheduler:
         if expected:
             actual = {r.metric for r in readings}
             missing = set(expected) - actual
-            partial_change = self.alert_engine.evaluate_partial(
-                asset_id, asset_name, missing
-            )
+            partial_change = self.alert_engine.evaluate_partial(asset_id, asset_name, missing)
             if partial_change is not None:
                 alert_changes.append(partial_change)
 
@@ -289,13 +288,16 @@ class PollScheduler:
             self.db.upsert_asset(asset)
 
         # 8. WebSocket broadcast (local dashboard) + MQTT publish (cloud)
-        await ws_manager.broadcast("asset_update", {
-            "asset_id": asset_id,
-            "health": score,
-            "status": status,
-            "vitals": [v.model_dump() for v in vitals],
-            "timestamp": now.isoformat(),
-        })
+        await ws_manager.broadcast(
+            "asset_update",
+            {
+                "asset_id": asset_id,
+                "health": score,
+                "status": status,
+                "vitals": [v.model_dump() for v in vitals],
+                "timestamp": now.isoformat(),
+            },
+        )
         # Per-reading MQTT telemetry — one topic per metric so SiteWise's
         # IoT Core rule can pivot directly onto asset properties.
         if self._mqtt_publisher is not None:
@@ -312,9 +314,12 @@ class PollScheduler:
                     self.log.warning("mqtt_telemetry_publish_failed", error=str(e))
 
         if alert_changes:
-            await ws_manager.broadcast("alert_update", {
-                "alerts": [a.model_dump(mode="json") for a in alert_changes],
-            })
+            await ws_manager.broadcast(
+                "alert_update",
+                {
+                    "alerts": [a.model_dump(mode="json") for a in alert_changes],
+                },
+            )
             await self._publish_alerts(alert_changes)
 
     async def _prediction_loop(self) -> None:
@@ -336,9 +341,12 @@ class PollScheduler:
                 # Broadcast predictions to dashboard
                 preds = self.prediction_engine.predictions
                 if preds:
-                    await ws_manager.broadcast("predictions_update", {
-                        "predictions": [p.model_dump() for p in preds],
-                    })
+                    await ws_manager.broadcast(
+                        "predictions_update",
+                        {
+                            "predictions": [p.model_dump() for p in preds],
+                        },
+                    )
 
             except asyncio.CancelledError:
                 break
@@ -380,19 +388,25 @@ class PollScheduler:
         if status_changed:
             asset.status = new_status
             self.db.upsert_asset(asset)
-            await ws_manager.broadcast("asset_update", {
-                "asset_id": asset_id,
-                "health": asset.health,
-                "status": asset.status,
-                "vitals": [v.model_dump() for v in asset.vitals],
-                "timestamp": datetime.now(timezone.utc).isoformat(),
-            })
+            await ws_manager.broadcast(
+                "asset_update",
+                {
+                    "asset_id": asset_id,
+                    "health": asset.health,
+                    "status": asset.status,
+                    "vitals": [v.model_dump() for v in asset.vitals],
+                    "timestamp": datetime.now(UTC).isoformat(),
+                },
+            )
 
         if alert_change is not None:
             self.db.save_alert(alert_change)
-            await ws_manager.broadcast("alert_update", {
-                "alerts": [alert_change.model_dump(mode="json")],
-            })
+            await ws_manager.broadcast(
+                "alert_update",
+                {
+                    "alerts": [alert_change.model_dump(mode="json")],
+                },
+            )
             await self._publish_alerts([alert_change])
 
     async def _publish_alerts(self, alerts: list) -> None:
@@ -568,15 +582,18 @@ class PollScheduler:
 
         # Also broadcast the raw reachability state so the dashboard can
         # render the L3 indicator independently of the alarm list.
-        await ws_manager.broadcast("reachability_update", {
-            "asset_id": event.asset_id,
-            "host": event.host,
-            "state": event.state,
-            "previous_state": event.previous_state,
-            "loss_pct": round(event.loss_pct, 1),
-            "avg_rtt_ms": round(event.avg_rtt_ms, 2) if event.avg_rtt_ms else None,
-            "timestamp": event.received_at.isoformat(),
-        })
+        await ws_manager.broadcast(
+            "reachability_update",
+            {
+                "asset_id": event.asset_id,
+                "host": event.host,
+                "state": event.state,
+                "previous_state": event.previous_state,
+                "loss_pct": round(event.loss_pct, 1),
+                "avg_rtt_ms": round(event.avg_rtt_ms, 2) if event.avg_rtt_ms else None,
+                "timestamp": event.received_at.isoformat(),
+            },
+        )
         # Mirror to MQTT under the state/reachability topic.
         if self._mqtt_publisher is not None:
             try:
@@ -619,9 +636,7 @@ class PollScheduler:
             except asyncio.CancelledError:
                 break
             except Exception as e:
-                self.log.error(
-                    "dnp3_consumer_recv_error", asset_id=asset_id, error=str(e)
-                )
+                self.log.error("dnp3_consumer_recv_error", asset_id=asset_id, error=str(e))
                 continue
 
             try:
@@ -694,7 +709,7 @@ class PollScheduler:
             if full_key in self.alert_engine._open_alerts:
                 stale = self.alert_engine._open_alerts[full_key]
                 stale.status = "resolved"
-                stale.resolved_at = datetime.now(timezone.utc)
+                stale.resolved_at = datetime.now(UTC)
                 del self.alert_engine._open_alerts[full_key]
                 changes.append(stale)
                 self.log.info(
@@ -726,7 +741,9 @@ class PollScheduler:
             "unit": event.unit,
             "quality_flags": event.quality_flags,
             "latency_ms": round(latency_ms, 2) if latency_ms is not None else None,
-            "device_timestamp": event.device_timestamp.isoformat() if event.device_timestamp else None,
+            "device_timestamp": event.device_timestamp.isoformat()
+            if event.device_timestamp
+            else None,
             "received_at": event.received_at.isoformat(),
         }
         await ws_manager.broadcast("dnp3_event", dnp3_payload)

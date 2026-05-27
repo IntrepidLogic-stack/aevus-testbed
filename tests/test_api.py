@@ -1,7 +1,8 @@
 """Tests for the FastAPI endpoints and auth middleware."""
 
+from unittest.mock import MagicMock, patch
+
 import pytest
-from unittest.mock import patch, MagicMock
 from fastapi.testclient import TestClient
 
 from src.main import app

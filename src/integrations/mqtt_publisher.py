@@ -39,8 +39,8 @@ import asyncio
 import json
 import ssl
 from contextlib import suppress
-from datetime import datetime, timezone
-from typing import Any, Optional
+from datetime import UTC, datetime
+from typing import Any
 
 import structlog
 
@@ -66,25 +66,23 @@ class MQTTPublisher:
 
     def __init__(
         self,
-        broker_host: Optional[str] = None,
-        broker_port: Optional[int] = None,
-        site_id: Optional[str] = None,
-        client_id: Optional[str] = None,
-        tls_enabled: Optional[bool] = None,
-        ca_cert_path: Optional[str] = None,
-        client_cert_path: Optional[str] = None,
-        client_key_path: Optional[str] = None,
-        qos: Optional[int] = None,
-        username: Optional[str] = None,
-        password: Optional[str] = None,
+        broker_host: str | None = None,
+        broker_port: int | None = None,
+        site_id: str | None = None,
+        client_id: str | None = None,
+        tls_enabled: bool | None = None,
+        ca_cert_path: str | None = None,
+        client_cert_path: str | None = None,
+        client_key_path: str | None = None,
+        qos: int | None = None,
+        username: str | None = None,
+        password: str | None = None,
     ) -> None:
         self.broker_host = broker_host or settings.mqtt_broker_host
         self.broker_port = broker_port or settings.mqtt_broker_port
         self.site_id = site_id or settings.mqtt_site_id
         self.client_id = client_id or settings.mqtt_client_id
-        self.tls_enabled = (
-            tls_enabled if tls_enabled is not None else settings.mqtt_tls_enabled
-        )
+        self.tls_enabled = tls_enabled if tls_enabled is not None else settings.mqtt_tls_enabled
         self.ca_cert_path = ca_cert_path or settings.mqtt_ca_cert_path
         self.client_cert_path = client_cert_path or settings.mqtt_client_cert_path
         self.client_key_path = client_key_path or settings.mqtt_client_key_path
@@ -94,7 +92,7 @@ class MQTTPublisher:
 
         self._client: Any = None  # aiomqtt.Client — lazy-imported in connect()
         self._connected: bool = False
-        self._reconnect_task: Optional[asyncio.Task] = None
+        self._reconnect_task: asyncio.Task | None = None
         self._stop: asyncio.Event = asyncio.Event()
         self.log = logger.bind(
             component="mqtt_publisher",
@@ -152,7 +150,7 @@ class MQTTPublisher:
                 try:
                     await asyncio.wait_for(self._stop.wait(), timeout=backoff)
                     break
-                except asyncio.TimeoutError:
+                except TimeoutError:
                     pass
                 backoff = min(backoff * 2, settings.mqtt_max_backoff)
 
@@ -170,7 +168,7 @@ class MQTTPublisher:
             await asyncio.sleep(60)
             raise
 
-        tls_context: Optional[ssl.SSLContext] = None
+        tls_context: ssl.SSLContext | None = None
         if self.tls_enabled:
             tls_context = ssl.create_default_context()
             if self.ca_cert_path:
@@ -228,7 +226,7 @@ class MQTTPublisher:
         key: str,
         state_value: str,
         source: str = "internal",
-        extra: Optional[dict[str, Any]] = None,
+        extra: dict[str, Any] | None = None,
     ) -> None:
         payload: dict[str, Any] = {"key": key, "state": state_value}
         if extra:
@@ -276,7 +274,7 @@ class MQTTPublisher:
             envelope_type="heartbeat",
             source="internal",
             asset_id=asset_id,
-            payload={"timestamp": datetime.now(timezone.utc).isoformat()},
+            payload={"timestamp": datetime.now(UTC).isoformat()},
         )
 
     # ──────────────────────────────────────────────────────────────────
@@ -299,7 +297,7 @@ class MQTTPublisher:
 
         envelope = {
             "schema_version": ENVELOPE_SCHEMA_VERSION,
-            "ts": datetime.now(timezone.utc).isoformat(),
+            "ts": datetime.now(UTC).isoformat(),
             "site_id": self.site_id,
             "asset_id": asset_id,
             "type": envelope_type,
@@ -335,11 +333,14 @@ async def _smoke_main() -> None:
     Reads broker config from .env (same vars the scheduler uses).
     """
     import logging
+
     logging.basicConfig(level=logging.INFO)
 
     publisher = MQTTPublisher()
-    print(f"Connecting to {publisher.broker_host}:{publisher.broker_port} "
-          f"(TLS={publisher.tls_enabled})")
+    print(
+        f"Connecting to {publisher.broker_host}:{publisher.broker_port} "
+        f"(TLS={publisher.tls_enabled})"
+    )
     await publisher.start()
 
     # Give the supervisor a moment to connect.
@@ -348,8 +349,7 @@ async def _smoke_main() -> None:
             break
         await asyncio.sleep(0.5)
     if not publisher.connected:
-        print("ERROR: failed to connect within 15s. Check broker host, "
-              "port, TLS, cert paths.")
+        print("ERROR: failed to connect within 15s. Check broker host, port, TLS, cert paths.")
         await publisher.stop()
         return
 
@@ -380,8 +380,10 @@ async def _smoke_main() -> None:
         payload={"id": "ALT-SMOKE01", "message": "smoke test alarm", "status": "open"},
     )
 
-    print("Done. Verify in the IoT Core MQTT test client by subscribing to "
-          f"aevus/{publisher.site_id}/#")
+    print(
+        "Done. Verify in the IoT Core MQTT test client by subscribing to "
+        f"aevus/{publisher.site_id}/#"
+    )
     await asyncio.sleep(2)
     await publisher.stop()
 

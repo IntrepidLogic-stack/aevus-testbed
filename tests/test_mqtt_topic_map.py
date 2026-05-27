@@ -40,31 +40,19 @@ class TestStateTopics:
 
 class TestEventTopics:
     def test_dnp3_event(self):
-        assert (
-            topic_map.event("lab", "RTU-01", "dnp3")
-            == "aevus/lab/RTU-01/events/dnp3"
-        )
+        assert topic_map.event("lab", "RTU-01", "dnp3") == "aevus/lab/RTU-01/events/dnp3"
 
     def test_snmp_trap_event(self):
         # 'snmp-trap' should be preserved (hyphen is legal in MQTT).
-        assert (
-            topic_map.event("lab", "SW-01", "snmp-trap")
-            == "aevus/lab/SW-01/events/snmp-trap"
-        )
+        assert topic_map.event("lab", "SW-01", "snmp-trap") == "aevus/lab/SW-01/events/snmp-trap"
 
 
 class TestAlertTopics:
     def test_critical(self):
-        assert (
-            topic_map.alert("lab", "RTU-01", "critical")
-            == "aevus/lab/RTU-01/alerts/critical"
-        )
+        assert topic_map.alert("lab", "RTU-01", "critical") == "aevus/lab/RTU-01/alerts/critical"
 
     def test_warning(self):
-        assert (
-            topic_map.alert("lab", "RTU-01", "warning")
-            == "aevus/lab/RTU-01/alerts/warning"
-        )
+        assert topic_map.alert("lab", "RTU-01", "warning") == "aevus/lab/RTU-01/alerts/warning"
 
 
 class TestSubscriptions:
@@ -72,16 +60,10 @@ class TestSubscriptions:
         assert topic_map.subscription_all_for_site("lab") == "aevus/lab/#"
 
     def test_alerts_for_site(self):
-        assert (
-            topic_map.subscription_alerts_for_site("lab")
-            == "aevus/lab/+/alerts/+"
-        )
+        assert topic_map.subscription_alerts_for_site("lab") == "aevus/lab/+/alerts/+"
 
     def test_all_critical(self):
-        assert (
-            topic_map.subscription_all_critical_alerts()
-            == "aevus/+/+/alerts/critical"
-        )
+        assert topic_map.subscription_all_critical_alerts() == "aevus/+/+/alerts/critical"
 
 
 class TestTopicLeakageGuards:

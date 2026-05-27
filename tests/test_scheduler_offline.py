@@ -17,11 +17,12 @@ from __future__ import annotations
 import asyncio
 import sys
 import types
-from datetime import datetime, timezone, timedelta
+from datetime import UTC, datetime, timedelta, timezone
 from typing import Any, Optional
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
+
 
 # ``src.collectors.__init__`` eagerly imports every concrete collector,
 # which drags in optional protocol libs (pymodbus, pysnmp, ...). The
@@ -84,7 +85,7 @@ class _PartialCollector:
 
     expected_metrics = frozenset({"suction_pressure", "discharge_pressure", "battery_voltage"})
 
-    def __init__(self, asset_id: str, poll_interval: int = 5, emit: Optional[set[str]] = None):
+    def __init__(self, asset_id: str, poll_interval: int = 5, emit: set[str] | None = None):
         self.asset_id = asset_id
         self.host = "192.0.2.2"
         self.poll_interval = poll_interval
@@ -100,7 +101,7 @@ class _PartialCollector:
                 metric=m,
                 value=100.0,
                 unit="PSI",
-                timestamp=datetime.now(timezone.utc),
+                timestamp=datetime.now(UTC),
                 source="modbus",
             )
             for m in self._emit
@@ -115,7 +116,7 @@ def _fake_asset(asset_id: str, name: str, last_seen_age_s: int) -> Asset:
         name=name,
         location="Lab Cabinet",
         health=92,
-        last_seen=datetime.now(timezone.utc) - timedelta(seconds=last_seen_age_s),
+        last_seen=datetime.now(UTC) - timedelta(seconds=last_seen_age_s),
         vendor="Schneider",
         model="SCADAPack 470",
         vitals=[],
@@ -180,6 +181,7 @@ async def test_poll_cycle_fresh_device_no_offline_alert(monkeypatch):
     sched, db, engine = _build_scheduler(asset)
 
     async def _noop(*a, **kw): ...
+
     monkeypatch.setattr("src.scheduler.ws_manager.broadcast", _noop)
 
     collector = _DeadCollector("RTU-01", poll_interval=5)
@@ -197,6 +199,7 @@ async def test_staleness_sweep_fires_independent_of_poll_loop(monkeypatch):
     sched, db, engine = _build_scheduler(asset)
 
     async def _noop(*a, **kw): ...
+
     monkeypatch.setattr("src.scheduler.ws_manager.broadcast", _noop)
 
     collector = _DeadCollector("RAD-01", poll_interval=30)
@@ -220,6 +223,7 @@ async def test_poll_cycle_partial_telemetry_fires_warning(monkeypatch):
     sched, db, engine = _build_scheduler(asset)
 
     async def _noop(*a, **kw): ...
+
     monkeypatch.setattr("src.scheduler.ws_manager.broadcast", _noop)
     # Skip InfluxDB write path.
     sched.influx.write_readings = MagicMock()
@@ -243,6 +247,7 @@ async def test_partial_telemetry_resolves_when_complete(monkeypatch):
     sched, db, engine = _build_scheduler(asset)
 
     async def _noop(*a, **kw): ...
+
     monkeypatch.setattr("src.scheduler.ws_manager.broadcast", _noop)
     sched.influx.write_readings = MagicMock()
     sched.prediction_engine.get_prediction = MagicMock(return_value=None)
@@ -270,6 +275,7 @@ async def test_offline_alert_resolves_when_device_returns(monkeypatch):
     sched, db, engine = _build_scheduler(asset)
 
     async def _noop(*a, **kw): ...
+
     monkeypatch.setattr("src.scheduler.ws_manager.broadcast", _noop)
 
     collector = _DeadCollector("RTU-01", poll_interval=5)
@@ -277,7 +283,7 @@ async def test_offline_alert_resolves_when_device_returns(monkeypatch):
     assert len(engine.open_alerts) == 1
 
     # Device comes back.
-    asset.last_seen = datetime.now(timezone.utc)
+    asset.last_seen = datetime.now(UTC)
     db.get_asset.return_value = asset
     await sched._handle_offline("RTU-01", collector)
 

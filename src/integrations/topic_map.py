@@ -27,7 +27,6 @@ from __future__ import annotations
 import re
 from typing import Final
 
-
 # MQTT topic levels must not contain '/', '+', or '#'. Asset IDs and
 # metric names occasionally come from external sources (asset registry
 # imports, vendor MIBs), so we sanitize defensively.
@@ -52,8 +51,7 @@ def telemetry(site_id: str, asset_id: str, metric: str) -> str:
     Example: aevus/lab/RTU-01/telemetry/suction_pressure
     """
     return (
-        f"{_ROOT_PREFIX}/{_sanitize(site_id)}/{_sanitize(asset_id)}"
-        f"/telemetry/{_sanitize(metric)}"
+        f"{_ROOT_PREFIX}/{_sanitize(site_id)}/{_sanitize(asset_id)}/telemetry/{_sanitize(metric)}"
     )
 
 
@@ -62,10 +60,7 @@ def state(site_id: str, asset_id: str, key: str) -> str:
 
     Example: aevus/lab/RTU-01/state/reachability
     """
-    return (
-        f"{_ROOT_PREFIX}/{_sanitize(site_id)}/{_sanitize(asset_id)}"
-        f"/state/{_sanitize(key)}"
-    )
+    return f"{_ROOT_PREFIX}/{_sanitize(site_id)}/{_sanitize(asset_id)}/state/{_sanitize(key)}"
 
 
 def event(site_id: str, asset_id: str, event_class: str) -> str:
@@ -75,8 +70,7 @@ def event(site_id: str, asset_id: str, event_class: str) -> str:
              aevus/lab/SW-01/events/snmp-trap
     """
     return (
-        f"{_ROOT_PREFIX}/{_sanitize(site_id)}/{_sanitize(asset_id)}"
-        f"/events/{_sanitize(event_class)}"
+        f"{_ROOT_PREFIX}/{_sanitize(site_id)}/{_sanitize(asset_id)}/events/{_sanitize(event_class)}"
     )
 
 
@@ -86,10 +80,7 @@ def alert(site_id: str, asset_id: str, severity: str) -> str:
     Example: aevus/lab/RTU-01/alerts/critical
              aevus/lab/RTU-01/alerts/warning
     """
-    return (
-        f"{_ROOT_PREFIX}/{_sanitize(site_id)}/{_sanitize(asset_id)}"
-        f"/alerts/{_sanitize(severity)}"
-    )
+    return f"{_ROOT_PREFIX}/{_sanitize(site_id)}/{_sanitize(asset_id)}/alerts/{_sanitize(severity)}"
 
 
 def heartbeat(site_id: str, asset_id: str) -> str:
@@ -97,10 +88,7 @@ def heartbeat(site_id: str, asset_id: str) -> str:
 
     Example: aevus/lab/RTU-01/ops/heartbeat
     """
-    return (
-        f"{_ROOT_PREFIX}/{_sanitize(site_id)}/{_sanitize(asset_id)}"
-        f"/ops/heartbeat"
-    )
+    return f"{_ROOT_PREFIX}/{_sanitize(site_id)}/{_sanitize(asset_id)}/ops/heartbeat"
 
 
 def audit(site_id: str) -> str:

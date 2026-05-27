@@ -21,7 +21,7 @@ RCA_DIR = Path(__file__).parent.parent.parent / "infra" / "lambda" / "rca"
 sys.path.insert(0, str(RCA_DIR))
 
 import prompt  # noqa: E402
-from prompt import PromptContext, render, parse_response  # noqa: E402
+from prompt import PromptContext, parse_response, render  # noqa: E402
 
 
 # ──────────────────────────────────────────────────────────────────────────
@@ -63,19 +63,60 @@ def _ctx(**overrides) -> PromptContext:
                 "type": "event",
                 "event_class": "dnp3",
                 "source": "dnp3",
-                "payload": {"metric": "high_pressure_alarm", "value": True, "unit": "bool", "latency_ms": 143},
+                "payload": {
+                    "metric": "high_pressure_alarm",
+                    "value": True,
+                    "unit": "bool",
+                    "latency_ms": 143,
+                },
             },
         ],
         recent_telemetry=[
-            {"ts": "2026-05-20T14:30:00Z", "metric": "discharge_pressure", "value": 1180, "unit": "PSI"},
-            {"ts": "2026-05-20T14:30:30Z", "metric": "discharge_pressure", "value": 1245, "unit": "PSI"},
-            {"ts": "2026-05-20T14:31:00Z", "metric": "discharge_pressure", "value": 1310, "unit": "PSI"},
-            {"ts": "2026-05-20T14:31:30Z", "metric": "discharge_pressure", "value": 1385, "unit": "PSI"},
-            {"ts": "2026-05-20T14:32:00Z", "metric": "discharge_pressure", "value": 1442, "unit": "PSI"},
-            {"ts": "2026-05-20T14:30:00Z", "metric": "battery_voltage", "value": 13.1, "unit": "VDC"},
+            {
+                "ts": "2026-05-20T14:30:00Z",
+                "metric": "discharge_pressure",
+                "value": 1180,
+                "unit": "PSI",
+            },
+            {
+                "ts": "2026-05-20T14:30:30Z",
+                "metric": "discharge_pressure",
+                "value": 1245,
+                "unit": "PSI",
+            },
+            {
+                "ts": "2026-05-20T14:31:00Z",
+                "metric": "discharge_pressure",
+                "value": 1310,
+                "unit": "PSI",
+            },
+            {
+                "ts": "2026-05-20T14:31:30Z",
+                "metric": "discharge_pressure",
+                "value": 1385,
+                "unit": "PSI",
+            },
+            {
+                "ts": "2026-05-20T14:32:00Z",
+                "metric": "discharge_pressure",
+                "value": 1442,
+                "unit": "PSI",
+            },
+            {
+                "ts": "2026-05-20T14:30:00Z",
+                "metric": "battery_voltage",
+                "value": 13.1,
+                "unit": "VDC",
+            },
         ],
         related_assets=[
-            {"id": "RAD-01", "name": "Trio JR900 #1", "type": "radio", "status": "good", "health": 92},
+            {
+                "id": "RAD-01",
+                "name": "Trio JR900 #1",
+                "type": "radio",
+                "status": "good",
+                "health": 92,
+            },
         ],
     )
     base.update(overrides)
@@ -179,8 +220,7 @@ class TestParseResponse:
 
     def test_strips_extra_keys(self):
         with_extra = GOOD_RESPONSE.replace(
-            '"supporting_assets": ["RTU-01"]',
-            '"supporting_assets": ["RTU-01"], "vibes": "good"'
+            '"supporting_assets": ["RTU-01"]', '"supporting_assets": ["RTU-01"], "vibes": "good"'
         )
         data = parse_response(with_extra)
         assert "vibes" not in data

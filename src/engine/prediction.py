@@ -14,11 +14,10 @@ store, which is served by the /api/v1/predictions endpoint.
 from __future__ import annotations
 
 import math
-import structlog
-from datetime import datetime, timezone, timedelta
-from typing import Optional
+from datetime import datetime
 
-from src.config import settings
+import structlog
+
 from src.models.prediction import Prediction
 from src.storage.influx import InfluxStorage
 
@@ -30,17 +29,47 @@ MONITORED_METRICS: dict[str, list[dict]] = {
         {"metric": "rssi", "direction": "lower_bad", "warn": -80, "crit": -90, "unit": "dBm"},
         {"metric": "snr", "direction": "lower_bad", "warn": 15, "crit": 10, "unit": "dB"},
         {"metric": "temperature", "direction": "upper_bad", "warn": 60, "crit": 75, "unit": "°C"},
-        {"metric": "error_packets", "direction": "upper_bad", "warn": 500, "crit": 2000, "unit": "count"},
+        {
+            "metric": "error_packets",
+            "direction": "upper_bad",
+            "warn": 500,
+            "crit": 2000,
+            "unit": "count",
+        },
     ],
     "rtu": [
-        {"metric": "suction_pressure", "direction": "upper_bad", "warn": 800, "crit": 900, "unit": "PSI"},
-        {"metric": "discharge_pressure", "direction": "upper_bad", "warn": 1200, "crit": 1400, "unit": "PSI"},
-        {"metric": "battery_voltage", "direction": "lower_bad", "warn": 12.0, "crit": 11.5, "unit": "VDC"},
+        {
+            "metric": "suction_pressure",
+            "direction": "upper_bad",
+            "warn": 800,
+            "crit": 900,
+            "unit": "PSI",
+        },
+        {
+            "metric": "discharge_pressure",
+            "direction": "upper_bad",
+            "warn": 1200,
+            "crit": 1400,
+            "unit": "PSI",
+        },
+        {
+            "metric": "battery_voltage",
+            "direction": "lower_bad",
+            "warn": 12.0,
+            "crit": 11.5,
+            "unit": "VDC",
+        },
         {"metric": "vibration", "direction": "upper_bad", "warn": 4.5, "crit": 7.1, "unit": "mm/s"},
     ],
     "router": [
         {"metric": "cpu_load", "direction": "upper_bad", "warn": 70, "crit": 90, "unit": "%"},
-        {"metric": "if_in_errors", "direction": "upper_bad", "warn": 100, "crit": 1000, "unit": "count"},
+        {
+            "metric": "if_in_errors",
+            "direction": "upper_bad",
+            "warn": 100,
+            "crit": 1000,
+            "unit": "count",
+        },
     ],
     "switch": [
         {"metric": "cpu_load", "direction": "upper_bad", "warn": 70, "crit": 90, "unit": "%"},
@@ -48,11 +77,11 @@ MONITORED_METRICS: dict[str, list[dict]] = {
 }
 
 # Analysis windows
-HISTORY_HOURS = 4         # How far back to query for anomaly detection
-TREND_HOURS = 2           # Window for trend extrapolation
-MIN_POINTS = 6            # Minimum data points needed for analysis
-Z_SCORE_WARN = 2.0        # Standard deviations for warning
-Z_SCORE_CRIT = 3.0        # Standard deviations for critical
+HISTORY_HOURS = 4  # How far back to query for anomaly detection
+TREND_HOURS = 2  # Window for trend extrapolation
+MIN_POINTS = 6  # Minimum data points needed for analysis
+Z_SCORE_WARN = 2.0  # Standard deviations for warning
+Z_SCORE_CRIT = 3.0  # Standard deviations for critical
 
 
 class PredictionEngine:
@@ -68,7 +97,7 @@ class PredictionEngine:
         """Return all current predictions sorted by risk score descending."""
         return sorted(self._predictions.values(), key=lambda p: p.risk_score, reverse=True)
 
-    def get_prediction(self, asset_id: str) -> Optional[Prediction]:
+    def get_prediction(self, asset_id: str) -> Prediction | None:
         """Get the current prediction for a specific asset."""
         return self._predictions.get(asset_id)
 
@@ -78,7 +107,7 @@ class PredictionEngine:
         asset_name: str,
         asset_type: str,
         location: str = "Lab Cabinet",
-    ) -> Optional[Prediction]:
+    ) -> Prediction | None:
         """Run full prediction analysis for a single asset.
 
         Queries InfluxDB for recent metric history, computes anomaly scores
@@ -182,7 +211,7 @@ class PredictionEngine:
         warn_threshold: float,
         crit_threshold: float,
         unit: str,
-    ) -> Optional[dict]:
+    ) -> dict | None:
         """Analyze a single metric for anomalies and trends.
 
         Returns a dict with:
@@ -214,7 +243,7 @@ class PredictionEngine:
         slope = self._linear_slope(recent)
 
         # ── Time-to-failure estimation ──
-        ttf_hours: Optional[float] = None
+        ttf_hours: float | None = None
         threshold_target = crit_threshold  # Predict time to critical
 
         if direction == "upper_bad" and slope > 0:
@@ -286,7 +315,9 @@ class PredictionEngine:
             else:
                 driver_parts.append(f"{metric.replace('_', ' ')} degraded ({latest:.1f} {unit})")
 
-        driver_label = "; ".join(driver_parts) if driver_parts else f"{metric.replace('_', ' ')} nominal"
+        driver_label = (
+            "; ".join(driver_parts) if driver_parts else f"{metric.replace('_', ' ')} nominal"
+        )
 
         return {
             "risk": risk,

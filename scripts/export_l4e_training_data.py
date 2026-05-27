@@ -49,10 +49,8 @@ import json
 import sqlite3
 import sys
 from collections import defaultdict
-from datetime import datetime, timezone, timedelta
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
-from typing import Any, Iterable, Optional
-
 
 # Metrics worth training L4E on. Booleans + counters excluded — L4E
 # anomaly detection is designed for continuous-process signals where
@@ -60,20 +58,34 @@ from typing import Any, Iterable, Optional
 # events in the alert engine instead.
 DEFAULT_METRICS = [
     # Radio (JR900)
-    "rssi", "snr", "tx_power", "temperature", "voltage",
+    "rssi",
+    "snr",
+    "tx_power",
+    "temperature",
+    "voltage",
     # RTU (SCADAPack 470)
-    "suction_pressure", "discharge_pressure", "flow_rate",
-    "gas_temperature", "ambient_temperature",
-    "battery_voltage", "solar_voltage", "vibration",
+    "suction_pressure",
+    "discharge_pressure",
+    "flow_rate",
+    "gas_temperature",
+    "ambient_temperature",
+    "battery_voltage",
+    "solar_voltage",
+    "vibration",
     # Network
-    "cpu_load", "memory_usage",
+    "cpu_load",
+    "memory_usage",
 ]
 
 
 def _parse_args() -> argparse.Namespace:
     p = argparse.ArgumentParser(description=__doc__)
-    p.add_argument("--source", choices=["influx", "sqlite"], default="influx",
-                   help="Where to pull historical telemetry from.")
+    p.add_argument(
+        "--source",
+        choices=["influx", "sqlite"],
+        default="influx",
+        help="Where to pull historical telemetry from.",
+    )
     # Influx options
     p.add_argument("--influx-url")
     p.add_argument("--influx-token")
@@ -82,31 +94,48 @@ def _parse_args() -> argparse.Namespace:
     # SQLite (lab fallback) options
     p.add_argument("--sqlite-path", default="./data/aevus.db")
     # S3 destination
-    p.add_argument("--bucket", required=True,
-                   help="S3 training bucket (from `terraform output l4e_training_bucket`).")
-    p.add_argument("--dataset-name", default="aevus-lab-v1",
-                   help="Dataset name — becomes the S3 prefix and the L4E dataset id.")
+    p.add_argument(
+        "--bucket",
+        required=True,
+        help="S3 training bucket (from `terraform output l4e_training_bucket`).",
+    )
+    p.add_argument(
+        "--dataset-name",
+        default="aevus-lab-v1",
+        help="Dataset name — becomes the S3 prefix and the L4E dataset id.",
+    )
     # Window + components
-    p.add_argument("--window-days", type=int, default=21,
-                   help="Days of history to export. L4E minimum is 14.")
-    p.add_argument("--components",
-                   help="Comma-separated asset_ids. Defaults to all assets that have any DEFAULT_METRICS data in the window.")
-    p.add_argument("--metrics",
-                   help="Comma-separated metrics to include. Defaults to the SCADA-friendly subset.")
-    p.add_argument("--interval", default="60s",
-                   help="Resample interval. L4E accepts 1s-3600s; 60s is a sensible default for the lab.")
+    p.add_argument(
+        "--window-days", type=int, default=21, help="Days of history to export. L4E minimum is 14."
+    )
+    p.add_argument(
+        "--components",
+        help="Comma-separated asset_ids. Defaults to all assets that have any DEFAULT_METRICS data in the window.",
+    )
+    p.add_argument(
+        "--metrics",
+        help="Comma-separated metrics to include. Defaults to the SCADA-friendly subset.",
+    )
+    p.add_argument(
+        "--interval",
+        default="60s",
+        help="Resample interval. L4E accepts 1s-3600s; 60s is a sensible default for the lab.",
+    )
     # Safety / rehearsal
-    p.add_argument("--dry-run", action="store_true",
-                   help="Print what would be exported + write CSV bodies to stdout; never upload.")
+    p.add_argument(
+        "--dry-run",
+        action="store_true",
+        help="Print what would be exported + write CSV bodies to stdout; never upload.",
+    )
     return p.parse_args()
 
 
 # ──────────────────────────────────────────────────────────────────────────
 # Source — pull telemetry rows
 # ──────────────────────────────────────────────────────────────────────────
-def fetch_from_influx(args: argparse.Namespace, metrics: list[str],
-                      start: datetime, stop: datetime
-                      ) -> dict[str, dict[datetime, dict[str, float]]]:
+def fetch_from_influx(
+    args: argparse.Namespace, metrics: list[str], start: datetime, stop: datetime
+) -> dict[str, dict[datetime, dict[str, float]]]:
     """Returns {asset_id: {ts: {metric: value, ...}}}."""
     try:
         from influxdb_client import InfluxDBClient
@@ -125,8 +154,9 @@ def fetch_from_influx(args: argparse.Namespace, metrics: list[str],
     '''
 
     out: dict[str, dict[datetime, dict[str, float]]] = defaultdict(lambda: defaultdict(dict))
-    with InfluxDBClient(url=args.influx_url, token=args.influx_token,
-                        org=args.influx_org) as client:
+    with InfluxDBClient(
+        url=args.influx_url, token=args.influx_token, org=args.influx_org
+    ) as client:
         tables = client.query_api().query(flux)
         for table in tables:
             for record in table.records:
@@ -135,14 +165,14 @@ def fetch_from_influx(args: argparse.Namespace, metrics: list[str],
                     continue
                 ts = record.get_time()
                 if ts.tzinfo is None:
-                    ts = ts.replace(tzinfo=timezone.utc)
+                    ts = ts.replace(tzinfo=UTC)
                 out[aid][ts][record.get_field()] = record.get_value()
     return out
 
 
-def fetch_from_sqlite(args: argparse.Namespace, metrics: list[str],
-                      start: datetime, stop: datetime
-                      ) -> dict[str, dict[datetime, dict[str, float]]]:
+def fetch_from_sqlite(
+    args: argparse.Namespace, metrics: list[str], start: datetime, stop: datetime
+) -> dict[str, dict[datetime, dict[str, float]]]:
     """Lab fallback: pulls the latest vitals_json from each asset row.
 
     NOTE: SQLite stores only the *latest* snapshot in vitals_json, not
@@ -154,7 +184,7 @@ def fetch_from_sqlite(args: argparse.Namespace, metrics: list[str],
         sys.exit(f"SQLite DB not found: {args.sqlite_path}")
 
     out: dict[str, dict[datetime, dict[str, float]]] = defaultdict(lambda: defaultdict(dict))
-    now = datetime.now(timezone.utc).replace(microsecond=0)
+    now = datetime.now(UTC).replace(microsecond=0)
     conn = sqlite3.connect(args.sqlite_path)
     conn.row_factory = sqlite3.Row
     try:
@@ -173,8 +203,11 @@ def fetch_from_sqlite(args: argparse.Namespace, metrics: list[str],
                 if raw_value is None:
                     continue
                 out[asset_id][now][metric_id] = float(raw_value)
-        print("WARNING: SQLite source produces single-point datasets. "
-              "Use the Influx path for real L4E training.", file=sys.stderr)
+        print(
+            "WARNING: SQLite source produces single-point datasets. "
+            "Use the Influx path for real L4E training.",
+            file=sys.stderr,
+        )
     finally:
         conn.close()
     return out
@@ -183,18 +216,14 @@ def fetch_from_sqlite(args: argparse.Namespace, metrics: list[str],
 # ──────────────────────────────────────────────────────────────────────────
 # Format → CSV
 # ──────────────────────────────────────────────────────────────────────────
-def to_csv(rows_by_ts: dict[datetime, dict[str, float]],
-           metrics: list[str]) -> str:
+def to_csv(rows_by_ts: dict[datetime, dict[str, float]], metrics: list[str]) -> str:
     """Build the per-component CSV that L4E expects."""
     buf = io.StringIO()
     writer = csv.writer(buf)
     writer.writerow(["Timestamp"] + metrics)
     for ts in sorted(rows_by_ts.keys()):
         row = rows_by_ts[ts]
-        writer.writerow(
-            [ts.isoformat()] +
-            [row.get(m, "") for m in metrics]
-        )
+        writer.writerow([ts.isoformat()] + [row.get(m, "") for m in metrics])
     return buf.getvalue()
 
 
@@ -223,7 +252,7 @@ def upload(args: argparse.Namespace, component: str, csv_body: str) -> str:
 def main() -> int:
     args = _parse_args()
     metrics = [m.strip() for m in (args.metrics or ",".join(DEFAULT_METRICS)).split(",")]
-    stop = datetime.now(timezone.utc).replace(microsecond=0)
+    stop = datetime.now(UTC).replace(microsecond=0)
     start = stop - timedelta(days=args.window_days)
 
     print(f"==> Source:    {args.source}")
@@ -249,7 +278,9 @@ def main() -> int:
         csv_body = to_csv(rows_by_ts, metrics)
         line_count = csv_body.count("\n") - 1  # minus header
         if args.dry_run:
-            print(f"\n--- DRY RUN: would upload datasets/{args.dataset_name}/{component_id}.csv ---")
+            print(
+                f"\n--- DRY RUN: would upload datasets/{args.dataset_name}/{component_id}.csv ---"
+            )
             print(f"  rows: {line_count}")
             preview = "\n".join(csv_body.splitlines()[:3])
             print(f"  preview:\n{preview}")

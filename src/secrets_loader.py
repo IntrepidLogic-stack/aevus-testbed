@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import json
 import os
+
 import structlog
 
 logger = structlog.get_logger()
@@ -23,6 +24,7 @@ def load_secrets() -> dict[str, str]:
     """
     try:
         import boto3
+
         client = boto3.client("secretsmanager", region_name=AWS_REGION)
         resp = client.get_secret_value(SecretId=SECRET_ID)
         secrets = json.loads(resp["SecretString"])

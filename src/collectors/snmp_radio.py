@@ -7,29 +7,28 @@ Enterprise OID: 1.3.6.1.4.1.5727
 
 import asyncio
 import subprocess
-from typing import Optional
 
 from src.collectors.base import BaseCollector
 from src.models.telemetry import RawTelemetry
 
 # Trio JR900 SNMP OID map (enterprise: 1.3.6.1.4.1.5727)
 TRIO_OIDS = {
-    "rssi":          "1.3.6.1.4.1.5727.1.1.1.0",
-    "snr":           "1.3.6.1.4.1.5727.1.1.2.0",
-    "tx_power":      "1.3.6.1.4.1.5727.1.2.1.0",
-    "modulation":    "1.3.6.1.4.1.5727.1.2.2.0",
-    "rx_packets":    "1.3.6.1.4.1.5727.1.3.1.0",
-    "tx_packets":    "1.3.6.1.4.1.5727.1.3.2.0",
+    "rssi": "1.3.6.1.4.1.5727.1.1.1.0",
+    "snr": "1.3.6.1.4.1.5727.1.1.2.0",
+    "tx_power": "1.3.6.1.4.1.5727.1.2.1.0",
+    "modulation": "1.3.6.1.4.1.5727.1.2.2.0",
+    "rx_packets": "1.3.6.1.4.1.5727.1.3.1.0",
+    "tx_packets": "1.3.6.1.4.1.5727.1.3.2.0",
     "error_packets": "1.3.6.1.4.1.5727.1.3.3.0",
-    "temperature":   "1.3.6.1.4.1.5727.1.4.1.0",
-    "voltage":       "1.3.6.1.4.1.5727.1.4.2.0",
+    "temperature": "1.3.6.1.4.1.5727.1.4.1.0",
+    "voltage": "1.3.6.1.4.1.5727.1.4.2.0",
 }
 
 # Standard MIB OIDs (works on any SNMP device)
 STANDARD_OIDS = {
-    "sys_descr":     "1.3.6.1.2.1.1.1.0",
-    "sys_name":      "1.3.6.1.2.1.1.5.0",
-    "sys_uptime":    "1.3.6.1.2.1.1.3.0",
+    "sys_descr": "1.3.6.1.2.1.1.1.0",
+    "sys_name": "1.3.6.1.2.1.1.5.0",
+    "sys_uptime": "1.3.6.1.2.1.1.3.0",
     "if_oper_status": "1.3.6.1.2.1.2.2.1.8.1",
 }
 
@@ -96,21 +95,26 @@ class TrioJR900Collector(BaseCollector):
         """Full SNMP walk — used for discovery, not regular polling."""
         return await asyncio.to_thread(self._snmp_walk_sync)
 
-    async def _snmp_get(self, oid: str) -> Optional[str]:
+    async def _snmp_get(self, oid: str) -> str | None:
         """Get a single OID value via snmpget CLI."""
         return await asyncio.to_thread(self._snmp_get_sync, oid)
 
-    def _snmp_get_sync(self, oid: str) -> Optional[str]:
+    def _snmp_get_sync(self, oid: str) -> str | None:
         """Synchronous SNMP GET using snmpget CLI tool."""
         try:
             result = subprocess.run(
                 [
-                    "snmpget", "-v2c",
-                    "-c", self.community,
-                    "-t", "5",       # timeout seconds
-                    "-r", "1",       # retries
-                    "-Oqv",          # quiet, value-only output
-                    self.host, oid,
+                    "snmpget",
+                    "-v2c",
+                    "-c",
+                    self.community,
+                    "-t",
+                    "5",  # timeout seconds
+                    "-r",
+                    "1",  # retries
+                    "-Oqv",  # quiet, value-only output
+                    self.host,
+                    oid,
                 ],
                 capture_output=True,
                 text=True,
@@ -136,9 +140,12 @@ class TrioJR900Collector(BaseCollector):
         try:
             result = subprocess.run(
                 [
-                    "snmpwalk", "-v2c",
-                    "-c", self.community,
-                    "-t", "10",
+                    "snmpwalk",
+                    "-v2c",
+                    "-c",
+                    self.community,
+                    "-t",
+                    "10",
                     self.host,
                 ],
                 capture_output=True,

@@ -26,8 +26,8 @@ from __future__ import annotations
 import asyncio
 from collections import deque
 from dataclasses import dataclass, field
-from datetime import datetime, timezone
-from typing import Literal, Optional
+from datetime import UTC, datetime
+from typing import Literal
 
 import structlog
 
@@ -48,9 +48,9 @@ class ReachabilityEvent:
     state: ReachabilityState
     previous_state: ReachabilityState
     loss_pct: float
-    avg_rtt_ms: Optional[float]
+    avg_rtt_ms: float | None
     consecutive_failures: int
-    received_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
+    received_at: datetime = field(default_factory=lambda: datetime.now(UTC))
 
 
 @dataclass
@@ -59,11 +59,11 @@ class _ProbeState:
 
     asset_id: str
     host: str
-    window: deque[Optional[float]] = field(default_factory=lambda: deque(maxlen=10))
+    window: deque[float | None] = field(default_factory=lambda: deque(maxlen=10))
     consecutive_failures: int = 0
     state: ReachabilityState = "unknown"
 
-    def record(self, rtt_ms: Optional[float], window_size: int) -> None:
+    def record(self, rtt_ms: float | None, window_size: int) -> None:
         # Resize the window if config changed since startup.
         if self.window.maxlen != window_size:
             self.window = deque(self.window, maxlen=window_size)
@@ -81,7 +81,7 @@ class _ProbeState:
         return (failures / len(self.window)) * 100.0
 
     @property
-    def avg_rtt_ms(self) -> Optional[float]:
+    def avg_rtt_ms(self) -> float | None:
         successes = [r for r in self.window if r is not None]
         if not successes:
             return None
@@ -102,22 +102,26 @@ class ICMPProbe:
 
     def __init__(
         self,
-        interval: Optional[float] = None,
-        timeout: Optional[float] = None,
-        window_size: Optional[int] = None,
-        loss_warn_pct: Optional[float] = None,
-        consecutive_down: Optional[int] = None,
-        privileged: Optional[bool] = None,
+        interval: float | None = None,
+        timeout: float | None = None,
+        window_size: int | None = None,
+        loss_warn_pct: float | None = None,
+        consecutive_down: int | None = None,
+        privileged: bool | None = None,
     ) -> None:
         self.interval = interval if interval is not None else settings.icmp_probe_interval
         self.timeout = timeout if timeout is not None else settings.icmp_timeout
         self.window_size = window_size if window_size is not None else settings.icmp_window_size
-        self.loss_warn_pct = loss_warn_pct if loss_warn_pct is not None else settings.icmp_loss_warn_pct
-        self.consecutive_down = consecutive_down if consecutive_down is not None else settings.icmp_consecutive_down
+        self.loss_warn_pct = (
+            loss_warn_pct if loss_warn_pct is not None else settings.icmp_loss_warn_pct
+        )
+        self.consecutive_down = (
+            consecutive_down if consecutive_down is not None else settings.icmp_consecutive_down
+        )
         self.privileged = privileged if privileged is not None else settings.icmp_privileged
 
         self._targets: dict[str, _ProbeState] = {}
-        self._task: Optional[asyncio.Task] = None
+        self._task: asyncio.Task | None = None
         self._stop_event: asyncio.Event = asyncio.Event()
         self.events: asyncio.Queue[ReachabilityEvent] = asyncio.Queue()
         self.log = logger.bind(component="icmp_probe")
@@ -191,7 +195,7 @@ class ICMPProbe:
             try:
                 await asyncio.wait_for(self._stop_event.wait(), timeout=sleep_for)
                 break  # stop_event was set
-            except asyncio.TimeoutError:
+            except TimeoutError:
                 continue  # normal — go to next cycle
 
     async def _sweep_once(self) -> None:
@@ -199,10 +203,7 @@ class ICMPProbe:
         if not self._targets:
             return
 
-        tasks = [
-            asyncio.create_task(self._ping_one(state))
-            for state in self._targets.values()
-        ]
+        tasks = [asyncio.create_task(self._ping_one(state)) for state in self._targets.values()]
         await asyncio.gather(*tasks, return_exceptions=True)
 
     async def _ping_one(self, state: _ProbeState) -> None:
@@ -250,7 +251,7 @@ class ICMPProbe:
             return "up"
         return state.state if state.state != "unknown" else "unknown"
 
-    async def _do_ping(self, host: str) -> Optional[float]:
+    async def _do_ping(self, host: str) -> float | None:
         """Issue one ICMP echo. Returns RTT in ms or None on timeout.
 
         Lazy-imports icmplib so the rest of the codebase doesn't need
@@ -292,8 +293,8 @@ async def _smoke_main() -> None:
     Or with named targets:
         python3 -m src.collectors.icmp_probe RTR-01=192.168.88.1
     """
-    import sys
     import logging
+    import sys
 
     logging.basicConfig(level=logging.INFO)
 
@@ -310,6 +311,7 @@ async def _smoke_main() -> None:
     print(f"Probing {probe.targets} every {probe.interval}s. Ctrl+C or SIGTERM to stop.")
 
     import signal as _signal
+
     stop = asyncio.Event()
     loop = asyncio.get_running_loop()
     for sig in (_signal.SIGTERM, _signal.SIGINT):

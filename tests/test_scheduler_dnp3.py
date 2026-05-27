@@ -11,7 +11,7 @@ from __future__ import annotations
 import asyncio
 import sys
 import types
-from datetime import datetime, timezone, timedelta
+from datetime import UTC, datetime, timedelta, timezone
 from typing import Any
 from unittest.mock import MagicMock
 
@@ -24,14 +24,25 @@ class _PermissiveModule(types.ModuleType):
 
 
 for _name in (
-    "pymodbus", "pymodbus.client", "pymodbus.exceptions",
-    "pysnmp", "pysnmp.hlapi", "pysnmp.hlapi.asyncio",
-    "pysnmp.entity", "pysnmp.entity.rfc3413",
-    "pysnmp.carrier", "pysnmp.carrier.asyncio", "pysnmp.carrier.asyncio.dgram",
+    "pymodbus",
+    "pymodbus.client",
+    "pymodbus.exceptions",
+    "pysnmp",
+    "pysnmp.hlapi",
+    "pysnmp.hlapi.asyncio",
+    "pysnmp.entity",
+    "pysnmp.entity.rfc3413",
+    "pysnmp.carrier",
+    "pysnmp.carrier.asyncio",
+    "pysnmp.carrier.asyncio.dgram",
     "icmplib",
     "dnp3_python",
-    "influxdb_client", "influxdb_client.client", "influxdb_client.client.write_api",
-    "apscheduler", "apscheduler.schedulers", "apscheduler.schedulers.asyncio",
+    "influxdb_client",
+    "influxdb_client.client",
+    "influxdb_client.client.write_api",
+    "apscheduler",
+    "apscheduler.schedulers",
+    "apscheduler.schedulers.asyncio",
 ):
     if _name not in sys.modules:
         sys.modules[_name] = _PermissiveModule(_name)
@@ -51,7 +62,7 @@ def _fake_rtu(ip: str = "192.168.88.21") -> Asset:
         name="SCADAPack 470",
         location="Lab",
         health=92,
-        last_seen=datetime.now(timezone.utc),
+        last_seen=datetime.now(UTC),
         vendor="Schneider",
         model="SCADAPack 470",
         ip_address=ip,
@@ -97,7 +108,7 @@ async def test_high_pressure_alarm_fires_critical(monkeypatch):
         value=True,
         unit="bool",
         quality_flags=0x81,
-        device_timestamp=datetime.now(timezone.utc),
+        device_timestamp=datetime.now(UTC),
     )
 
     await sched._handle_dnp3_event(event)
@@ -118,6 +129,7 @@ async def test_analog_suction_pressure_threshold(monkeypatch):
     sched, db, engine = _build_scheduler()
 
     async def _noop(*a, **kw): ...
+
     monkeypatch.setattr("src.scheduler.ws_manager.broadcast", _noop)
 
     # threshold_suction_crit defaults to 900 PSI per config.py.
@@ -129,14 +141,13 @@ async def test_analog_suction_pressure_threshold(monkeypatch):
         value=945.0,
         unit="PSI",
         quality_flags=0x01,
-        device_timestamp=datetime.now(timezone.utc),
+        device_timestamp=datetime.now(UTC),
     )
 
     await sched._handle_dnp3_event(event)
 
     assert any(
-        a.severity == "critical" and "suction" in a.message.lower()
-        for a in engine.open_alerts
+        a.severity == "critical" and "suction" in a.message.lower() for a in engine.open_alerts
     )
 
 
@@ -145,6 +156,7 @@ async def test_dnp3_event_writes_to_influx(monkeypatch):
     sched, db, engine = _build_scheduler()
 
     async def _noop(*a, **kw): ...
+
     monkeypatch.setattr("src.scheduler.ws_manager.broadcast", _noop)
 
     event = DNP3Event(
@@ -155,7 +167,7 @@ async def test_dnp3_event_writes_to_influx(monkeypatch):
         value=13.2,
         unit="VDC",
         quality_flags=0x01,
-        device_timestamp=datetime.now(timezone.utc),
+        device_timestamp=datetime.now(UTC),
     )
 
     await sched._handle_dnp3_event(event)
@@ -174,10 +186,11 @@ async def test_dnp3_event_resolves_offline(monkeypatch):
     sched, db, engine = _build_scheduler()
 
     async def _noop(*a, **kw): ...
+
     monkeypatch.setattr("src.scheduler.ws_manager.broadcast", _noop)
 
     # Seed an OFFLINE alert by aging out the staleness threshold.
-    old = datetime.now(timezone.utc) - timedelta(seconds=200)
+    old = datetime.now(UTC) - timedelta(seconds=200)
     engine.evaluate_offline("RTU-01", "SCADAPack 470", old, poll_interval=5)
     assert any("comms loss" in a.message.lower() for a in engine.open_alerts)
 
@@ -189,7 +202,7 @@ async def test_dnp3_event_resolves_offline(monkeypatch):
         value=True,
         unit="bool",
         quality_flags=0x01,
-        device_timestamp=datetime.now(timezone.utc),
+        device_timestamp=datetime.now(UTC),
     )
     await sched._handle_dnp3_event(event)
 
@@ -202,32 +215,37 @@ async def test_dnp3_consumer_loop_drains_queue(monkeypatch):
     sched, db, engine = _build_scheduler()
 
     async def _noop(*a, **kw): ...
+
     monkeypatch.setattr("src.scheduler.ws_manager.broadcast", _noop)
 
     receiver = DNP3UnsolicitedReceiver(asset_id="RTU-01", host="192.168.88.21")
     sched.register_dnp3_receiver(receiver)
 
     # Push two events into the queue directly (no library, no socket).
-    await receiver.events.put(DNP3Event(
-        asset_id="RTU-01",
-        event_class="binary_input",
-        point_index=2,
-        metric="low_battery_alarm",
-        value=True,
-        unit="bool",
-        quality_flags=0x81,
-        device_timestamp=datetime.now(timezone.utc),
-    ))
-    await receiver.events.put(DNP3Event(
-        asset_id="RTU-01",
-        event_class="analog_input",
-        point_index=5,
-        metric="battery_voltage",
-        value=11.0,  # below 11.5 V critical threshold
-        unit="VDC",
-        quality_flags=0x01,
-        device_timestamp=datetime.now(timezone.utc),
-    ))
+    await receiver.events.put(
+        DNP3Event(
+            asset_id="RTU-01",
+            event_class="binary_input",
+            point_index=2,
+            metric="low_battery_alarm",
+            value=True,
+            unit="bool",
+            quality_flags=0x81,
+            device_timestamp=datetime.now(UTC),
+        )
+    )
+    await receiver.events.put(
+        DNP3Event(
+            asset_id="RTU-01",
+            event_class="analog_input",
+            point_index=5,
+            metric="battery_voltage",
+            value=11.0,  # below 11.5 V critical threshold
+            unit="VDC",
+            quality_flags=0x01,
+            device_timestamp=datetime.now(UTC),
+        )
+    )
 
     task = asyncio.create_task(sched._dnp3_consumer_loop("RTU-01"))
     await asyncio.sleep(0.05)

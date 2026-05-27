@@ -41,13 +41,15 @@ async def signal_diagnostics() -> list[dict]:
     assets = app_state.db.list_assets()
     signals = []
     for a in assets:
-        signals.append({
-            "asset_id": a.id,
-            "asset_name": a.name,
-            "type": a.type,
-            "health": a.health,
-            "status": a.status,
-            "vitals_count": len(a.vitals),
-            "last_seen": a.last_seen.isoformat() if a.last_seen else None,
-        })
+        signals.append(
+            {
+                "asset_id": a.id,
+                "asset_name": a.name,
+                "type": a.type,
+                "health": a.health,
+                "status": a.status,
+                "vitals_count": len(a.vitals),
+                "last_seen": a.last_seen.isoformat() if a.last_seen else None,
+            }
+        )
     return signals

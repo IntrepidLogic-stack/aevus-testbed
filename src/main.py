@@ -63,15 +63,33 @@ from src.storage.sqlite_db import SQLiteDB  # noqa: E402
 logger = structlog.get_logger()
 
 
-# Asset registry — drives simulator + real-collector wiring.
+# Asset registry — drives simulator + real-collector wiring AND first-boot
+# SQLite seeding. The seed step runs on startup if the row doesn't exist, so
+# /api/v1/assets is never empty (and never 500s on a fresh DB). Fields beyond
+# id/type/name match the Asset pydantic model so upsert_asset() round-trips
+# cleanly through SQLiteDB._row_to_asset on the next list_assets() call.
 LAB_ASSETS = [
-    {"id": "RTR-01", "type": "router", "name": "MikroTik L009"},
-    {"id": "SW-01", "type": "switch", "name": "Cisco Catalyst 2960"},
-    {"id": "EDGE-01", "type": "edge", "name": "Aevus Edge (Pi)"},
-    {"id": "RAD-01", "type": "radio", "name": "Trio JR900 #1"},
-    {"id": "RAD-02", "type": "radio", "name": "Trio JR900 #2"},
-    {"id": "RTU-01", "type": "rtu", "name": "SCADAPack 470"},
-    {"id": "EFM-01", "type": "efm", "name": "ABB EFM"},
+    {"id": "RTR-01", "type": "router", "name": "MikroTik L009",
+     "vendor": "MikroTik", "model": "L009UiGS-2HaxD-IN",
+     "location": "Lab Cabinet", "protocol": "snmp", "poll_interval": 30},
+    {"id": "SW-01", "type": "switch", "name": "Cisco Catalyst 2960",
+     "vendor": "Cisco", "model": "Catalyst 2960",
+     "location": "Lab Cabinet", "protocol": "snmp", "poll_interval": 30},
+    {"id": "EDGE-01", "type": "edge", "name": "Aevus Edge (Pi)",
+     "vendor": "Raspberry Pi Foundation", "model": "Pi 4",
+     "location": "Lab Cabinet", "protocol": "local", "poll_interval": 15},
+    {"id": "RAD-01", "type": "radio", "name": "Trio JR900 #1",
+     "vendor": "Trio", "model": "JR900",
+     "location": "Lab Cabinet", "protocol": "snmp", "poll_interval": 30},
+    {"id": "RAD-02", "type": "radio", "name": "Trio JR900 #2",
+     "vendor": "Trio", "model": "JR900",
+     "location": "Lab Cabinet", "protocol": "snmp", "poll_interval": 30},
+    {"id": "RTU-01", "type": "rtu", "name": "SCADAPack 470",
+     "vendor": "Schneider Electric", "model": "SCADAPack 470",
+     "location": "Lab Cabinet", "protocol": "modbus_tcp", "poll_interval": 5},
+    {"id": "EFM-01", "type": "efm", "name": "ABB EFM",
+     "vendor": "ABB", "model": "TotalFlow XFCG5",
+     "location": "Lab Cabinet", "protocol": "modbus_tcp", "poll_interval": 5},
 ]
 
 
@@ -210,8 +228,44 @@ def _register_mqtt_publisher() -> None:
         logger.warning("mqtt_publisher_init_failed", error=str(e))
 
 
+def _seed_lab_assets() -> None:
+    """Ensure every LAB_ASSETS row exists in SQLite before the scheduler runs.
+
+    Without this, a fresh DB has no rows and /api/v1/assets returns 200 OK with
+    an empty list until the first poll cycle finishes. Worse, manual INSERTs
+    with the wrong column types (see Task #133 EDGE-01 incident) crashed the
+    list_assets endpoint with a 500. Seeding here via upsert_asset uses the
+    Asset pydantic model — schema mismatches become startup errors, not
+    runtime 500s. Only inserts; never overwrites a row that's already there
+    (so health/vitals captured by the scheduler aren't clobbered on restart).
+    """
+    from datetime import UTC, datetime
+    from src.models.asset import Asset
+    for spec in LAB_ASSETS:
+        if app_state.db.get_asset(spec["id"]) is not None:
+            continue
+        try:
+            asset = Asset(
+                id=spec["id"],
+                type=spec["type"],
+                status="unknown",
+                name=spec["name"],
+                location=spec["location"],
+                vendor=spec["vendor"],
+                model=spec["model"],
+                protocol=spec["protocol"],
+                poll_interval=spec["poll_interval"],
+                last_seen=datetime.now(UTC),
+            )
+            app_state.db.upsert_asset(asset)
+            logger.info("lab_asset_seeded", asset_id=spec["id"], type=spec["type"])
+        except Exception as e:
+            logger.warning("lab_asset_seed_failed", asset_id=spec["id"], error=str(e))
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    _seed_lab_assets()
     _register_simulators()
     _register_real_snmp_collectors()
     _register_mqtt_publisher()

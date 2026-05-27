@@ -23,7 +23,7 @@ class Asset(BaseModel):
     """A monitored asset in the Aevus fleet."""
 
     id: str  # "RAD-01", "RTU-01", "SW-01", "RTR-01"
-    type: Literal["radio", "rtu", "switch", "router", "sensor"]
+    type: Literal["radio", "rtu", "switch", "router", "sensor", "edge", "efm"]
     status: Literal["good", "warn", "bad", "unknown", "offline"] = "unknown"
     name: str  # "Trio JR900 #1"
     location: str  # "Lab Cabinet"

@@ -26,6 +26,10 @@ class BaseCollector(abc.ABC):
         self.poll_count: int = 0
         self.poll_success_count: int = 0
         self.last_poll_duration_ms: float = 0.0
+        # Most-recent firmware/OS version string from device (e.g. sysDescr).
+        # Populated by concrete collectors. The scheduler hands this to
+        # FirmwareTracker each cycle to detect out-of-band changes.
+        self.firmware_version: str | None = None
         self.log = logger.bind(collector=self.__class__.__name__, asset_id=asset_id, host=host)
 
     @abc.abstractmethod

@@ -71,6 +71,32 @@ CREATE TABLE IF NOT EXISTS alerts (
     resolved_at TEXT,
     status TEXT NOT NULL DEFAULT 'open'
 );
+
+-- ISA-18.2 tracker baselines (survive service restart)
+CREATE TABLE IF NOT EXISTS firmware_baselines (
+    asset_id TEXT PRIMARY KEY,
+    version TEXT NOT NULL,
+    updated_at TEXT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS runhours_baselines (
+    asset_id TEXT PRIMARY KEY,
+    run_hours INTEGER NOT NULL,
+    updated_at TEXT NOT NULL
+);
+
+-- ISA-18.2 §11 operator shelving audit log
+CREATE TABLE IF NOT EXISTS shelve_audit (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    asset_id TEXT NOT NULL,
+    metric_label TEXT NOT NULL,
+    action TEXT NOT NULL,  -- 'shelve' | 'unshelve' | 'expire'
+    duration_s INTEGER,
+    expires_at TEXT,
+    reason TEXT,
+    operator TEXT NOT NULL DEFAULT 'system',
+    created_at TEXT NOT NULL
+);
 """
 
 
@@ -328,6 +354,82 @@ class SQLiteDB:
         if category:
             query += " AND category = ?"
             params.append(category)
+        query += " ORDER BY created_at DESC LIMIT ?"
+        params.append(limit)
+        rows = self._conn.execute(query, params).fetchall()
+        return [dict(r) for r in rows]
+
+    # ---- ISA-18.2 tracker persistence ----------------------------------
+    # Implements the Protocols expected by FirmwareTracker / MaintenanceTracker.
+
+    def get_firmware_version(self, asset_id: str) -> str | None:
+        row = self._conn.execute(
+            "SELECT version FROM firmware_baselines WHERE asset_id = ?", (asset_id,)
+        ).fetchone()
+        return row["version"] if row else None
+
+    def set_firmware_version(self, asset_id: str, version: str) -> None:
+        from datetime import UTC, datetime
+        now = datetime.now(UTC).isoformat()
+        self._conn.execute(
+            """INSERT INTO firmware_baselines (asset_id, version, updated_at)
+               VALUES (?, ?, ?)
+               ON CONFLICT(asset_id) DO UPDATE SET
+                 version=excluded.version,
+                 updated_at=excluded.updated_at""",
+            (asset_id, version, now),
+        )
+        self._conn.commit()
+
+    def get_runhours_baseline(self, asset_id: str) -> int | None:
+        row = self._conn.execute(
+            "SELECT run_hours FROM runhours_baselines WHERE asset_id = ?", (asset_id,)
+        ).fetchone()
+        return row["run_hours"] if row else None
+
+    def set_runhours_baseline(self, asset_id: str, run_hours: int) -> None:
+        from datetime import UTC, datetime
+        now = datetime.now(UTC).isoformat()
+        self._conn.execute(
+            """INSERT INTO runhours_baselines (asset_id, run_hours, updated_at)
+               VALUES (?, ?, ?)
+               ON CONFLICT(asset_id) DO UPDATE SET
+                 run_hours=excluded.run_hours,
+                 updated_at=excluded.updated_at""",
+            (asset_id, run_hours, now),
+        )
+        self._conn.commit()
+
+    # ---- Shelve audit log (ISA-18.2 §11.4) -----------------------------
+
+    def log_shelve_action(
+        self,
+        asset_id: str,
+        metric_label: str,
+        action: str,
+        duration_s: int | None = None,
+        expires_at: str | None = None,
+        reason: str | None = None,
+        operator: str = "system",
+    ) -> int:
+        """Append an audit row for shelve/unshelve/expire events."""
+        from datetime import UTC, datetime
+        now = datetime.now(UTC).isoformat()
+        cur = self._conn.execute(
+            """INSERT INTO shelve_audit
+                 (asset_id, metric_label, action, duration_s, expires_at, reason, operator, created_at)
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?)""",
+            (asset_id, metric_label, action, duration_s, expires_at, reason, operator, now),
+        )
+        self._conn.commit()
+        return cur.lastrowid
+
+    def list_shelve_audit(self, asset_id: str | None = None, limit: int = 100) -> list[dict]:
+        query = "SELECT * FROM shelve_audit WHERE 1=1"
+        params: list = []
+        if asset_id:
+            query += " AND asset_id = ?"
+            params.append(asset_id)
         query += " ORDER BY created_at DESC LIMIT ?"
         params.append(limit)
         rows = self._conn.execute(query, params).fetchall()

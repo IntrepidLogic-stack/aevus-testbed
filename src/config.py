@@ -56,6 +56,23 @@ class Settings(BaseSettings):
     api_key: str = ""  # Set in .env — required for API access
     api_key_header: str = "X-API-Key"
 
+    # ── MQTT — bridge to AWS IoT Core (or local Mosquitto in dev) ──
+    mqtt_enabled: bool = False  # off by default until configured
+    mqtt_broker_host: str = "localhost"  # IoT Core: <endpoint>-ats.iot.<region>.amazonaws.com
+    mqtt_broker_port: int = 1883  # IoT Core MQTT-over-TLS: 8883
+    mqtt_site_id: str = "lab"  # used in topic hierarchy
+    mqtt_client_id: str = "aevus-edge-lab-01"  # must be unique per device
+    mqtt_tls_enabled: bool = False  # true for IoT Core
+    mqtt_ca_cert_path: str = ""  # Amazon root CA for IoT Core
+    mqtt_client_cert_path: str = ""  # X.509 device cert
+    mqtt_client_key_path: str = ""  # X.509 device private key
+    mqtt_username: str = ""  # only for local Mosquitto with auth
+    mqtt_password: str = ""
+    mqtt_qos: int = 1  # 1 = at-least-once (IoT Core max)
+    mqtt_keepalive: int = 60
+    mqtt_initial_backoff: float = 2.0
+    mqtt_max_backoff: float = 60.0
+
     # ── Polling Intervals (seconds) ──
     poll_interval_radio: int = 30
     poll_interval_rtu: int = 5

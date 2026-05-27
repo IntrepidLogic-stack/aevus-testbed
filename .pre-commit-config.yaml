@@ -1,0 +1,32 @@
+# Pre-commit hooks for aevus-testbed (Task #53)
+# Closes Task #52 follow-up — prevents ruff lint regressions after the 103-error cleanup.
+#
+# Install once per developer machine:
+#   pip install pre-commit            (or: brew install pre-commit)
+#   cd <repo>
+#   pre-commit install                (installs git pre-commit hook)
+#
+# Run manually across whole repo:
+#   pre-commit run --all-files
+
+repos:
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    # Pin to a known-good version. Bump deliberately, not via auto-update.
+    rev: v0.6.9
+    hooks:
+      - id: ruff
+        args: [--fix, --exit-non-zero-on-fix]
+      - id: ruff-format
+
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v4.6.0
+    hooks:
+      - id: trailing-whitespace
+      - id: end-of-file-fixer
+      - id: check-yaml
+        # Mosquitto + Greengrass component recipes use !Ref-style tags; allow unsafe load
+        args: [--unsafe]
+      - id: check-added-large-files
+        args: [--maxkb=500]
+      - id: check-merge-conflict
+      - id: detect-private-key

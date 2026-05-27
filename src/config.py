@@ -16,6 +16,11 @@ class Settings(BaseSettings):
     mikrotik_ip: str = "192.168.88.1"
     catalyst_ip: str = "192.168.88.2"
     uplogix_ip: str = "192.168.88.5"
+    # Trio JR900 radios — leave blank until each unit has been console-configured
+    # with an IP. When empty, the collector is skipped and the simulator covers
+    # the asset. When set, a real SNMP collector overrides the sim entry.
+    rad_01_ip: str = ""
+    rad_02_ip: str = ""
     trio_radio_1_ip: str = "192.168.88.11"
     trio_radio_2_ip: str = "192.168.88.12"
     scadapack_ip: str = "192.168.88.21"

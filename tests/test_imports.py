@@ -36,6 +36,7 @@ MODULES = [
     # Collectors
     "src.collectors.base",
     "src.collectors.simulator",
+    "src.collectors.snmp_radio",
     "src.collectors.snmp_router",
     # Integrations
     "src.integrations.mqtt_publisher",

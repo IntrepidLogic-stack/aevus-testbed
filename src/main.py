@@ -49,6 +49,7 @@ from src.api.reports import router as reports_router  # noqa: E402
 from src.api.weather import router as weather_router  # noqa: E402
 from src.api.ws import router as ws_router  # noqa: E402
 from src.collectors.simulator import SimulatorCollector  # noqa: E402
+from src.collectors.snmp_radio import TrioJR900Collector  # noqa: E402
 from src.collectors.snmp_router import SNMPNetworkCollector  # noqa: E402
 from src.config import settings  # noqa: E402
 from src.engine.alert_engine import AlertEngine  # noqa: E402
@@ -111,12 +112,17 @@ def _register_real_snmp_collectors() -> None:
     """Override simulators with REAL SNMP collectors for online SNMP-reachable
     assets. Must run AFTER _register_simulators() — scheduler.register()
     replaces existing entries.
+
+    Network gear (MikroTik, Catalyst) uses standard MIB-II via
+    SNMPNetworkCollector. Trio JR900 radios use enterprise OIDs
+    (1.3.6.1.4.1.5727.*) via TrioJR900Collector — different OID tree,
+    different vendor encoding, different vital interpretation.
     """
-    real_targets = [
+    network_targets = [
         ("RTR-01", "router", settings.mikrotik_ip, settings.poll_interval_router),
         ("SW-01", "switch", settings.catalyst_ip, settings.poll_interval_switch),
     ]
-    for asset_id, device_type, host, interval in real_targets:
+    for asset_id, device_type, host, interval in network_targets:
         if not host:
             logger.info("real_snmp_skipped_no_ip", asset_id=asset_id)
             continue
@@ -138,6 +144,35 @@ def _register_real_snmp_collectors() -> None:
         except Exception as e:
             logger.warning(
                 "real_snmp_collector_failed_fallback_to_sim",
+                asset_id=asset_id,
+                error=str(e),
+            )
+
+    # Trio JR900 radios — dormant until IPs are set in .env (rad_01_ip / rad_02_ip)
+    radio_targets = [
+        ("RAD-01", settings.rad_01_ip, settings.poll_interval_radio),
+        ("RAD-02", settings.rad_02_ip, settings.poll_interval_radio),
+    ]
+    for asset_id, host, interval in radio_targets:
+        if not host:
+            logger.info("real_radio_skipped_no_ip", asset_id=asset_id)
+            continue
+        try:
+            collector = TrioJR900Collector(
+                asset_id=asset_id,
+                host=host,
+                community=settings.snmp_community,
+                poll_interval=interval,
+            )
+            app_state.scheduler.register(asset_id, collector)
+            logger.info(
+                "real_radio_collector_registered",
+                asset_id=asset_id,
+                host=host,
+            )
+        except Exception as e:
+            logger.warning(
+                "real_radio_collector_failed_fallback_to_sim",
                 asset_id=asset_id,
                 error=str(e),
             )

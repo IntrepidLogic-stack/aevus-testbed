@@ -10,65 +10,38 @@ from __future__ import annotations
 
 # Load AWS secrets before config reads env vars
 from src.secrets_loader import inject_secrets
-
 inject_secrets()
 
+import structlog
 from contextlib import asynccontextmanager
 from pathlib import Path
-
-import structlog
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
-from slowapi import Limiter, _rate_limit_exceeded_handler
-from slowapi.errors import RateLimitExceeded
-from slowapi.util import get_remote_address
-from starlette.responses import Response
+from fastapi.responses import FileResponse
+
+from src.config import settings
+from src.storage.influx import InfluxStorage
+from src.storage.sqlite_db import SQLiteDB
+from src.engine.alert_engine import AlertEngine
+from src.scheduler import PollScheduler
+from src.api.ws import ws_manager
+
+# Collectors
+from src.collectors.simulator import SimulatorCollector
+from src.collectors.snmp_trap_receiver import SNMPTrapReceiver
+from src.integrations.mqtt_publisher import MQTTPublisher
 
 # API routers
 from src.api import (
-    access_requests_router,
-    ai_router,
-    alerts_router,
     assets_router,
-    commands_router,
-    correlations_router,
-    csv_io_router,
-    deploy_router,
-    diagnostics_router,
+    alerts_router,
     health_router,
-    ingest_router,
-    integrations_router,
-    journal_router,
-    notes_router,
-    ping_diag_router,
+    diagnostics_router,
+    metrics_router,
     predictions_router,
-    reports_router,
-    weather_router,
     ws_router,
 )
-from src.api.audit import router as audit_router
-from src.api.auth_config import auth_config_router
-from src.api.ws import ws_manager
-from src.collectors.dnp3_master import DNP3Collector
-from src.collectors.modbus_rtu import SCADAPack470Collector
-
-# Collectors
-from src.collectors.snmp_edge import SNMPEdgeCollector
-from src.collectors.snmp_router import SNMPNetworkCollector
-from src.collectors.snmp_switch import SNMPSwitchCollector
-from src.collectors.snmp_trap_receiver import SNMPTrapReceiver
-from src.config import settings
-from src.engine.alert_engine import AlertEngine
-from src.engine.comm_quality import CommQualityEngine
-from src.engine.commander import Commander
-from src.engine.correlator import CorrelationEngine
-from src.engine.notifier import NotificationEngine
-from src.engine.weather import WeatherEngine
-from src.scheduler import PollScheduler
-from src.storage.influx import InfluxStorage
-from src.storage.sqlite_db import SQLiteDB
 
 logger = structlog.get_logger()
 
@@ -80,21 +53,25 @@ class AppState:
         self.db = SQLiteDB()
         self.influx = InfluxStorage()
         self.alert_engine = AlertEngine()
-        self.notifier = NotificationEngine()
-        self.weather_engine = WeatherEngine()
-        self.comm_quality_engine = CommQualityEngine()
-        self.correlator = CorrelationEngine()
-        self.commander = Commander()
-        self.trap_receiver: SNMPTrapReceiver | None = None
         self.scheduler = PollScheduler(
             db=self.db,
             influx=self.influx,
             alert_engine=self.alert_engine,
-            notifier=self.notifier,
-            weather_engine=self.weather_engine,
-            comm_quality_engine=self.comm_quality_engine,
-            correlator=self.correlator,
         )
+        self.trap_receiver = SNMPTrapReceiver(
+            host="0.0.0.0",
+            port=162,
+            community="aevus_trap",
+        )
+        self.scheduler.register_trap_receiver(self.trap_receiver)
+
+        # MQTT publisher (Phase 4) — optional, off until MQTT_ENABLED=true in .env.
+        # Construction picks up broker host/port/TLS/certs from settings automatically.
+        if settings.mqtt_enabled:
+            self.mqtt_publisher = MQTTPublisher()
+            self.scheduler.register_mqtt_publisher(self.mqtt_publisher)
+        else:
+            self.mqtt_publisher = None
 
     @property
     def ws_clients(self) -> int:
@@ -105,82 +82,55 @@ class AppState:
 app_state = AppState()
 
 
-def _register_collectors() -> None:
-    """Register collectors for all lab assets.
+def _register_simulators() -> None:
+    """Register simulator collectors for all lab assets.
 
-    Live SNMP collectors for devices that are online.
-    Simulators for devices that are still offline / unconfigured.
+    These run immediately and generate realistic fake data.
+    When hardware is online, replace with real collectors.
     """
-    # ── LIVE COLLECTORS (real hardware polling) ──
+    sims = [
+        ("RAD-01", "radio", settings.poll_interval_radio),
+        ("RAD-02", "radio", settings.poll_interval_radio),
+        ("RTU-01", "rtu", settings.poll_interval_rtu),
+        ("RTR-01", "router", settings.poll_interval_router),
+    ]
 
-    # MikroTik L009 — live SNMP
-    mikrotik = SNMPNetworkCollector(
-        asset_id="RTR-01",
-        host=settings.mikrotik_ip,
-        community=settings.snmp_community,
-        poll_interval=settings.poll_interval_router,
-        device_type="router",
-    )
-    app_state.scheduler.register("RTR-01", mikrotik)
-    logger.info("registered_live_collector", asset="RTR-01", type="snmp_router")
+    for asset_id, device_type, interval in sims:
+        collector = SimulatorCollector(asset_id, device_type=device_type)
+        collector.poll_interval = interval
+        app_state.scheduler.register(asset_id, collector)
 
-    # Cisco Catalyst 2960 — live SNMP (Cisco-specific OIDs)
-    catalyst = SNMPSwitchCollector(
-        asset_id="SW-01",
-        host=settings.catalyst_ip,
-        community=settings.snmp_community,
-        poll_interval=settings.poll_interval_switch,
-    )
-    app_state.scheduler.register("SW-01", catalyst)
-    logger.info("registered_live_collector", asset="SW-01", type="snmp_switch")
 
-    # Raspberry Pi — live SNMP
-    pi = SNMPEdgeCollector(
-        asset_id="EDGE-01",
-        host=settings.edge_collector_ip,
-        community=settings.snmp_community,
-        poll_interval=30,
-    )
-    app_state.scheduler.register("EDGE-01", pi)
-    logger.info("registered_live_collector", asset="EDGE-01", type="snmp_edge")
+def _register_real_snmp_collectors() -> None:
+    """Replace simulator entries with REAL SNMP collectors for assets
+    that are physically online and SNMP-reachable. Run AFTER
+    _register_simulators() so real collectors override sim entries via
+    scheduler._collectors[asset_id] = collector replacement semantics."""
+    from src.collectors.snmp_router import SNMPNetworkCollector
 
-    # ── SIMULATORS (offline devices, keep generating demo data) ──
+    real_targets = [
+        ("RTR-01", "router", settings.mikrotik_ip, settings.poll_interval_router),
+        ("SW-01",  "switch", settings.catalyst_ip,  settings.poll_interval_switch),
+    ]
 
-    # Trio JR900 radios — LIVE SNMP v2c collectors
-    from src.collectors.snmp_radio import TrioJR900Collector
-    radio_ips = {"RAD-01": settings.trio_radio_1_ip, "RAD-02": settings.trio_radio_2_ip}
-    for asset_id, ip in radio_ips.items():
-        radio = TrioJR900Collector(
-            asset_id=asset_id,
-            host=ip,
-            community=settings.snmp_community,
-            poll_interval=settings.poll_interval_radio,
-        )
-        app_state.scheduler.register(asset_id, radio)
-        logger.info("registered_live_radio", asset=asset_id, host=ip, type="snmp_trio_jr900")
-
-    # SCADAPack 470 — live Modbus TCP
-    scadapack = SCADAPack470Collector(
-        asset_id="RTU-01",
-        host=settings.scadapack_ip,
-        port=settings.modbus_port,
-        slave_id=settings.modbus_slave_id,
-        poll_interval=settings.poll_interval_rtu,
-    )
-    app_state.scheduler.register("RTU-01", scadapack)
-    logger.info("registered_modbus_collector", asset="RTU-01", host=settings.scadapack_ip)
-
-    # DNP3 Meter Station — live DNP3 over TCP
-    dnp3 = DNP3Collector(
-        asset_id="EFM-01",
-        host=settings.dnp3_host,
-        port=settings.dnp3_port,
-        master_addr=settings.dnp3_master_addr,
-        outstation_addr=settings.dnp3_outstation_addr,
-        poll_interval=settings.poll_interval_dnp3,
-    )
-    app_state.scheduler.register("EFM-01", dnp3)
-    logger.info("registered_dnp3_collector", asset="EFM-01", host=settings.dnp3_host, port=settings.dnp3_port)
+    for asset_id, device_type, host, interval in real_targets:
+        if not host:
+            logger.info("real_snmp_skipped_no_ip", asset_id=asset_id)
+            continue
+        try:
+            collector = SNMPNetworkCollector(
+                asset_id=asset_id,
+                host=host,
+                community=settings.snmp_community,
+                poll_interval=interval,
+                device_type=device_type,
+            )
+            app_state.scheduler.register(asset_id, collector)
+            logger.info("real_snmp_collector_registered",
+                        asset_id=asset_id, host=host, device_type=device_type)
+        except Exception as e:
+            logger.warning("real_snmp_collector_failed_fallback_to_sim",
+                           asset_id=asset_id, error=str(e))
 
 
 def _seed_assets() -> None:
@@ -189,81 +139,34 @@ def _seed_assets() -> None:
 
     fleet = [
         Asset(
-            id="RAD-01",
-            type="radio",
-            name="Trio JR900 #1",
-            location="Lab Cabinet",
-            vendor="Trio",
-            model="JR900",
-            ip_address=settings.trio_radio_1_ip,
-            protocol="snmp",
+            id="RAD-01", type="radio", name="Trio JR900 #1",
+            location="Lab Cabinet", vendor="Trio", model="JR900",
+            ip_address=settings.trio_radio_1_ip, protocol="snmp",
             poll_interval=settings.poll_interval_radio,
         ),
         Asset(
-            id="RAD-02",
-            type="radio",
-            name="Trio JR900 #2",
-            location="Lab Cabinet",
-            vendor="Trio",
-            model="JR900",
-            ip_address=settings.trio_radio_2_ip,
-            protocol="snmp",
+            id="RAD-02", type="radio", name="Trio JR900 #2",
+            location="Lab Cabinet", vendor="Trio", model="JR900",
+            ip_address=settings.trio_radio_2_ip, protocol="snmp",
             poll_interval=settings.poll_interval_radio,
         ),
         Asset(
-            id="RTU-01",
-            type="rtu",
-            name="SCADAPack 470",
-            location="Lab Cabinet",
-            vendor="Schneider",
-            model="SCADAPack 470",
-            ip_address=settings.scadapack_ip,
-            protocol="modbus",
+            id="RTU-01", type="rtu", name="SCADAPack 470",
+            location="Lab Cabinet", vendor="Schneider", model="SCADAPack 470",
+            ip_address=settings.scadapack_ip, protocol="modbus",
             poll_interval=settings.poll_interval_rtu,
         ),
         Asset(
-            id="RTR-01",
-            type="router",
-            name="MikroTik L009",
-            location="Lab Cabinet",
-            vendor="MikroTik",
-            model="L009UiGS-2HaxD-IN",
-            ip_address=settings.mikrotik_ip,
-            protocol="snmp",
+            id="RTR-01", type="router", name="MikroTik L009",
+            location="Lab Cabinet", vendor="MikroTik", model="L009UiGS-2HaxD-IN",
+            ip_address=settings.mikrotik_ip, protocol="snmp",
             poll_interval=settings.poll_interval_router,
         ),
         Asset(
-            id="SW-01",
-            type="switch",
-            name="Catalyst 2960",
-            location="Lab Cabinet",
-            vendor="Cisco",
-            model="Catalyst 2960",
-            ip_address=settings.catalyst_ip,
-            protocol="snmp",
+            id="SW-01", type="switch", name="Catalyst 2960",
+            location="Lab Cabinet", vendor="Cisco", model="Catalyst 2960",
+            ip_address=settings.catalyst_ip, protocol="snmp",
             poll_interval=settings.poll_interval_switch,
-        ),
-        Asset(
-            id="EFM-01",
-            type="rtu",
-            name="TotalFlow XFC G4",
-            location="Meter Station",
-            vendor="ABB",
-            model="TotalFlow XFC G4",
-            ip_address=settings.dnp3_host,
-            protocol="dnp3",
-            poll_interval=settings.poll_interval_dnp3,
-        ),
-        Asset(
-            id="EDGE-01",
-            type="router",
-            name="Raspberry Pi",
-            location="Lab Cabinet",
-            vendor="Raspberry Pi",
-            model="Pi 5",
-            ip_address=settings.edge_collector_ip,
-            protocol="snmp",
-            poll_interval=30,
         ),
     ]
 
@@ -284,21 +187,16 @@ async def lifespan(app: FastAPI):
     # Seed asset registry
     _seed_assets()
 
-    # Register collectors (live SNMP for online devices, simulators for offline)
-    _register_collectors()
+    # Register collectors (simulators for now)
+    _register_simulators()
+    _register_real_snmp_collectors()
+
+    # Start SNMP trap receiver (UDP 162) — wire to scheduler consumer loop
+    await app_state.trap_receiver.start()
+    logger.info("trap_receiver_wired", host="0.0.0.0", port=162, community="aevus_trap")
 
     # Start polling
     await app_state.scheduler.start()
-
-    # Start SNMP trap receiver
-    if settings.snmp_trap_enabled:
-        from src.api.ws import ws_manager as _ws
-        app_state.trap_receiver = SNMPTrapReceiver(
-            db=app_state.db,
-            ws_manager=_ws,
-            port=settings.snmp_trap_port,
-        )
-        await app_state.trap_receiver.start()
 
     logger.info("aevus_ready", assets=len(app_state.db.list_assets()))
 
@@ -306,9 +204,8 @@ async def lifespan(app: FastAPI):
 
     # Shutdown
     logger.info("aevus_shutting_down")
-    if app_state.trap_receiver:
-        await app_state.trap_receiver.stop()
     await app_state.scheduler.stop()
+    await app_state.trap_receiver.stop()
     app_state.influx.close()
     app_state.db.close()
 
@@ -319,20 +216,11 @@ app = FastAPI(
     title="Aevus SCADA Intelligence API",
     description="Real-time telemetry, health scoring, and alerts for midstream oil & gas infrastructure",
     version="0.1.0",
-    docs_url=None,
-    redoc_url=None,
-    openapi_url=None,
     lifespan=lifespan,
 )
 
-# ── Rate Limiting (40th Audit §2A) ──
-limiter = Limiter(key_func=get_remote_address, default_limits=["60/minute"])
-app.state.limiter = limiter
-app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
-
 # API Key Authentication
-from src.api.auth import SESSION_TOKEN, APIKeyMiddleware
-
+from src.api.auth import APIKeyMiddleware
 app.add_middleware(APIKeyMiddleware)
 
 # CORS
@@ -348,65 +236,27 @@ app.add_middleware(
 app.include_router(assets_router, prefix="/api/v1")
 app.include_router(alerts_router, prefix="/api/v1")
 app.include_router(health_router, prefix="/api/v1")
-app.include_router(deploy_router, prefix="/api/v1")
 app.include_router(diagnostics_router, prefix="/api/v1")
 app.include_router(predictions_router, prefix="/api/v1")
-app.include_router(reports_router, prefix="/api/v1")
-app.include_router(integrations_router, prefix="/api/v1")
+app.include_router(metrics_router, prefix="/api/v1")
 app.include_router(ws_router, prefix="/api/v1")
-app.include_router(weather_router, prefix="/api/v1")
-app.include_router(ai_router, prefix="/api/v1")
-app.include_router(commands_router, prefix="/api/v1")
-app.include_router(correlations_router, prefix="/api/v1")
-app.include_router(ingest_router, prefix="/api/v1")
-app.include_router(notes_router, prefix="/api/v1")
-app.include_router(journal_router, prefix="/api/v1")
-app.include_router(ping_diag_router, prefix="/api/v1")
-app.include_router(csv_io_router, prefix="/api/v1")
-app.include_router(auth_config_router, prefix="/api/v1")
-app.include_router(access_requests_router, prefix="/api/v1")
-app.include_router(audit_router)
 
 
 # Serve dashboard static files
 DASHBOARD_DIR = Path(__file__).resolve().parent.parent / "dashboard"
-
-# Serve staging dashboard
-STAGING_DIR = DASHBOARD_DIR.parent / "dashboard-staging"
-if STAGING_DIR.exists():
-    app.mount("/staging", StaticFiles(directory=str(STAGING_DIR), html=True), name="staging")
-
 if DASHBOARD_DIR.exists():
     app.mount("/dashboard", StaticFiles(directory=str(DASHBOARD_DIR), html=True), name="dashboard")
 
 
-
-@app.get("/login")
-async def login_page():
-    """Serve the login page."""
-    login_file = DASHBOARD_DIR / "login.html"
-    if login_file.exists():
-        return Response(content=login_file.read_text(), media_type="text/html")
-    return JSONResponse(status_code=404, content={"detail": "Login page not found"})
-
 @app.get("/")
 async def root():
-    """Serve dashboard with session cookie (no API key in source)."""
+    """Serve dashboard or API status."""
     index = DASHBOARD_DIR / "Aevus_Console.html"
     if index.exists():
-        resp = Response(content=index.read_text(), media_type="text/html")
-        if SESSION_TOKEN:
-            resp.set_cookie(
-                key="aevus_session",
-                value=SESSION_TOKEN,
-                httponly=True,
-                samesite="strict",
-                secure=True,  # TLS enabled
-                max_age=86400,
-            )
-        return resp
+        return FileResponse(str(index))
     return {
         "service": "Aevus SCADA Intelligence",
         "version": "0.1.0",
         "status": "online",
+        "docs": "/docs",
     }

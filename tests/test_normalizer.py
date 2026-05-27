@@ -1,11 +1,11 @@
 """Tests for the telemetry normalizer engine."""
 
+from datetime import UTC, datetime, timezone
+
 import pytest
-from datetime import datetime, timezone
 
+from src.engine.normalizer import evaluate_status, normalize_batch, normalize_reading
 from src.models.telemetry import RawTelemetry, VitalSign
-from src.engine.normalizer import evaluate_status, normalize_reading, normalize_batch
-
 
 # ── evaluate_status ──
 
@@ -76,7 +76,7 @@ def _make_reading(metric: str, value: float, unit: str = "dBm") -> RawTelemetry:
         metric=metric,
         value=value,
         unit=unit,
-        timestamp=datetime.now(timezone.utc),
+        timestamp=datetime.now(UTC),
         source="simulator",
     )
 

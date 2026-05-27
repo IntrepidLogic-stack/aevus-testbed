@@ -5,7 +5,6 @@ Aevus Testbed --- Health API Routes
 from __future__ import annotations
 
 from fastapi import APIRouter, Query
-from typing import Optional
 
 router = APIRouter(prefix="/health", tags=["health"])
 
@@ -55,7 +54,7 @@ async def health_summary() -> dict:
 
 @router.get("/trend")
 async def health_trend(
-    asset_id: Optional[str] = Query(None),
+    asset_id: str | None = Query(None),
     metric: str = Query("suction_pressure"),
     hours: int = Query(24, ge=1, le=720),
 ) -> list[dict]:

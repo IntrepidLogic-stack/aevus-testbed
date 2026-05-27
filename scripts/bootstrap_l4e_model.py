@@ -45,35 +45,69 @@ from typing import Any
 
 def _parse_args() -> argparse.Namespace:
     p = argparse.ArgumentParser(description=__doc__)
-    p.add_argument("--dataset-name", required=True,
-                   help="Dataset identifier — must match the S3 prefix from the exporter.")
-    p.add_argument("--training-bucket", required=True,
-                   help="S3 bucket holding the training CSVs.")
-    p.add_argument("--inference-bucket", required=True,
-                   help="S3 bucket where inference scores will land.")
-    p.add_argument("--role-arn", required=True,
-                   help="L4E service role ARN (Terraform output).")
+    p.add_argument(
+        "--dataset-name",
+        required=True,
+        help="Dataset identifier — must match the S3 prefix from the exporter.",
+    )
+    p.add_argument("--training-bucket", required=True, help="S3 bucket holding the training CSVs.")
+    p.add_argument(
+        "--inference-bucket", required=True, help="S3 bucket where inference scores will land."
+    )
+    p.add_argument("--role-arn", required=True, help="L4E service role ARN (Terraform output).")
     p.add_argument("--region", default="us-east-2")
-    p.add_argument("--components", required=True,
-                   help="Comma-separated asset_ids matching the per-component CSVs.")
-    p.add_argument("--metrics",
-                   help="Comma-separated metric column names. Required if the schema can't be auto-derived from the CSV header.")
-    p.add_argument("--sampling-rate", default="PT1M",
-                   help="ISO-8601 duration for data sampling rate (PT1M = 1 minute).")
-    p.add_argument("--training-fraction", type=float, default=0.7,
-                   help="Fraction of the dataset used for training vs. evaluation. Default 0.7.")
-    p.add_argument("--evaluation-window-days", type=int, default=2,
-                   help="Trailing days reserved for evaluation. Default 2.")
-    p.add_argument("--scheduler-frequency", default="PT5M",
-                   help="How often the inference scheduler runs (PT5M = every 5 minutes).")
-    p.add_argument("--skip-model", action="store_true",
-                   help="Stop after ingestion. Useful for schema-only rehearsal.")
-    p.add_argument("--start-scheduler", action="store_true",
-                   help="Create + start the inference scheduler after the model is ACTIVE.")
-    p.add_argument("--dry-run", action="store_true",
-                   help="Print every API call we'd make and exit. No AWS calls.")
-    p.add_argument("--wait-timeout-min", type=int, default=240,
-                   help="How long to wait for model training (minutes). Default 4h.")
+    p.add_argument(
+        "--components",
+        required=True,
+        help="Comma-separated asset_ids matching the per-component CSVs.",
+    )
+    p.add_argument(
+        "--metrics",
+        help="Comma-separated metric column names. Required if the schema can't be auto-derived from the CSV header.",
+    )
+    p.add_argument(
+        "--sampling-rate",
+        default="PT1M",
+        help="ISO-8601 duration for data sampling rate (PT1M = 1 minute).",
+    )
+    p.add_argument(
+        "--training-fraction",
+        type=float,
+        default=0.7,
+        help="Fraction of the dataset used for training vs. evaluation. Default 0.7.",
+    )
+    p.add_argument(
+        "--evaluation-window-days",
+        type=int,
+        default=2,
+        help="Trailing days reserved for evaluation. Default 2.",
+    )
+    p.add_argument(
+        "--scheduler-frequency",
+        default="PT5M",
+        help="How often the inference scheduler runs (PT5M = every 5 minutes).",
+    )
+    p.add_argument(
+        "--skip-model",
+        action="store_true",
+        help="Stop after ingestion. Useful for schema-only rehearsal.",
+    )
+    p.add_argument(
+        "--start-scheduler",
+        action="store_true",
+        help="Create + start the inference scheduler after the model is ACTIVE.",
+    )
+    p.add_argument(
+        "--dry-run",
+        action="store_true",
+        help="Print every API call we'd make and exit. No AWS calls.",
+    )
+    p.add_argument(
+        "--wait-timeout-min",
+        type=int,
+        default=240,
+        help="How long to wait for model training (minutes). Default 4h.",
+    )
     return p.parse_args()
 
 
@@ -109,11 +143,15 @@ def _step(args, label: str, payload: Any) -> None:
 
 def create_dataset(client, args, components, metrics) -> None:
     schema = _schema(components, metrics)
-    _step(args, "CreateDataset", {
-        "DatasetName": args.dataset_name,
-        "DatasetSchema": {"InlineDataSchema": json.dumps(schema)},
-        "ServerSideKmsKeyId": "alias/aws/lookoutequipment",
-    })
+    _step(
+        args,
+        "CreateDataset",
+        {
+            "DatasetName": args.dataset_name,
+            "DatasetSchema": {"InlineDataSchema": json.dumps(schema)},
+            "ServerSideKmsKeyId": "alias/aws/lookoutequipment",
+        },
+    )
     if args.dry_run:
         return
     try:
@@ -234,7 +272,13 @@ def main() -> int:
 
     # Metrics default — must match the exporter's DEFAULT_METRICS so the
     # schema lines up with the CSVs.
-    metrics = [m.strip() for m in (args.metrics or "rssi,snr,temperature,voltage,suction_pressure,discharge_pressure,flow_rate,battery_voltage,vibration").split(",")]
+    metrics = [
+        m.strip()
+        for m in (
+            args.metrics
+            or "rssi,snr,temperature,voltage,suction_pressure,discharge_pressure,flow_rate,battery_voltage,vibration"
+        ).split(",")
+    ]
 
     print(f"==> Region:       {args.region}")
     print(f"==> Dataset:      {args.dataset_name}")

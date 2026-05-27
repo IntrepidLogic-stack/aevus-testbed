@@ -26,10 +26,10 @@ SNMP version:
 from __future__ import annotations
 
 import asyncio
-import socket
+from collections.abc import Callable
 from dataclasses import dataclass, field
-from datetime import datetime, timezone
-from typing import Any, Awaitable, Callable, Optional
+from datetime import UTC, datetime
+from typing import Any
 
 import structlog
 
@@ -75,16 +75,16 @@ class TrapEvent:
     event_type: str
     trap_oid: str
     source_ip: str
-    asset_id: Optional[str]
+    asset_id: str | None
     community: str
     varbinds: dict[str, Any] = field(default_factory=dict)
-    received_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
+    received_at: datetime = field(default_factory=lambda: datetime.now(UTC))
 
 
 # Callback that resolves an IP to an asset_id. Injected at construction
 # so the receiver doesn't depend directly on the DB layer (easier to
 # test, easier to swap for an in-memory cache later).
-AssetResolver = Callable[[str], Optional[str]]
+AssetResolver = Callable[[str], str | None]
 
 
 class SNMPTrapReceiver:
@@ -107,7 +107,7 @@ class SNMPTrapReceiver:
         host: str = "0.0.0.0",
         port: int = 162,
         community: str = "aevus_trap",
-        asset_resolver: Optional[AssetResolver] = None,
+        asset_resolver: AssetResolver | None = None,
     ) -> None:
         self.host = host
         self.port = port
@@ -133,8 +133,8 @@ class SNMPTrapReceiver:
         # Lazy import so the rest of the codebase isn't forced to import
         # pysnmp at module-load time (keeps unit tests light and lets
         # this module be imported on a dev machine without UDP 162 perms).
-        from pysnmp.entity import engine, config
         from pysnmp.carrier.asyncio.dgram import udp
+        from pysnmp.entity import config, engine
         from pysnmp.entity.rfc3413 import ntfrcv
 
         snmp_engine = engine.SnmpEngine()
@@ -207,12 +207,12 @@ class SNMPTrapReceiver:
             # Falls back to the legacy name if running against pysnmp 6.x for
             # any reason — both attributes exist in 7.x but the camelCase
             # one emits a deprecation warning.
-            dsp = getattr(snmp_engine, "msg_and_pdu_dsp", None) \
-                or getattr(snmp_engine, "msgAndPduDsp", None)
+            dsp = getattr(snmp_engine, "msg_and_pdu_dsp", None) or getattr(
+                snmp_engine, "msgAndPduDsp", None
+            )
             if dsp is None:
                 raise AttributeError("snmp_engine has no msg_and_pdu_dsp")
-            get_info = getattr(dsp, "get_transport_info", None) \
-                or getattr(dsp, "getTransportInfo")
+            get_info = getattr(dsp, "get_transport_info", None) or dsp.getTransportInfo
             transport_domain, transport_address = get_info(state_reference)
             source_ip = str(transport_address[0])
         except Exception as e:
@@ -222,7 +222,7 @@ class SNMPTrapReceiver:
         # Convert pysnmp varbinds into a plain dict {oid: value}. pysnmp's
         # values are pyasn1 types; pretty-print them to plain Python.
         decoded: dict[str, Any] = {}
-        trap_oid: Optional[str] = None
+        trap_oid: str | None = None
         for oid, value in var_binds:
             oid_str = str(oid)
             decoded[oid_str] = _pyasn1_to_python(value)
@@ -330,7 +330,7 @@ async def _smoke_main() -> None:
         await receiver.stop()
 
 
-async def _print_loop(receiver: "SNMPTrapReceiver") -> None:
+async def _print_loop(receiver: SNMPTrapReceiver) -> None:
     """Pretty-print events for the smoke-test path."""
     try:
         while True:
@@ -344,5 +344,6 @@ async def _print_loop(receiver: "SNMPTrapReceiver") -> None:
 
 if __name__ == "__main__":
     import logging
+
     logging.basicConfig(level=logging.INFO)
     asyncio.run(_smoke_main())

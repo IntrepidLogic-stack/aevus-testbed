@@ -19,6 +19,7 @@ import json
 import os
 import sys
 import types
+from datetime import UTC
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
@@ -69,6 +70,7 @@ sys.path.insert(0, str(RCA_DIR))
 @pytest.fixture(scope="module")
 def handler_module():
     import handler  # noqa: E402  (deferred until stubs are in place)
+
     yield handler
 
 
@@ -83,21 +85,23 @@ def _good_bedrock_response() -> dict:
         "content": [
             {
                 "type": "text",
-                "text": json.dumps({
-                    "probable_cause": "Discharge pressure spike from downstream valve closure.",
-                    "evidence": [
-                        "high_pressure_alarm asserted at 14:32:05Z",
-                        "discharge_pressure 1442 PSI > 1400 critical threshold",
-                        "no comm_fault in window",
-                    ],
-                    "severity": "critical",
-                    "recommended_action": (
-                        "Dispatch field technician to inspect downstream valve V-103 "
-                        "before any restart."
-                    ),
-                    "confidence": 0.87,
-                    "supporting_assets": ["RTU-01"],
-                }),
+                "text": json.dumps(
+                    {
+                        "probable_cause": "Discharge pressure spike from downstream valve closure.",
+                        "evidence": [
+                            "high_pressure_alarm asserted at 14:32:05Z",
+                            "discharge_pressure 1442 PSI > 1400 critical threshold",
+                            "no comm_fault in window",
+                        ],
+                        "severity": "critical",
+                        "recommended_action": (
+                            "Dispatch field technician to inspect downstream valve V-103 "
+                            "before any restart."
+                        ),
+                        "confidence": 0.87,
+                        "supporting_assets": ["RTU-01"],
+                    }
+                ),
             }
         ],
     }
@@ -227,14 +231,15 @@ class TestLatency:
     def test_latency_negative_clock_skew_clamps_to_zero(self, handler_module):
         """An alert detected_at in the *future* (clock skew) must
         produce latency=0, not a negative number."""
-        from datetime import datetime, timezone, timedelta
+        from datetime import datetime, timedelta, timezone
+
         handler_module.bedrock.reset_mock()
         handler_module.iot_data.reset_mock()
         handler_module.s3.reset_mock()
         handler_module.bedrock.invoke_model.return_value = _good_bedrock_response()
         handler_module.s3.list_objects_v2.return_value = {"Contents": []}
 
-        future = (datetime.now(timezone.utc) + timedelta(hours=1)).isoformat()
+        future = (datetime.now(UTC) + timedelta(hours=1)).isoformat()
         event = _load_fixture("critical_high_pressure.json")
         event["payload"]["detected_at"] = future
 

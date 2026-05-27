@@ -59,7 +59,28 @@ class TestPercentiles:
         """Realistic DNP3 latency pattern: most events 50-200ms, a few
         outliers up to 800ms. p95 should reflect the tail."""
         h = LatencyHistogram("dnp3")
-        for v in [55, 67, 72, 80, 85, 90, 95, 102, 110, 120, 145, 160, 175, 195, 220, 350, 500, 750, 800, 60]:
+        for v in [
+            55,
+            67,
+            72,
+            80,
+            85,
+            90,
+            95,
+            102,
+            110,
+            120,
+            145,
+            160,
+            175,
+            195,
+            220,
+            350,
+            500,
+            750,
+            800,
+            60,
+        ]:
             h.record(v)
         s = h.snapshot()
         # p50 should be in the typical bulk (75-150ms range).
@@ -143,8 +164,10 @@ class TestThreadSafety:
 
         t1 = threading.Thread(target=writer, args=(0,))
         t2 = threading.Thread(target=writer, args=(1000,))
-        t1.start(); t2.start()
-        t1.join(); t2.join()
+        t1.start()
+        t2.start()
+        t1.join()
+        t2.join()
 
         s = h.snapshot()
         assert s.count == 2 * N

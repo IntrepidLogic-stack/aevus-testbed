@@ -3358,5 +3358,27 @@ document.getElementById('refresh-btn')?.addEventListener('click', (e) => {
 </script>
 <script>window.AEVUS_API_KEY='8U7_JghqHK-nmG5bDwUx5w-A9uFg8F7tiVmvR9WJDyY';</script>
 <script src="/dashboard/api-client.js"></script>
+
+<!-- ── AWS IoT Core MQTT-over-WSS (cloud transport) ────────────────────── -->
+<!-- Config first, then aws-sdk, then Cognito init (presigns wss URL),     -->
+<!-- then mqtt-client.js, then any subscribers (rca-panel, latency-widget).-->
+<script>
+  window.AEVUS_MQTT_CONFIG = {
+    transport: 'cloud',
+    awsRegion: 'us-east-1',
+    awsIotEndpoint: 'a23tc2oxyb9d91-ats.iot.us-east-1.amazonaws.com',
+    identityPoolId: 'us-east-1:05934a30-b27c-4261-96db-e85ea7483ac2',
+    siteId: 'needville',
+    clientId: 'aevus-dashboard-' + Math.random().toString(16).slice(2, 8),
+    reconnectPeriod: 5000,
+    keepalive: 60,
+  };
+</script>
+<script src="https://sdk.amazonaws.com/js/aws-sdk-2.1503.0.min.js"></script>
+<script src="https://unpkg.com/mqtt/dist/mqtt.min.js"></script>
+<script src="/dashboard/cognito-iot-init.js"></script>
+<script src="/dashboard/mqtt-client.js"></script>
+<script src="/dashboard/rca-panel.js"></script>
+<script src="/dashboard/latency-widget.js"></script>
 </body>
 </html>

@@ -7,14 +7,14 @@ from __future__ import annotations
 
 import json
 import sqlite3
-import structlog
-from datetime import datetime, timezone
+from datetime import datetime
 from pathlib import Path
-from typing import Optional
+
+import structlog
 
 from src.config import settings
-from src.models.asset import Asset, AssetEvent
 from src.models.alert import Alert
+from src.models.asset import Asset, AssetEvent
 from src.models.telemetry import VitalSign
 
 logger = structlog.get_logger()
@@ -57,10 +57,10 @@ CREATE TABLE IF NOT EXISTS alerts (
 class SQLiteDB:
     """SQLite storage for asset registry and alert log."""
 
-    def __init__(self, db_path: Optional[str] = None) -> None:
+    def __init__(self, db_path: str | None = None) -> None:
         self._path = db_path or settings.sqlite_path
         Path(self._path).parent.mkdir(parents=True, exist_ok=True)
-        self._conn: Optional[sqlite3.Connection] = None
+        self._conn: sqlite3.Connection | None = None
         self.log = logger.bind(component="sqlite")
         self._connect()
 
@@ -92,11 +92,19 @@ class SQLiteDB:
                events_json=excluded.events_json, firmware=excluded.firmware,
                ip_address=excluded.ip_address""",
             (
-                asset.id, asset.type, asset.status, asset.name, asset.location,
+                asset.id,
+                asset.type,
+                asset.status,
+                asset.name,
+                asset.location,
                 asset.health,
                 asset.last_seen.isoformat() if asset.last_seen else None,
-                asset.vendor, asset.model, asset.firmware,
-                asset.ip_address, asset.mac_address, asset.protocol,
+                asset.vendor,
+                asset.model,
+                asset.firmware,
+                asset.ip_address,
+                asset.mac_address,
+                asset.protocol,
                 asset.poll_interval,
                 json.dumps([v.model_dump() for v in asset.vitals]),
                 json.dumps([e.model_dump(mode="json") for e in asset.events]),
@@ -104,14 +112,14 @@ class SQLiteDB:
         )
         self._conn.commit()
 
-    def get_asset(self, asset_id: str) -> Optional[Asset]:
+    def get_asset(self, asset_id: str) -> Asset | None:
         """Fetch a single asset by ID."""
         row = self._conn.execute("SELECT * FROM assets WHERE id = ?", (asset_id,)).fetchone()
         if row is None:
             return None
         return self._row_to_asset(row)
 
-    def get_asset_by_ip(self, ip_address: str) -> Optional[Asset]:
+    def get_asset_by_ip(self, ip_address: str) -> Asset | None:
         """Resolve an asset by its registered IP address.
 
         Used by the SNMP trap receiver to map trap source IPs to asset
@@ -128,8 +136,8 @@ class SQLiteDB:
 
     def list_assets(
         self,
-        type_filter: Optional[str] = None,
-        status_filter: Optional[str] = None,
+        type_filter: str | None = None,
+        status_filter: str | None = None,
     ) -> list[Asset]:
         """List all assets with optional filters."""
         query = "SELECT * FROM assets WHERE 1=1"
@@ -158,8 +166,12 @@ class SQLiteDB:
                acknowledged_at=excluded.acknowledged_at,
                resolved_at=excluded.resolved_at, status=excluded.status""",
             (
-                alert.id, alert.severity, alert.asset_id, alert.asset_name,
-                alert.message, alert.risk_score,
+                alert.id,
+                alert.severity,
+                alert.asset_id,
+                alert.asset_name,
+                alert.message,
+                alert.risk_score,
                 alert.detected_at.isoformat(),
                 alert.acknowledged_at.isoformat() if alert.acknowledged_at else None,
                 alert.resolved_at.isoformat() if alert.resolved_at else None,
@@ -170,8 +182,8 @@ class SQLiteDB:
 
     def list_alerts(
         self,
-        severity: Optional[str] = None,
-        status: Optional[str] = None,
+        severity: str | None = None,
+        status: str | None = None,
         limit: int = 100,
     ) -> list[Alert]:
         """List alerts with optional filters."""
@@ -189,7 +201,7 @@ class SQLiteDB:
         rows = self._conn.execute(query, params).fetchall()
         return [self._row_to_alert(r) for r in rows]
 
-    def get_alert(self, alert_id: str) -> Optional[Alert]:
+    def get_alert(self, alert_id: str) -> Alert | None:
         """Fetch a single alert by ID."""
         row = self._conn.execute("SELECT * FROM alerts WHERE id = ?", (alert_id,)).fetchone()
         if row is None:
@@ -231,7 +243,9 @@ class SQLiteDB:
             message=row["message"],
             risk_score=row["risk_score"],
             detected_at=datetime.fromisoformat(row["detected_at"]),
-            acknowledged_at=datetime.fromisoformat(row["acknowledged_at"]) if row["acknowledged_at"] else None,
+            acknowledged_at=datetime.fromisoformat(row["acknowledged_at"])
+            if row["acknowledged_at"]
+            else None,
             resolved_at=datetime.fromisoformat(row["resolved_at"]) if row["resolved_at"] else None,
             status=row["status"],
         )

@@ -10,7 +10,7 @@ from __future__ import annotations
 
 import sys
 import types
-from datetime import datetime, timezone
+from datetime import UTC, datetime, timezone
 from unittest.mock import MagicMock
 
 import pytest
@@ -24,10 +24,17 @@ class _PermissiveModule(types.ModuleType):
 
 
 for _name in (
-    "pymodbus", "pymodbus.client", "pymodbus.exceptions",
-    "pysnmp", "pysnmp.hlapi", "pysnmp.hlapi.asyncio",
-    "pysnmp.entity", "pysnmp.entity.rfc3413",
-    "pysnmp.carrier", "pysnmp.carrier.asyncio", "pysnmp.carrier.asyncio.dgram",
+    "pymodbus",
+    "pymodbus.client",
+    "pymodbus.exceptions",
+    "pysnmp",
+    "pysnmp.hlapi",
+    "pysnmp.hlapi.asyncio",
+    "pysnmp.entity",
+    "pysnmp.entity.rfc3413",
+    "pysnmp.carrier",
+    "pysnmp.carrier.asyncio",
+    "pysnmp.carrier.asyncio.dgram",
     "icmplib",
     "dnp3_python",
 ):
@@ -36,10 +43,10 @@ for _name in (
 
 
 from src.collectors.dnp3_unsolicited import (  # noqa: E402
-    DNP3UnsolicitedReceiver,
-    DNP3Event,
     SCADAPACK_ANALOG_INPUTS,
     SCADAPACK_BINARY_INPUTS,
+    DNP3Event,
+    DNP3UnsolicitedReceiver,
 )
 
 
@@ -102,7 +109,7 @@ class TestAnalogInputDecode:
 
 class TestTimestampParsing:
     def test_datetime_timestamp_preserved(self, receiver):
-        ts = datetime(2026, 5, 20, 14, 30, 0, tzinfo=timezone.utc)
+        ts = datetime(2026, 5, 20, 14, 30, 0, tzinfo=UTC)
         record = {"group": 2, "index": 0, "value": True, "flags": 1, "timestamp": ts}
         event = receiver._record_to_event(record)
         assert event.device_timestamp == ts
@@ -118,12 +125,12 @@ class TestTimestampParsing:
         naive = datetime(2026, 5, 20, 14, 30, 0)
         record = {"group": 2, "index": 0, "value": True, "flags": 1, "timestamp": naive}
         event = receiver._record_to_event(record)
-        assert event.device_timestamp.tzinfo == timezone.utc
+        assert event.device_timestamp.tzinfo == UTC
 
 
 class TestLatencyComputation:
     def test_latency_positive(self):
-        ts = datetime.now(timezone.utc)
+        ts = datetime.now(UTC)
         event = DNP3Event(
             asset_id="RTU-01",
             event_class="binary_input",
@@ -150,7 +157,7 @@ class TestLatencyComputation:
         assert event.latency_ms is None
 
     def test_negative_clock_skew_clamps_to_zero(self):
-        future = datetime.now(timezone.utc).replace(year=2099)
+        future = datetime.now(UTC).replace(year=2099)
         event = DNP3Event(
             asset_id="RTU-01",
             event_class="binary_input",

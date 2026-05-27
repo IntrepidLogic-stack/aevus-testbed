@@ -1,0 +1,52 @@
+# Aevus testbed Python project config
+# Ruff config matches the cleanup pattern from Task #52 (103-error pay-down).
+# Pre-commit hook (see .pre-commit-config.yaml) enforces this on every commit.
+
+[tool.ruff]
+target-version = "py311"
+line-length = 100
+extend-exclude = [
+  "__pycache__",
+  ".venv",
+  "venv",
+  "build",
+  "dist",
+  "dashboard",          # client-side JS/HTML, not Python
+  "infra/terraform",    # HCL files
+]
+
+[tool.ruff.lint]
+# Sensible default rule set. Matches what was applied during the 103-error cleanup.
+# Do NOT add new rule families casually — that's how lint debt re-accumulates.
+select = [
+  "E",    # pycodestyle errors
+  "W",    # pycodestyle warnings
+  "F",    # pyflakes
+  "I",    # isort (import order)
+  "B",    # flake8-bugbear (common bugs)
+  "UP",   # pyupgrade
+  "C4",   # flake8-comprehensions
+]
+ignore = [
+  "E501",  # line-too-long — handled by formatter, not linter
+  "B008",  # function call in default arg — FastAPI Depends() pattern
+]
+
+[tool.ruff.lint.per-file-ignores]
+# Tests can have unused-imports for fixtures, terse threading patterns, etc.
+"tests/**" = ["F401", "F811", "B007", "C408", "E702"]
+# __init__.py re-exports are fine
+"**/__init__.py" = ["F401"]
+# Scripts (one-shot) can have prints, top-level imports, etc.
+"scripts/**" = ["E402", "T201"]
+# FastAPI app: imports follow inject_secrets() — intentional ordering, not lint debt
+"src/main.py" = ["E402"]
+# Scheduler: run_hours placeholder kept for future point-map wiring
+"src/scheduler.py" = ["F841"]
+# RCA Lambda: structured-logging placeholder var, see inline comment
+"infra/lambda/rca/handler.py" = ["F841"]
+
+[tool.ruff.format]
+quote-style = "double"
+indent-style = "space"
+line-ending = "lf"

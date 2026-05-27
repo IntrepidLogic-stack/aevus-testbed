@@ -9,9 +9,10 @@ can avoid duplicate firing and auto-resolve when conditions clear.
 from __future__ import annotations
 
 import uuid
+from datetime import UTC, datetime
+from typing import Any
+
 import structlog
-from datetime import datetime, timezone
-from typing import Any, Optional
 
 from src.config import settings
 from src.models.alert import Alert
@@ -67,7 +68,7 @@ TRAP_EVENT_RULES: dict[str, dict[str, Any]] = {
 _IF_INDEX_OID = "1.3.6.1.2.1.2.2.1.1"
 
 
-def _extract_if_index(varbinds: dict[str, Any]) -> Optional[int]:
+def _extract_if_index(varbinds: dict[str, Any]) -> int | None:
     """Pull the ifIndex value from a link trap's varbinds, if present.
 
     The standard linkDown / linkUp PDUs carry ifIndex as an additional
@@ -87,17 +88,27 @@ def _extract_if_index(varbinds: dict[str, Any]) -> Optional[int]:
                     return int(suffix)
     return None
 
+
 logger = structlog.get_logger()
 
 # Metrics that should generate alerts when status is warn or bad
 ALERTABLE_METRICS = {
     # Radio
-    "RSSI", "SNR", "TEMPERATURE",
+    "RSSI",
+    "SNR",
+    "TEMPERATURE",
     # RTU
-    "SUCTION PRESSURE", "DISCHARGE PRESSURE", "BATTERY", "VIBRATION",
-    "HIGH PRESSURE ALARM", "LOW BATTERY ALARM", "COMM FAULT",
+    "SUCTION PRESSURE",
+    "DISCHARGE PRESSURE",
+    "BATTERY",
+    "VIBRATION",
+    "HIGH PRESSURE ALARM",
+    "LOW BATTERY ALARM",
+    "COMM FAULT",
     # Network
-    "CPU LOAD", "RX ERRORS", "TX ERRORS",
+    "CPU LOAD",
+    "RX ERRORS",
+    "TX ERRORS",
 }
 
 
@@ -131,7 +142,7 @@ class AlertEngine:
             List of new or state-changed alerts from this evaluation.
         """
         changes: list[Alert] = []
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
 
         # Track which (asset_id, label) pairs we see this cycle
         seen_keys: set[tuple[str, str]] = set()
@@ -202,10 +213,10 @@ class AlertEngine:
         self,
         asset_id: str,
         asset_name: str,
-        last_seen: Optional[datetime],
+        last_seen: datetime | None,
         poll_interval: int = 30,
-        missed_polls: Optional[int] = None,
-    ) -> Optional[Alert]:
+        missed_polls: int | None = None,
+    ) -> Alert | None:
         """Generate (or resolve) a comms-loss alert based on staleness.
 
         An asset is considered offline once it has missed
@@ -221,7 +232,7 @@ class AlertEngine:
             missed_polls if missed_polls is not None else settings.missed_polls_offline
         )
         threshold_s = poll_interval * threshold_misses
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         age = (now - last_seen).total_seconds()
         key = (asset_id, "OFFLINE")
 
@@ -267,7 +278,7 @@ class AlertEngine:
         asset_id: str,
         asset_name: str,
         missing_metrics: set[str],
-    ) -> Optional[Alert]:
+    ) -> Alert | None:
         """Fire / resolve a PARTIAL_TELEMETRY alert.
 
         Called by the scheduler after a *successful* poll when the
@@ -280,7 +291,7 @@ class AlertEngine:
         Returns the new or state-changed alert, or None.
         """
         key = (asset_id, "PARTIAL_TELEMETRY")
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
 
         if missing_metrics:
             existing = self._open_alerts.get(key)
@@ -333,7 +344,7 @@ class AlertEngine:
         asset_id: str,
         asset_name: str,
         event_type: str,
-        varbinds: Optional[dict[str, Any]] = None,
+        varbinds: dict[str, Any] | None = None,
     ) -> list[Alert]:
         """Consume a trap-driven event and emit alert state changes.
 
@@ -364,7 +375,7 @@ class AlertEngine:
             List of alerts to persist + broadcast.
         """
         varbinds = varbinds or {}
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         changes: list[Alert] = []
 
         # ─── Proof-of-life: any trap auto-resolves the OFFLINE alert ─────
@@ -463,7 +474,7 @@ class AlertEngine:
         asset_name: str,
         state: str,
         loss_pct: float = 0.0,
-        avg_rtt_ms: Optional[float] = None,
+        avg_rtt_ms: float | None = None,
         consecutive_failures: int = 0,
     ) -> list[Alert]:
         """Consume an ICMP reachability state transition.
@@ -482,7 +493,7 @@ class AlertEngine:
         Returns:
             List of new or state-changed alerts.
         """
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         changes: list[Alert] = []
 
         down_key = (asset_id, "UNREACHABLE")
@@ -568,12 +579,12 @@ class AlertEngine:
         # Unknown / 'unknown' state — no-op.
         return changes
 
-    def acknowledge(self, alert_id: str) -> Optional[Alert]:
+    def acknowledge(self, alert_id: str) -> Alert | None:
         """Acknowledge an open alert by ID."""
-        for key, alert in self._open_alerts.items():
+        for _key, alert in self._open_alerts.items():
             if alert.id == alert_id and alert.status == "open":
                 alert.status = "acknowledged"
-                alert.acknowledged_at = datetime.now(timezone.utc)
+                alert.acknowledged_at = datetime.now(UTC)
                 self.log.info("alert_acknowledged", alert_id=alert_id)
                 return alert
         return None

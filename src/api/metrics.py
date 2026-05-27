@@ -39,9 +39,11 @@ async def latency_snapshot() -> dict:
             "p95_detection_target_ms": 500,
             "p95_rca_target_ms": 3000,
             "detection_within_target": snap["detection_latency_ms"]["p95_ms"] <= 500
-                if snap["detection_latency_ms"]["count"] > 0 else None,
+            if snap["detection_latency_ms"]["count"] > 0
+            else None,
             "rca_within_target": snap["rca_latency_ms"]["p95_ms"] <= 3000
-                if snap["rca_latency_ms"]["count"] > 0 else None,
+            if snap["rca_latency_ms"]["count"] > 0
+            else None,
         },
     }
 

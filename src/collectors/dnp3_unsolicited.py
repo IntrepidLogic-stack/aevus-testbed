@@ -47,8 +47,8 @@ from __future__ import annotations
 
 import asyncio
 from dataclasses import dataclass, field
-from datetime import datetime, timezone
-from typing import Any, Literal, Optional
+from datetime import UTC, datetime
+from typing import Any, Literal
 
 import structlog
 
@@ -67,25 +67,25 @@ logger = structlog.get_logger()
 # Binary Input points (G1V2 in DNP3 parlance — single-bit binary input
 # with status):
 SCADAPACK_BINARY_INPUTS: dict[int, dict[str, Any]] = {
-    0: {"metric": "compressor_running",  "description": "Compressor run status"},
+    0: {"metric": "compressor_running", "description": "Compressor run status"},
     1: {"metric": "high_pressure_alarm", "description": "High pressure shutdown"},
-    2: {"metric": "low_battery_alarm",   "description": "Battery below threshold"},
+    2: {"metric": "low_battery_alarm", "description": "Battery below threshold"},
     3: {"metric": "communication_fault", "description": "Comm link status"},
 }
 
 # Analog Input points (G30V5 — 32-bit floating point analog input
 # without time):
 SCADAPACK_ANALOG_INPUTS: dict[int, dict[str, Any]] = {
-    0: {"metric": "suction_pressure",    "unit": "PSI"},
-    1: {"metric": "discharge_pressure",  "unit": "PSI"},
-    2: {"metric": "flow_rate",           "unit": "MCFD"},
-    3: {"metric": "gas_temperature",     "unit": "°F"},
+    0: {"metric": "suction_pressure", "unit": "PSI"},
+    1: {"metric": "discharge_pressure", "unit": "PSI"},
+    2: {"metric": "flow_rate", "unit": "MCFD"},
+    3: {"metric": "gas_temperature", "unit": "°F"},
     4: {"metric": "ambient_temperature", "unit": "°F"},
-    5: {"metric": "battery_voltage",     "unit": "VDC"},
-    6: {"metric": "solar_voltage",       "unit": "VDC"},
-    7: {"metric": "tank_level",          "unit": "in"},
-    8: {"metric": "vibration",           "unit": "mm/s"},
-    9: {"metric": "run_hours",           "unit": "hrs"},
+    5: {"metric": "battery_voltage", "unit": "VDC"},
+    6: {"metric": "solar_voltage", "unit": "VDC"},
+    7: {"metric": "tank_level", "unit": "in"},
+    8: {"metric": "vibration", "unit": "mm/s"},
+    9: {"metric": "run_hours", "unit": "hrs"},
 }
 
 
@@ -117,11 +117,11 @@ class DNP3Event:
     value: Any
     unit: str = ""
     quality_flags: int = 0
-    device_timestamp: Optional[datetime] = None
-    received_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
+    device_timestamp: datetime | None = None
+    received_at: datetime = field(default_factory=lambda: datetime.now(UTC))
 
     @property
-    def latency_ms(self) -> Optional[float]:
+    def latency_ms(self) -> float | None:
         """End-to-end event latency in ms. None if outstation didn't
         provide a timestamp (uncommon — most send G2V2 with time).
         """
@@ -157,8 +157,8 @@ class DNP3UnsolicitedReceiver:
         port: int = 20000,
         outstation_address: int = 10,
         master_address: int = 1,
-        binary_point_map: Optional[dict[int, dict[str, Any]]] = None,
-        analog_point_map: Optional[dict[int, dict[str, Any]]] = None,
+        binary_point_map: dict[int, dict[str, Any]] | None = None,
+        analog_point_map: dict[int, dict[str, Any]] | None = None,
     ) -> None:
         self.asset_id = asset_id
         self.host = host
@@ -169,7 +169,7 @@ class DNP3UnsolicitedReceiver:
         self.analog_point_map = analog_point_map or SCADAPACK_ANALOG_INPUTS
 
         self.events: asyncio.Queue[DNP3Event] = asyncio.Queue()
-        self._task: Optional[asyncio.Task] = None
+        self._task: asyncio.Task | None = None
         self._stop_event: asyncio.Event = asyncio.Event()
         self._connected: bool = False
         self.log = logger.bind(
@@ -230,7 +230,7 @@ class DNP3UnsolicitedReceiver:
                     timeout=settings.dnp3_reconnect_interval,
                 )
                 break  # stop requested
-            except asyncio.TimeoutError:
+            except TimeoutError:
                 continue
 
     async def _connect_and_run(self) -> None:
@@ -317,7 +317,7 @@ class DNP3UnsolicitedReceiver:
         except asyncio.QueueFull:
             self.log.error("dnp3_queue_full")
 
-    def _record_to_event(self, record: Any) -> Optional[DNP3Event]:
+    def _record_to_event(self, record: Any) -> DNP3Event | None:
         """Decode a library SOE record into a DNP3Event.
 
         Pulled out for unit-testability. The record shape varies between
@@ -339,13 +339,13 @@ class DNP3UnsolicitedReceiver:
         ts = _attr("timestamp", None)
 
         # Coerce timestamp into UTC datetime.
-        device_ts: Optional[datetime] = None
+        device_ts: datetime | None = None
         if ts is not None:
             if isinstance(ts, datetime):
-                device_ts = ts if ts.tzinfo else ts.replace(tzinfo=timezone.utc)
+                device_ts = ts if ts.tzinfo else ts.replace(tzinfo=UTC)
             elif isinstance(ts, (int, float)):
                 # DNP3 timestamps are UTC ms since 1970.
-                device_ts = datetime.fromtimestamp(ts / 1000.0, tz=timezone.utc)
+                device_ts = datetime.fromtimestamp(ts / 1000.0, tz=UTC)
 
         # DNP3 group families:
         #   1, 2  = Binary Inputs (1 = static, 2 = change event)
@@ -417,8 +417,8 @@ async def _smoke_main() -> None:
     Usage on the Pi (once SCADAPack is online):
         python3 -m src.collectors.dnp3_unsolicited 192.168.88.21
     """
-    import sys
     import logging
+    import sys
 
     logging.basicConfig(level=logging.INFO)
     host = sys.argv[1] if len(sys.argv) > 1 else "192.168.88.21"
@@ -428,6 +428,7 @@ async def _smoke_main() -> None:
     print(f"Listening for DNP3 unsolicited from {host}:20000. Ctrl+C or SIGTERM to stop.")
 
     import signal as _signal
+
     stop = asyncio.Event()
     loop = asyncio.get_running_loop()
     for sig in (_signal.SIGTERM, _signal.SIGINT):

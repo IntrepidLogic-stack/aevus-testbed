@@ -32,37 +32,34 @@ import asyncio
 import json
 import ssl
 import sys
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
-from typing import Any, Optional
+from typing import Any
 
 
 def _parse_args() -> argparse.Namespace:
     p = argparse.ArgumentParser(description=__doc__)
-    p.add_argument("--fixture", required=True, type=Path,
-                   help="Path to a JSON fixture (see tests/lambda/fixtures/).")
-    p.add_argument("--broker", default="localhost",
-                   help="MQTT broker hostname.")
-    p.add_argument("--port", type=int, default=1883,
-                   help="MQTT broker port (1883 plain, 8883 TLS).")
-    p.add_argument("--tls", action="store_true",
-                   help="Connect with TLS (required for IoT Core).")
-    p.add_argument("--ca-cert", type=Path,
-                   help="CA bundle (Amazon Root CA for IoT Core).")
-    p.add_argument("--client-cert", type=Path,
-                   help="X.509 client cert (IoT Core auth).")
-    p.add_argument("--client-key", type=Path,
-                   help="X.509 client key (IoT Core auth).")
-    p.add_argument("--client-id", default="aevus-synth-injector",
-                   help="MQTT client ID.")
-    p.add_argument("--override-asset", default=None,
-                   help="Override asset_id from the fixture.")
-    p.add_argument("--override-site", default=None,
-                   help="Override site_id from the fixture.")
-    p.add_argument("--restamp", action="store_true",
-                   help="Set ts and detected_at to now() before publishing.")
-    p.add_argument("--dry-run", action="store_true",
-                   help="Print what would be published and exit.")
+    p.add_argument(
+        "--fixture",
+        required=True,
+        type=Path,
+        help="Path to a JSON fixture (see tests/lambda/fixtures/).",
+    )
+    p.add_argument("--broker", default="localhost", help="MQTT broker hostname.")
+    p.add_argument(
+        "--port", type=int, default=1883, help="MQTT broker port (1883 plain, 8883 TLS)."
+    )
+    p.add_argument("--tls", action="store_true", help="Connect with TLS (required for IoT Core).")
+    p.add_argument("--ca-cert", type=Path, help="CA bundle (Amazon Root CA for IoT Core).")
+    p.add_argument("--client-cert", type=Path, help="X.509 client cert (IoT Core auth).")
+    p.add_argument("--client-key", type=Path, help="X.509 client key (IoT Core auth).")
+    p.add_argument("--client-id", default="aevus-synth-injector", help="MQTT client ID.")
+    p.add_argument("--override-asset", default=None, help="Override asset_id from the fixture.")
+    p.add_argument("--override-site", default=None, help="Override site_id from the fixture.")
+    p.add_argument(
+        "--restamp", action="store_true", help="Set ts and detected_at to now() before publishing."
+    )
+    p.add_argument("--dry-run", action="store_true", help="Print what would be published and exit.")
     return p.parse_args()
 
 
@@ -79,7 +76,7 @@ def _apply_overrides(env: dict[str, Any], args: argparse.Namespace) -> dict[str,
         if isinstance(env.get("payload"), dict):
             env["payload"]["asset_id"] = args.override_asset
     if args.restamp:
-        now_iso = datetime.now(timezone.utc).isoformat()
+        now_iso = datetime.now(UTC).isoformat()
         env["ts"] = now_iso
         if isinstance(env.get("payload"), dict):
             env["payload"]["detected_at"] = now_iso
@@ -96,7 +93,7 @@ def _topic_for(envelope: dict[str, Any]) -> str:
 async def _publish(envelope: dict[str, Any], topic: str, args: argparse.Namespace) -> None:
     import aiomqtt
 
-    tls_context: Optional[ssl.SSLContext] = None
+    tls_context: ssl.SSLContext | None = None
     if args.tls:
         tls_context = ssl.create_default_context()
         if args.ca_cert:

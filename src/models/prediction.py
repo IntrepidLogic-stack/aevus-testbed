@@ -12,7 +12,7 @@ class Prediction(BaseModel):
     asset_name: str
     asset_type: str
     location: str
-    risk_score: int             # 0-100
-    estimated_failure: str      # "3 days"
-    confidence_interval: str    # "2-5 days"
+    risk_score: int  # 0-100
+    estimated_failure: str  # "3 days"
+    confidence_interval: str  # "2-5 days"
     primary_drivers: list[str]  # ["SNR degradation", "error rate increase"]

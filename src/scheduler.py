@@ -38,6 +38,7 @@ if TYPE_CHECKING:
     from src.engine.correlator import CorrelationEngine
     from src.engine.notifier import NotificationEngine
     from src.engine.weather import WeatherEngine
+    from src.integrations.mqtt_publisher import MQTTPublisher
     from src.storage.influx import InfluxStorage
     from src.storage.sqlite_db import SQLiteDB
 
@@ -84,7 +85,19 @@ class PollScheduler:
         self._tasks: dict[str, asyncio.Task] = {}
         self._prediction_task: asyncio.Task | None = None
         self._weather_task: asyncio.Task | None = None
+        self._mqtt_publisher: MQTTPublisher | None = None
         self.log = logger.bind(component="scheduler")
+
+    def register_mqtt_publisher(self, publisher: MQTTPublisher) -> None:
+        """Register the MQTT publisher. The scheduler will publish a copy of
+        each poll-cycle's readings to the configured MQTT topic hierarchy.
+
+        MQTT is a *bridge*, not a critical path. If it fails, local alarm
+        evaluation continues unaffected — that's the entire point of
+        edge-first architecture.
+        """
+        self._mqtt_publisher = publisher
+        self.log.info("mqtt_publisher_registered", site_id=publisher.site_id)
 
     def register(self, asset_id: str, collector: BaseCollector) -> None:
         """Register a collector for an asset."""
@@ -107,6 +120,15 @@ class PollScheduler:
             self._weather_task = asyncio.create_task(self._weather_loop())
             self.log.info("weather_loop_started", interval=settings.weather_poll_interval)
 
+        # Start MQTT publisher last so any earlier-emitted events don't fail
+        # with a not-yet-connected client. Failure is logged + non-fatal.
+        if self._mqtt_publisher is not None:
+            try:
+                await self._mqtt_publisher.start()
+                self.log.info("mqtt_publisher_started")
+            except Exception as e:
+                self.log.warning("mqtt_publisher_start_failed", error=str(e))
+
     async def stop(self) -> None:
         """Cancel all polling loops."""
         if self._prediction_task:
@@ -115,6 +137,12 @@ class PollScheduler:
         if self._weather_task:
             self._weather_task.cancel()
             self.log.info("weather_loop_stopped")
+        if self._mqtt_publisher is not None:
+            try:
+                await self._mqtt_publisher.stop()
+                self.log.info("mqtt_publisher_stopped")
+            except Exception as e:
+                self.log.warning("mqtt_publisher_stop_failed", error=str(e))
         for asset_id, task in self._tasks.items():
             task.cancel()
             self.log.info("poll_loop_stopped", asset_id=asset_id)
@@ -237,7 +265,7 @@ class PollScheduler:
             asset.last_seen = now
             self.db.upsert_asset(asset)
 
-        # 9. WebSocket broadcast
+        # 9. WebSocket broadcast (local dashboard) + MQTT publish (cloud bridge)
         await ws_manager.broadcast(
             "asset_update",
             {
@@ -249,6 +277,22 @@ class PollScheduler:
             },
         )
 
+        # MQTT publish — bridge to AWS IoT Core. One topic per reading so the
+        # IoT Rule → SiteWise mapping can pivot directly onto asset properties.
+        # Failures are logged + non-fatal — local alarming is unaffected.
+        if self._mqtt_publisher is not None:
+            for reading in readings:
+                try:
+                    await self._mqtt_publisher.publish_telemetry(
+                        asset_id=reading.asset_id,
+                        metric=reading.metric,
+                        value=reading.value,
+                        unit=reading.unit,
+                        source=reading.source,
+                    )
+                except Exception as e:
+                    self.log.warning("mqtt_telemetry_publish_failed", error=str(e))
+
         if alert_changes:
             await ws_manager.broadcast(
                 "alert_update",
@@ -256,6 +300,16 @@ class PollScheduler:
                     "alerts": [a.model_dump(mode="json") for a in alert_changes],
                 },
             )
+            if self._mqtt_publisher is not None:
+                for alert in alert_changes:
+                    try:
+                        await self._mqtt_publisher.publish_alert(
+                            asset_id=alert.asset_id,
+                            severity=alert.severity,
+                            payload=alert.model_dump(mode="json"),
+                        )
+                    except Exception as e:
+                        self.log.warning("mqtt_alert_publish_failed", error=str(e))
 
     async def _prediction_loop(self) -> None:
         """Run prediction analysis and cross-domain correlation every 60 seconds."""

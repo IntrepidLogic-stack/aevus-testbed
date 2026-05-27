@@ -36,15 +36,14 @@ import json
 import logging
 import os
 import time
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import Any
 
 import boto3
 from botocore.config import Config
-from botocore.exceptions import ClientError, BotoCoreError
-
-from prompt import PromptContext, parse_response, render
+from botocore.exceptions import BotoCoreError, ClientError
 from context import gather
+from prompt import PromptContext, parse_response, render
 
 logger = logging.getLogger()
 logger.setLevel(os.environ.get("LOG_LEVEL", "INFO"))
@@ -53,17 +52,22 @@ logger.setLevel(os.environ.get("LOG_LEVEL", "INFO"))
 # ── Configuration (Lambda env vars) ─────────────────────────────────────
 BEDROCK_MODEL_ID = os.environ.get(
     "BEDROCK_MODEL_ID",
-    # Sonnet by default. Claude Haiku is the lower-latency alternative
-    # if RCA latency matters more than reasoning depth for the use case.
-    "anthropic.claude-sonnet-4-20250514-v1:0",
+    # Haiku for primary — sub-2s warm latency, sufficient reasoning for
+    # threshold-based RCA narratives. Sonnet as fallback when Haiku throttles,
+    # cold-starts long, or returns malformed JSON.
+    "us.anthropic.claude-haiku-4-5-20251001-v1:0",
+)
+BEDROCK_FALLBACK_MODEL_ID = os.environ.get(
+    "BEDROCK_FALLBACK_MODEL_ID",
+    "us.anthropic.claude-sonnet-4-5-20250929-v1:0",
 )
 BEDROCK_REGION = os.environ.get("BEDROCK_REGION", os.environ.get("AWS_REGION", "us-east-2"))
 BEDROCK_MAX_TOKENS = int(os.environ.get("BEDROCK_MAX_TOKENS", "1024"))
 BEDROCK_TEMPERATURE = float(os.environ.get("BEDROCK_TEMPERATURE", "0.2"))
 BEDROCK_TIMEOUT_S = int(os.environ.get("BEDROCK_TIMEOUT_S", "20"))
 
-AUDIT_BUCKET = os.environ["AUDIT_BUCKET"]               # required, raises on cold start if missing
-IOT_ENDPOINT = os.environ["IOT_ENDPOINT"]               # required
+AUDIT_BUCKET = os.environ["AUDIT_BUCKET"]  # required, raises on cold start if missing
+IOT_ENDPOINT = os.environ["IOT_ENDPOINT"]  # required
 RCA_TOPIC_TEMPLATE = "aevus/{site_id}/{asset_id}/rca/{alert_id}"
 
 
@@ -96,15 +100,21 @@ def lambda_handler(event: dict[str, Any], context: Any) -> dict[str, Any]:
     site_id = envelope["site_id"]
     asset_id = envelope["asset_id"]
     alert = envelope.get("payload", {})
-    alert_id = alert.get("id", f"unknown-{int(start_time*1000)}")
+    alert_id = alert.get("id", f"unknown-{int(start_time * 1000)}")
 
-    log = logger.bind(  # structlog-style isn't available; mimic with extra
-        # noqa — structured logging in stdlib via 'extra' kwarg
-    ) if False else logger  # keep simple — we just include keys in messages
+    log = (
+        logger.bind(  # structlog-style isn't available; mimic with extra
+            # noqa — structured logging in stdlib via 'extra' kwarg
+        )
+        if False
+        else logger
+    )  # keep simple — we just include keys in messages
 
     logger.info(
         "rca_processing alert_id=%s asset_id=%s site=%s",
-        alert_id, asset_id, site_id,
+        alert_id,
+        asset_id,
+        site_id,
     )
 
     # Build context. _safe inside gather() ensures partial-failures
@@ -126,7 +136,7 @@ def lambda_handler(event: dict[str, Any], context: Any) -> dict[str, Any]:
         rca = _fallback_narrative(str(e))
 
     # Annotate with the latency we care about for the patent.
-    narrative_at = datetime.now(timezone.utc).isoformat()
+    narrative_at = datetime.now(UTC).isoformat()
     detected_at = alert.get("detected_at")
     latency_ms = _compute_latency_ms(detected_at, narrative_at)
 
@@ -142,7 +152,10 @@ def lambda_handler(event: dict[str, Any], context: Any) -> dict[str, Any]:
     }
     logger.info(
         "rca_complete alert_id=%s asset=%s confidence=%.2f latency_ms=%s",
-        alert_id, asset_id, rca.get("confidence", 0.0), latency_ms,
+        alert_id,
+        asset_id,
+        rca.get("confidence", 0.0),
+        latency_ms,
     )
 
     # Publish to MQTT for the dashboard + write to S3 audit.
@@ -180,34 +193,64 @@ def _parse_envelope(event: dict[str, Any]) -> dict[str, Any]:
 # Bedrock invocation
 # ──────────────────────────────────────────────────────────────────────────
 def _invoke_bedrock(system_prompt: str, user_prompt: str) -> dict[str, Any]:
-    """Invoke Claude via Bedrock and parse the response.
+    """Invoke Claude via Bedrock with primary→fallback model chain.
 
-    Uses the Anthropic messages API shape (Bedrock supports it for
-    Claude 3+ models)."""
+    Try BEDROCK_MODEL_ID (Haiku) first for low latency. On failure
+    (throttling, model degradation, malformed response), fall through
+    to BEDROCK_FALLBACK_MODEL_ID (Sonnet) — slower but more capable.
+    Only if BOTH fail does the caller fall through to the deterministic
+    _fallback_narrative.
+
+    Logs the model actually used + whether fallback was triggered, so
+    the latency widget can distinguish primary-path P95 from
+    fallback-path P95 over time."""
+    last_err: Exception | None = None
+    for attempt, model_id in enumerate([BEDROCK_MODEL_ID, BEDROCK_FALLBACK_MODEL_ID]):
+        if attempt > 0:
+            logger.warning(
+                "rca_bedrock_fallback_to model=%s primary_error=%s",
+                model_id,
+                str(last_err)[:200],
+            )
+        try:
+            result = _invoke_one_model(system_prompt, user_prompt, model_id)
+            result["_model_used"] = model_id
+            result["_fallback_triggered"] = attempt > 0
+            return result
+        except Exception as e:  # noqa: BLE001 — we want to catch *anything* here
+            last_err = e
+            logger.warning(
+                "rca_bedrock_attempt_failed model=%s err=%s",
+                model_id,
+                str(e)[:200],
+            )
+            continue
+    # Both models failed — re-raise so caller falls back to deterministic narrative
+    assert last_err is not None
+    raise last_err
+
+
+def _invoke_one_model(system_prompt: str, user_prompt: str, model_id: str) -> dict[str, Any]:
+    """Single Bedrock invocation for one specific model. Raises on any failure."""
     body = {
         "anthropic_version": "bedrock-2023-05-31",
         "max_tokens": BEDROCK_MAX_TOKENS,
         "temperature": BEDROCK_TEMPERATURE,
         "system": system_prompt,
-        "messages": [
-            {"role": "user", "content": [{"type": "text", "text": user_prompt}]}
-        ],
+        "messages": [{"role": "user", "content": [{"type": "text", "text": user_prompt}]}],
     }
     resp = bedrock.invoke_model(
-        modelId=BEDROCK_MODEL_ID,
+        modelId=model_id,
         body=json.dumps(body),
         contentType="application/json",
     )
     payload = json.loads(resp["body"].read())
-    # Extract the text — Claude returns content as a list of typed blocks.
     text_parts = [
-        block.get("text", "")
-        for block in payload.get("content", [])
-        if block.get("type") == "text"
+        block.get("text", "") for block in payload.get("content", []) if block.get("type") == "text"
     ]
     raw_text = "".join(text_parts).strip()
     if not raw_text:
-        raise RuntimeError("Bedrock returned no text content")
+        raise RuntimeError(f"Bedrock model {model_id} returned no text content")
     return parse_response(raw_text)
 
 
@@ -239,9 +282,7 @@ def _publish_rca(
     alert_id: str,
     output: dict[str, Any],
 ) -> None:
-    topic = RCA_TOPIC_TEMPLATE.format(
-        site_id=site_id, asset_id=asset_id, alert_id=alert_id
-    )
+    topic = RCA_TOPIC_TEMPLATE.format(site_id=site_id, asset_id=asset_id, alert_id=alert_id)
     try:
         iot_data.publish(
             topic=topic,
@@ -262,7 +303,7 @@ def _write_audit(
     """Append the RCA to the audit bucket alongside the original
     alert + event records. Object Lock makes this evidence
     tamper-evident."""
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     key = (
         f"rca/{site_id}/{asset_id}/"
         f"{now.strftime('%Y/%m/%d')}/"

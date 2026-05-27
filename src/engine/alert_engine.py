@@ -9,7 +9,8 @@ can avoid duplicate firing and auto-resolve when conditions clear.
 from __future__ import annotations
 
 import uuid
-from datetime import UTC, datetime
+from collections import deque
+from datetime import UTC, datetime, timedelta
 from typing import TYPE_CHECKING
 
 import structlog
@@ -20,6 +21,11 @@ if TYPE_CHECKING:
     from src.models.telemetry import VitalSign
 
 logger = structlog.get_logger()
+
+# ISA-18.2 §7.5 chattering detection
+CHATTER_WINDOW_S = 600  # 10-minute rolling window
+CHATTER_THRESHOLD = 5  # fires within window → chattering
+CHATTER_SHELF_S = 1800  # 30-minute auto-shelf after chattering meta-alarm
 
 # Metrics that should generate alerts when status is warn or bad
 ALERTABLE_METRICS = {
@@ -48,7 +54,103 @@ class AlertEngine:
     def __init__(self) -> None:
         # Key: (asset_id, metric_label) -> Alert
         self._open_alerts: dict[tuple[str, str], Alert] = {}
+        # Chattering detection: per-key fire timestamps (rolling window)
+        self._fire_history: dict[tuple[str, str], deque[datetime]] = {}
+        # Auto-shelf expiry per key (ISA-18.2 §11) — set by chattering or manual shelve
+        self._shelved_until: dict[tuple[str, str], datetime] = {}
         self.log = logger.bind(component="alert_engine")
+
+    def is_shelved(self, asset_id: str, metric_label: str) -> bool:
+        """Return True if (asset_id, metric_label) is currently shelved."""
+        key = (asset_id, metric_label)
+        expiry = self._shelved_until.get(key)
+        if expiry is None:
+            return False
+        if datetime.now(UTC) >= expiry:
+            # Shelf expired — auto-clear
+            del self._shelved_until[key]
+            self.log.info("alert_unshelved_auto", asset=asset_id, metric=metric_label)
+            return False
+        return True
+
+    def shelve(
+        self,
+        asset_id: str,
+        metric_label: str,
+        duration_s: int = CHATTER_SHELF_S,
+        reason: str = "manual",
+    ) -> datetime:
+        """Shelve an (asset_id, metric_label) for duration_s seconds.
+
+        While shelved, the AlertEngine will not fire new alerts for this key.
+        Existing open alerts are NOT auto-resolved — operator must act on them.
+        Returns the shelf expiry timestamp.
+        """
+        expiry = datetime.now(UTC) + timedelta(seconds=duration_s)
+        key = (asset_id, metric_label)
+        self._shelved_until[key] = expiry
+        self.log.warning(
+            "alert_shelved",
+            asset=asset_id,
+            metric=metric_label,
+            duration_s=duration_s,
+            reason=reason,
+            expires_at=expiry.isoformat(),
+        )
+        return expiry
+
+    def _record_fire_and_check_chattering(
+        self,
+        asset_id: str,
+        asset_name: str,
+        metric_label: str,
+        now: datetime,
+    ) -> Alert | None:
+        """Append a fire timestamp; if rate exceeds threshold, emit a CHATTERING
+        meta-alarm and auto-shelve the underlying key for CHATTER_SHELF_S seconds.
+
+        Returns the meta-alarm if one was generated, else None.
+        """
+        key = (asset_id, metric_label)
+        hist = self._fire_history.setdefault(key, deque())
+        hist.append(now)
+
+        # Prune outside-window entries
+        cutoff = now - timedelta(seconds=CHATTER_WINDOW_S)
+        while hist and hist[0] < cutoff:
+            hist.popleft()
+
+        if len(hist) <= CHATTER_THRESHOLD:
+            return None
+
+        # Threshold crossed — emit meta-alarm + auto-shelve
+        meta_key = (asset_id, f"CHATTERING:{metric_label}")
+        if meta_key in self._open_alerts:
+            return None  # already firing, do not double-emit
+
+        meta = Alert(
+            id=f"CHAT-{uuid.uuid4().hex[:8].upper()}",
+            severity="warning",
+            asset_id=asset_id,
+            asset_name=asset_name,
+            message=(
+                f"{asset_name}: {metric_label} chattering "
+                f"({len(hist)} fires in {CHATTER_WINDOW_S // 60} min) — "
+                f"auto-shelved for {CHATTER_SHELF_S // 60} min (ISA-18.2 §7.5)"
+            ),
+            detected_at=now,
+            status="open",
+        )
+        self._open_alerts[meta_key] = meta
+        self.shelve(asset_id, metric_label, duration_s=CHATTER_SHELF_S, reason="chattering")
+        self.log.warning(
+            "alert_chattering",
+            asset=asset_id,
+            metric=metric_label,
+            fires_in_window=len(hist),
+            window_s=CHATTER_WINDOW_S,
+        )
+        return meta
 
     @property
     def open_alerts(self) -> list[Alert]:
@@ -85,6 +187,11 @@ class AlertEngine:
 
             key = (asset_id, vital.label)
             seen_keys.add(key)
+
+            # ISA-18.2 §11 — skip evaluation if shelved (manual or auto-chattering)
+            if self.is_shelved(asset_id, vital.label):
+                continue
+
             existing = self._open_alerts.get(key)
 
             if vital.status in ("warn", "bad"):
@@ -111,6 +218,12 @@ class AlertEngine:
                         metric=vital.label,
                         severity=severity,
                     )
+                    # ISA-18.2 §7.5 — track fire rate, emit meta-alarm if chattering
+                    meta = self._record_fire_and_check_chattering(
+                        asset_id, asset_name, vital.label, now
+                    )
+                    if meta is not None:
+                        changes.append(meta)
                 elif existing.severity != severity:
                     # Severity escalation/de-escalation
                     existing.severity = severity
@@ -181,6 +294,51 @@ class AlertEngine:
             return existing
 
         return None
+
+    def record_event(
+        self,
+        asset_id: str,
+        asset_name: str,
+        event_type: str,
+        message: str,
+        severity: str = "info",
+    ) -> Alert | None:
+        """Record a point-in-time event alarm (firmware change, maintenance due,
+        SNMP trap, etc.). Unlike threshold alarms, events don't auto-resolve —
+        the operator acks/resolves them explicitly.
+
+        Honors shelving via is_shelved() on the (asset_id, event_type) key.
+        Deduplicates: if an OPEN event of the same (asset_id, event_type) already
+        exists, the call is a no-op and returns None.
+
+        Returns the new Alert if one was created, else None.
+        """
+        if self.is_shelved(asset_id, event_type):
+            return None
+
+        key = (asset_id, event_type)
+        existing = self._open_alerts.get(key)
+        if existing is not None and existing.status == "open":
+            return None
+
+        alert = Alert(
+            id=f"EVT-{uuid.uuid4().hex[:8].upper()}",
+            severity=severity,  # type: ignore[arg-type]
+            asset_id=asset_id,
+            asset_name=asset_name,
+            message=message,
+            detected_at=datetime.now(UTC),
+            status="open",
+        )
+        self._open_alerts[key] = alert
+        self.log.warning(
+            "event_recorded",
+            alert_id=alert.id,
+            asset=asset_id,
+            event_type=event_type,
+            severity=severity,
+        )
+        return alert
 
     def acknowledge(self, alert_id: str, db=None) -> Alert | None:
         """Acknowledge an open alert by ID.

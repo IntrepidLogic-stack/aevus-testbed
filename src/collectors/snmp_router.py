@@ -64,6 +64,12 @@ class SNMPNetworkCollector(BaseCollector):
         """Poll system info, CPU, memory, and interface stats."""
         readings: list[RawTelemetry] = []
 
+        # Capture sys_descr (firmware/OS version string) for FirmwareTracker.
+        # Strip the "STRING: " SNMP type prefix if present.
+        sys_descr = await self._snmp_get(SYSTEM_OIDS["sys_descr"])
+        if sys_descr:
+            self.firmware_version = sys_descr.replace("STRING: ", "").strip().strip('"')
+
         # CPU load
         cpu = await self._snmp_get(MIKROTIK_OIDS["cpu_load"])
         if cpu is not None:

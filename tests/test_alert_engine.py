@@ -272,3 +272,93 @@ class TestAcknowledgeSQLiteFallback:
         engine = AlertEngine()
         result = engine.acknowledge("ALT-MISSING")
         assert result is None
+
+
+class TestChatteringDetection:
+    """ISA-18.2 §7.5 — repeated fires within window emit meta-alarm + auto-shelve."""
+
+    def _flap_once(self, engine: AlertEngine) -> None:
+        """Drive one fire/clear cycle of a warn condition on RAD-01.RSSI."""
+        engine.evaluate("RAD-01", "Trio #1", [_vital("RSSI", "-85 dBm", -85.0, "warn")])
+        engine.evaluate("RAD-01", "Trio #1", [_vital("RSSI", "-65 dBm", -65.0, "good")])
+
+    def test_below_threshold_no_meta_alarm(self):
+        engine = AlertEngine()
+        for _ in range(5):  # CHATTER_THRESHOLD = 5 — exactly at, not above
+            self._flap_once(engine)
+        meta = [a for a in engine.open_alerts if a.id.startswith("CHAT-")]
+        assert meta == []
+        assert not engine.is_shelved("RAD-01", "RSSI")
+
+    def test_threshold_crossed_emits_meta_and_shelves(self):
+        engine = AlertEngine()
+        for _ in range(6):  # one past CHATTER_THRESHOLD
+            self._flap_once(engine)
+        meta = [a for a in engine.open_alerts if a.id.startswith("CHAT-")]
+        assert len(meta) == 1
+        assert meta[0].severity == "warning"
+        assert "chattering" in meta[0].message.lower()
+        assert engine.is_shelved("RAD-01", "RSSI")
+
+    def test_shelved_key_does_not_fire_new_alerts(self):
+        engine = AlertEngine()
+        engine.shelve("RAD-01", "RSSI", duration_s=600, reason="maintenance")
+        changes = engine.evaluate(
+            "RAD-01", "Trio #1", [_vital("RSSI", "-95 dBm", -95.0, "bad")]
+        )
+        assert changes == []
+
+    def test_shelf_expires(self):
+        engine = AlertEngine()
+        engine.shelve("RAD-01", "RSSI", duration_s=600)
+        # Force expiry by manipulating internal state
+        engine._shelved_until[("RAD-01", "RSSI")] = datetime.now(UTC) - timedelta(seconds=1)
+        assert not engine.is_shelved("RAD-01", "RSSI")
+        # And further evaluation now fires normally
+        changes = engine.evaluate(
+            "RAD-01", "Trio #1", [_vital("RSSI", "-95 dBm", -95.0, "bad")]
+        )
+        assert len(changes) == 1
+
+    def test_meta_alarm_not_double_emitted(self):
+        engine = AlertEngine()
+        for _ in range(8):  # well past threshold
+            self._flap_once(engine)
+        meta = [a for a in engine.open_alerts if a.id.startswith("CHAT-")]
+        assert len(meta) == 1  # one, not many
+
+
+class TestRecordEvent:
+    """One-shot event alarms (firmware change, maintenance due, SNMP traps)."""
+
+    def test_emits_alert_for_first_event(self):
+        engine = AlertEngine()
+        alert = engine.record_event(
+            "SW-01", "Catalyst 2960", "FIRMWARE_CHANGED", "version v12 → v15", severity="info"
+        )
+        assert alert is not None
+        assert alert.id.startswith("EVT-")
+        assert alert.status == "open"
+        assert alert.severity == "info"
+        assert "v12 → v15" in alert.message
+
+    def test_dedupes_open_event(self):
+        engine = AlertEngine()
+        engine.record_event("SW-01", "Catalyst", "FIRMWARE_CHANGED", "x", severity="info")
+        again = engine.record_event("SW-01", "Catalyst", "FIRMWARE_CHANGED", "y", severity="info")
+        assert again is None
+        assert len(engine.open_alerts) == 1
+
+    def test_shelve_suppresses_event(self):
+        engine = AlertEngine()
+        engine.shelve("SW-01", "FIRMWARE_CHANGED", duration_s=600)
+        alert = engine.record_event("SW-01", "Catalyst", "FIRMWARE_CHANGED", "x")
+        assert alert is None
+
+    def test_different_event_types_independent(self):
+        engine = AlertEngine()
+        a = engine.record_event("RTU-01", "SCADAPack", "FIRMWARE_CHANGED", "x")
+        b = engine.record_event("RTU-01", "SCADAPack", "MAINTENANCE_DUE", "y", severity="warning")
+        assert a is not None
+        assert b is not None
+        assert a.id != b.id

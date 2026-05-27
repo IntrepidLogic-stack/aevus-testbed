@@ -16,6 +16,7 @@ Pipeline per poll cycle:
 from __future__ import annotations
 
 import asyncio
+import contextlib
 from datetime import UTC, datetime
 from typing import TYPE_CHECKING
 
@@ -24,7 +25,9 @@ import structlog
 from src.api.ws import ws_manager
 from src.collectors.simulator import SimulatorCollector
 from src.config import settings
+from src.engine.firmware_tracker import FirmwareTracker
 from src.engine.health_score import compute_health, health_status
+from src.engine.maintenance_tracker import MaintenanceTracker
 from src.engine.normalizer import normalize_batch
 from src.engine.prediction import PredictionEngine
 
@@ -73,6 +76,10 @@ class PollScheduler:
         self.comm_quality_engine = comm_quality_engine
         self.correlator = correlator
         self.prediction_engine = PredictionEngine(influx)
+        # ISA-18.2 alarm hygiene — out-of-band firmware change + maintenance-due
+        # detection. Baselines persist via SQLite so they survive service restarts.
+        self.firmware_tracker = FirmwareTracker(db=db)
+        self.maintenance_tracker = MaintenanceTracker(db=db)
         self._collectors: dict[str, BaseCollector] = {}
         self._tasks: dict[str, asyncio.Task] = {}
         self._prediction_task: asyncio.Task | None = None
@@ -145,9 +152,12 @@ class PollScheduler:
         # 3. Normalize
         vitals = normalize_batch(readings)
 
-        # 4. Extract run_hours if present
+        # 4. Extract run_hours if present (handed to MaintenanceTracker below)
+        run_hours_value: int | None = None
         for r in readings:
             if r.metric == "run_hours":
+                with contextlib.suppress(ValueError, TypeError):
+                    run_hours_value = int(r.value)
                 break
 
         # 5. Health score (with prediction risk if available)
@@ -165,6 +175,37 @@ class PollScheduler:
         # 6. Alert evaluation
         asset_name = asset.name if asset else asset_id
         alert_changes = self.alert_engine.evaluate(asset_id, asset_name, vitals)
+
+        # 6a. ISA-18.2 event-style alarms — firmware change + maintenance due
+        if collector.firmware_version:
+            fw_event = self.firmware_tracker.check(
+                asset_id, asset_name, collector.firmware_version
+            )
+            if fw_event is not None:
+                evt_alert = self.alert_engine.record_event(
+                    asset_id=asset_id,
+                    asset_name=asset_name,
+                    event_type="FIRMWARE_CHANGED",
+                    message=fw_event.to_message(),
+                    severity="info",  # P4 per AEVUS_ALARM_CATALOG_v1.md A-P4-02
+                )
+                if evt_alert is not None:
+                    alert_changes.append(evt_alert)
+
+        if run_hours_value is not None:
+            maint_event = self.maintenance_tracker.check(
+                asset_id, asset_name, run_hours_value
+            )
+            if maint_event is not None:
+                evt_alert = self.alert_engine.record_event(
+                    asset_id=asset_id,
+                    asset_name=asset_name,
+                    event_type="MAINTENANCE_DUE",
+                    message=maint_event.to_message(),
+                    severity="warning",  # P3 per AEVUS_ALARM_CATALOG_v1.md A-P3-11
+                )
+                if evt_alert is not None:
+                    alert_changes.append(evt_alert)
 
         # Persist alert changes
         for alert in alert_changes:

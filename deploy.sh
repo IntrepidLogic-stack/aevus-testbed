@@ -51,6 +51,9 @@ else
 fi
 
 # 3. Surgically check out dashboard files from origin/main.
+# Also refresh deploy.sh itself so whitelist changes take effect on the
+# NEXT invocation without needing an out-of-band SSM hotfix.
+sudo -u ubuntu git checkout origin/main -- deploy.sh 2>/dev/null || true
 log "[3/5] Checking out dashboard/ from origin/main..."
 for f in $DASHBOARD_FILES; do
     if sudo -u ubuntu git ls-tree origin/main "$f" >/dev/null 2>&1; then

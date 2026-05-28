@@ -164,6 +164,13 @@ class PollScheduler:
         """Execute one poll cycle: collect -> store -> normalize -> score -> alert -> push."""
         # 1. Collect (safe_poll now tracks poll_count, success_count, duration)
         readings = await collector.safe_poll()
+        # Record real-device reachability BEFORE any simulator fallback, so the
+        # rolling 24h uptime % reflects whether Aevus could actually reach the
+        # device — not whether the fallback produced data. Skip pure-simulator
+        # collectors (no real device behind them).
+        if not isinstance(collector, SimulatorCollector):
+            with contextlib.suppress(Exception):
+                self.db.record_reachability(asset_id, bool(readings))
         if not readings and not isinstance(collector, SimulatorCollector):
             # Real collector failed — fall back to simulator
             device_type = ASSET_DEVICE_TYPE_MAP.get(asset_id, "radio")
@@ -256,6 +263,26 @@ class PollScheduler:
                 poll_success_count=collector.poll_success_count,
                 last_poll_duration_ms=collector.last_poll_duration_ms,
             )
+
+        # 7b. Rolling 24h uptime — append as a vital so the dashboard can show
+        # a real number instead of "—". None until we have samples (don't fake
+        # 100%). Computed for real-device collectors only (simulators skipped
+        # in step 1, so they have no reachability samples → None → no vital).
+        uptime = None
+        with contextlib.suppress(Exception):
+            uptime = self.db.uptime_pct(asset_id)
+        if uptime is not None:
+            from src.models.telemetry import VitalSign
+            up_status = "good" if uptime >= 99.0 else "warn" if uptime >= 95.0 else "bad"
+            vitals.append(VitalSign(
+                label="UPTIME 24H",
+                value=f"{uptime:.1f} %",
+                raw_value=uptime,
+                unit="%",
+                status=up_status,
+                group="comms",
+                source="computed",
+            ))
 
         # 8. Update asset in SQLite
         if asset:

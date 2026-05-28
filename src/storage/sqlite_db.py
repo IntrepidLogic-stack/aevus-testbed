@@ -85,6 +85,17 @@ CREATE TABLE IF NOT EXISTS runhours_baselines (
     updated_at TEXT NOT NULL
 );
 
+-- Per-poll reachability samples for rolling uptime % (24h window).
+-- One row per asset per poll; ok=1 when the collector reached the device.
+-- Pruned to ~25h on write so the table stays small.
+CREATE TABLE IF NOT EXISTS reachability_samples (
+    asset_id TEXT NOT NULL,
+    ts INTEGER NOT NULL,  -- epoch seconds
+    ok INTEGER NOT NULL   -- 1 = reachable, 0 = poll failed
+);
+CREATE INDEX IF NOT EXISTS idx_reach_asset_ts
+    ON reachability_samples (asset_id, ts);
+
 -- ISA-18.2 §11 operator shelving audit log
 CREATE TABLE IF NOT EXISTS shelve_audit (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -399,6 +410,43 @@ class SQLiteDB:
             (asset_id, run_hours, now),
         )
         self._conn.commit()
+
+    # ---- Reachability / rolling uptime % -------------------------------
+
+    def record_reachability(self, asset_id: str, ok: bool) -> None:
+        """Record one poll outcome and prune samples older than ~25h."""
+        import time
+        now = int(time.time())
+        self._conn.execute(
+            "INSERT INTO reachability_samples (asset_id, ts, ok) VALUES (?, ?, ?)",
+            (asset_id, now, 1 if ok else 0),
+        )
+        # Keep the window bounded (25h) so the table never grows unbounded.
+        self._conn.execute(
+            "DELETE FROM reachability_samples WHERE asset_id = ? AND ts < ?",
+            (asset_id, now - 90000),
+        )
+        self._conn.commit()
+
+    def uptime_pct(self, asset_id: str, window_seconds: int = 86400) -> float | None:
+        """Rolling uptime % over the window. None if no samples yet.
+
+        Uptime = successful polls / total polls in the window. Returns a
+        float 0-100 rounded to 1 decimal. None when there's no data so the
+        caller can show "—" rather than a fake 100%.
+        """
+        import time
+        cutoff = int(time.time()) - window_seconds
+        row = self._conn.execute(
+            """SELECT COUNT(*) AS total, COALESCE(SUM(ok), 0) AS up
+                 FROM reachability_samples
+                WHERE asset_id = ? AND ts >= ?""",
+            (asset_id, cutoff),
+        ).fetchone()
+        total = row["total"] if row else 0
+        if not total:
+            return None
+        return round((row["up"] / total) * 100.0, 1)
 
     # ---- Shelve audit log (ISA-18.2 §11.4) -----------------------------
 

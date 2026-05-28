@@ -198,9 +198,21 @@
       errEl.setAttribute('fill', errs > 0 ? '#FBBF24' : '#10D478');
     }
 
-    // LATENCY + UPTIME — no real radio-link source; show honest em-dash
+    // LATENCY — still no real radio-link source; honest em-dash.
     setText('rf-latency', '—');
-    setText('rf-uptime', '—');
+
+    // UPTIME — real 24h reachability rollup from the backend ("UPTIME 24H"
+    // vital). Link uptime = the worse of the two endpoints (a link is only as
+    // available as its weakest end). "—" until samples exist (no fake 100%).
+    var up1 = rawVital(r1, 'UPTIME 24H');
+    var up2 = rawVital(r2, 'UPTIME 24H');
+    var have1 = vital(r1, 'UPTIME 24H') != null;
+    var have2 = vital(r2, 'UPTIME 24H') != null;
+    var linkUptime = null;
+    if (have1 && have2) linkUptime = Math.min(up1, up2);
+    else if (have1) linkUptime = up1;
+    else if (have2) linkUptime = up2;
+    setText('rf-uptime', linkUptime == null ? '—' : linkUptime.toFixed(1) + '%');
 
     // Fix the hardcoded fake IPs in the per-radio summary cards
     // (rf-r1-ip / rf-r2-ip ship as 10.0.1.11 / 10.0.1.12 — never wired).

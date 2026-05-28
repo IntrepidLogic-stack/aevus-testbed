@@ -144,3 +144,41 @@ class TestAlertCRUD:
 
     def test_get_nonexistent_alert(self, db):
         assert db.get_alert("NOPE") is None
+
+
+class TestReachabilityUptime:
+    def test_no_samples_returns_none(self, db):
+        # No data yet → None so the UI can show "—" instead of a fake 100%.
+        assert db.uptime_pct("RAD-01") is None
+
+    def test_all_up_is_100(self, db):
+        for _ in range(10):
+            db.record_reachability("RAD-01", True)
+        assert db.uptime_pct("RAD-01") == 100.0
+
+    def test_mixed_is_proportional(self, db):
+        for _ in range(3):
+            db.record_reachability("RAD-02", True)
+        for _ in range(1):
+            db.record_reachability("RAD-02", False)
+        # 3 of 4 ok = 75.0%
+        assert db.uptime_pct("RAD-02") == 75.0
+
+    def test_per_asset_isolation(self, db):
+        db.record_reachability("RAD-01", True)
+        db.record_reachability("RAD-02", False)
+        assert db.uptime_pct("RAD-01") == 100.0
+        assert db.uptime_pct("RAD-02") == 0.0
+
+    def test_window_excludes_old_samples(self, db):
+        import time
+        # Insert an old (in-window-miss) sample manually, then a fresh ok one.
+        old_ts = int(time.time()) - 100000  # ~27.7h ago, outside 24h window
+        db._conn.execute(
+            "INSERT INTO reachability_samples (asset_id, ts, ok) VALUES (?, ?, ?)",
+            ("RAD-01", old_ts, 0),
+        )
+        db._conn.commit()
+        db.record_reachability("RAD-01", True)  # fresh, in-window
+        # Only the fresh sample counts in the 24h window → 100%.
+        assert db.uptime_pct("RAD-01") == 100.0

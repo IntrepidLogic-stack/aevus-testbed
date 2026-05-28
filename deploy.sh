@@ -19,7 +19,7 @@
 set -euo pipefail
 
 REPO=/home/ubuntu/aevus-testbed
-DASHBOARD_FILES="dashboard/Aevus_Console.html dashboard/api-client.js dashboard/login.html"
+DASHBOARD_FILES="dashboard/Aevus_Console.html dashboard/api-client.js dashboard/login.html dashboard/rad-hover-live.js"
 DASHBOARD_DIRS="dashboard/icons dashboard/images"
 LOG_TAG="aevus-deploy"
 VERSION="${1:-v$(date +%Y.%m.%d)-auto}"

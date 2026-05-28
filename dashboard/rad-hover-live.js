@@ -297,6 +297,40 @@
     }
   }
 
+  // ── Real-time stale-data banner ──────────────────────────────────────
+  // api-client drives #stale-data-banner from its STATIC demo array, so the
+  // frozen demo assets (SHOP-01, WAN-01) perpetually trip it. We override it
+  // from the LIVE /api/v1/assets feed: the banner reflects actual real-time
+  // freshness of the real fleet (RAD-01/02, RTU, switch, router, edge) and
+  // hides when everything is fresh. Demo-only assets aren't in the live feed,
+  // so they no longer false-trigger it.
+  var liveAssets = [];
+  var STALE_ICON =
+    '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" ' +
+    'stroke-width="1.8" style="vertical-align:middle;margin-right:6px;">' +
+    '<circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/>' +
+    '<line x1="12" y1="16" x2="12.01" y2="16"/></svg>';
+
+  function updateStaleBannerFromLive() {
+    try {
+      var banner = document.getElementById('stale-data-banner');
+      if (!banner || !liveAssets.length) return;
+      var now = Date.now();
+      var stale = liveAssets.filter(function (a) {
+        if (!a.last_seen) return false;
+        var age = (now - new Date(a.last_seen).getTime()) / 1000;
+        return age > 3 * (a.poll_interval || 30);
+      }).map(function (a) { return a.id; });
+
+      if (stale.length > 0) {
+        banner.style.display = 'block';
+        banner.innerHTML = STALE_ICON + 'STALE DATA: ' + stale.join(', ') + ' — data may be outdated';
+      } else {
+        banner.style.display = 'none';
+      }
+    } catch (e) { /* never break the page */ }
+  }
+
   // ── Polling ─────────────────────────────────────────────────────────
   function pollAssets() {
     fetch(API_BASE + '/assets', { cache: 'no-store' })
@@ -304,11 +338,13 @@
       .then(function (data) {
         if (!data) return;
         var list = Array.isArray(data) ? data : (data.assets || []);
+        liveAssets = list;  // full real fleet, for real-time staleness eval
         list.forEach(function (a) {
           if (TARGETS.indexOf(a.id) !== -1) assetCache[a.id] = a;
         });
         updateLinkCard();
         refreshOpenMapPopup();
+        updateStaleBannerFromLive();
       })
       .catch(function (e) { console.warn('[Aevus Rad Hover] assets poll failed:', e.message); });
   }
@@ -338,6 +374,10 @@
     setTimeout(pollAlerts, 250);  // stagger so we don't hit two endpoints simultaneously on slow networks
     setInterval(pollAssets, POLL_MS);
     setInterval(pollAlerts, POLL_MS);
+    // Re-assert the live-data banner every 2s — api-client rebuilds it from
+    // its static demo array on its own cycle, so we keep it authoritative on
+    // real-time freshness.
+    setInterval(updateStaleBannerFromLive, 2000);
   }
 
   // ── Wrap rfHover ────────────────────────────────────────────────────

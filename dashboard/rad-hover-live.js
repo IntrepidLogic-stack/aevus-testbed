@@ -238,6 +238,60 @@
     }
   }
 
+  // ── Open map-popup live refresh ──────────────────────────────────────
+  // MapLibre/Leaflet popups snapshot their content at open-time. When a
+  // RAD-01/RAD-02 popup is open, refresh its vital values in place. We only
+  // swap the textContent of value nodes located by matching their sibling
+  // label — never touch elements, classes, attributes, or structure. If the
+  // DOM doesn't match (different builder/version), it safely no-ops.
+  function refreshOpenMapPopup() {
+    try {
+      var popups = document.querySelectorAll(
+        '.maplibregl-popup-content, .leaflet-popup-content, .mapboxgl-popup-content'
+      );
+      if (!popups.length) return;
+      popups.forEach(function (pop) {
+        var txt = pop.textContent || '';
+        var assetId = txt.indexOf('RAD-01') !== -1 ? 'RAD-01'
+                    : txt.indexOf('RAD-02') !== -1 ? 'RAD-02' : null;
+        if (!assetId) return;
+        var a = assetCache[assetId];
+        if (!a || !a.vitals) return;
+
+        // Build a label→value map from live cache (upper-cased keys)
+        var liveByLabel = {};
+        a.vitals.forEach(function (v) {
+          if (v && v.label) liveByLabel[v.label.trim().toUpperCase()] = v.value;
+        });
+
+        // Walk all elements; when one's trimmed text exactly equals a known
+        // vital label, find the value node in the same row and update it.
+        var nodes = pop.querySelectorAll('*');
+        nodes.forEach(function (el) {
+          // Skip containers — only consider leaf-ish label cells
+          if (el.children.length > 0) return;
+          var key = (el.textContent || '').trim().toUpperCase();
+          if (!liveByLabel.hasOwnProperty(key)) return;
+          // Value node = a sibling within the same row that is NOT the label
+          var row = el.parentElement;
+          if (!row) return;
+          var valEl = null;
+          row.querySelectorAll('*').forEach(function (sib) {
+            if (sib === el || sib.children.length > 0) return;
+            var s = (sib.textContent || '').trim();
+            // Heuristic: value cells contain a digit or em-dash
+            if (/[0-9]|—/.test(s)) valEl = sib;
+          });
+          if (valEl && valEl.textContent.trim() !== String(liveByLabel[key])) {
+            valEl.textContent = liveByLabel[key];
+          }
+        });
+      });
+    } catch (e) {
+      // Never let popup refresh break anything
+    }
+  }
+
   // ── Polling ─────────────────────────────────────────────────────────
   function pollAssets() {
     fetch(API_BASE + '/assets', { cache: 'no-store' })
@@ -249,6 +303,7 @@
           if (TARGETS.indexOf(a.id) !== -1) assetCache[a.id] = a;
         });
         updateLinkCard();
+        refreshOpenMapPopup();
       })
       .catch(function (e) { console.warn('[Aevus Rad Hover] assets poll failed:', e.message); });
   }

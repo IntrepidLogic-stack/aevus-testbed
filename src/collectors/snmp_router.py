@@ -188,16 +188,16 @@ class SNMPNetworkCollector(BaseCollector):
         # Tier 1 (2026-05-27): CDP neighbors, per-port speed/discards, MikroTik HW sensors
         try:
             readings.extend(await self._poll_cdp_neighbors())
-        except Exception as e:
+        except Exception:
             pass  # CDP not supported / disabled — skip silently
         try:
             readings.extend(await self._poll_port_health())
-        except Exception as e:
+        except Exception:
             pass
         if self.device_type == "router":
             try:
                 readings.extend(await self._poll_mikrotik_hardware())
-            except Exception as e:
+            except Exception:
                 pass
 
         return readings

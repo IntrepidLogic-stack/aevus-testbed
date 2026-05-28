@@ -14,9 +14,11 @@ Metrics:
   - uptime_hours    : system uptime from /proc/uptime
 """
 from __future__ import annotations
-import asyncio, subprocess, os
+
+import asyncio
+import subprocess
+
 from src.collectors.base import BaseCollector
-from src.models.telemetry import RawTelemetry
 
 
 class PiSelfMetricsCollector(BaseCollector):

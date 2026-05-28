@@ -338,6 +338,10 @@
     setTimeout(pollAlerts, 250);  // stagger so we don't hit two endpoints simultaneously on slow networks
     setInterval(pollAssets, POLL_MS);
     setInterval(pollAlerts, POLL_MS);
+    // Re-check the stale banner frequently — api-client rebuilds it on its
+    // own cycle, so we re-suppress demo-only false positives every 2s.
+    suppressDemoStaleBanner();
+    setInterval(suppressDemoStaleBanner, 2000);
   }
 
   // ── Wrap rfHover ────────────────────────────────────────────────────
@@ -360,6 +364,29 @@
     };
     window.rfHover.__radWrapped = true;
     console.log('[Aevus Rad Hover] rfHover wrapped — live mode active for', TARGETS.join(', '));
+  }
+
+  // ── Suppress false-positive stale banner for non-live demo assets ────
+  // SHOP-01 / WAN-01 are static demo-fleet assets with no live collector,
+  // so their last_seen never advances and they perpetually trip the
+  // "STALE DATA" banner. We hide the banner ONLY when every stale asset it
+  // lists is a known non-live demo asset — if any real SCADA asset (radio,
+  // RTU, switch, router, edge) goes stale, the banner still fires. The
+  // banner is a genuine safety feature; we only mute the false positive.
+  var NON_LIVE_DEMO = ['SHOP-01', 'WAN-01'];
+  function suppressDemoStaleBanner() {
+    try {
+      var b = document.getElementById('stale-data-banner');
+      if (!b || b.style.display === 'none') return;
+      var txt = b.textContent || '';
+      var m = txt.match(/STALE DATA:\s*(.+?)\s*—/);
+      if (!m) return; // not the per-asset variant (e.g. global ">90s" notice) — leave it
+      var ids = m[1].split(',').map(function (s) { return s.trim(); });
+      var allDemo = ids.length > 0 && ids.every(function (id) {
+        return NON_LIVE_DEMO.indexOf(id) !== -1;
+      });
+      if (allDemo) b.style.display = 'none';
+    } catch (e) { /* never break the page */ }
   }
 
   // ── Boot ────────────────────────────────────────────────────────────

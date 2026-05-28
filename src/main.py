@@ -240,6 +240,7 @@ def _seed_lab_assets() -> None:
     (so health/vitals captured by the scheduler aren't clobbered on restart).
     """
     from datetime import UTC, datetime
+
     from src.models.asset import Asset
     for spec in LAB_ASSETS:
         if app_state.db.get_asset(spec["id"]) is not None:

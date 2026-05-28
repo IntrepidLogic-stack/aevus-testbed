@@ -263,6 +263,11 @@ class PollScheduler:
             asset.health = score
             asset.status = status
             asset.last_seen = now
+            # Persist firmware so /api/v1/assets (and the dashboard) show the
+            # real version instead of null. Collectors that read it set
+            # collector.firmware_version (Trio MIB 10.1.5.0, router sysDescr).
+            if collector.firmware_version:
+                asset.firmware = collector.firmware_version
             self.db.upsert_asset(asset)
 
         # 9. WebSocket broadcast (local dashboard) + MQTT publish (cloud bridge)

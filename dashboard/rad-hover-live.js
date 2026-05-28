@@ -202,6 +202,11 @@
     setText('rf-latency', '—');
     setText('rf-uptime', '—');
 
+    // Fix the hardcoded fake IPs in the per-radio summary cards
+    // (rf-r1-ip / rf-r2-ip ship as 10.0.1.11 / 10.0.1.12 — never wired).
+    if (r1 && r1.ip_address) setText('rf-r1-ip', r1.ip_address);
+    if (r2 && r2.ip_address) setText('rf-r2-ip', r2.ip_address);
+
     // LINK QUALITY — derived from RSSI + link state of both radios
     // A real OTA link needs both ends above the noise floor. RSSI -143 = floor.
     function rssiOf(a) { return a ? rawVital(a, 'RSSI') : -200; }

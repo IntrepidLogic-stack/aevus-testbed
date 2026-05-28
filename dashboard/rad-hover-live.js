@@ -164,6 +164,80 @@
     return html;
   }
 
+  // ── Central link-quality card (between the two towers) ───────────────
+  // Honest sourcing: PACKETS + ERRORS are real sums across both radios.
+  // LINK QUALITY / status derived from RSSI + link-state. LATENCY + UPTIME
+  // have no real radio source, so we show "—" rather than fake numbers.
+  function rawVital(asset, label) {
+    var v = vital(asset, label);
+    return v && typeof v.raw_value === 'number' ? v.raw_value : 0;
+  }
+
+  function fmtCount(n) {
+    return n >= 1000000 ? (n / 1000000).toFixed(1) + 'M'
+         : n >= 1000 ? Math.round(n / 1000) + 'K'
+         : String(Math.round(n));
+  }
+
+  function updateLinkCard() {
+    var r1 = assetCache['RAD-01'];
+    var r2 = assetCache['RAD-02'];
+    if (!r1 && !r2) return;
+
+    // PACKETS = TX + RX across both radios
+    var pkts = 0, errs = 0;
+    [r1, r2].forEach(function (a) {
+      if (!a) return;
+      pkts += rawVital(a, 'TX PACKETS') + rawVital(a, 'RX PACKETS');
+      errs += rawVital(a, 'TX ERRORS') + rawVital(a, 'RX ERRORS') + rawVital(a, 'RX DROPPED');
+    });
+    setText('rf-total-pkts', fmtCount(pkts));
+    var errEl = document.getElementById('rf-total-err');
+    if (errEl) {
+      errEl.textContent = fmtCount(errs);
+      errEl.setAttribute('fill', errs > 0 ? '#FBBF24' : '#10D478');
+    }
+
+    // LATENCY + UPTIME — no real radio-link source; show honest em-dash
+    setText('rf-latency', '—');
+    setText('rf-uptime', '—');
+
+    // LINK QUALITY — derived from RSSI + link state of both radios
+    // A real OTA link needs both ends above the noise floor. RSSI -143 = floor.
+    function rssiOf(a) { return a ? rawVital(a, 'RSSI') : -200; }
+    function linkActive(a) {
+      var v = vital(a, 'LINK STATE');
+      return v && v.status === 'good';
+    }
+    var worstRssi = Math.min(rssiOf(r1), rssiOf(r2));
+    var bothPresent = r1 && r2;
+    var linked = bothPresent && worstRssi > -140 && (linkActive(r1) || linkActive(r2));
+
+    var fill = document.getElementById('rf-quality-fill');
+    var label = document.getElementById('rf-quality-label');
+    var status = document.getElementById('rf-link-status');
+
+    var qLabel, qColor, qWidth;
+    if (!linked) {
+      qLabel = 'LINK QUALITY: NO LINK'; qColor = '#EF4444'; qWidth = 8;
+    } else if (worstRssi > -70) {
+      qLabel = 'LINK QUALITY: EXCELLENT'; qColor = '#10D478'; qWidth = 280;
+    } else if (worstRssi > -85) {
+      qLabel = 'LINK QUALITY: GOOD'; qColor = '#10D478'; qWidth = 210;
+    } else if (worstRssi > -95) {
+      qLabel = 'LINK QUALITY: FAIR'; qColor = '#FBBF24'; qWidth = 140;
+    } else {
+      qLabel = 'LINK QUALITY: POOR'; qColor = '#EF4444'; qWidth = 70;
+    }
+    if (label) label.textContent = qLabel;
+    if (fill) { fill.setAttribute('fill', qColor); fill.setAttribute('width', qWidth); }
+    if (status) {
+      status.innerHTML = '<span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:' +
+        (linked ? '#10D478' : '#EF4444') + ';margin-right:6px;"></span>' +
+        (linked ? 'LINK ACTIVE' : 'NO LINK');
+    }
+  }
+
   // ── Polling ─────────────────────────────────────────────────────────
   function pollAssets() {
     fetch(API_BASE + '/assets', { cache: 'no-store' })
@@ -174,6 +248,7 @@
         list.forEach(function (a) {
           if (TARGETS.indexOf(a.id) !== -1) assetCache[a.id] = a;
         });
+        updateLinkCard();
       })
       .catch(function (e) { console.warn('[Aevus Rad Hover] assets poll failed:', e.message); });
   }

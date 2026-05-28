@@ -243,12 +243,13 @@
     }
   }
 
-  // ── Open map-popup live refresh ──────────────────────────────────────
-  // MapLibre/Leaflet popups snapshot their content at open-time. When a
-  // RAD-01/RAD-02 popup is open, refresh its vital values in place. We only
-  // swap the textContent of value nodes located by matching their sibling
-  // label — never touch elements, classes, attributes, or structure. If the
-  // DOM doesn't match (different builder/version), it safely no-ops.
+  // ── Open map-popup → rich live card ──────────────────────────────────
+  // When a RAD-01/RAD-02 map popup is open, replace its body with the SAME
+  // rich card used on the Radio Comms page (Role / Firmware / IP / Health /
+  // Last Poll / RF VITALS / live alarms) and keep it refreshing live. The
+  // maplibre close button is a sibling of .maplibregl-popup-content, so
+  // rewriting the content's innerHTML preserves it. Runs every poll + 2s, so
+  // the card ticks with the live feed. Safe no-op if no RAD popup is open.
   function refreshOpenMapPopup() {
     try {
       var popups = document.querySelectorAll(
@@ -256,41 +257,24 @@
       );
       if (!popups.length) return;
       popups.forEach(function (pop) {
+        // Detect which radio this popup is for. Once we've taken it over we
+        // tag it with data-rad so re-detection survives our own rewrite.
+        var tagged = pop.getAttribute('data-rad');
         var txt = pop.textContent || '';
-        var assetId = txt.indexOf('RAD-01') !== -1 ? 'RAD-01'
-                    : txt.indexOf('RAD-02') !== -1 ? 'RAD-02' : null;
+        var assetId = tagged
+          || (txt.indexOf('RAD-01') !== -1 ? 'RAD-01'
+            : txt.indexOf('RAD-02') !== -1 ? 'RAD-02' : null);
         if (!assetId) return;
-        var a = assetCache[assetId];
-        if (!a || !a.vitals) return;
+        if (!assetCache[assetId]) return;  // wait for first live poll
 
-        // Build a label→value map from live cache (upper-cased keys)
-        var liveByLabel = {};
-        a.vitals.forEach(function (v) {
-          if (v && v.label) liveByLabel[v.label.trim().toUpperCase()] = v.value;
-        });
-
-        // Walk all elements; when one's trimmed text exactly equals a known
-        // vital label, find the value node in the same row and update it.
-        var nodes = pop.querySelectorAll('*');
-        nodes.forEach(function (el) {
-          // Skip containers — only consider leaf-ish label cells
-          if (el.children.length > 0) return;
-          var key = (el.textContent || '').trim().toUpperCase();
-          if (!liveByLabel.hasOwnProperty(key)) return;
-          // Value node = a sibling within the same row that is NOT the label
-          var row = el.parentElement;
-          if (!row) return;
-          var valEl = null;
-          row.querySelectorAll('*').forEach(function (sib) {
-            if (sib === el || sib.children.length > 0) return;
-            var s = (sib.textContent || '').trim();
-            // Heuristic: value cells contain a digit or em-dash
-            if (/[0-9]|—/.test(s)) valEl = sib;
-          });
-          if (valEl && valEl.textContent.trim() !== String(liveByLabel[key])) {
-            valEl.textContent = liveByLabel[key];
-          }
-        });
+        var card = '<div class="rad-map-card">' + buildRadioTooltip(assetId) + '</div>';
+        // Only rewrite when content actually changed (freshness badge ticks
+        // each render, so this updates ~live without needless thrash).
+        if (pop.__radCard !== card) {
+          pop.innerHTML = card;
+          pop.__radCard = card;
+          pop.setAttribute('data-rad', assetId);
+        }
       });
     } catch (e) {
       // Never let popup refresh break anything
@@ -374,10 +358,11 @@
     setTimeout(pollAlerts, 250);  // stagger so we don't hit two endpoints simultaneously on slow networks
     setInterval(pollAssets, POLL_MS);
     setInterval(pollAlerts, POLL_MS);
-    // Re-assert the live-data banner every 2s — api-client rebuilds it from
-    // its static demo array on its own cycle, so we keep it authoritative on
-    // real-time freshness.
+    // Re-assert the live-data banner + map card every 2s — api-client
+    // rebuilds these on its own cycle, so we keep them authoritative and the
+    // open map card ticks ~live (freshness badge, vitals).
     setInterval(updateStaleBannerFromLive, 2000);
+    setInterval(refreshOpenMapPopup, 2000);
   }
 
   // ── Wrap rfHover ────────────────────────────────────────────────────

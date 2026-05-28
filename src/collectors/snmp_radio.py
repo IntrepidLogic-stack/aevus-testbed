@@ -89,6 +89,12 @@ class TrioJR900Collector(BaseCollector):
         """Poll all Trio JR900 OIDs and return raw telemetry readings."""
         readings: list[RawTelemetry] = []
 
+        # Capture firmware (Trio MIB 10.1.5.0, e.g. "3.8.4 Build 4104") for
+        # FirmwareTracker + the Asset.firmware field surfaced on the dashboard.
+        fw = await self._snmp_get(TRIO_SYSTEM_OIDS["firmware"])
+        if fw:
+            self.firmware_version = fw.strip().strip('"')
+
         for metric, (oid, unit) in TRIO_POLL_OIDS.items():
             value = await self._snmp_get(oid)
             if value is not None:

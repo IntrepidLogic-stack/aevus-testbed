@@ -7,6 +7,7 @@ Discovered via live SNMP walk on JR900-00002-EH0, Firmware 3.8.4
 """
 
 import asyncio
+import re
 import subprocess
 
 from src.collectors.base import BaseCollector
@@ -56,6 +57,7 @@ TRIO_POLL_OIDS = {
     "rx_error":        (f"{TRIO_ENTERPRISE}.10.2.12.0", "count"),
     "rx_dropped":      (f"{TRIO_ENTERPRISE}.10.2.13.0", "count"),
     "link_state":      (f"{TRIO_ENTERPRISE}.10.2.10.0", ""),
+    "radio_role":      (f"{TRIO_ENTERPRISE}.10.2.1.0", ""),  # 1=AP/master, 2=remote/slave
 }
 
 # Standard MIB-II OIDs
@@ -88,6 +90,24 @@ class TrioJR900Collector(BaseCollector):
     async def poll(self) -> list[RawTelemetry]:
         """Poll all Trio JR900 OIDs and return raw telemetry readings."""
         readings: list[RawTelemetry] = []
+
+        # Heartbeat FIRST, independent of SNMP: an ICMP round-trip proves the
+        # radio is on the air and gives a live latency number even when the
+        # SNMP agent is disabled (e.g. after a master/slave re-sync resets it).
+        # Emitting this keeps poll() non-empty for a reachable-but-SNMP-silent
+        # radio, so the scheduler reports real reachability instead of falling
+        # back to a simulator and showing fabricated RF stats.
+        rtt_ms = await self._ping_rtt()
+        if rtt_ms is not None:
+            readings.append(
+                self._make_reading(
+                    metric="latency",
+                    value=rtt_ms,
+                    unit="ms",
+                    source="icmp",
+                    group="comms",
+                )
+            )
 
         # Capture firmware (Trio MIB 10.1.5.0, e.g. "3.8.4 Build 4104") for
         # FirmwareTracker + the Asset.firmware field surfaced on the dashboard.
@@ -139,6 +159,30 @@ class TrioJR900Collector(BaseCollector):
     async def snmp_walk(self) -> dict[str, str]:
         """Full SNMP walk — used for discovery, not regular polling."""
         return await asyncio.to_thread(self._snmp_walk_sync)
+
+    async def _ping_rtt(self) -> float | None:
+        """ICMP round-trip to the radio in ms (heartbeat). None if unreachable."""
+        return await asyncio.to_thread(self._ping_rtt_sync)
+
+    def _ping_rtt_sync(self) -> float | None:
+        """Synchronous single-ping RTT measurement via the system ping tool."""
+        try:
+            result = subprocess.run(
+                ["ping", "-c", "1", "-W", "2", self.host],
+                capture_output=True,
+                text=True,
+                timeout=5,
+            )
+            if result.returncode != 0:
+                return None
+            # Linux/macOS both emit "time=1.23 ms" (or "time<1 ms").
+            m = re.search(r"time[=<]\s*([\d.]+)\s*ms", result.stdout)
+            if m:
+                return float(m.group(1))
+            return None
+        except (subprocess.TimeoutExpired, FileNotFoundError, ValueError) as e:
+            self.log.warning("ping_failed", host=self.host, error=str(e))
+            return None
 
     async def _snmp_get(self, oid: str) -> str | None:
         """Get a single OID value via snmpget CLI."""

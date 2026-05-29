@@ -89,12 +89,14 @@
     var alerts = alertCache[assetId] || [];
     var chattering = chatterCache[assetId];
 
-    var role = assetId === 'RAD-01' ? 'Access Point' : 'Remote';
+    // Prefer the live ROLE vital (Trio MIB radio-type: MASTER/SLAVE) when the
+    // radio is answering SNMP; fall back to the known wiring (RAD-01=master).
+    var roleWord = assetId === 'RAD-01' ? 'MASTER' : 'SLAVE';
+    var role = roleWord;
     if (a) {
-      // If we know the actual radio type from inventory, surface it.
-      // Trio JR900 collector tags type but not AP/Remote distinction in
-      // vitals; safest default is "Radio".
-      role = a.vendor + ' ' + a.model + ' — ' + role;
+      var rv = vital(a, 'ROLE');
+      if (rv && rv.value && rv.value !== '—') roleWord = rv.value;
+      role = a.vendor + ' ' + a.model + ' — ' + roleWord;
     }
 
     var html = '<div class="tt-title">' + esc(assetId);
@@ -127,6 +129,7 @@
     html += vitalRow(a, 'SIGNAL QUALITY', 'Signal Qual', true);
     html += vitalRow(a, 'TX POWER', 'Tx Power', false);
     html += vitalRow(a, 'LINK STATE', 'Link', true);
+    html += vitalRow(a, 'LATENCY', 'Heartbeat', true);
     html += vitalRow(a, 'TEMPERATURE', 'Temp', true);
     html += vitalRow(a, 'VOLTAGE', 'Voltage', true);
 
@@ -198,8 +201,16 @@
       errEl.setAttribute('fill', errs > 0 ? '#FBBF24' : '#10D478');
     }
 
-    // LATENCY — still no real radio-link source; honest em-dash.
-    setText('rf-latency', '—');
+    // LATENCY — real ICMP heartbeat RTT from the edge collector ("LATENCY"
+    // vital, source=icmp). A link is as slow as its worse end, so show the
+    // max of the two. "—" until a heartbeat lands (no fake number).
+    var lat1 = vital(r1, 'LATENCY');
+    var lat2 = vital(r2, 'LATENCY');
+    var latVal = null;
+    if (lat1 && lat2) latVal = Math.max(lat1.raw_value, lat2.raw_value);
+    else if (lat1) latVal = lat1.raw_value;
+    else if (lat2) latVal = lat2.raw_value;
+    setText('rf-latency', latVal == null ? '—' : Math.round(latVal) + ' ms');
 
     // UPTIME — real 24h reachability rollup from the backend ("UPTIME 24H"
     // vital). Link uptime = the worse of the two endpoints (a link is only as

@@ -52,6 +52,14 @@ class Settings(BaseSettings):
     # ── SQLite ──
     sqlite_path: str = "./data/aevus.db"
 
+    # ── Read source (edge→cloud convergence, Phase 2) ──
+    # sqlite : serve assets from local SQLite (default — current behavior)
+    # dynamo : overlay live vitals/state from the DynamoDB latest-state store
+    # dual   : serve SQLite but log per-field divergence vs Dynamo (soak/validate)
+    read_source: str = "sqlite"
+    dynamo_latest_state_table: str = "aevus-latest-state"
+    aws_region: str = "us-east-1"
+
     # ── FastAPI ──
     api_host: str = "0.0.0.0"
     api_port: int = 8000

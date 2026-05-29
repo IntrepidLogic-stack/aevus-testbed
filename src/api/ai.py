@@ -22,7 +22,7 @@ from __future__ import annotations
 import hashlib
 import json
 import time
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 import structlog
 from fastapi import APIRouter, File, Form, HTTPException, UploadFile
@@ -245,7 +245,7 @@ def _route_model(classification: str, force_model: str | None = None) -> tuple[s
     """Safety-aware SCADA model routing (Patent Pending #7)."""
     if force_model and force_model in MODELS:
         return force_model, f"forced:{force_model}"
-    
+
     routing = {
         "CHAT":     ("haiku",  "real-time chat → Haiku 4.5"),
         "ANALYSIS": ("sonnet", "analysis query → Sonnet 4.6"),
@@ -273,13 +273,13 @@ async def ai_ask(req: AIRequest):
         raise HTTPException(502, "AI service unavailable") from None
 
     t0 = time.time()
-    
+
     # Step 1: Classify with Nova Micro (~300ms)
     classification = _classify_query(client, req.prompt)
-    
+
     # Step 2: Route to appropriate model
     model_key, reason = _route_model(classification, req.force_model)
-    
+
     # Step 3: Build context-aware prompt
     ctx_text = _sanitize_context(_build_context(req.context))
     user_msg = req.prompt
@@ -290,14 +290,14 @@ async def ai_ask(req: AIRequest):
     try:
         max_tok = 600 if classification in ("ANALYSIS", "REPORT", "SAFETY") else 400
         reply = _invoke_model(client, model_key, SYSTEM_PROMPT, user_msg, max_tok)
-        
+
         # Step 5: Store for fine-tuning data collection (#6)
         _finetune_samples.append({
             "prompt": req.prompt,
             "context_hash": hashlib.md5(ctx_text.encode()).hexdigest()[:8] if ctx_text else None,
             "classification": classification,
             "model": model_key,
-            "timestamp": datetime.now(timezone.utc).isoformat(),
+            "timestamp": datetime.now(UTC).isoformat(),
         })
         if len(_finetune_samples) > 10000:
             _finetune_samples.pop(0)
@@ -327,7 +327,7 @@ async def alarm_similarity(req: SimilarityRequest):
     corpus = []
     if req.history:
         corpus = [{"text": a.get("description", a.get("alarm_text", "")), "resolution": a.get("resolution")} for a in req.history if a.get("description") or a.get("alarm_text")]
-    
+
     if not corpus:
         # Use default SCADA alarm knowledge base
         corpus = [
@@ -346,7 +346,7 @@ async def alarm_similarity(req: SimilarityRequest):
         ]
 
     docs = [c["text"] for c in corpus]
-    
+
     # Step 1: Rerank with Cohere
     rerank_body = json.dumps({
         "query": req.alarm_text,
@@ -354,11 +354,11 @@ async def alarm_similarity(req: SimilarityRequest):
         "top_n": min(5, len(docs)),
         "api_version": 2
     })
-    
+
     try:
         r = client.invoke_model(modelId="cohere.rerank-v3-5:0", contentType="application/json", accept="application/json", body=rerank_body)
         results = json.loads(r["body"].read())["results"]
-        
+
         similar = []
         for res in results:
             idx = res["index"]
@@ -367,7 +367,7 @@ async def alarm_similarity(req: SimilarityRequest):
                 score=round(res["relevance_score"], 3),
                 resolution=corpus[idx].get("resolution"),
             ))
-        
+
         return SimilarityResponse(similar=similar, model="Cohere Rerank 3.5 + Embed v4")
     except Exception as e:
         logger.error("similarity_error", error=str(e))
@@ -385,17 +385,17 @@ async def voice_query(req: VoiceRequest):
         raise HTTPException(502, "AI service unavailable") from None
 
     t0 = time.time()
-    
+
     # Route voice queries through same tiered system
     classification = _classify_query(client, req.text)
     model_key, reason = _route_model(classification)
-    
+
     ctx_text = _sanitize_context(_build_context(req.context))
     user_msg = "[Voice query from field operator — keep response under 3 sentences for audio playback]\n\n"
     if ctx_text:
         user_msg += f"System state:\n{ctx_text}\n\n"
     user_msg += f"Operator says: {req.text}"
-    
+
     try:
         reply = _invoke_model(client, model_key, SYSTEM_PROMPT, user_msg, 200)
         latency = int((time.time() - t0) * 1000)
@@ -420,7 +420,7 @@ async def edge_inference(req: EdgeRequest):
         raise HTTPException(502, "AI service unavailable") from None
 
     model_key = req.model if req.model in ("nemotron-9b", "nemotron-30b", "nemotron-12b") else "nemotron-9b"
-    
+
     t0 = time.time()
     ctx_text = _sanitize_context(_build_context(req.context))
     user_msg = req.prompt
@@ -479,7 +479,7 @@ async def batch_rationalize(req: BatchRequest):
         raise HTTPException(502, "AI service unavailable") from None
 
     t0 = time.time()
-    
+
     # Build alarm summary for analysis
     alarm_text = f"Analyze these {len(req.alarms)} alarms for {req.analysis_type}:\n\n"
     for i, a in enumerate(req.alarms[:100]):  # Cap at 100 for context limits
@@ -490,7 +490,7 @@ async def batch_rationalize(req: BatchRequest):
         "trends": "Identify trending patterns: which assets are generating increasing alarm rates? Which alarm types are new vs recurring? Flag any cascading alarm sequences.",
         "nuisance": "Calculate nuisance alarm percentage. ISA-18.2 target is <5% nuisance rate. List each nuisance alarm with occurrence count and recommended action (suppress/retune/eliminate).",
     }
-    
+
     system = f"""You are an ISA-18.2 alarm management specialist analyzing SCADA alarm data.
 {analysis_prompts.get(req.analysis_type, analysis_prompts['rationalization'])}
 Format as a structured report with sections, counts, and specific recommendations."""
@@ -523,14 +523,14 @@ async def vision_inspect(
         raise HTTPException(502, "AI service unavailable") from None
 
     t0 = time.time()
-    
+
     import base64
     image_bytes = await image.read()
     if len(image_bytes) > 5_000_000:
         raise HTTPException(400, "Image must be under 5MB")
-    
+
     base64.b64encode(image_bytes).decode()
-    
+
     # Determine media type
     ct = image.content_type or "image/jpeg"
     if "png" in ct:
@@ -617,12 +617,12 @@ Format: Return only 3 lines starting with "•"
         bullets = [line.strip().lstrip("•").strip() for line in reply.strip().split("\n") if line.strip().startswith("•")]
         if not bullets:
             bullets = [line.strip() for line in reply.strip().split("\n") if line.strip()][:3]
-        
+
         return {
             "digest": bullets[:3],
             "model": "Haiku 4.5",
             "latency_ms": int((time.time() - t0) * 1000),
-            "timestamp": datetime.now(timezone.utc).isoformat(),
+            "timestamp": datetime.now(UTC).isoformat(),
         }
     except Exception as e:
         raise HTTPException(502, f"Digest failed: {str(e)[:100]}") from e

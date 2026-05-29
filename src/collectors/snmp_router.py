@@ -8,7 +8,6 @@ since both use standard SNMP MIBs for interface statistics.
 
 import asyncio
 import subprocess
-from typing import Optional
 
 from src.collectors.base import BaseCollector
 from src.models.telemetry import RawTelemetry
@@ -366,11 +365,11 @@ class SNMPNetworkCollector(BaseCollector):
         """Full SNMP walk for discovery."""
         return await asyncio.to_thread(self._snmp_walk_sync)
 
-    async def _snmp_get(self, oid: str) -> Optional[str]:
+    async def _snmp_get(self, oid: str) -> str | None:
         """Get a single OID value."""
         return await asyncio.to_thread(self._snmp_get_sync, oid)
 
-    def _snmp_get_sync(self, oid: str) -> Optional[str]:
+    def _snmp_get_sync(self, oid: str) -> str | None:
         """Synchronous SNMP GET via CLI."""
         try:
             result = subprocess.run(

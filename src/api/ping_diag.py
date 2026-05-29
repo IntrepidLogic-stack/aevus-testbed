@@ -68,7 +68,7 @@ async def _run_ping(target: str, count: int, interval: float, packet_size: int, 
             if proc.returncode != 0:
                 rtt = None
                 ttl = None
-        except (asyncio.TimeoutError, Exception):
+        except (TimeoutError, Exception):
             rtt = None
             ttl = None
 

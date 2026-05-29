@@ -61,11 +61,11 @@ def _validate_cognito_jwt(token: str) -> bool:
     try:
         import jwt
         from jwt import PyJWKClient
-        
+
         jwks_url = f"{COGNITO_ISSUER}/.well-known/jwks.json"
         jwk_client = PyJWKClient(jwks_url)
         signing_key = jwk_client.get_signing_key_from_jwt(token)
-        
+
         jwt.decode(
             token,
             signing_key.key,

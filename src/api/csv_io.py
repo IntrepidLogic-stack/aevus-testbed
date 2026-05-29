@@ -109,7 +109,7 @@ async def import_csv(file: UploadFile = File(...)):
             db.upsert_asset(asset)
             imported += 1
         except Exception as e:
-            errors.append("Row {}: {}".format(i, str(e)))
+            errors.append(f"Row {i}: {str(e)}")
             skipped += 1
 
     return {"imported": imported, "skipped": skipped, "errors": errors}

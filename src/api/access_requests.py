@@ -6,7 +6,7 @@ Enterprise access control: submit, review, approve/deny with Cognito integration
 from __future__ import annotations
 
 import json
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 
 import structlog
@@ -52,7 +52,7 @@ async def submit_access_request(req: AccessRequest):
     data["id"] = str(len(reqs) + 1).zfill(4)
     data["status"] = "pending"
     if not data.get("timestamp"):
-        data["timestamp"] = datetime.now(timezone.utc).isoformat()
+        data["timestamp"] = datetime.now(UTC).isoformat()
     reqs.append(data)
     _save(reqs)
     logger.info("access_request_submitted", email=data["email"], company=data.get("company"))
@@ -260,7 +260,7 @@ async def update_access_request(req_id: str, decision: AccessDecision):
         return {"status": "error", "message": "Request not found"}
 
     target["status"] = decision.status
-    target["decided_at"] = datetime.now(timezone.utc).isoformat()
+    target["decided_at"] = datetime.now(UTC).isoformat()
     target["decided_by"] = decision.decided_by
 
     # Approve → create Cognito user

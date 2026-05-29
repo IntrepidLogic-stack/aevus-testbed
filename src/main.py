@@ -22,6 +22,7 @@ from src.secrets_loader import inject_secrets  # noqa: E402
 
 inject_secrets()
 
+import asyncio  # noqa: E402
 from contextlib import asynccontextmanager  # noqa: E402
 from pathlib import Path  # noqa: E402
 
@@ -58,6 +59,7 @@ from src.collectors.snmp_router import SNMPNetworkCollector  # noqa: E402
 from src.config import settings  # noqa: E402
 from src.engine.alert_engine import AlertEngine  # noqa: E402
 from src.engine.notifier import NotificationEngine  # noqa: E402
+from src.engine.weather import WeatherEngine  # noqa: E402
 from src.integrations.mqtt_publisher import MQTTPublisher  # noqa: E402
 from src.scheduler import PollScheduler  # noqa: E402
 from src.storage.influx import InfluxStorage  # noqa: E402
@@ -111,9 +113,29 @@ class AppState:
             notifier=self.notifier,
         )
         self.mqtt_publisher: MQTTPublisher | None = None
+        # Weather/solar engine — feeds the Solar page (GHI/DNI irradiance →
+        # panel/battery model) and the /api/v1/weather endpoint. Instantiated
+        # here so app_state.weather_engine always exists; lifespan starts the
+        # refresh loop. Without this the weather router 500s on attribute access.
+        self.weather_engine = WeatherEngine()
 
 
 app_state = AppState()
+
+
+async def _weather_loop() -> None:
+    """Refresh weather/solar data at startup, then every weather_poll_interval.
+
+    Open-Meteo is free + keyless; WeatherEngine caches to disk so a fetch
+    failure degrades to the last good value instead of blanking the Solar page.
+    """
+    interval = max(60, settings.weather_poll_interval)
+    while True:
+        try:
+            await app_state.weather_engine.poll()
+        except Exception as e:  # noqa: BLE001 — never let the weather loop die
+            logger.warning("weather_poll_failed", error=str(e))
+        await asyncio.sleep(interval)
 
 
 def _register_simulators() -> None:
@@ -274,8 +296,10 @@ async def lifespan(app: FastAPI):
     _register_real_snmp_collectors()
     _register_mqtt_publisher()
     await app_state.scheduler.start()
+    weather_task = asyncio.create_task(_weather_loop())
     logger.info("aevus_main_started")
     yield
+    weather_task.cancel()
     await app_state.scheduler.stop()
 
 

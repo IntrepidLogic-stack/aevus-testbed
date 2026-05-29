@@ -23,10 +23,13 @@ from src.secrets_loader import inject_secrets  # noqa: E402
 inject_secrets()
 
 from contextlib import asynccontextmanager  # noqa: E402
+from pathlib import Path  # noqa: E402
 
 import structlog  # noqa: E402
 from fastapi import FastAPI  # noqa: E402
 from fastapi.middleware.cors import CORSMiddleware  # noqa: E402
+from fastapi.staticfiles import StaticFiles  # noqa: E402
+from starlette.responses import Response  # noqa: E402
 
 # API routers — these are the only ones verified to exist (CI: tests/test_imports.py)
 from src.api.access_requests import router as access_requests_router  # noqa: E402
@@ -313,6 +316,34 @@ for r in (
     app.include_router(r, prefix="/api/v1")
 
 
+# Serve dashboard static files. The registry-backed API lives under /api/v1;
+# everything below serves the single-file console + its sidecar JS assets.
+# NOTE: this block was lost once when EC2's src/ was aligned to a main.py that
+# only had a JSON root — keep it here so a `git checkout main -- src/` can never
+# silently take the dashboard offline again.
+DASHBOARD_DIR = Path(__file__).resolve().parent.parent / "dashboard"
+STAGING_DIR = DASHBOARD_DIR.parent / "dashboard-staging"
+
+if STAGING_DIR.exists():
+    app.mount("/staging", StaticFiles(directory=str(STAGING_DIR), html=True), name="staging")
+
+if DASHBOARD_DIR.exists():
+    app.mount("/dashboard", StaticFiles(directory=str(DASHBOARD_DIR), html=True), name="dashboard")
+
+
+@app.get("/login")
+async def login_page():
+    """Serve the login page."""
+    login_file = DASHBOARD_DIR / "login.html"
+    if login_file.exists():
+        return Response(content=login_file.read_text(), media_type="text/html")
+    return {"detail": "Login page not found"}
+
+
 @app.get("/")
 async def root():
+    """Serve the Aevus Console dashboard; fall back to a JSON health blob."""
+    index = DASHBOARD_DIR / "Aevus_Console.html"
+    if index.exists():
+        return Response(content=index.read_text(), media_type="text/html")
     return {"service": "aevus-testbed", "version": "0.1.0", "status": "ok"}

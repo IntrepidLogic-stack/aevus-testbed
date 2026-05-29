@@ -175,3 +175,109 @@ onboard additional edge gateways per site; regional broker tier if needed.
   firmware display for the lab demo, with this convergence doc as the committed
   real fix. Rationale: 2-radio lab; reversible; the enterprise answer is the
   edge-push model above, tracked as Phase 1–4 follow-ups.
+
+---
+
+## 7. Industry reference & standards (the enterprise IIoT/SCADA answer)
+
+This section records the canonical industry design Aevus converges toward, with
+the real standards, patterns, and product landscape — for the enterprise /
+investor / security-review conversation.
+
+### 7.1 The pattern: Unified Namespace (UNS) on MQTT + Sparkplug B
+
+The convergent modern IIoT design is a **Unified Namespace** — a single,
+structured, real-time, business-contextualized source of truth that every
+system publishes to and subscribes from:
+
+- **One broker = single source of truth.** Topic hierarchy mirrors the business:
+  `enterprise/site/area/line/cell/asset/metric`. PLCs, SCADA, MES, ERP,
+  analytics, dashboards all publish current state and subscribe to what they
+  need. **No point-to-point integrations** — producers and consumers are fully
+  decoupled. (Pattern popularized by the "Industry 4.0" community; now the
+  default reference design.)
+- **Report-by-exception**, not poll-everything: a device publishes only on
+  change. At thousands of nodes × thousands of points this is the difference
+  between a feasible system and a saturated network/historian.
+- **Last-known-value retained** at the broker (MQTT retained messages): any new
+  consumer instantly has current state without polling anyone.
+
+**Sparkplug B** (Eclipse Foundation open spec) sits on top of MQTT and is the
+piece that structurally eliminates the bugs we hit in the lab:
+
+- **Stateful session awareness:** `NBIRTH`/`DBIRTH` (online + full tag
+  definitions), `NDATA`/`DDATA` (changes), `NDEATH`/`DDEATH` via MQTT
+  Last-Will → instant, unambiguous OFFLINE. A consumer always knows whether data
+  is live, stale, or dead → **a real asset's fields can never silently show a
+  fabricated value** (the exact failure mode of our simulator fallback).
+- **Self-describing payloads** + auto-discovery of new assets.
+
+### 7.2 Protocol layering: OPC-UA at the edge, MQTT/Sparkplug for transport
+
+The two giants are **OPC-UA** (OT interoperability standard — pub/sub +
+per-industry companion specs) and **MQTT/Sparkplug**. The mature answer layers
+them:
+
+- **OPC-UA / Modbus / DNP3 / SNMP** at the device-and-edge layer (acquisition).
+- **MQTT + Sparkplug B** for transport edge → UNS → cloud.
+
+MQTT won the transport layer largely because it is **outbound-only from OT** —
+the edge dials *out* to the broker, so no inbound hole is opened into the plant
+network. This is the IEC 62443 / Purdue-friendly property that lets security
+teams approve it. (Cloud reaching *into* the OT LAN — what the interim EC2 path
+does — is precisely what this architecture forbids.)
+
+### 7.3 Segmentation & security: Purdue / ISA-95 + IEC 62443
+
+- **Levels:** L0 sensors/actuators → L1 PLC/RTU → L2 SCADA/HMI → L3
+  MES/historian → **L3.5 OT/IT DMZ** → L4/L5 enterprise/cloud. Nothing skips the
+  DMZ; cloud never originates connections into OT.
+- **IEC 62443** for the security program: zones & conduits, signed firmware,
+  zero-trust, least privilege.
+- **No remote writes to safety-critical devices** — Aevus's **IL-9000 interlock**
+  (P-008) is exactly this enterprise posture encoded in software: the platform
+  stages/verifies/schedules firmware but a credentialed tech performs the final
+  write on site.
+
+### 7.4 Contextualization, historian & digital twin
+
+- **Edge contextualization ("DataOps"):** raw tags → modeled assets *before*
+  they leave the edge (HighByte Intelligence Hub, Ignition UDTs, ISA-95
+  equipment models). The UNS carries modeled assets, not raw register dumps.
+- **Historian / TSDB:** AVEVA PI (OT incumbent), InfluxDB, TimescaleDB, AWS
+  Timestream, Azure Data Explorer.
+- **Digital twin / asset model:** AWS IoT TwinMaker / SiteWise, Azure Digital
+  Twins. Gives the AI/RCA layer a structured world model to reason over.
+
+### 7.5 Product landscape (what enterprises buy/build with)
+
+| Layer | Representative options |
+|---|---|
+| SCADA / edge platform | **Ignition** (MQTT-native, modern default), AVEVA, GE Proficy, Siemens WinCC, Rockwell FactoryTalk |
+| Edge contextualization | **HighByte Intelligence Hub**, Litmus Edge, Ignition UDTs |
+| MQTT broker (UNS) | **HiveMQ**, **EMQX** (enterprise Sparkplug), AWS IoT Core, Azure IoT Hub |
+| Edge runtime / fleet mgmt | **AWS IoT Greengrass**, Azure IoT Edge, balena |
+| Historian / TSDB | AVEVA PI, InfluxDB, TimescaleDB, AWS Timestream |
+| Digital twin / asset model | AWS TwinMaker / SiteWise, Azure Digital Twins, ISA-95 |
+| IT-side streaming/analytics | Kafka / Kinesis → lakehouse (Databricks/Snowflake) → ML |
+
+### 7.6 Software-engineering discipline
+
+Streaming-first, event-driven; schema registry/contracts (Sparkplug
+self-describes, or Avro/Protobuf in Kafka); idempotent consumers; dead-letter
+queues; backpressure; **data-freshness as an SLO** (our real-time stale banner +
+24h uptime % are the seed of this); GitOps + IaC for the whole pipeline; edge
+fleet OTA via managed deployments; pipeline observability.
+
+### 7.7 Aevus positioning (one-line)
+
+> **A Unified Namespace on MQTT + Sparkplug B, fed by edge gateways doing
+> OPC-UA/Modbus/DNP3/SNMP acquisition and contextualization, with OT/IT
+> segmentation per IEC 62443, a historian + digital-twin model, and the Aevus
+> cloud/AI (Bedrock RCA) as a *subscriber* — never a poller.**
+
+This is the slide answer to "how does Aevus scale to thousands of nodes and stay
+OT-secure." Aevus already has the edge collector, MQTT→IoT Core publisher
+(#20–25, #61), IoT→S3 archive (#62), a SiteWise asset model (#24), and Greengrass
+(#16–19). Phases 1–4 (§5) converge onto this path; **Phase 5 adopts Sparkplug B
++ a true UNS broker (HiveMQ/EMQX)** as the fleet grows past the lab.

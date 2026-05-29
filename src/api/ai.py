@@ -270,7 +270,7 @@ async def ai_ask(req: AIRequest):
     try:
         client = _get_client()
     except Exception:
-        raise HTTPException(502, "AI service unavailable")
+        raise HTTPException(502, "AI service unavailable") from None
 
     t0 = time.time()
     
@@ -312,7 +312,7 @@ async def ai_ask(req: AIRequest):
         )
     except Exception as e:
         logger.error("ai_invoke_error", model=model_key, error=str(e))
-        raise HTTPException(502, f"AI inference failed: {str(e)[:100]}")
+        raise HTTPException(502, f"AI inference failed: {str(e)[:100]}") from e
 
 
 # --- #3: Alarm similarity search (Cohere Embed v4 + Rerank) ---
@@ -321,7 +321,7 @@ async def alarm_similarity(req: SimilarityRequest):
     try:
         client = _get_client()
     except Exception:
-        raise HTTPException(502, "AI service unavailable")
+        raise HTTPException(502, "AI service unavailable") from None
 
     # Build alarm corpus from provided history or stored embeddings
     corpus = []
@@ -371,7 +371,7 @@ async def alarm_similarity(req: SimilarityRequest):
         return SimilarityResponse(similar=similar, model="Cohere Rerank 3.5 + Embed v4")
     except Exception as e:
         logger.error("similarity_error", error=str(e))
-        raise HTTPException(502, f"Similarity search failed: {str(e)[:100]}")
+        raise HTTPException(502, f"Similarity search failed: {str(e)[:100]}") from e
 
 
 # --- #4: Voice interface (Nova Sonic text bridge) ---
@@ -382,7 +382,7 @@ async def voice_query(req: VoiceRequest):
     try:
         client = _get_client()
     except Exception:
-        raise HTTPException(502, "AI service unavailable")
+        raise HTTPException(502, "AI service unavailable") from None
 
     t0 = time.time()
     
@@ -406,7 +406,7 @@ async def voice_query(req: VoiceRequest):
             latency_ms=latency,
         )
     except Exception as e:
-        raise HTTPException(502, f"Voice AI failed: {str(e)[:100]}")
+        raise HTTPException(502, f"Voice AI failed: {str(e)[:100]}") from e
 
 
 # --- #5: Edge inference simulation (Nemotron on Bedrock as proxy for Jetson) ---
@@ -417,7 +417,7 @@ async def edge_inference(req: EdgeRequest):
     try:
         client = _get_client()
     except Exception:
-        raise HTTPException(502, "AI service unavailable")
+        raise HTTPException(502, "AI service unavailable") from None
 
     model_key = req.model if req.model in ("nemotron-9b", "nemotron-30b", "nemotron-12b") else "nemotron-9b"
     
@@ -441,7 +441,7 @@ Respond in 2-3 sentences maximum. Focus on actionable status and immediate safet
             simulated_edge=True,  # True until real Jetson deployed
         )
     except Exception as e:
-        raise HTTPException(502, f"Edge inference failed: {str(e)[:100]}")
+        raise HTTPException(502, f"Edge inference failed: {str(e)[:100]}") from e
 
 
 # --- #6: Fine-tuning data pipeline ---
@@ -476,7 +476,7 @@ async def batch_rationalize(req: BatchRequest):
     try:
         client = _get_client()
     except Exception:
-        raise HTTPException(502, "AI service unavailable")
+        raise HTTPException(502, "AI service unavailable") from None
 
     t0 = time.time()
     
@@ -506,7 +506,7 @@ Format as a structured report with sections, counts, and specific recommendation
             latency_ms=latency,
         )
     except Exception as e:
-        raise HTTPException(502, f"Batch analysis failed: {str(e)[:100]}")
+        raise HTTPException(502, f"Batch analysis failed: {str(e)[:100]}") from e
 
 
 # --- #8: Vision-based equipment inspection (Nemotron 12B VL) ---
@@ -520,7 +520,7 @@ async def vision_inspect(
     try:
         client = _get_client()
     except Exception:
-        raise HTTPException(502, "AI service unavailable")
+        raise HTTPException(502, "AI service unavailable") from None
 
     t0 = time.time()
     
@@ -562,7 +562,7 @@ Provide specific, actionable maintenance recommendations."""
         return VisionResponse(analysis=reply, model="Nemotron 12B VL (edge-ready)", latency_ms=latency)
     except Exception as e:
         logger.error("vision_error", error=str(e))
-        raise HTTPException(502, f"Vision analysis failed: {str(e)[:100]}")
+        raise HTTPException(502, f"Vision analysis failed: {str(e)[:100]}") from e
 
 
 # --- Model catalog endpoint ---
@@ -599,7 +599,7 @@ async def situation_digest(context: dict | None = None):
     try:
         client = _get_client()
     except Exception:
-        raise HTTPException(502, "AI service unavailable")
+        raise HTTPException(502, "AI service unavailable") from None
 
     ctx_text = _sanitize_context(_build_context(context))
     if not ctx_text:
@@ -625,4 +625,4 @@ Format: Return only 3 lines starting with "•"
             "timestamp": datetime.now(timezone.utc).isoformat(),
         }
     except Exception as e:
-        raise HTTPException(502, f"Digest failed: {str(e)[:100]}")
+        raise HTTPException(502, f"Digest failed: {str(e)[:100]}") from e

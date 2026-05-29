@@ -436,6 +436,20 @@ THRESHOLD_MAP: dict[str, dict] = {
         "label": "RX DROPPED",
         "fmt": "{:,.0f}",
     },
+    "latency": {
+        # ICMP round-trip heartbeat to the radio. Local P2P links are a few ms;
+        # rising latency is an early warning of congestion / marginal RF.
+        "direction": "upper_bad",
+        "warn": 50.0,
+        "crit": 200.0,
+        "label": "LATENCY",
+        "fmt": "{:.0f}",
+    },
+    "radio_role": {
+        "direction": "info",
+        "label": "ROLE",
+        "fmt": "{}",
+    },
     # --- Switch (Cisco) ---
     "cpu_load_1min": {
         "direction": "upper_bad",
@@ -522,6 +536,9 @@ def normalize_reading(reading: RawTelemetry) -> VitalSign:
         display = "LIT" if reading.value >= 1.0 else "OUT"
     elif reading.metric == "link_state":
         display = "LINKED" if reading.value >= 1.0 else "DOWN"
+    elif reading.metric == "radio_role":
+        # Trio JR900: 1 = Access Point (master), 2 = Remote (slave)
+        display = "MASTER" if reading.value == 1.0 else "SLAVE" if reading.value == 2.0 else "—"
     else:
         try:
             display = f"{fmt.format(reading.value)} {reading.unit}"

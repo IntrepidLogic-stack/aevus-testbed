@@ -365,7 +365,7 @@ class AlertEngine:
 
         return None
 
-    def resolve(self, alert_id: str, db=None) -> "Alert | None":
+    def resolve(self, alert_id: str, db=None) -> Alert | None:
         """Resolve an open or acknowledged alert by ID."""
         # Check in-memory first
         for _key, alert in self._open_alerts.items():

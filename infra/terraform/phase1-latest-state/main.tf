@@ -146,6 +146,44 @@ resource "aws_iot_topic_rule" "latest_state" {
   tags = merge(local.common_tags, { Name = "aevus_latest_state_to_ddb" })
 }
 
+# ---------- Phase 1.5: state stream → latest-state table ----------
+# The edge also publishes derived/metadata STATE (firmware, health, status,
+# last_seen, uptime_24h) to aevus/{site}/{asset}/state/{key}. We land these in
+# the SAME table, namespacing the sort key as "state:<key>" so state and
+# telemetry coexist under one asset_id partition. A single Query(asset_id) then
+# returns everything the read-API needs (Phase 2). Reuses the role + table.
+resource "aws_iot_topic_rule" "state" {
+  name        = "aevus_state_to_ddb"
+  enabled     = true
+  sql         = <<-SQL
+    SELECT
+      topic(3)                   AS asset_id,
+      concat('state:', topic(5)) AS metric,
+      topic(2)                   AS site,
+      payload.state              AS value,
+      source                     AS source,
+      timestamp()                AS updated_ms
+    FROM 'aevus/+/+/state/+'
+  SQL
+  sql_version = "2016-03-23"
+
+  dynamodbv2 {
+    role_arn = aws_iam_role.iot_to_ddb.arn
+    put_item {
+      table_name = aws_dynamodb_table.latest_state.name
+    }
+  }
+
+  error_action {
+    cloudwatch_logs {
+      log_group_name = aws_cloudwatch_log_group.rule_errors.name
+      role_arn       = aws_iam_role.iot_to_ddb.arn
+    }
+  }
+
+  tags = merge(local.common_tags, { Name = "aevus_state_to_ddb" })
+}
+
 resource "aws_cloudwatch_log_group" "rule_errors" {
   name              = "/aws/iot/aevus-latest-state-errors"
   retention_in_days = 14

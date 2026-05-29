@@ -325,6 +325,29 @@ class PollScheduler:
                 except Exception as e:
                     self.log.warning("mqtt_telemetry_publish_failed", error=str(e))
 
+            # Phase 1.5 (edge→cloud convergence): publish asset STATE — the
+            # metadata/derived fields the cloud read-API needs but that aren't
+            # telemetry (firmware, health, status, last_seen, uptime). Lands in
+            # the same latest-state store via the aevus_state_to_ddb IoT rule
+            # (metric namespaced "state:<key>"). See
+            # docs/PHASE2_read_api_convergence_design.md.
+            state_items: dict[str, str] = {
+                "health": str(score),
+                "status": status,
+                "last_seen": now.isoformat(),
+            }
+            if asset is not None and asset.firmware:
+                state_items["firmware"] = asset.firmware
+            if uptime is not None:
+                state_items["uptime_24h"] = f"{uptime:.1f}"
+            for key, val in state_items.items():
+                try:
+                    await self._mqtt_publisher.publish_state(
+                        asset_id=asset_id, key=key, state_value=val, source="edge"
+                    )
+                except Exception as e:
+                    self.log.warning("mqtt_state_publish_failed", key=key, error=str(e))
+
         if alert_changes:
             await ws_manager.broadcast(
                 "alert_update",

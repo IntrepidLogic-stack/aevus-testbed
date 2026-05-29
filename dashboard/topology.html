@@ -581,7 +581,8 @@ const assetToNode = {
   'RAD-02': 'trio2',
   'RTR-01': 'mikrotik',
   'RTU-01': 'scadapack',
-  'SW-01':  'catalyst'
+  'SW-01':  'catalyst',
+  'EDGE-01': 'pi'
 };
 
 // ── API STATUS → TOPOLOGY STATUS MAPPING ──
@@ -898,7 +899,7 @@ function timeAgo(date) {
 // ── WEBSOCKET ──
 function connectWebSocket() {
   const protocol = location.protocol === 'https:' ? 'wss:' : 'ws:';
-  const wsUrl = `${protocol}//${location.host}/api/v1/ws`;
+  const wsUrl = `${protocol}//${location.host}/api/v1/ws?key=${API_KEY}`;
   console.log(`[Topology] Connecting WebSocket: ${wsUrl}`);
 
   const ws = new WebSocket(wsUrl);

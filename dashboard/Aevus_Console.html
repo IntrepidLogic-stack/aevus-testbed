@@ -174,7 +174,58 @@ body {
   font-weight: 600;
   color: var(--text-primary);
 }
-.site-selector svg { width: 14px; height: 14px; color: var(--text-muted); }
+.site-selector svg { width: 14px; height: 14px; color: var(--text-muted); transition: transform 0.2s; }
+.site-selector.open svg { transform: rotate(180deg); }
+.site-selector { position: relative; }
+.site-dropdown {
+  display: none;
+  position: absolute;
+  bottom: calc(100% + 6px);
+  left: 0; right: 0;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-md);
+  overflow: hidden;
+  z-index: 200;
+  box-shadow: 0 8px 24px rgba(0,0,0,0.4);
+}
+.site-dropdown.show { display: block; }
+.site-dropdown-item {
+  padding: 10px 14px;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text-secondary);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.site-dropdown-item:hover { background: rgba(6,182,212,0.08); color: var(--text-primary); }
+.site-dropdown-item.active { color: var(--accent); font-weight: 600; }
+.site-dropdown-item .site-dot {
+  width: 6px; height: 6px; border-radius: 50%; flex-shrink: 0;
+}
+.site-dropdown-item .site-dot.live { background: var(--status-good); }
+.site-dropdown-item .site-dot.demo { background: var(--status-unknown); }
+
+/* Topbar site pill dropdown */
+.site-pill { position: relative; cursor: pointer; }
+.site-pill.open .chev { transform: rotate(180deg); }
+.site-pill .chev { transition: transform 0.2s; }
+.topbar-site-dropdown {
+  display: none;
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 0;
+  min-width: 220px;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-md);
+  overflow: hidden;
+  z-index: 200;
+  box-shadow: 0 8px 24px rgba(0,0,0,0.4);
+}
+.topbar-site-dropdown.show { display: block; }
 
 .account-widget {
   background: var(--bg-elevated);
@@ -1622,9 +1673,17 @@ body {
     </nav>
 
     <div class="sidebar-bottom">
-      <div class="site-selector">
-        <span>North Field Platform</span>
+      <div class="site-selector" id="sidebar-site-selector">
+        <span id="sidebar-site-label">North Field Platform</span>
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+        <div class="site-dropdown" id="sidebar-site-dropdown">
+          <div class="site-dropdown-item active" data-site="north-field">
+            <span class="site-dot demo"></span> North Field Platform
+          </div>
+          <div class="site-dropdown-item" data-site="killdeer">
+            <span class="site-dot live"></span> Killdeer Field
+          </div>
+        </div>
       </div>
       <div class="account-widget">
         <div class="account-avatar">AD</div>
@@ -1648,10 +1707,18 @@ body {
         <div class="page-subtitle" id="page-subtitle">Real-time overview of your monitored assets and systems</div>
       </div>
       <div class="topbar-actions">
-        <div class="site-pill">
+        <div class="site-pill" id="topbar-site-pill">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><line x1="3" y1="21" x2="21" y2="21"/><line x1="9" y1="8" x2="9" y2="8.01"/><line x1="9" y1="12" x2="9" y2="12.01"/><line x1="9" y1="16" x2="9" y2="16.01"/><line x1="15" y1="8" x2="15" y2="8.01"/><line x1="15" y1="12" x2="15" y2="12.01"/><line x1="15" y1="16" x2="15" y2="16.01"/><path d="M5 21V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v16"/></svg>
-          <span>North Field Platform</span>
+          <span id="topbar-site-label">North Field Platform</span>
           <svg class="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+          <div class="topbar-site-dropdown" id="topbar-site-dropdown">
+            <div class="site-dropdown-item active" data-site="north-field">
+              <span class="site-dot demo"></span> North Field Platform
+            </div>
+            <div class="site-dropdown-item" data-site="killdeer">
+              <span class="site-dot live"></span> Killdeer Field
+            </div>
+          </div>
         </div>
         <div class="timestamp-block">
           <span class="ts-label">Last updated</span>
@@ -2659,7 +2726,7 @@ window.markers = null;      // Set below after definition
 window.renderMarkers = null; // Set below after definition
 
 // ─────────────────── ALERTS DATA ───────────────────
-const alerts = [
+let alerts = [
   { sev: 'critical', time: '2m ago', asset: 'Radio – Control Room 2', desc: 'High failure probability detected', score: 98 },
   { sev: 'warning',  time: '15m ago', asset: 'PLC – Compressor 3', desc: 'Performance degradation detected', score: 72 },
   { sev: 'warning',  time: '27m ago', asset: 'Radio – Tank Battery 5', desc: 'Signal interference increasing', score: 65 },
@@ -2700,7 +2767,7 @@ function renderAlerts() {
 }
 
 // ─────────────────── PREDICTED FAILURES ───────────────────
-const predictions = [
+let predictions = [
   { sev: 'bad',  asset: 'Radio – Control Room 2', type: 'Radio', loc: 'Control Room', risk: 98, days: '3 days' },
   { sev: 'warn', asset: 'PLC – Compressor 3',     type: 'PLC',   loc: 'Compressor Station 3', risk: 72, days: '7 days' },
   { sev: 'warn', asset: 'Radio – Tower A',        type: 'Radio', loc: 'Radio Tower A', risk: 65, days: '11 days' },
@@ -2743,7 +2810,7 @@ function renderPredictions() {
 
 // ─────────────────── ASSET MAP MARKERS ───────────────────
 // Each marker carries full asset detail for the drilldown drawer.
-const markers = [
+let markers = [
   // ─── Compressor Station 1 (top-left) ───
   {
     id: 'PLC-CS1-101', x: 100, y: 130, status: 'good', type: 'plc',
@@ -3180,12 +3247,16 @@ const STATUS_LABELS = {
 const TYPE_LABELS = {
   radio: 'Radio Transceiver', plc: 'Programmable Logic Controller',
   gateway: 'Network Gateway', sensor: 'Field Sensor',
+  router: 'Network Router', switch: 'Network Switch', rtu: 'Remote Terminal Unit',
 };
 const TYPE_ICONS = {
   radio:   '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.55a11 11 0 0 1 14.08 0"/><path d="M1.42 9a16 16 0 0 1 21.16 0"/><path d="M8.53 16.11a6 6 0 0 1 6.95 0"/><line x1="12" y1="20" x2="12.01" y2="20"/></svg>',
   plc:     '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="4" width="16" height="16" rx="2"/><rect x="9" y="9" width="6" height="6"/><line x1="9" y1="2" x2="9" y2="4"/><line x1="15" y1="2" x2="15" y2="4"/><line x1="9" y1="20" x2="9" y2="22"/><line x1="15" y1="20" x2="15" y2="22"/><line x1="20" y1="9" x2="22" y2="9"/><line x1="20" y1="14" x2="22" y2="14"/><line x1="2" y1="9" x2="4" y2="9"/><line x1="2" y1="14" x2="4" y2="14"/></svg>',
   gateway: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="2" width="20" height="8" rx="2"/><rect x="2" y="14" width="20" height="8" rx="2"/><line x1="6" y1="6" x2="6.01" y2="6"/><line x1="6" y1="18" x2="6.01" y2="18"/></svg>',
   sensor:  '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>',
+  router:  '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="14" width="20" height="7" rx="2"/><path d="M6.5 14v-4a1 1 0 0 1 1-1h9a1 1 0 0 1 1 1v4"/><circle cx="6" cy="17.5" r="1"/><circle cx="18" cy="17.5" r="1"/><path d="M12 3v6"/><path d="M8 6l4-3 4 3"/></svg>',
+  switch:  '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="8" width="20" height="8" rx="2"/><line x1="6" y1="12" x2="6.01" y2="12"/><line x1="10" y1="12" x2="10.01" y2="12"/><line x1="14" y1="12" x2="14.01" y2="12"/><line x1="18" y1="12" x2="18.01" y2="12"/></svg>',
+  rtu:     '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="7" y1="8" x2="17" y2="8"/><line x1="7" y1="12" x2="13" y2="12"/><circle cx="8" cy="16" r="1"/><circle cx="12" cy="16" r="1"/></svg>',
 };
 
 function openDrawer(markerId) {
@@ -3290,6 +3361,282 @@ function closeDrawer() {
 document.getElementById('drawer-backdrop').addEventListener('click', closeDrawer);
 document.addEventListener('keydown', (e) => { if (e.key === 'Escape') closeDrawer(); });
 
+// ─────────────────── SITE DATA ───────────────────
+
+// Store North Field defaults
+const northFieldData = {
+  name: 'North Field Platform',
+  markers: JSON.parse(JSON.stringify(markers)),
+  alerts: JSON.parse(JSON.stringify(alerts)),
+  predictions: JSON.parse(JSON.stringify(predictions)),
+  kpi: { assets: '1,248', health: '92', predicted: '7', alertsActive: '10', critCount: '3', warnCount: '7' },
+  mapTabs: ['all', 'radio', 'plc', 'gateway', 'sensor'],
+  schematic: document.getElementById('schematic').innerHTML,
+};
+
+// Killdeer Field — lab testbed devices
+const killdeerSchematic = `
+  <text class="zone-label" x="550" y="50" text-anchor="middle">Killdeer Field - Lab Cabinet</text>
+
+  <!-- INTERNET CLOUD -->
+  <ellipse cx="550" cy="100" rx="70" ry="22" fill="none" stroke="rgba(255,255,255,0.15)" stroke-width="1"/>
+  <text x="550" y="104" text-anchor="middle" fill="rgba(255,255,255,0.3)" font-size="10" font-family="var(--font-mono)">Internet</text>
+
+  <!-- MIKROTIK ROUTER -->
+  <rect x="475" y="150" width="150" height="50" rx="4" fill="rgba(0,212,170,0.08)" stroke="rgba(0,212,170,0.5)" stroke-width="1.2"/>
+  <text x="550" y="172" text-anchor="middle" fill="rgba(255,255,255,0.6)" font-size="10" font-family="var(--font)">MikroTik L009</text>
+  <text x="550" y="188" text-anchor="middle" fill="rgba(255,255,255,0.3)" font-size="8" font-family="var(--font-mono)">192.168.88.1</text>
+
+  <!-- Internet to MikroTik -->
+  <line x1="550" y1="122" x2="550" y2="150" stroke="rgba(255,255,255,0.12)" stroke-width="1"/>
+
+  <!-- CISCO CATALYST 2960 -->
+  <rect x="475" y="250" width="150" height="50" rx="4" fill="rgba(74,158,255,0.08)" stroke="rgba(74,158,255,0.5)" stroke-width="1.2"/>
+  <text x="550" y="272" text-anchor="middle" fill="rgba(255,255,255,0.6)" font-size="10" font-family="var(--font)">Catalyst 2960</text>
+  <text x="550" y="288" text-anchor="middle" fill="rgba(255,255,255,0.3)" font-size="8" font-family="var(--font-mono)">192.168.88.2</text>
+
+  <!-- MikroTik to Catalyst -->
+  <line x1="550" y1="200" x2="550" y2="250" stroke="rgba(74,158,255,0.3)" stroke-width="1.2"/>
+  <text x="565" y="228" fill="rgba(255,255,255,0.2)" font-size="7" font-family="var(--font-mono)">ether5 &rarr; Gi0/1</text>
+
+  <!-- TRIO JR900 #1 -->
+  <rect x="100" y="155" width="140" height="45" rx="4" fill="rgba(255,217,61,0.08)" stroke="rgba(255,217,61,0.5)" stroke-width="1.2"/>
+  <text x="170" y="175" text-anchor="middle" fill="rgba(255,255,255,0.6)" font-size="10" font-family="var(--font)">Trio JR900 #1</text>
+  <text x="170" y="190" text-anchor="middle" fill="rgba(255,255,255,0.3)" font-size="8" font-family="var(--font-mono)">No IP (L2 only)</text>
+
+  <!-- MikroTik to Trio #1 -->
+  <line x1="475" y1="175" x2="240" y2="175" stroke="rgba(255,217,61,0.3)" stroke-width="1.2" stroke-dasharray="6,4"/>
+  <text x="360" y="168" fill="rgba(255,255,255,0.2)" font-size="7" font-family="var(--font-mono)">ether4</text>
+
+  <!-- TRIO JR900 #2 -->
+  <rect x="200" y="310" width="140" height="45" rx="4" fill="rgba(255,217,61,0.08)" stroke="rgba(255,217,61,0.5)" stroke-width="1.2"/>
+  <text x="270" y="330" text-anchor="middle" fill="rgba(255,255,255,0.6)" font-size="10" font-family="var(--font)">Trio JR900 #2</text>
+  <text x="270" y="345" text-anchor="middle" fill="rgba(255,255,255,0.3)" font-size="8" font-family="var(--font-mono)">Powered Off</text>
+
+  <!-- Catalyst to Trio #2 -->
+  <line x1="475" y1="285" x2="340" y2="320" stroke="rgba(255,217,61,0.2)" stroke-width="1" stroke-dasharray="6,4"/>
+  <text x="395" y="295" fill="rgba(255,255,255,0.15)" font-size="7" font-family="var(--font-mono)">Fa0/1</text>
+
+  <!-- SCADAPACK 470 -->
+  <rect x="460" y="340" width="150" height="45" rx="4" fill="rgba(255,140,66,0.08)" stroke="rgba(255,140,66,0.5)" stroke-width="1.2"/>
+  <text x="535" y="360" text-anchor="middle" fill="rgba(255,255,255,0.6)" font-size="10" font-family="var(--font)">SCADAPack 470</text>
+  <text x="535" y="375" text-anchor="middle" fill="rgba(255,255,255,0.3)" font-size="8" font-family="var(--font-mono)">Powered Off</text>
+
+  <!-- Catalyst to SCADAPack -->
+  <line x1="535" y1="300" x2="535" y2="340" stroke="rgba(255,140,66,0.2)" stroke-width="1" stroke-dasharray="6,4"/>
+  <text x="548" y="322" fill="rgba(255,255,255,0.15)" font-size="7" font-family="var(--font-mono)">Fa0/2</text>
+
+  <!-- RASPBERRY PI -->
+  <rect x="740" y="260" width="140" height="45" rx="4" fill="rgba(52,211,153,0.08)" stroke="rgba(52,211,153,0.5)" stroke-width="1.2"/>
+  <text x="810" y="280" text-anchor="middle" fill="rgba(255,255,255,0.6)" font-size="10" font-family="var(--font)">Raspberry Pi</text>
+  <text x="810" y="295" text-anchor="middle" fill="rgba(255,255,255,0.3)" font-size="8" font-family="var(--font-mono)">192.168.88.254</text>
+
+  <!-- Catalyst to Pi -->
+  <line x1="625" y1="275" x2="740" y2="275" stroke="rgba(52,211,153,0.3)" stroke-width="1.2"/>
+  <text x="680" y="268" fill="rgba(255,255,255,0.2)" font-size="7" font-family="var(--font-mono)">Fa0/4</text>
+
+  <!-- UPLOGIX 5000 -->
+  <rect x="700" y="340" width="140" height="45" rx="4" fill="rgba(192,132,252,0.08)" stroke="rgba(192,132,252,0.5)" stroke-width="1.2"/>
+  <text x="770" y="360" text-anchor="middle" fill="rgba(255,255,255,0.6)" font-size="10" font-family="var(--font)">Uplogix 5000</text>
+  <text x="770" y="375" text-anchor="middle" fill="rgba(255,255,255,0.3)" font-size="8" font-family="var(--font-mono)">Powered Off</text>
+
+  <!-- Catalyst to Uplogix -->
+  <line x1="625" y1="290" x2="700" y2="350" stroke="rgba(192,132,252,0.2)" stroke-width="1" stroke-dasharray="6,4"/>
+  <text x="660" y="318" fill="rgba(255,255,255,0.15)" font-size="7" font-family="var(--font-mono)">Fa0/3</text>
+
+  <!-- EC2 CLOUD -->
+  <ellipse cx="900" cy="130" rx="60" ry="20" fill="none" stroke="rgba(96,165,250,0.4)" stroke-width="1" stroke-dasharray="4,3"/>
+  <text x="900" y="128" text-anchor="middle" fill="rgba(96,165,250,0.6)" font-size="9" font-family="var(--font)">AWS EC2</text>
+  <text x="900" y="140" text-anchor="middle" fill="rgba(96,165,250,0.3)" font-size="7" font-family="var(--font-mono)">10.99.0.1</text>
+
+  <!-- WireGuard tunnel MikroTik to EC2 -->
+  <path d="M625,165 Q760,120 840,130" fill="none" stroke="rgba(96,165,250,0.3)" stroke-width="1" stroke-dasharray="5,3"/>
+  <text x="740" y="135" fill="rgba(96,165,250,0.3)" font-size="7" font-family="var(--font-mono)">WireGuard</text>
+
+  <!-- ASSET MARKERS -->
+  <g id="asset-markers"></g>
+`;
+
+const killdeerMarkers = [
+  {
+    id: 'RTR-01', x: 550, y: 175, status: 'good', type: 'router',
+    name: 'MikroTik L009', location: 'Lab Cabinet',
+    health: 94, lastSeen: '30s ago',
+    vendor: 'MikroTik', model: 'L009UiGS-2HaxD-IN', firmware: 'v7.x',
+    vitals: [
+      { label: 'CPU LOAD', value: '2%', status: 'good' },
+      { label: 'MEMORY', value: '32%', status: 'good' },
+      { label: 'INTERFACES UP', value: '5', status: 'good' },
+      { label: 'UPTIME', value: '30+ days', status: 'good' },
+    ],
+    events: [
+      { time: '30s ago', type: 'good', message: 'SNMP poll successful' },
+      { time: '1h ago',  type: 'good', message: 'All interfaces stable' },
+      { time: '7d ago',  type: 'info', message: 'WireGuard tunnel established to EC2' },
+    ],
+  },
+  {
+    id: 'SW-01', x: 550, y: 275, status: 'good', type: 'switch',
+    name: 'Cisco Catalyst 2960', location: 'Lab Cabinet',
+    health: 88, lastSeen: '30s ago',
+    vendor: 'Cisco', model: 'Catalyst 2960', firmware: 'IOS 15.x',
+    vitals: [
+      { label: 'VLAN1 IN', value: '1.2 MB', status: 'good' },
+      { label: 'VLAN1 OUT', value: '0.8 MB', status: 'good' },
+      { label: 'PORTS ACTIVE', value: '3/24', status: 'good' },
+      { label: 'UPTIME', value: '12+ hrs', status: 'good' },
+    ],
+    events: [
+      { time: '30s ago', type: 'good', message: 'SNMP poll successful' },
+      { time: '2h ago',  type: 'info', message: 'Password recovery and full config completed' },
+    ],
+  },
+  {
+    id: 'EDGE-01', x: 810, y: 280, status: 'good', type: 'router',
+    name: 'Raspberry Pi 5', location: 'Lab Cabinet',
+    health: 91, lastSeen: '30s ago',
+    vendor: 'Raspberry Pi', model: 'Pi 5',
+    vitals: [
+      { label: 'CPU LOAD', value: '1%', status: 'good' },
+      { label: 'MEMORY', value: '16%', status: 'good' },
+      { label: 'LOAD AVG', value: '0.01', status: 'good' },
+      { label: 'UPTIME', value: '0.2 hrs', status: 'good' },
+    ],
+    events: [
+      { time: '30s ago', type: 'good', message: 'SNMP poll successful' },
+      { time: '1h ago',  type: 'info', message: 'SNMPD configured and live' },
+    ],
+  },
+  {
+    id: 'RAD-01', x: 170, y: 175, status: 'unknown', type: 'radio',
+    name: 'Trio JR900 #1', location: 'Lab Cabinet',
+    health: null, lastSeen: 'Never',
+    vendor: 'Trio', model: 'JR900',
+    vitals: [
+      { label: 'STATUS', value: 'L2 Only', status: '' },
+      { label: 'MAC', value: '00:1F:EB:00:75:6F', status: '' },
+    ],
+    events: [
+      { time: '—', type: 'warn', message: 'No IP assigned — needs serial console config' },
+    ],
+  },
+  {
+    id: 'RAD-02', x: 270, y: 330, status: 'offline', type: 'radio',
+    name: 'Trio JR900 #2', location: 'Lab Cabinet',
+    health: null, lastSeen: 'Never',
+    vendor: 'Trio', model: 'JR900',
+    vitals: [],
+    events: [
+      { time: '—', type: 'warn', message: 'Powered off — needs physical access' },
+    ],
+  },
+  {
+    id: 'RTU-01', x: 535, y: 360, status: 'offline', type: 'rtu',
+    name: 'SCADAPack 470', location: 'Lab Cabinet',
+    health: null, lastSeen: 'Never',
+    vendor: 'Schneider', model: 'SCADAPack 470',
+    vitals: [],
+    events: [
+      { time: '—', type: 'warn', message: 'Powered off — needs physical access' },
+    ],
+  },
+];
+
+const killdeerAlerts = [
+  { sev: 'warning', time: 'now', asset: 'Trio JR900 #1', desc: 'No IP assigned — needs serial console configuration', score: null },
+  { sev: 'info',    time: 'now', asset: 'Trio JR900 #2', desc: 'Device powered off', score: null },
+  { sev: 'info',    time: 'now', asset: 'SCADAPack 470', desc: 'Device powered off', score: null },
+];
+
+const killdeerPredictions = [
+  { sev: 'good', asset: 'MikroTik L009',       type: 'Router',  loc: 'Lab Cabinet', risk: 6,  days: '—' },
+  { sev: 'good', asset: 'Catalyst 2960',        type: 'Switch',  loc: 'Lab Cabinet', risk: 12, days: '—' },
+  { sev: 'good', asset: 'Raspberry Pi',         type: 'Router',  loc: 'Lab Cabinet', risk: 9,  days: '—' },
+  { sev: 'warn', asset: 'Trio JR900 #1',        type: 'Radio',   loc: 'Lab Cabinet', risk: 50, days: 'N/A' },
+  { sev: 'bad',  asset: 'SCADAPack 470',        type: 'RTU',     loc: 'Lab Cabinet', risk: 0,  days: 'N/A' },
+];
+
+const killdeerData = {
+  name: 'Killdeer Field',
+  markers: killdeerMarkers,
+  alerts: killdeerAlerts,
+  predictions: killdeerPredictions,
+  kpi: { assets: '6', health: '91', predicted: '0', alertsActive: '3', critCount: '0', warnCount: '1' },
+  mapTabs: ['all', 'router', 'switch', 'radio', 'rtu'],
+  schematic: killdeerSchematic,
+};
+
+const SITES = {
+  'north-field': northFieldData,
+  'killdeer': killdeerData,
+};
+
+let currentSite = 'north-field';
+
+function switchSite(siteKey) {
+  if (siteKey === currentSite) return;
+  const site = SITES[siteKey];
+  if (!site) return;
+  currentSite = siteKey;
+
+  // Update data
+  markers = site.markers;
+  alerts = site.alerts;
+  predictions = site.predictions;
+
+  // Update labels
+  document.getElementById('sidebar-site-label').textContent = site.name;
+  document.getElementById('topbar-site-label').textContent = site.name;
+
+  // Update KPIs
+  const kpiValues = document.querySelectorAll('.kpi-value');
+  if (kpiValues.length >= 4) {
+    kpiValues[0].textContent = site.kpi.assets;
+    kpiValues[1].textContent = site.kpi.health;
+    kpiValues[2].textContent = site.kpi.predicted;
+    kpiValues[3].textContent = site.kpi.alertsActive;
+  }
+  const breakdown = document.querySelector('.kpi-alert-breakdown');
+  if (breakdown) {
+    breakdown.innerHTML = `<span class="crit">${site.kpi.critCount} Critical</span><span class="warn">${site.kpi.warnCount} Warning</span>`;
+  }
+
+  // Update schematic SVG
+  const schematic = document.getElementById('schematic');
+  schematic.innerHTML = site.schematic;
+
+  // Update map filter tabs
+  const tabStrip = document.querySelector('.map-tabs');
+  const tabLabels = {
+    all: 'All Assets', radio: 'Radios', plc: 'PLCs', gateway: 'Gateways',
+    sensor: 'Sensors', router: 'Routers', switch: 'Switches', rtu: 'RTUs',
+  };
+  tabStrip.innerHTML = site.mapTabs.map((t, i) =>
+    `<button class="map-tab ${i === 0 ? 'active' : ''}" data-filter="${t}">${tabLabels[t] || t}</button>`
+  ).join('');
+  tabStrip.querySelectorAll('.map-tab').forEach(tab => {
+    tab.addEventListener('click', () => {
+      tabStrip.querySelectorAll('.map-tab').forEach(t => t.classList.remove('active'));
+      tab.classList.add('active');
+      renderMarkers(tab.dataset.filter);
+    });
+  });
+
+  // Re-render
+  renderMarkers('all');
+  renderAlerts();
+  renderPredictions();
+
+  // Update dropdown active states
+  document.querySelectorAll('.site-dropdown-item, .topbar-site-dropdown .site-dropdown-item').forEach(item => {
+    item.classList.toggle('active', item.dataset.site === siteKey);
+  });
+
+  // Close dropdowns
+  document.querySelectorAll('.site-dropdown, .topbar-site-dropdown').forEach(d => d.classList.remove('show'));
+  document.querySelectorAll('.site-selector, .site-pill').forEach(s => s.classList.remove('open'));
+}
+
 // ─────────────────── INIT ───────────────────
 renderAlerts();
 renderPredictions();
@@ -3352,6 +3699,55 @@ document.getElementById('refresh-btn')?.addEventListener('click', (e) => {
   e.target.style.transition = 'transform 0.6s ease';
   e.target.style.transform = 'rotate(360deg)';
   setTimeout(() => { e.target.style.transform = ''; e.target.style.transition = ''; updateClock(); }, 700);
+});
+
+// ─────────────────── SITE SELECTOR DROPDOWNS ───────────────────
+
+// Sidebar site selector
+const sidebarSelector = document.getElementById('sidebar-site-selector');
+const sidebarDropdown = document.getElementById('sidebar-site-dropdown');
+sidebarSelector.addEventListener('click', (e) => {
+  e.stopPropagation();
+  const isOpen = sidebarDropdown.classList.contains('show');
+  // Close all dropdowns first
+  document.querySelectorAll('.site-dropdown, .topbar-site-dropdown').forEach(d => d.classList.remove('show'));
+  document.querySelectorAll('.site-selector, .site-pill').forEach(s => s.classList.remove('open'));
+  if (!isOpen) {
+    sidebarDropdown.classList.add('show');
+    sidebarSelector.classList.add('open');
+  }
+});
+sidebarDropdown.querySelectorAll('.site-dropdown-item').forEach(item => {
+  item.addEventListener('click', (e) => {
+    e.stopPropagation();
+    switchSite(item.dataset.site);
+  });
+});
+
+// Topbar site pill
+const topbarPill = document.getElementById('topbar-site-pill');
+const topbarDropdown = document.getElementById('topbar-site-dropdown');
+topbarPill.addEventListener('click', (e) => {
+  e.stopPropagation();
+  const isOpen = topbarDropdown.classList.contains('show');
+  document.querySelectorAll('.site-dropdown, .topbar-site-dropdown').forEach(d => d.classList.remove('show'));
+  document.querySelectorAll('.site-selector, .site-pill').forEach(s => s.classList.remove('open'));
+  if (!isOpen) {
+    topbarDropdown.classList.add('show');
+    topbarPill.classList.add('open');
+  }
+});
+topbarDropdown.querySelectorAll('.site-dropdown-item').forEach(item => {
+  item.addEventListener('click', (e) => {
+    e.stopPropagation();
+    switchSite(item.dataset.site);
+  });
+});
+
+// Close dropdowns on outside click
+document.addEventListener('click', () => {
+  document.querySelectorAll('.site-dropdown, .topbar-site-dropdown').forEach(d => d.classList.remove('show'));
+  document.querySelectorAll('.site-selector, .site-pill').forEach(s => s.classList.remove('open'));
 });
 
 })();

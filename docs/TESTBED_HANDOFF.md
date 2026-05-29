@@ -280,7 +280,7 @@ Needs: Open alert count, breakdown by severity (critical/warning/info), resolved
 
 ### 6.5 Diagnostics Page
 
-Needs: Fleet-wide RF metrics (avg RSSI, avg SINR, avg BER). Equipment fleet breakdown by vendor (count, percentage, EOL status). Predictive signal trends (per-asset sparklines with predicted trajectory). Firmware compliance grid (per-vendor: total units, current count, staged count, pending auth count). IL-009 enforcement status (always engaged, non-disableable).
+Needs: Fleet-wide RF metrics (avg RSSI, avg SINR, avg BER). Equipment fleet breakdown by vendor (count, percentage, EOL status). Predictive signal trends (per-asset sparklines with predicted trajectory). Firmware compliance grid (per-vendor: total units, current count, staged count, pending auth count). IL-9000 enforcement status (always engaged, non-disableable).
 
 ### 6.6 Trends Page
 
@@ -296,7 +296,7 @@ Needs: Connected system registry (name, type, status, last sync, events/day). Ta
 
 ### 6.9 Settings Page
 
-Needs: User profile (name, email, 2FA status). Notification preferences (per-severity channel routing). Alert threshold configuration (critical %, warning %, RSSI floor, predictive lead-time floor). IL-009 enforcement display (locked, non-disableable). API key management (count, last rotation). Audit log retention setting.
+Needs: User profile (name, email, 2FA status). Notification preferences (per-severity channel routing). Alert threshold configuration (critical %, warning %, RSSI floor, predictive lead-time floor). IL-9000 enforcement display (locked, non-disableable). API key management (count, last rotation). Audit log retention setting.
 
 ### 6.10 Asset Drilldown Drawer
 
@@ -339,7 +339,7 @@ The ML engine runs predictive models per asset type (equipment-specific behavior
 
 ## 8. SAFETY CONSTRAINTS
 
-### 8.1 IL-009 Firmware Safety Interlock (HARD RULE)
+### 8.1 IL-9000 Firmware Safety Interlock (HARD RULE)
 
 **PLC firmware updates are NEVER automated remotely.** The Aevus platform orchestrates everything around this constraint:
 
@@ -396,7 +396,7 @@ These figures are used consistently across all collateral and dashboard demo dat
 - Compliance: 98.2% (AGA-3 99.4%, API 21.1 97.8%, Audit 96.1%, Calibration 88.5%)
 
 ### IP Portfolio
-- 7 patents (P-001 to P-007; P-008 = IL-009)
+- 7 patents (P-001 to P-007; P-008 = IL-9000)
 - 5 trademarks (Aevus, Intrepid Logic, AI SCADA Engineer, PREDICT. PREVENT. PERFORM., +1 TBD)
 - 7 copyrightable works
 - Licensing potential: $3.5M–$11.5M/yr
@@ -405,7 +405,7 @@ These figures are used consistently across all collateral and dashboard demo dat
 - Phase 01 Foundation (Y1): RF visibility, equipment telemetry, AGA-3/API 21.1, first pilot
 - Phase 02 Predictive Scale (Y2): Equipment-specific learning, predictive maintenance, geo expansion
 - Phase 03 5G Migration (Y3): RV55 5G, hybrid orchestration, edge intelligence
-- Phase 04 Autonomous Ops (Y4-5): Closed-loop within IL-009, digital twin, manufacturer licensing
+- Phase 04 Autonomous Ops (Y4-5): Closed-loop within IL-9000, digital twin, manufacturer licensing
 
 ---
 

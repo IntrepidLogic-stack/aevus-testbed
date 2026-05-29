@@ -53,7 +53,7 @@ Lab Hardware → Collectors (SNMP/EtherNet-IP/Modbus)
 
 ## Safety
 
-**IL-009:** PLC firmware updates are never automated remotely. See CLAUDE.md for full constraint specification.
+**IL-9000:** PLC firmware updates are never automated remotely. See CLAUDE.md for full constraint specification.
 
 ---
 © 2026 Intrepid Logic LLC · SDVOSB · All rights reserved.

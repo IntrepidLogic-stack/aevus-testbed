@@ -120,7 +120,7 @@ Geometric "A" formed by two diagonal bars with negative-space cut-outs. Rendered
 - Fleet compliance score: 98.2% (AGA-3 99.4%, API 21.1 97.8%, Audit 96.1%, Calibration 88.5%)
 
 ### 3.3 IP Portfolio
-- 7 patentable inventions (P-001 to P-007; P-008 = IL-009 firmware safety interlock)
+- 7 patentable inventions (P-001 to P-007; P-008 = IL-9000 firmware safety interlock)
 - 5 registrable trademarks (Aevus, Intrepid Logic, AI SCADA Engineer, PREDICT. PREVENT. PERFORM., plus one TBD; SCADAX-era marks deprecated with v2 brand)
 - 7 copyrightable works
 - Manufacturer licensing potential: $3.5M–$11.5M/yr aggregate
@@ -132,7 +132,7 @@ Geometric "A" formed by two diagonal bars with negative-space cut-outs. Rendered
 
 ## 4. Hard Rules
 
-1. **IL-009 Firmware Safety Interlock** — PLC firmware updates are never automated remotely. Patentable distinction (P-008) and must appear in any technical or sales material that touches firmware orchestration.
+1. **IL-9000 Firmware Safety Interlock** — PLC firmware updates are never automated remotely. Patentable distinction (P-008) and must appear in any technical or sales material that touches firmware orchestration.
 2. **Pre-revenue honesty** — Intrepid Logic is pre-revenue with no signed pilot customers. All case studies and operational impact figures must be labeled as **modeled**.
 3. **SDVOSB attribution** — Every external artifact carries the SDVOSB designation in the footer.
 4. **Buyer priority lens** — All messaging frames in terms of ROI / RISK / OPS (Greg's framework).

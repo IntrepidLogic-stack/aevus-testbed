@@ -100,7 +100,7 @@ aevus-testbed/
     └── TESTBED_HANDOFF.md       ← Full context from the collateral conversation
 ```
 
-## HARD SAFETY RULE — IL-009
+## HARD SAFETY RULE — IL-9000
 
 **PLC/RTU firmware updates are NEVER automated remotely.**
 
@@ -108,7 +108,7 @@ The platform can: track firmware versions, stage updates, verify signatures, sch
 
 The platform CANNOT: execute the final firmware write. That requires a credentialed technician physically on site.
 
-This is enforced by code (not policy). Any function that touches PLC/RTU firmware must include an IL-009 interlock check. The interlock is a boolean constant `IL_009_ENFORCED = True` that is never set to False anywhere in the codebase. Any code review that attempts to bypass this should be flagged.
+This is enforced by code (not policy). Any function that touches PLC/RTU firmware must include an IL-9000 interlock check. The interlock is a boolean constant `IL_009_ENFORCED = True` that is never set to False anywhere in the codebase. Any code review that attempts to bypass this should be flagged.
 
 This is patentable invention P-008.
 
@@ -404,7 +404,7 @@ WS   /api/v1/ws                        → WebSocket: push asset updates, alerts
 - Logging via `structlog` (structured JSON logs)
 - All config via `.env` — never hardcode IPs, credentials, or secrets
 - Docstrings on every public function
-- IL-009 interlock check on any function touching RTU/PLC firmware
+- IL-9000 interlock check on any function touching RTU/PLC firmware
 
 ## Brand Tokens (for dashboard CSS reference)
 

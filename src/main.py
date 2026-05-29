@@ -58,6 +58,8 @@ from src.collectors.snmp_radio import TrioJR900Collector  # noqa: E402
 from src.collectors.snmp_router import SNMPNetworkCollector  # noqa: E402
 from src.config import settings  # noqa: E402
 from src.engine.alert_engine import AlertEngine  # noqa: E402
+from src.engine.commander import Commander  # noqa: E402
+from src.engine.correlator import CorrelationEngine  # noqa: E402
 from src.engine.notifier import NotificationEngine  # noqa: E402
 from src.engine.weather import WeatherEngine  # noqa: E402
 from src.integrations.mqtt_publisher import MQTTPublisher  # noqa: E402
@@ -118,6 +120,13 @@ class AppState:
         # here so app_state.weather_engine always exists; lifespan starts the
         # refresh loop. Without this the weather router 500s on attribute access.
         self.weather_engine = WeatherEngine()
+        # Referenced by API routers (health/correlations/commands) — must exist
+        # on app_state or those endpoints 500. A single 500 among the dashboard's
+        # Promise.all() refresh batch halts the whole live re-render loop, so a
+        # missing attribute here silently freezes every page's live updates.
+        self.correlator = CorrelationEngine()
+        self.commander = Commander()
+        self.ws_clients = 0
 
 
 app_state = AppState()

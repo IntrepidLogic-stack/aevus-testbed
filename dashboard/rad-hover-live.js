@@ -47,6 +47,14 @@
   var chatterCache = {}; // { 'RAD-01': true/false } — ISA-18.2 meta-alarm
 
   // ── Utilities ───────────────────────────────────────────────────────
+  // Local setText: was relying on api-client.js's global, which isn't
+  // guaranteed to exist when this overlay runs (race + scope). Defining it
+  // here makes the overlay self-contained.
+  function setText(id, v) {
+    var el = document.getElementById(id);
+    if (el) el.textContent = v;
+  }
+
   function esc(s) {
     if (s == null) return '—';
     return String(s).replace(/[&<>"']/g, function (c) {

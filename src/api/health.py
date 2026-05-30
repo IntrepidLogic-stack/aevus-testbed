@@ -42,6 +42,12 @@ async def health_summary() -> dict:
             "avg_health": round(sum(s) / len(s)) if s else None,
         }
 
+    # MQTT publisher health snapshot — exposes the half-open detector's
+    # counter + last-successful-publish timestamp so operators can see the
+    # edge→cloud bridge status without scraping journalctl (Task #151).
+    # None when MQTT is disabled in config (e.g. on the EC2 dashboard host).
+    mqtt = app_state.mqtt_publisher.health if app_state.mqtt_publisher else None
+
     return {
         "total_assets": total,
         "avg_health": avg,
@@ -49,6 +55,7 @@ async def health_summary() -> dict:
         "by_type": type_summary,
         "open_alerts": len(app_state.alert_engine.open_alerts),
         "ws_clients": app_state.ws_clients,
+        "mqtt": mqtt,
     }
 
 

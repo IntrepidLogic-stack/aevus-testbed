@@ -21,18 +21,21 @@ from pathlib import Path
 
 # Lab subnets from .env defaults
 DEFAULT_SUBNETS = {
-    "radios":   "10.0.1.0/24",
-    "plcs":     "10.0.2.0/24",
+    "radios": "10.0.1.0/24",
+    "plcs": "10.0.2.0/24",
     "gateways": "10.0.3.0/24",
 }
 SNMP_COMMUNITY = "aevus_ro"
+
 
 def snmp_walk(host: str, community: str = SNMP_COMMUNITY, timeout: int = 5) -> dict | None:
     """Run snmpwalk against a host, return parsed OID→value dict or None if unreachable."""
     try:
         result = subprocess.run(
             ["snmpwalk", "-v2c", "-c", community, "-t", str(timeout), host],
-            capture_output=True, text=True, timeout=timeout + 5,
+            capture_output=True,
+            text=True,
+            timeout=timeout + 5,
         )
         if result.returncode != 0 or not result.stdout.strip():
             return None
@@ -48,6 +51,7 @@ def snmp_walk(host: str, community: str = SNMP_COMMUNITY, timeout: int = 5) -> d
     except (subprocess.TimeoutExpired, FileNotFoundError) as e:
         print(f"  ⚠  {host}: {e}")
         return None
+
 
 def discover_subnet(subnet: str, label: str) -> list[dict]:
     """Scan a subnet, return list of discovered devices."""
@@ -85,6 +89,7 @@ def discover_subnet(subnet: str, label: str) -> list[dict]:
 
     return discovered
 
+
 def discover_host(host: str) -> dict | None:
     """Full SNMP walk of a single host, dump all OIDs."""
     print(f"\nFull SNMP walk: {host}")
@@ -100,6 +105,7 @@ def discover_host(host: str) -> dict | None:
         print(f"    {oid} = {value}")
 
     return {"ip": host, "oids": oids}
+
 
 def main():
     # `global` must appear before any reference to the name in the
@@ -154,6 +160,7 @@ def main():
     out_path.parent.mkdir(exist_ok=True)
     out_path.write_text(json.dumps(all_devices, indent=2))
     print(f"\nSaved to {out_path}")
+
 
 if __name__ == "__main__":
     main()

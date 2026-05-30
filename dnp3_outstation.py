@@ -12,6 +12,7 @@ Usage:
 This simulates what a real field RTU (e.g., ABB TotalFlow, Emerson ROC800,
 or Bristol ControlWave) would respond with over DNP3.
 """
+
 from __future__ import annotations
 
 import argparse
@@ -36,6 +37,7 @@ QUAL_RANGE_16BIT = 0x01
 # CRC table
 _CRC_TABLE = None
 
+
 def _build_crc_table():
     global _CRC_TABLE
     _CRC_TABLE = []
@@ -47,6 +49,7 @@ def _build_crc_table():
             else:
                 crc >>= 1
         _CRC_TABLE.append(crc & 0xFFFF)
+
 
 def _crc16(data: bytes) -> int:
     if _CRC_TABLE is None:
@@ -89,48 +92,43 @@ class MeterStationSimulator:
 
         return {
             # EFM
-            0:  round(self._sim(45.2, 8.0, 1.5), 2),      # differential_pressure inH2O
-            1:  round(self._sim(485.0, 15.0, 3.0), 1),     # static_pressure PSIG
-            2:  round(self._sim(72.5, 5.0, 1.0), 1),       # flow_temperature °F
-            3:  round(self._sim(2.8, 0.4, 0.1) * flow_factor, 2),  # flow_rate MCFD
-            4:  round(self._total_volume, 1),               # accumulated_volume MCF
-            5:  round(self._sim(2.95, 0.3, 0.1) * flow_factor, 2), # energy_rate MMBTU/D
-
+            0: round(self._sim(45.2, 8.0, 1.5), 2),  # differential_pressure inH2O
+            1: round(self._sim(485.0, 15.0, 3.0), 1),  # static_pressure PSIG
+            2: round(self._sim(72.5, 5.0, 1.0), 1),  # flow_temperature °F
+            3: round(self._sim(2.8, 0.4, 0.1) * flow_factor, 2),  # flow_rate MCFD
+            4: round(self._total_volume, 1),  # accumulated_volume MCF
+            5: round(self._sim(2.95, 0.3, 0.1) * flow_factor, 2),  # energy_rate MMBTU/D
             # Gas Quality
-            6:  round(self._sim(1028.0, 5.0, 1.0), 1),     # btu_content BTU/CF
-            7:  round(self._sim(0.608, 0.005, 0.001), 4),   # specific_gravity
-            8:  round(self._sim(0.82, 0.1, 0.02), 2),       # co2_content %
-            9:  round(max(0, self._sim(0.3, 0.2, 0.05)), 1), # h2s_content PPM
-
+            6: round(self._sim(1028.0, 5.0, 1.0), 1),  # btu_content BTU/CF
+            7: round(self._sim(0.608, 0.005, 0.001), 4),  # specific_gravity
+            8: round(self._sim(0.82, 0.1, 0.02), 2),  # co2_content %
+            9: round(max(0, self._sim(0.3, 0.2, 0.05)), 1),  # h2s_content PPM
             # Valve / Regulator
-            10: round(self._sim(520.0, 20.0, 5.0), 1),     # upstream_pressure PSIG
-            11: round(self._sim(485.0, 15.0, 3.0), 1),     # downstream_pressure PSIG
-            12: round(self._sim(72.0, 5.0, 1.0), 1),       # valve_position %
-
+            10: round(self._sim(520.0, 20.0, 5.0), 1),  # upstream_pressure PSIG
+            11: round(self._sim(485.0, 15.0, 3.0), 1),  # downstream_pressure PSIG
+            12: round(self._sim(72.0, 5.0, 1.0), 1),  # valve_position %
             # Power
-            13: round(self._sim(13.1, 0.3, 0.05), 2),      # battery_voltage VDC
-            14: round(max(0, solar + random.gauss(0, 0.3)), 1), # solar_voltage VDC
-            15: round(max(0, solar * 0.15 + random.gauss(0, 0.02)), 2), # charge_current A
-
+            13: round(self._sim(13.1, 0.3, 0.05), 2),  # battery_voltage VDC
+            14: round(max(0, solar + random.gauss(0, 0.3)), 1),  # solar_voltage VDC
+            15: round(max(0, solar * 0.15 + random.gauss(0, 0.02)), 2),  # charge_current A
             # Environment
-            16: round(self._sim(92.0, 10.0, 2.0), 1),      # enclosure_temp °F
-            17: round(self._sim(85.0, 8.0, 1.5), 1),       # ambient_temp °F
-
+            16: round(self._sim(92.0, 10.0, 2.0), 1),  # enclosure_temp °F
+            17: round(self._sim(85.0, 8.0, 1.5), 1),  # ambient_temp °F
             # Pipeline
-            18: round(self._sim(490.0, 12.0, 3.0), 1),     # line_pressure PSIG
-            19: round(self._sim(74.0, 4.0, 1.0), 1),       # line_temperature °F
+            18: round(self._sim(490.0, 12.0, 3.0), 1),  # line_pressure PSIG
+            19: round(self._sim(74.0, 4.0, 1.0), 1),  # line_temperature °F
         }
 
     def get_binaries(self) -> dict[int, bool]:
         """Return binary input values by index."""
         return {
-            0: True,   # valve_open
+            0: True,  # valve_open
             1: False,  # valve_closed
             2: False,  # high_pressure_alarm
             3: False,  # low_pressure_alarm
             4: False,  # high_temp_alarm
             5: False,  # low_battery_alarm
-            6: True,   # communication_active
+            6: True,  # communication_active
             7: False,  # esd_activated
             8: False,  # h2s_alarm
             9: False,  # tamper_detect
@@ -140,10 +138,10 @@ class MeterStationSimulator:
         """Return counter values by index."""
         self._comm_success += 1
         return {
-            0: int(self._total_volume),     # total_volume MCF
-            1: int(self._total_energy),     # total_energy MMBTU
-            2: self._comm_success,          # comm_success_count
-            3: self._comm_fail,             # comm_failure_count
+            0: int(self._total_volume),  # total_volume MCF
+            1: int(self._total_energy),  # total_energy MMBTU
+            2: self._comm_success,  # comm_success_count
+            3: self._comm_fail,  # comm_failure_count
         }
 
 
@@ -205,7 +203,7 @@ class DNP3OutstationServer:
         frame = header + header_crc
         i = 0
         while i < len(payload):
-            block = payload[i:i + 16]
+            block = payload[i : i + 16]
             frame += block + struct.pack("<H", _crc16(block))
             i += 16
 
@@ -291,7 +289,7 @@ class DNP3OutstationServer:
                     block_size = min(16, remaining)
                     if pos + block_size > len(data):
                         break
-                    payload.extend(data[pos:pos + block_size])
+                    payload.extend(data[pos : pos + block_size])
                     pos += block_size + 2
                     remaining -= block_size
 
@@ -327,9 +325,7 @@ class DNP3OutstationServer:
     async def start(self):
         """Start the DNP3 outstation server."""
         self._running = True
-        server = await asyncio.start_server(
-            self.handle_client, "0.0.0.0", self.port
-        )
+        server = await asyncio.start_server(self.handle_client, "0.0.0.0", self.port)
         print(f"[DNP3] Outstation simulator running on port {self.port}, address {self.addr}")
         print("[DNP3] Simulating: Gas Pipeline Meter Station (EFM)")
         print("[DNP3]   Analog Inputs:  20 points (pressures, temps, flow, gas quality)")

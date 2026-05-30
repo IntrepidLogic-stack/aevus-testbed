@@ -303,9 +303,7 @@ class TestChatteringDetection:
     def test_shelved_key_does_not_fire_new_alerts(self):
         engine = AlertEngine()
         engine.shelve("RAD-01", "RSSI", duration_s=600, reason="maintenance")
-        changes = engine.evaluate(
-            "RAD-01", "Trio #1", [_vital("RSSI", "-95 dBm", -95.0, "bad")]
-        )
+        changes = engine.evaluate("RAD-01", "Trio #1", [_vital("RSSI", "-95 dBm", -95.0, "bad")])
         assert changes == []
 
     def test_shelf_expires(self):
@@ -315,9 +313,7 @@ class TestChatteringDetection:
         engine._shelved_until[("RAD-01", "RSSI")] = datetime.now(UTC) - timedelta(seconds=1)
         assert not engine.is_shelved("RAD-01", "RSSI")
         # And further evaluation now fires normally
-        changes = engine.evaluate(
-            "RAD-01", "Trio #1", [_vital("RSSI", "-95 dBm", -95.0, "bad")]
-        )
+        changes = engine.evaluate("RAD-01", "Trio #1", [_vital("RSSI", "-95 dBm", -95.0, "bad")])
         assert len(changes) == 1
 
     def test_meta_alarm_not_double_emitted(self):
@@ -333,9 +329,7 @@ class TestRecordEvent:
 
     def test_emits_alert_for_first_event(self):
         engine = AlertEngine()
-        alert = engine.record_event(
-            "SW-01", "Catalyst 2960", "FIRMWARE_CHANGED", "version v12 → v15", severity="info"
-        )
+        alert = engine.record_event("SW-01", "Catalyst 2960", "FIRMWARE_CHANGED", "version v12 → v15", severity="info")
         assert alert is not None
         assert alert.id.startswith("EVT-")
         assert alert.status == "open"

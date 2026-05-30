@@ -1,6 +1,7 @@
 """
 Aevus — Weather Data Model
 """
+
 from __future__ import annotations
 
 from dataclasses import dataclass
@@ -26,6 +27,6 @@ class WeatherData:
     solar_production_factor: float = 0.0
     cloud_cover: float = 50.0
     wind_dir: str = ""
-    ghi: float = 0.0            # Global Horizontal Irradiance W/m2
-    dni: float = 0.0            # Direct Normal Irradiance W/m2
+    ghi: float = 0.0  # Global Horizontal Irradiance W/m2
+    dni: float = 0.0  # Direct Normal Irradiance W/m2
     fetched_at: datetime | None = None

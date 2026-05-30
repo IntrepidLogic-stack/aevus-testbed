@@ -29,6 +29,7 @@ Supported object groups:
   Group  1 - Binary Input (Var 2 = with flag)
   Group 20 - Counter (Var 1 = 32-bit with flag)
 """
+
 from __future__ import annotations
 
 import asyncio
@@ -59,9 +60,9 @@ GROUP_ANALOG_OUTPUT = 40
 GROUP_CLASS_0 = 60  # Class 0 — static data (all points)
 
 # Qualifiers
-QUAL_ALL_POINTS = 0x06        # All points, no range
-QUAL_RANGE_8BIT = 0x00        # Start-stop 8-bit index
-QUAL_RANGE_16BIT = 0x01       # Start-stop 16-bit index
+QUAL_ALL_POINTS = 0x06  # All points, no range
+QUAL_RANGE_8BIT = 0x00  # Start-stop 8-bit index
+QUAL_RANGE_16BIT = 0x01  # Start-stop 16-bit index
 
 # CRC-16 lookup table for DNP3 (polynomial 0x3D65)
 _CRC_TABLE = None
@@ -133,7 +134,7 @@ def _build_read_request(
     # Add data blocks with CRCs (16 bytes per block max)
     i = 0
     while i < len(payload):
-        block = payload[i:i + 16]
+        block = payload[i : i + 16]
         frame += block + struct.pack("<H", _crc16(block))
         i += 16
 
@@ -174,7 +175,7 @@ def _parse_response(data: bytes, expected_src: int = 0) -> dict:
         block_size = min(16, remaining)
         if pos + block_size + 2 > len(data):
             break
-        block = data[pos:pos + block_size]
+        block = data[pos : pos + block_size]
         payload.extend(block)
         pos += block_size + 2  # skip CRC
         remaining -= block_size
@@ -225,8 +226,8 @@ def _parse_response(data: bytes, expected_src: int = 0) -> dict:
         elif qualifier == QUAL_RANGE_16BIT:
             if offset + 4 > len(payload):
                 break
-            start_idx = struct.unpack("<H", payload[offset:offset + 2])[0]
-            stop_idx = struct.unpack("<H", payload[offset + 2:offset + 4])[0]
+            start_idx = struct.unpack("<H", payload[offset : offset + 2])[0]
+            stop_idx = struct.unpack("<H", payload[offset + 2 : offset + 4])[0]
             offset += 4
             stop_idx - start_idx + 1
         else:
@@ -239,13 +240,17 @@ def _parse_response(data: bytes, expected_src: int = 0) -> dict:
                 idx = start_idx if qualifier != QUAL_ALL_POINTS else 0
                 while offset + point_size <= len(payload):
                     flag = payload[offset]
-                    value = struct.unpack("<f", payload[offset + 1:offset + 5])[0]
-                    result["objects"].append({
-                        "group": group, "variation": variation,
-                        "index": idx, "value": value,
-                        "online": bool(flag & 0x01),
-                        "type": "analog",
-                    })
+                    value = struct.unpack("<f", payload[offset + 1 : offset + 5])[0]
+                    result["objects"].append(
+                        {
+                            "group": group,
+                            "variation": variation,
+                            "index": idx,
+                            "value": value,
+                            "online": bool(flag & 0x01),
+                            "type": "analog",
+                        }
+                    )
                     offset += point_size
                     idx += 1
                     if qualifier != QUAL_ALL_POINTS and idx > stop_idx:
@@ -255,13 +260,17 @@ def _parse_response(data: bytes, expected_src: int = 0) -> dict:
                 idx = start_idx if qualifier != QUAL_ALL_POINTS else 0
                 while offset + point_size <= len(payload):
                     flag = payload[offset]
-                    value = struct.unpack("<i", payload[offset + 1:offset + 5])[0]
-                    result["objects"].append({
-                        "group": group, "variation": variation,
-                        "index": idx, "value": float(value),
-                        "online": bool(flag & 0x01),
-                        "type": "analog",
-                    })
+                    value = struct.unpack("<i", payload[offset + 1 : offset + 5])[0]
+                    result["objects"].append(
+                        {
+                            "group": group,
+                            "variation": variation,
+                            "index": idx,
+                            "value": float(value),
+                            "online": bool(flag & 0x01),
+                            "type": "analog",
+                        }
+                    )
                     offset += point_size
                     idx += 1
                     if qualifier != QUAL_ALL_POINTS and idx > stop_idx:
@@ -273,12 +282,16 @@ def _parse_response(data: bytes, expected_src: int = 0) -> dict:
                 while offset < len(payload):
                     flag = payload[offset]
                     value = 1.0 if (flag & 0x80) else 0.0
-                    result["objects"].append({
-                        "group": group, "variation": variation,
-                        "index": idx, "value": value,
-                        "online": bool(flag & 0x01),
-                        "type": "binary",
-                    })
+                    result["objects"].append(
+                        {
+                            "group": group,
+                            "variation": variation,
+                            "index": idx,
+                            "value": value,
+                            "online": bool(flag & 0x01),
+                            "type": "binary",
+                        }
+                    )
                     offset += 1
                     idx += 1
                     if qualifier != QUAL_ALL_POINTS and idx > stop_idx:
@@ -290,13 +303,17 @@ def _parse_response(data: bytes, expected_src: int = 0) -> dict:
                 idx = start_idx if qualifier != QUAL_ALL_POINTS else 0
                 while offset + point_size <= len(payload):
                     flag = payload[offset]
-                    value = struct.unpack("<I", payload[offset + 1:offset + 5])[0]
-                    result["objects"].append({
-                        "group": group, "variation": variation,
-                        "index": idx, "value": float(value),
-                        "online": bool(flag & 0x01),
-                        "type": "counter",
-                    })
+                    value = struct.unpack("<I", payload[offset + 1 : offset + 5])[0]
+                    result["objects"].append(
+                        {
+                            "group": group,
+                            "variation": variation,
+                            "index": idx,
+                            "value": float(value),
+                            "online": bool(flag & 0x01),
+                            "type": "counter",
+                        }
+                    )
                     offset += point_size
                     idx += 1
                     if qualifier != QUAL_ALL_POINTS and idx > stop_idx:
@@ -315,54 +332,50 @@ def _parse_response(data: bytes, expected_src: int = 0) -> dict:
 
 DNP3_ANALOG_MAP = {
     # --- Flow Measurement (EFM) ---
-    0:  {"metric": "differential_pressure", "unit": "inH2O", "group": "efm"},
-    1:  {"metric": "static_pressure",       "unit": "PSIG",  "group": "efm"},
-    2:  {"metric": "flow_temperature",      "unit": "°F",    "group": "efm"},
-    3:  {"metric": "flow_rate",             "unit": "MCFD",  "group": "efm"},
-    4:  {"metric": "accumulated_volume",    "unit": "MCF",   "group": "efm"},
-    5:  {"metric": "energy_rate",           "unit": "MMBTU/D","group": "efm"},
-
+    0: {"metric": "differential_pressure", "unit": "inH2O", "group": "efm"},
+    1: {"metric": "static_pressure", "unit": "PSIG", "group": "efm"},
+    2: {"metric": "flow_temperature", "unit": "°F", "group": "efm"},
+    3: {"metric": "flow_rate", "unit": "MCFD", "group": "efm"},
+    4: {"metric": "accumulated_volume", "unit": "MCF", "group": "efm"},
+    5: {"metric": "energy_rate", "unit": "MMBTU/D", "group": "efm"},
     # --- Chromatograph / Gas Quality ---
-    6:  {"metric": "btu_content",           "unit": "BTU/CF", "group": "gas_quality"},
-    7:  {"metric": "specific_gravity",      "unit": "SG",     "group": "gas_quality"},
-    8:  {"metric": "co2_content",           "unit": "%",      "group": "gas_quality"},
-    9:  {"metric": "h2s_content",           "unit": "PPM",    "group": "gas_quality"},
-
+    6: {"metric": "btu_content", "unit": "BTU/CF", "group": "gas_quality"},
+    7: {"metric": "specific_gravity", "unit": "SG", "group": "gas_quality"},
+    8: {"metric": "co2_content", "unit": "%", "group": "gas_quality"},
+    9: {"metric": "h2s_content", "unit": "PPM", "group": "gas_quality"},
     # --- Valve / Regulator ---
-    10: {"metric": "upstream_pressure",     "unit": "PSIG",  "group": "regulation"},
-    11: {"metric": "downstream_pressure",   "unit": "PSIG",  "group": "regulation"},
-    12: {"metric": "valve_position",        "unit": "%",     "group": "regulation"},
-
+    10: {"metric": "upstream_pressure", "unit": "PSIG", "group": "regulation"},
+    11: {"metric": "downstream_pressure", "unit": "PSIG", "group": "regulation"},
+    12: {"metric": "valve_position", "unit": "%", "group": "regulation"},
     # --- Power / Environment ---
-    13: {"metric": "battery_voltage",       "unit": "VDC",   "group": "power"},
-    14: {"metric": "solar_voltage",         "unit": "VDC",   "group": "power"},
-    15: {"metric": "charge_current",        "unit": "A",     "group": "power"},
-    16: {"metric": "enclosure_temp",        "unit": "°F",    "group": "environment"},
-    17: {"metric": "ambient_temp",          "unit": "°F",    "group": "environment"},
-
+    13: {"metric": "battery_voltage", "unit": "VDC", "group": "power"},
+    14: {"metric": "solar_voltage", "unit": "VDC", "group": "power"},
+    15: {"metric": "charge_current", "unit": "A", "group": "power"},
+    16: {"metric": "enclosure_temp", "unit": "°F", "group": "environment"},
+    17: {"metric": "ambient_temp", "unit": "°F", "group": "environment"},
     # --- Pipeline ---
-    18: {"metric": "line_pressure",         "unit": "PSIG",  "group": "pipeline"},
-    19: {"metric": "line_temperature",      "unit": "°F",    "group": "pipeline"},
+    18: {"metric": "line_pressure", "unit": "PSIG", "group": "pipeline"},
+    19: {"metric": "line_temperature", "unit": "°F", "group": "pipeline"},
 }
 
 DNP3_BINARY_MAP = {
-    0: {"metric": "valve_open",            "group": "regulation"},
-    1: {"metric": "valve_closed",          "group": "regulation"},
-    2: {"metric": "high_pressure_alarm",   "group": "safety"},
-    3: {"metric": "low_pressure_alarm",    "group": "safety"},
-    4: {"metric": "high_temp_alarm",       "group": "safety"},
-    5: {"metric": "low_battery_alarm",     "group": "power"},
-    6: {"metric": "communication_active",  "group": "system"},
-    7: {"metric": "esd_activated",         "group": "safety"},
-    8: {"metric": "h2s_alarm",             "group": "safety"},
-    9: {"metric": "tamper_detect",         "group": "security"},
+    0: {"metric": "valve_open", "group": "regulation"},
+    1: {"metric": "valve_closed", "group": "regulation"},
+    2: {"metric": "high_pressure_alarm", "group": "safety"},
+    3: {"metric": "low_pressure_alarm", "group": "safety"},
+    4: {"metric": "high_temp_alarm", "group": "safety"},
+    5: {"metric": "low_battery_alarm", "group": "power"},
+    6: {"metric": "communication_active", "group": "system"},
+    7: {"metric": "esd_activated", "group": "safety"},
+    8: {"metric": "h2s_alarm", "group": "safety"},
+    9: {"metric": "tamper_detect", "group": "security"},
 }
 
 DNP3_COUNTER_MAP = {
-    0: {"metric": "total_volume",          "unit": "MCF",   "group": "efm"},
-    1: {"metric": "total_energy",          "unit": "MMBTU", "group": "efm"},
-    2: {"metric": "comm_success_count",    "unit": "count", "group": "system"},
-    3: {"metric": "comm_failure_count",    "unit": "count", "group": "system"},
+    0: {"metric": "total_volume", "unit": "MCF", "group": "efm"},
+    1: {"metric": "total_energy", "unit": "MMBTU", "group": "efm"},
+    2: {"metric": "comm_success_count", "unit": "count", "group": "system"},
+    3: {"metric": "comm_failure_count", "unit": "count", "group": "system"},
 }
 
 
@@ -408,8 +421,9 @@ class DNP3Collector(BaseCollector):
             asyncio.open_connection(self.host, self.port),
             timeout=5.0,
         )
-        self.log.info("dnp3_connected", host=self.host, port=self.port,
-                      master=self.master_addr, outstation=self.outstation_addr)
+        self.log.info(
+            "dnp3_connected", host=self.host, port=self.port, master=self.master_addr, outstation=self.outstation_addr
+        )
 
     async def _disconnect(self) -> None:
         """Close the TCP connection."""
@@ -476,13 +490,15 @@ class DNP3Collector(BaseCollector):
                 for obj in result["objects"]:
                     if obj["type"] == "analog" and obj["index"] in DNP3_ANALOG_MAP:
                         mapping = DNP3_ANALOG_MAP[obj["index"]]
-                        readings.append(self._make_reading(
-                            metric=mapping["metric"],
-                            value=round(obj["value"], 3),
-                            unit=mapping["unit"],
-                            source="dnp3",
-                            group=mapping["group"],
-                        ))
+                        readings.append(
+                            self._make_reading(
+                                metric=mapping["metric"],
+                                value=round(obj["value"], 3),
+                                unit=mapping["unit"],
+                                source="dnp3",
+                                group=mapping["group"],
+                            )
+                        )
 
             # Small delay between requests (outstation processing time)
             await asyncio.sleep(0.1)
@@ -505,13 +521,15 @@ class DNP3Collector(BaseCollector):
                 for obj in result["objects"]:
                     if obj["type"] == "binary" and obj["index"] in DNP3_BINARY_MAP:
                         mapping = DNP3_BINARY_MAP[obj["index"]]
-                        readings.append(self._make_reading(
-                            metric=mapping["metric"],
-                            value=obj["value"],
-                            unit="bool",
-                            source="dnp3",
-                            group=mapping["group"],
-                        ))
+                        readings.append(
+                            self._make_reading(
+                                metric=mapping["metric"],
+                                value=obj["value"],
+                                unit="bool",
+                                source="dnp3",
+                                group=mapping["group"],
+                            )
+                        )
 
             await asyncio.sleep(0.1)
 
@@ -533,13 +551,15 @@ class DNP3Collector(BaseCollector):
                 for obj in result["objects"]:
                     if obj["type"] == "counter" and obj["index"] in DNP3_COUNTER_MAP:
                         mapping = DNP3_COUNTER_MAP[obj["index"]]
-                        readings.append(self._make_reading(
-                            metric=mapping["metric"],
-                            value=obj["value"],
-                            unit=mapping["unit"],
-                            source="dnp3",
-                            group=mapping["group"],
-                        ))
+                        readings.append(
+                            self._make_reading(
+                                metric=mapping["metric"],
+                                value=obj["value"],
+                                unit=mapping["unit"],
+                                source="dnp3",
+                                group=mapping["group"],
+                            )
+                        )
 
         except Exception as e:
             self.log.error("dnp3_poll_failed", error=str(e))

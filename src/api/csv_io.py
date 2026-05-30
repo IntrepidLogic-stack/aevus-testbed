@@ -14,13 +14,25 @@ router = APIRouter(prefix="/csv", tags=["csv"])
 
 def _get_db():
     from src.main import app_state
+
     return app_state.db
 
 
 COLUMNS = [
-    "id", "type", "status", "name", "location", "health",
-    "last_seen", "vendor", "model", "firmware", "ip_address",
-    "mac_address", "protocol", "poll_interval",
+    "id",
+    "type",
+    "status",
+    "name",
+    "location",
+    "health",
+    "last_seen",
+    "vendor",
+    "model",
+    "firmware",
+    "ip_address",
+    "mac_address",
+    "protocol",
+    "poll_interval",
 ]
 
 
@@ -34,22 +46,24 @@ async def export_csv():
     writer = csv.DictWriter(buf, fieldnames=COLUMNS)
     writer.writeheader()
     for a in assets:
-        writer.writerow({
-            "id": a.id,
-            "type": a.type,
-            "status": a.status,
-            "name": a.name,
-            "location": a.location,
-            "health": a.health,
-            "last_seen": a.last_seen.isoformat() if a.last_seen else "",
-            "vendor": a.vendor,
-            "model": a.model,
-            "firmware": a.firmware or "",
-            "ip_address": a.ip_address or "",
-            "mac_address": a.mac_address or "",
-            "protocol": a.protocol,
-            "poll_interval": a.poll_interval,
-        })
+        writer.writerow(
+            {
+                "id": a.id,
+                "type": a.type,
+                "status": a.status,
+                "name": a.name,
+                "location": a.location,
+                "health": a.health,
+                "last_seen": a.last_seen.isoformat() if a.last_seen else "",
+                "vendor": a.vendor,
+                "model": a.model,
+                "firmware": a.firmware or "",
+                "ip_address": a.ip_address or "",
+                "mac_address": a.mac_address or "",
+                "protocol": a.protocol,
+                "poll_interval": a.poll_interval,
+            }
+        )
 
     buf.seek(0)
     ts = datetime.utcnow().strftime("%Y%m%d_%H%M%S")

@@ -54,6 +54,7 @@ OID_IF_DESCR = "1.3.6.1.2.1.2.2.1.2"
 
 # ── Minimal BER/ASN.1 decoder for SNMPv2c traps ──
 
+
 def _decode_length(data: bytes, offset: int) -> tuple[int, int]:
     """Decode BER length. Returns (length, new_offset)."""
     b = data[offset]
@@ -204,6 +205,7 @@ def parse_snmpv2c_trap(data: bytes) -> dict | None:
 
 # ── Trap handler logic ──
 
+
 def _extract_if_info(varbinds: list[tuple[str, Any]]) -> tuple[int | None, str]:
     """Extract ifIndex and ifDescr from varbinds."""
     if_index = None
@@ -285,9 +287,7 @@ class SNMPTrapReceiver:
         varbinds = parsed["varbinds"]
 
         # Resolve asset
-        asset_id, asset_name = TRAP_SOURCE_MAP.get(
-            source_ip, ("UNKNOWN", f"Unknown ({source_ip})")
-        )
+        asset_id, asset_name = TRAP_SOURCE_MAP.get(source_ip, ("UNKNOWN", f"Unknown ({source_ip})"))
 
         self.log.info(
             "snmp_trap_parsed",
@@ -301,9 +301,7 @@ class SNMPTrapReceiver:
         alert = await self._classify_trap(trap_oid, varbinds, asset_id, asset_name)
         if alert:
             self.db.save_alert(alert)
-            await self.ws_manager.broadcast(
-                "alert_update", {"alerts": [alert.model_dump()]}
-            )
+            await self.ws_manager.broadcast("alert_update", {"alerts": [alert.model_dump()]})
             self.log.info(
                 "snmp_trap_alert_created",
                 alert_id=alert.id,
@@ -324,10 +322,7 @@ class SNMPTrapReceiver:
         if trap_oid == OID_LINK_DOWN:
             if_index, if_descr = _extract_if_info(varbinds)
             # Uplink/trunk ports are critical; access ports are warning
-            is_uplink = any(
-                kw in if_descr.lower()
-                for kw in ("trunk", "uplink", "sfp", "combo", "gigabit")
-            )
+            is_uplink = any(kw in if_descr.lower() for kw in ("trunk", "uplink", "sfp", "combo", "gigabit"))
             severity = "critical" if is_uplink else "warning"
             alert = _make_alert(
                 severity=severity,

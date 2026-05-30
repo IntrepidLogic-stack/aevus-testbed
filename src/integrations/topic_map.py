@@ -50,9 +50,7 @@ def telemetry(site_id: str, asset_id: str, metric: str) -> str:
 
     Example: aevus/lab/RTU-01/telemetry/suction_pressure
     """
-    return (
-        f"{_ROOT_PREFIX}/{_sanitize(site_id)}/{_sanitize(asset_id)}/telemetry/{_sanitize(metric)}"
-    )
+    return f"{_ROOT_PREFIX}/{_sanitize(site_id)}/{_sanitize(asset_id)}/telemetry/{_sanitize(metric)}"
 
 
 def state(site_id: str, asset_id: str, key: str) -> str:
@@ -69,9 +67,7 @@ def event(site_id: str, asset_id: str, event_class: str) -> str:
     Example: aevus/lab/RTU-01/events/dnp3
              aevus/lab/SW-01/events/snmp-trap
     """
-    return (
-        f"{_ROOT_PREFIX}/{_sanitize(site_id)}/{_sanitize(asset_id)}/events/{_sanitize(event_class)}"
-    )
+    return f"{_ROOT_PREFIX}/{_sanitize(site_id)}/{_sanitize(asset_id)}/events/{_sanitize(event_class)}"
 
 
 def alert(site_id: str, asset_id: str, severity: str) -> str:

@@ -127,11 +127,11 @@ class SQLiteDB:
         self._conn.row_factory = sqlite3.Row
         self._conn.executescript(SCHEMA)
         try:
-            self._conn.execute('ALTER TABLE assets ADD COLUMN latitude REAL')
+            self._conn.execute("ALTER TABLE assets ADD COLUMN latitude REAL")
         except Exception:
             pass
         try:
-            self._conn.execute('ALTER TABLE assets ADD COLUMN longitude REAL')
+            self._conn.execute("ALTER TABLE assets ADD COLUMN longitude REAL")
         except Exception:
             pass
 
@@ -303,12 +303,12 @@ class SQLiteDB:
             status=row["status"],
         )
 
-
     # ── Notes CRUD ──
 
     def add_note(self, asset_id: str, note: str, author: str = "System") -> int:
         """Add a note to an asset. Returns the note ID."""
         from datetime import UTC, datetime
+
         now = datetime.now(UTC).isoformat()
         cur = self._conn.execute(
             "INSERT INTO asset_notes (asset_id, note, author, created_at) VALUES (?, ?, ?, ?)",
@@ -320,6 +320,7 @@ class SQLiteDB:
     def update_note(self, note_id: int, note: str) -> bool:
         """Update an existing note."""
         from datetime import UTC, datetime
+
         now = datetime.now(UTC).isoformat()
         cur = self._conn.execute(
             "UPDATE asset_notes SET note = ?, updated_at = ? WHERE id = ?",
@@ -347,6 +348,7 @@ class SQLiteDB:
     def add_journal_entry(self, asset_id: str, entry: str, author: str = "System", category: str = "general") -> int:
         """Add an immutable journal entry. Returns the entry ID."""
         from datetime import UTC, datetime
+
         now = datetime.now(UTC).isoformat()
         cur = self._conn.execute(
             "INSERT INTO journal (asset_id, entry, author, category, created_at) VALUES (?, ?, ?, ?, ?)",
@@ -374,13 +376,12 @@ class SQLiteDB:
     # Implements the Protocols expected by FirmwareTracker / MaintenanceTracker.
 
     def get_firmware_version(self, asset_id: str) -> str | None:
-        row = self._conn.execute(
-            "SELECT version FROM firmware_baselines WHERE asset_id = ?", (asset_id,)
-        ).fetchone()
+        row = self._conn.execute("SELECT version FROM firmware_baselines WHERE asset_id = ?", (asset_id,)).fetchone()
         return row["version"] if row else None
 
     def set_firmware_version(self, asset_id: str, version: str) -> None:
         from datetime import UTC, datetime
+
         now = datetime.now(UTC).isoformat()
         self._conn.execute(
             """INSERT INTO firmware_baselines (asset_id, version, updated_at)
@@ -393,13 +394,12 @@ class SQLiteDB:
         self._conn.commit()
 
     def get_runhours_baseline(self, asset_id: str) -> int | None:
-        row = self._conn.execute(
-            "SELECT run_hours FROM runhours_baselines WHERE asset_id = ?", (asset_id,)
-        ).fetchone()
+        row = self._conn.execute("SELECT run_hours FROM runhours_baselines WHERE asset_id = ?", (asset_id,)).fetchone()
         return row["run_hours"] if row else None
 
     def set_runhours_baseline(self, asset_id: str, run_hours: int) -> None:
         from datetime import UTC, datetime
+
         now = datetime.now(UTC).isoformat()
         self._conn.execute(
             """INSERT INTO runhours_baselines (asset_id, run_hours, updated_at)
@@ -416,6 +416,7 @@ class SQLiteDB:
     def record_reachability(self, asset_id: str, ok: bool) -> None:
         """Record one poll outcome and prune samples older than ~25h."""
         import time
+
         now = int(time.time())
         self._conn.execute(
             "INSERT INTO reachability_samples (asset_id, ts, ok) VALUES (?, ?, ?)",
@@ -436,6 +437,7 @@ class SQLiteDB:
         caller can show "—" rather than a fake 100%.
         """
         import time
+
         cutoff = int(time.time()) - window_seconds
         row = self._conn.execute(
             """SELECT COUNT(*) AS total, COALESCE(SUM(ok), 0) AS up
@@ -462,6 +464,7 @@ class SQLiteDB:
     ) -> int:
         """Append an audit row for shelve/unshelve/expire events."""
         from datetime import UTC, datetime
+
         now = datetime.now(UTC).isoformat()
         cur = self._conn.execute(
             """INSERT INTO shelve_audit

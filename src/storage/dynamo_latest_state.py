@@ -54,9 +54,7 @@ class DynamoLatestStateReader:
         if self._table is None:
             import boto3
 
-            self._table = boto3.resource("dynamodb", region_name=self.region).Table(
-                self.table_name
-            )
+            self._table = boto3.resource("dynamodb", region_name=self.region).Table(self.table_name)
         return self._table
 
     def fetch(self, asset_id: str) -> AssetLatest:

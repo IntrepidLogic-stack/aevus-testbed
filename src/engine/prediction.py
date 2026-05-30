@@ -184,9 +184,7 @@ class PredictionEngine:
 
         return prediction
 
-    def _analyze_battery_solar(
-        self, asset_id: str, weather: WeatherData | None
-    ) -> dict | None:
+    def _analyze_battery_solar(self, asset_id: str, weather: WeatherData | None) -> dict | None:
         """Analyze battery + solar trends correlated with weather.
 
         Detects:
@@ -384,11 +382,11 @@ class PredictionEngine:
             driver_parts.append("adverse trend")
         if risk > 30:
             if direction == "upper_bad":
-                driver_parts.append(f"{metric.replace("_", " ")} elevated ({latest:.1f} {unit})")
+                driver_parts.append(f"{metric.replace('_', ' ')} elevated ({latest:.1f} {unit})")
             else:
-                driver_parts.append(f"{metric.replace("_", " ")} degraded ({latest:.1f} {unit})")
+                driver_parts.append(f"{metric.replace('_', ' ')} degraded ({latest:.1f} {unit})")
 
-        driver_label = "; ".join(driver_parts) if driver_parts else f"{metric.replace("_", " ")} nominal"
+        driver_label = "; ".join(driver_parts) if driver_parts else f"{metric.replace('_', ' ')} nominal"
 
         return {
             "risk": risk,

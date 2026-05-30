@@ -1,6 +1,7 @@
 """
 Aevus — Weather API Router (with caching to avoid rate limits)
 """
+
 from __future__ import annotations
 
 import asyncio
@@ -17,8 +18,8 @@ router = APIRouter(tags=["weather"])
 
 # ── In-memory cache ──────────────────────────────────────────
 _cache: dict[str, dict] = {}
-CACHE_TTL_CURRENT = 300      # 5 min
-CACHE_TTL_FORECAST = 1800    # 30 min
+CACHE_TTL_CURRENT = 300  # 5 min
+CACHE_TTL_FORECAST = 1800  # 30 min
 
 
 def _get_cached(key: str, ttl: int):
@@ -78,12 +79,14 @@ async def get_weather_forecast():
     try:
         loop = asyncio.get_running_loop()
         response = await loop.run_in_executor(
-            None, lambda: urllib.request.urlopen(url, timeout=15).read()  # noqa: S310 — trusted Open-Meteo https endpoint
+            None,
+            lambda: urllib.request.urlopen(url, timeout=15).read(),  # noqa: S310 — trusted Open-Meteo https endpoint
         )
         data = json.loads(response)
         if not data.get("error"):
             _set_cached("forecast", data)
             import pathlib
+
             pathlib.Path("/home/ubuntu/aevus-testbed/forecast_cache.json").write_text(json.dumps(data))
         return data
     except Exception as e:
@@ -93,11 +96,13 @@ async def get_weather_forecast():
             return stale["data"]
         # Try disk cache
         import pathlib
+
         disk = pathlib.Path("/home/ubuntu/aevus-testbed/forecast_cache.json")
         if disk.exists():
             data = json.loads(disk.read_text())
             _set_cached("forecast", data)
             import pathlib
+
             pathlib.Path("/home/ubuntu/aevus-testbed/forecast_cache.json").write_text(json.dumps(data))
             return data
         return {"error": str(e)}

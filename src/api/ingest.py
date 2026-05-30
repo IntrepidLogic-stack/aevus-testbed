@@ -3,6 +3,7 @@ Aevus — Remote Ingest API
 Accepts vitals from remote relay collectors (e.g., shop PC polling SCADAPack via USB).
 Injects data into the same pipeline as local collectors.
 """
+
 from __future__ import annotations
 
 import time
@@ -41,10 +42,7 @@ async def ingest_vitals(payload: IngestPayload):
         "relay": True,
     }
 
-    logger.info("relay_ingest",
-                asset_id=asset_id,
-                vital_count=len(vitals),
-                keys=list(vitals.keys())[:5])
+    logger.info("relay_ingest", asset_id=asset_id, vital_count=len(vitals), keys=list(vitals.keys())[:5])
 
     return {
         "status": "ok",

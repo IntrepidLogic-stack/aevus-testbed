@@ -213,9 +213,7 @@ class PollScheduler:
 
         # 6a. ISA-18.2 event-style alarms — firmware change + maintenance due
         if collector.firmware_version:
-            fw_event = self.firmware_tracker.check(
-                asset_id, asset_name, collector.firmware_version
-            )
+            fw_event = self.firmware_tracker.check(asset_id, asset_name, collector.firmware_version)
             if fw_event is not None:
                 evt_alert = self.alert_engine.record_event(
                     asset_id=asset_id,
@@ -228,9 +226,7 @@ class PollScheduler:
                     alert_changes.append(evt_alert)
 
         if run_hours_value is not None:
-            maint_event = self.maintenance_tracker.check(
-                asset_id, asset_name, run_hours_value
-            )
+            maint_event = self.maintenance_tracker.check(asset_id, asset_name, run_hours_value)
             if maint_event is not None:
                 evt_alert = self.alert_engine.record_event(
                     asset_id=asset_id,
@@ -273,16 +269,19 @@ class PollScheduler:
             uptime = self.db.uptime_pct(asset_id)
         if uptime is not None:
             from src.models.telemetry import VitalSign
+
             up_status = "good" if uptime >= 99.0 else "warn" if uptime >= 95.0 else "bad"
-            vitals.append(VitalSign(
-                label="UPTIME 24H",
-                value=f"{uptime:.1f} %",
-                raw_value=uptime,
-                unit="%",
-                status=up_status,
-                group="comms",
-                source="computed",
-            ))
+            vitals.append(
+                VitalSign(
+                    label="UPTIME 24H",
+                    value=f"{uptime:.1f} %",
+                    raw_value=uptime,
+                    unit="%",
+                    status=up_status,
+                    group="comms",
+                    source="computed",
+                )
+            )
 
         # 8. Update asset in SQLite
         if asset:
@@ -407,6 +406,7 @@ class PollScheduler:
                     weather = await self.weather_engine.poll()
                     # Broadcast weather to dashboard
                     from dataclasses import asdict
+
                     data = asdict(weather)
                     if data.get("fetched_at"):
                         data["fetched_at"] = data["fetched_at"].isoformat()

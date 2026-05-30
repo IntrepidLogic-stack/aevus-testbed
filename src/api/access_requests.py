@@ -19,6 +19,7 @@ router = APIRouter(tags=["access-requests"])
 
 DATA_FILE = Path("/home/ubuntu/aevus-testbed/data/access_requests.json")
 
+
 class AccessRequest(BaseModel):
     name: str
     email: str
@@ -28,6 +29,7 @@ class AccessRequest(BaseModel):
     reason: str = ""
     timestamp: str = ""
     status: str = "pending"
+
 
 class AccessDecision(BaseModel):
     status: str  # approved | denied
@@ -39,6 +41,7 @@ def _load() -> list[dict]:
     if DATA_FILE.exists():
         return json.loads(DATA_FILE.read_text())
     return []
+
 
 def _save(reqs: list[dict]) -> None:
     DATA_FILE.parent.mkdir(parents=True, exist_ok=True)
@@ -60,6 +63,7 @@ async def submit_access_request(req: AccessRequest):
     # Email notification via SES — Aevus-branded HTML
     try:
         import boto3
+
         ses = boto3.client("sesv2", region_name="us-east-1")
         name = data.get("name", "Unknown")
         email = data.get("email", "—")
@@ -166,8 +170,19 @@ async def submit_access_request(req: AccessRequest):
                     "Subject": {"Data": "AEVUS Demo Signup: " + name + " — " + company, "Charset": "UTF-8"},
                     "Body": {
                         "Html": {"Data": html, "Charset": "UTF-8"},
-                        "Text": {"Data": "New Aevus access request from " + name + " (" + email + ") at " + company + ". Role: " + role + ". Review: https://aevus.intrepidlogic.io/dashboard/Aevus_Console.html#settings", "Charset": "UTF-8"}
-                    }
+                        "Text": {
+                            "Data": "New Aevus access request from "
+                            + name
+                            + " ("
+                            + email
+                            + ") at "
+                            + company
+                            + ". Role: "
+                            + role
+                            + ". Review: https://aevus.intrepidlogic.io/dashboard/Aevus_Console.html#settings",
+                            "Charset": "UTF-8",
+                        },
+                    },
                 }
             },
         )
@@ -230,8 +245,13 @@ async def submit_access_request(req: AccessRequest):
                     "Subject": {"Data": "Aevus Access Request Received", "Charset": "UTF-8"},
                     "Body": {
                         "Html": {"Data": confirm_html, "Charset": "UTF-8"},
-                        "Text": {"Data": "Hi " + name + ", thank you for requesting access to the Aevus SCADA Intelligence Platform. An administrator will review your request shortly. Explore the demo at: https://aevus.intrepidlogic.io/dashboard/Aevus_Console.html?demo=true", "Charset": "UTF-8"}
-                    }
+                        "Text": {
+                            "Data": "Hi "
+                            + name
+                            + ", thank you for requesting access to the Aevus SCADA Intelligence Platform. An administrator will review your request shortly. Explore the demo at: https://aevus.intrepidlogic.io/dashboard/Aevus_Console.html?demo=true",
+                            "Charset": "UTF-8",
+                        },
+                    },
                 }
             },
         )
@@ -267,6 +287,7 @@ async def update_access_request(req_id: str, decision: AccessDecision):
     if decision.status == "approved" and decision.cognito_create:
         try:
             import boto3
+
             cognito = boto3.client("cognito-idp", region_name="us-east-1")
             cognito.admin_create_user(
                 UserPoolId="us-east-1_CVFBcLJV3",
@@ -303,10 +324,12 @@ async def update_access_request(req_id: str, decision: AccessDecision):
 
 # ── User Management (Cognito) ─────────────────────────────
 
+
 @router.get("/users")
 async def list_users():
     """List all Cognito users with their groups."""
     import boto3
+
     cognito = boto3.client("cognito-idp", region_name="us-east-1")
     pool = "us-east-1_CVFBcLJV3"
     result = cognito.list_users(UserPoolId=pool)
@@ -315,16 +338,18 @@ async def list_users():
         attrs = {a["Name"]: a["Value"] for a in u.get("Attributes", [])}
         groups = cognito.admin_list_groups_for_user(UserPoolId=pool, Username=u["Username"])
         gs = [g["GroupName"] for g in groups.get("Groups", [])]
-        users.append({
-            "username": u["Username"],
-            "email": attrs.get("email", ""),
-            "name": attrs.get("name", ""),
-            "status": u["UserStatus"],
-            "enabled": u["Enabled"],
-            "created": u["UserCreateDate"].isoformat(),
-            "modified": u.get("UserLastModifiedDate", u["UserCreateDate"]).isoformat(),
-            "groups": gs,
-        })
+        users.append(
+            {
+                "username": u["Username"],
+                "email": attrs.get("email", ""),
+                "name": attrs.get("name", ""),
+                "status": u["UserStatus"],
+                "enabled": u["Enabled"],
+                "created": u["UserCreateDate"].isoformat(),
+                "modified": u.get("UserLastModifiedDate", u["UserCreateDate"]).isoformat(),
+                "groups": gs,
+            }
+        )
     return users
 
 
@@ -332,6 +357,7 @@ async def list_users():
 async def change_user_role(username: str, body: dict):
     """Change a user's group (role)."""
     import boto3
+
     cognito = boto3.client("cognito-idp", region_name="us-east-1")
     pool = "us-east-1_CVFBcLJV3"
     new_role = body.get("role", "Viewer")
@@ -351,6 +377,7 @@ async def change_user_role(username: str, body: dict):
 async def toggle_user(username: str):
     """Enable or disable a user."""
     import boto3
+
     cognito = boto3.client("cognito-idp", region_name="us-east-1")
     pool = "us-east-1_CVFBcLJV3"
 
@@ -369,6 +396,7 @@ async def toggle_user(username: str):
 async def delete_user(username: str):
     """Permanently delete a Cognito user."""
     import boto3
+
     cognito = boto3.client("cognito-idp", region_name="us-east-1")
     pool = "us-east-1_CVFBcLJV3"
     cognito.admin_delete_user(UserPoolId=pool, Username=username)
@@ -380,27 +408,27 @@ async def delete_user(username: str):
 async def reset_user_password(username: str):
     """Force a password reset — sends new temp password via email."""
     import boto3
+
     cognito = boto3.client("cognito-idp", region_name="us-east-1")
     pool = "us-east-1_CVFBcLJV3"
     cognito.admin_reset_user_password(UserPoolId=pool, Username=username)
     logger.info("user_password_reset", username=username)
     return {"status": "ok"}
 
+
 @router.post("/users/{username}/mfa")
 async def enable_mfa(username: str):
     """Enable TOTP MFA for a user."""
     import boto3
+
     cognito = boto3.client("cognito-idp", region_name="us-east-1")
     pool = "us-east-1_CVFBcLJV3"
     try:
         cognito.admin_set_user_mfa_preference(
-            UserPoolId=pool,
-            Username=username,
-            SoftwareTokenMfaSettings={"Enabled": True, "PreferredMfa": True}
+            UserPoolId=pool, Username=username, SoftwareTokenMfaSettings={"Enabled": True, "PreferredMfa": True}
         )
         logger.info("mfa_enabled", username=username)
         return {"status": "ok"}
     except Exception as e:
         logger.warning("mfa_enable_failed", username=username, error=str(e))
         return {"status": "error", "error": str(e)}
-

@@ -2,6 +2,7 @@
 Aevus — Continuous Ping Diagnostic Tool
 Configurable ping with real-time results, inspired by OneSCADA CI.
 """
+
 from __future__ import annotations
 
 import asyncio
@@ -49,8 +50,14 @@ async def _run_ping(target: str, count: int, interval: float, packet_size: int, 
         start = time.monotonic()
         try:
             proc = await asyncio.create_subprocess_exec(
-                "ping", "-c", "1", "-W", str(int(timeout)),
-                "-s", str(packet_size), target,
+                "ping",
+                "-c",
+                "1",
+                "-W",
+                str(int(timeout)),
+                "-s",
+                str(packet_size),
+                target,
                 stdout=asyncio.subprocess.PIPE,
                 stderr=asyncio.subprocess.PIPE,
             )
@@ -102,9 +109,7 @@ async def start_ping(req: PingRequest):
     _ping_results[req.target] = []
 
     # Start in background
-    asyncio.create_task(_run_ping(
-        req.target, req.count, req.interval, req.packet_size, req.timeout
-    ))
+    asyncio.create_task(_run_ping(req.target, req.count, req.interval, req.packet_size, req.timeout))
 
     return {"status": "started", "target": req.target, "count": req.count, "interval": req.interval}
 

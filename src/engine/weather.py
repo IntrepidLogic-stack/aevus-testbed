@@ -2,6 +2,7 @@
 Aevus — Weather + Daylight Integration Engine
 Uses Open-Meteo API (free, no key needed) and solar position calculation.
 """
+
 from __future__ import annotations
 
 import json
@@ -20,25 +21,53 @@ CACHE_PATH = pathlib.Path("/home/ubuntu/aevus-testbed/weather_cache.json")
 
 # WMO weather codes to human-readable conditions
 WMO_CODES: dict[int, str] = {
-    0: "clear", 1: "mostly_clear", 2: "partly_cloudy", 3: "overcast",
-    45: "fog", 48: "fog", 51: "drizzle", 53: "drizzle", 55: "drizzle",
-    61: "rain", 63: "rain", 65: "heavy_rain", 71: "snow", 73: "snow",
-    75: "heavy_snow", 77: "ice", 80: "showers", 81: "showers", 82: "heavy_showers",
-    85: "snow_showers", 86: "snow_showers", 95: "thunderstorm",
-    96: "thunderstorm_hail", 99: "thunderstorm_hail",
+    0: "clear",
+    1: "mostly_clear",
+    2: "partly_cloudy",
+    3: "overcast",
+    45: "fog",
+    48: "fog",
+    51: "drizzle",
+    53: "drizzle",
+    55: "drizzle",
+    61: "rain",
+    63: "rain",
+    65: "heavy_rain",
+    71: "snow",
+    73: "snow",
+    75: "heavy_snow",
+    77: "ice",
+    80: "showers",
+    81: "showers",
+    82: "heavy_showers",
+    85: "snow_showers",
+    86: "snow_showers",
+    95: "thunderstorm",
+    96: "thunderstorm_hail",
+    99: "thunderstorm_hail",
 }
 
 WEATHER_SOLAR_FACTOR: dict[str, float] = {
-    "clear": 1.0, "mostly_clear": 0.9, "partly_cloudy": 0.7,
-    "overcast": 0.5, "fog": 0.4, "drizzle": 0.3, "rain": 0.2,
-    "heavy_rain": 0.1, "snow": 0.15, "heavy_snow": 0.05,
-    "showers": 0.2, "heavy_showers": 0.1, "ice": 0.1,
-    "snow_showers": 0.15, "thunderstorm": 0.05,
-    "thunderstorm_hail": 0.02, "unknown": 0.5,
+    "clear": 1.0,
+    "mostly_clear": 0.9,
+    "partly_cloudy": 0.7,
+    "overcast": 0.5,
+    "fog": 0.4,
+    "drizzle": 0.3,
+    "rain": 0.2,
+    "heavy_rain": 0.1,
+    "snow": 0.15,
+    "heavy_snow": 0.05,
+    "showers": 0.2,
+    "heavy_showers": 0.1,
+    "ice": 0.1,
+    "snow_showers": 0.15,
+    "thunderstorm": 0.05,
+    "thunderstorm_hail": 0.02,
+    "unknown": 0.5,
 }
 
-COMPASS_DIRS = ["N","NNE","NE","ENE","E","ESE","SE","SSE",
-                "S","SSW","SW","WSW","W","WNW","NW","NNW"]
+COMPASS_DIRS = ["N", "NNE", "NE", "ENE", "E", "ESE", "SE", "SSE", "S", "SSW", "SW", "WSW", "W", "WNW", "NW", "NNW"]
 
 
 def _solar_declination(day_of_year: int) -> float:
@@ -117,16 +146,26 @@ class WeatherEngine:
     def _save_cache(self, w: WeatherData) -> None:
         """Persist current weather to disk."""
         try:
-            CACHE_PATH.write_text(json.dumps({
-                "temp_f": w.temp_f, "wind_mph": w.wind_mph,
-                "wind_gust_mph": w.wind_gust_mph, "precip_in": w.precip_in,
-                "condition": w.condition, "sunrise": w.sunrise,
-                "sunset": w.sunset, "daylight_hours": w.daylight_hours,
-                "is_daylight": w.is_daylight,
-                "solar_production_factor": w.solar_production_factor,
-                "cloud_cover": w.cloud_cover, "wind_dir": w.wind_dir,
-                "ghi": w.ghi, "dni": w.dni,
-            }))
+            CACHE_PATH.write_text(
+                json.dumps(
+                    {
+                        "temp_f": w.temp_f,
+                        "wind_mph": w.wind_mph,
+                        "wind_gust_mph": w.wind_gust_mph,
+                        "precip_in": w.precip_in,
+                        "condition": w.condition,
+                        "sunrise": w.sunrise,
+                        "sunset": w.sunset,
+                        "daylight_hours": w.daylight_hours,
+                        "is_daylight": w.is_daylight,
+                        "solar_production_factor": w.solar_production_factor,
+                        "cloud_cover": w.cloud_cover,
+                        "wind_dir": w.wind_dir,
+                        "ghi": w.ghi,
+                        "dni": w.dni,
+                    }
+                )
+            )
         except Exception:
             pass
 
@@ -151,7 +190,8 @@ class WeatherEngine:
         try:
             loop = asyncio.get_running_loop()
             response = await loop.run_in_executor(
-                None, lambda: urllib.request.urlopen(url, timeout=10).read()  # noqa: S310 — trusted Open-Meteo https endpoint
+                None,
+                lambda: urllib.request.urlopen(url, timeout=10).read(),  # noqa: S310 — trusted Open-Meteo https endpoint
             )
             data = json.loads(response)
 
@@ -174,13 +214,12 @@ class WeatherEngine:
             condition = WMO_CODES.get(weather_code, "unknown")
             # Solar irradiance from Open-Meteo (W/m2)
             ghi = current.get("shortwave_radiation", 0.0)  # Global Horizontal Irradiance
-            dni = current.get("direct_radiation", 0.0)      # Direct Normal Irradiance
+            dni = current.get("direct_radiation", 0.0)  # Direct Normal Irradiance
 
         except Exception as e:
             self.log.error("weather_fetch_failed", error=str(e))
             if self._current is not None:
-                self.log.info("weather_using_cached",
-                              age_s=round((now - self._current.fetched_at).total_seconds()))
+                self.log.info("weather_using_cached", age_s=round((now - self._current.fetched_at).total_seconds()))
                 return self._current
             condition = "unknown"
             temp_f = 0.0
@@ -220,7 +259,7 @@ class WeatherEngine:
 
         self._current = weather
         self._save_cache(weather)
-        self.log.info("weather_updated",
-                      temp_f=weather.temp_f, condition=condition,
-                      solar_factor=solar_production_factor, ghi=ghi)
+        self.log.info(
+            "weather_updated", temp_f=weather.temp_f, condition=condition, solar_factor=solar_production_factor, ghi=ghi
+        )
         return weather

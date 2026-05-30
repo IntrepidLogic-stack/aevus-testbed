@@ -18,53 +18,53 @@ TRIO_ENTERPRISE = "1.3.6.1.4.1.33302"
 
 # System info OIDs (10.1.x)
 TRIO_SYSTEM_OIDS = {
-    "serial_number":   f"{TRIO_ENTERPRISE}.10.1.1.0",
-    "model":           f"{TRIO_ENTERPRISE}.10.1.2.0",
-    "hw_revision":     f"{TRIO_ENTERPRISE}.10.1.3.0",
-    "frequency_band":  f"{TRIO_ENTERPRISE}.10.1.4.0",
-    "firmware":        f"{TRIO_ENTERPRISE}.10.1.5.0",
-    "uptime_str":      f"{TRIO_ENTERPRISE}.10.1.9.0",
-    "voltage_mv":      f"{TRIO_ENTERPRISE}.10.1.12.0",
-    "temperature":     f"{TRIO_ENTERPRISE}.10.1.13.0",
-    "signal_quality":  f"{TRIO_ENTERPRISE}.10.1.14.0",
-    "ip_address":      f"{TRIO_ENTERPRISE}.10.1.15.0",
+    "serial_number": f"{TRIO_ENTERPRISE}.10.1.1.0",
+    "model": f"{TRIO_ENTERPRISE}.10.1.2.0",
+    "hw_revision": f"{TRIO_ENTERPRISE}.10.1.3.0",
+    "frequency_band": f"{TRIO_ENTERPRISE}.10.1.4.0",
+    "firmware": f"{TRIO_ENTERPRISE}.10.1.5.0",
+    "uptime_str": f"{TRIO_ENTERPRISE}.10.1.9.0",
+    "voltage_mv": f"{TRIO_ENTERPRISE}.10.1.12.0",
+    "temperature": f"{TRIO_ENTERPRISE}.10.1.13.0",
+    "signal_quality": f"{TRIO_ENTERPRISE}.10.1.14.0",
+    "ip_address": f"{TRIO_ENTERPRISE}.10.1.15.0",
 }
 
 # Radio link OIDs (10.2.x)
 TRIO_RADIO_OIDS = {
-    "radio_type":      f"{TRIO_ENTERPRISE}.10.2.1.0",      # 1=AP, 2=Remote
-    "network_id":      f"{TRIO_ENTERPRISE}.10.2.2.1.2.1",  # e.g. "killdeer"
-    "tx_packets":      f"{TRIO_ENTERPRISE}.10.2.3.0",
-    "rx_packets":      f"{TRIO_ENTERPRISE}.10.2.4.0",
-    "tx_power":        f"{TRIO_ENTERPRISE}.10.2.5.1.2.1",  # dBm
-    "rssi":            f"{TRIO_ENTERPRISE}.10.2.8.1.2.1",  # dBm
-    "link_state":      f"{TRIO_ENTERPRISE}.10.2.10.0",     # 1=linked
-    "tx_error":        f"{TRIO_ENTERPRISE}.10.2.11.0",
-    "rx_error":        f"{TRIO_ENTERPRISE}.10.2.12.0",
-    "rx_dropped":      f"{TRIO_ENTERPRISE}.10.2.13.0",
+    "radio_type": f"{TRIO_ENTERPRISE}.10.2.1.0",  # 1=AP, 2=Remote
+    "network_id": f"{TRIO_ENTERPRISE}.10.2.2.1.2.1",  # e.g. "killdeer"
+    "tx_packets": f"{TRIO_ENTERPRISE}.10.2.3.0",
+    "rx_packets": f"{TRIO_ENTERPRISE}.10.2.4.0",
+    "tx_power": f"{TRIO_ENTERPRISE}.10.2.5.1.2.1",  # dBm
+    "rssi": f"{TRIO_ENTERPRISE}.10.2.8.1.2.1",  # dBm
+    "link_state": f"{TRIO_ENTERPRISE}.10.2.10.0",  # 1=linked
+    "tx_error": f"{TRIO_ENTERPRISE}.10.2.11.0",
+    "rx_error": f"{TRIO_ENTERPRISE}.10.2.12.0",
+    "rx_dropped": f"{TRIO_ENTERPRISE}.10.2.13.0",
 }
 
 # All polled metrics with units
 TRIO_POLL_OIDS = {
-    "voltage":         (f"{TRIO_ENTERPRISE}.10.1.12.0", "mV"),
-    "temperature":     (f"{TRIO_ENTERPRISE}.10.1.13.0", "°C"),
-    "signal_quality":  (f"{TRIO_ENTERPRISE}.10.1.14.0", "%"),
-    "rssi":            (f"{TRIO_ENTERPRISE}.10.2.8.1.2.1", "dBm"),
-    "tx_power":        (f"{TRIO_ENTERPRISE}.10.2.5.1.2.1", "dBm"),
-    "tx_packets":      (f"{TRIO_ENTERPRISE}.10.2.3.0", "count"),
-    "rx_packets":      (f"{TRIO_ENTERPRISE}.10.2.4.0", "count"),
-    "tx_error":        (f"{TRIO_ENTERPRISE}.10.2.11.0", "count"),
-    "rx_error":        (f"{TRIO_ENTERPRISE}.10.2.12.0", "count"),
-    "rx_dropped":      (f"{TRIO_ENTERPRISE}.10.2.13.0", "count"),
-    "link_state":      (f"{TRIO_ENTERPRISE}.10.2.10.0", ""),
-    "radio_role":      (f"{TRIO_ENTERPRISE}.10.2.1.0", ""),  # 1=AP/master, 2=remote/slave
+    "voltage": (f"{TRIO_ENTERPRISE}.10.1.12.0", "mV"),
+    "temperature": (f"{TRIO_ENTERPRISE}.10.1.13.0", "°C"),
+    "signal_quality": (f"{TRIO_ENTERPRISE}.10.1.14.0", "%"),
+    "rssi": (f"{TRIO_ENTERPRISE}.10.2.8.1.2.1", "dBm"),
+    "tx_power": (f"{TRIO_ENTERPRISE}.10.2.5.1.2.1", "dBm"),
+    "tx_packets": (f"{TRIO_ENTERPRISE}.10.2.3.0", "count"),
+    "rx_packets": (f"{TRIO_ENTERPRISE}.10.2.4.0", "count"),
+    "tx_error": (f"{TRIO_ENTERPRISE}.10.2.11.0", "count"),
+    "rx_error": (f"{TRIO_ENTERPRISE}.10.2.12.0", "count"),
+    "rx_dropped": (f"{TRIO_ENTERPRISE}.10.2.13.0", "count"),
+    "link_state": (f"{TRIO_ENTERPRISE}.10.2.10.0", ""),
+    "radio_role": (f"{TRIO_ENTERPRISE}.10.2.1.0", ""),  # 1=AP/master, 2=remote/slave
 }
 
 # Standard MIB-II OIDs
 STANDARD_OIDS = {
-    "sys_descr":    "1.3.6.1.2.1.1.1.0",
-    "sys_name":     "1.3.6.1.2.1.1.5.0",
-    "sys_uptime":   "1.3.6.1.2.1.1.3.0",
+    "sys_descr": "1.3.6.1.2.1.1.1.0",
+    "sys_name": "1.3.6.1.2.1.1.5.0",
+    "sys_uptime": "1.3.6.1.2.1.1.3.0",
     "sys_location": "1.3.6.1.2.1.1.6.0",
 }
 

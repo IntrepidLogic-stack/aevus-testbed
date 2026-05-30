@@ -2,6 +2,7 @@
 Aevus — Communication Quality Calculator
 Computes % good communication metric for each asset.
 """
+
 from __future__ import annotations
 
 from dataclasses import dataclass
@@ -16,10 +17,10 @@ class CommQuality:
     """Communication quality metrics for an asset."""
 
     asset_id: str
-    success_rate: float = 100.0    # % successful polls
-    error_rate: float = 0.0        # SNMP error rate %
-    avg_response_ms: float = 0.0   # Average poll response time
-    quality_score: float = 100.0   # Weighted composite 0-100
+    success_rate: float = 100.0  # % successful polls
+    error_rate: float = 0.0  # SNMP error rate %
+    avg_response_ms: float = 0.0  # Average poll response time
+    quality_score: float = 100.0  # Weighted composite 0-100
 
 
 class CommQualityEngine:
@@ -77,11 +78,7 @@ class CommQualityEngine:
 
         # Weighted composite: 60% success + 30% error inverse + 10% response
         error_inverse = max(0.0, 100.0 - error_rate)
-        quality_score = (
-            success_rate * 0.60
-            + error_inverse * 0.30
-            + response_score * 0.10
-        )
+        quality_score = success_rate * 0.60 + error_inverse * 0.30 + response_score * 0.10
         quality_score = round(max(0.0, min(100.0, quality_score)), 1)
 
         cq = CommQuality(

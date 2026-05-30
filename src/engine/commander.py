@@ -3,6 +3,7 @@ Aevus — Operator Command Interface
 Handles operator commands with IL-9000 safety checks and audit logging.
 Commands are simulated (logged but Modbus writes go to simulator).
 """
+
 from __future__ import annotations
 
 import json
@@ -61,17 +62,13 @@ class Commander:
 
         # Validate command
         if request.command not in COMMAND_MAP:
-            entry = self._log_command(
-                request, now, result="rejected: unknown command", il9000="n/a"
-            )
+            entry = self._log_command(request, now, result="rejected: unknown command", il9000="n/a")
             self.log.warning("command_rejected", reason="unknown_command", command=request.command)
             return entry
 
         # Require explicit confirmation
         if not request.confirm:
-            entry = self._log_command(
-                request, now, result="rejected: confirmation required", il9000="n/a"
-            )
+            entry = self._log_command(request, now, result="rejected: confirmation required", il9000="n/a")
             self.log.warning("command_rejected", reason="no_confirmation", command=request.command)
             return entry
 
@@ -88,10 +85,7 @@ class Commander:
 
         # Execute (simulated)
         cmd_def = COMMAND_MAP[request.command]
-        result = (
-            f"simulated: {request.command} on {request.asset_id} "
-            f"(FC{cmd_def['fc']} addr={cmd_def['address']})"
-        )
+        result = f"simulated: {request.command} on {request.asset_id} (FC{cmd_def['fc']} addr={cmd_def['address']})"
 
         entry = self._log_command(request, now, result=result, il9000=il9000_status)
         self.log.warning(
@@ -105,9 +99,7 @@ class Commander:
 
     def get_log(self, limit: int = 100) -> list[CommandLogEntry]:
         """Retrieve the command audit trail."""
-        rows = self._conn.execute(
-            "SELECT * FROM command_log ORDER BY id DESC LIMIT ?", (limit,)
-        ).fetchall()
+        rows = self._conn.execute("SELECT * FROM command_log ORDER BY id DESC LIMIT ?", (limit,)).fetchall()
         return [
             CommandLogEntry(
                 id=r["id"],
@@ -147,9 +139,7 @@ class Commander:
         )
         self._conn.commit()
 
-        row = self._conn.execute(
-            "SELECT last_insert_rowid() as id"
-        ).fetchone()
+        row = self._conn.execute("SELECT last_insert_rowid() as id").fetchone()
 
         return CommandLogEntry(
             id=row["id"],

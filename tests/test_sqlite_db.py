@@ -172,6 +172,7 @@ class TestReachabilityUptime:
 
     def test_window_excludes_old_samples(self, db):
         import time
+
         # Insert an old (in-window-miss) sample manually, then a fresh ok one.
         old_ts = int(time.time()) - 100000  # ~27.7h ago, outside 24h window
         db._conn.execute(

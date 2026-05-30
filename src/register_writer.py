@@ -3,6 +3,7 @@
 SCADAPack 470 Register Writer — simulates realistic oil & gas process values.
 Writes Float32 values to Modbus TCP holding registers (matching collector's register map).
 """
+
 import asyncio
 import math
 import random
@@ -17,15 +18,15 @@ PORT = 502
 # Register map — Float32 = 2 registers each, matching collector
 # address is 0-based offset (40001 = 0, 40003 = 2, etc.)
 REGISTERS = [
-    {"addr": 0,  "name": "suction_pressure",    "base": 28.5, "min": 24.0, "max": 34.0, "drift": 0.8},
-    {"addr": 2,  "name": "discharge_pressure",  "base": 89.0, "min": 80.0, "max": 98.0, "drift": 1.2},
-    {"addr": 4,  "name": "flow_rate",           "base": 125.0,"min": 90.0, "max": 160.0,"drift": 4.0},
-    {"addr": 6,  "name": "gas_temperature",     "base": 142.0,"min": 120.0,"max": 165.0,"drift": 3.0},
-    {"addr": 8,  "name": "ambient_temperature", "base": 87.0, "min": 75.0, "max": 105.0,"drift": 2.0},
-    {"addr": 10, "name": "battery_voltage",     "base": 24.5, "min": 23.0, "max": 26.0, "drift": 0.2},
-    {"addr": 12, "name": "solar_voltage",       "base": 18.2, "min": 0.0,  "max": 22.0, "drift": 1.5},
-    {"addr": 14, "name": "tank_level",          "base": 62.0, "min": 10.0, "max": 95.0, "drift": 0.5},
-    {"addr": 16, "name": "vibration",           "base": 2.2,  "min": 0.8,  "max": 4.8,  "drift": 0.4},
+    {"addr": 0, "name": "suction_pressure", "base": 28.5, "min": 24.0, "max": 34.0, "drift": 0.8},
+    {"addr": 2, "name": "discharge_pressure", "base": 89.0, "min": 80.0, "max": 98.0, "drift": 1.2},
+    {"addr": 4, "name": "flow_rate", "base": 125.0, "min": 90.0, "max": 160.0, "drift": 4.0},
+    {"addr": 6, "name": "gas_temperature", "base": 142.0, "min": 120.0, "max": 165.0, "drift": 3.0},
+    {"addr": 8, "name": "ambient_temperature", "base": 87.0, "min": 75.0, "max": 105.0, "drift": 2.0},
+    {"addr": 10, "name": "battery_voltage", "base": 24.5, "min": 23.0, "max": 26.0, "drift": 0.2},
+    {"addr": 12, "name": "solar_voltage", "base": 18.2, "min": 0.0, "max": 22.0, "drift": 1.5},
+    {"addr": 14, "name": "tank_level", "base": 62.0, "min": 10.0, "max": 95.0, "drift": 0.5},
+    {"addr": 16, "name": "vibration", "base": 2.2, "min": 0.8, "max": 4.8, "drift": 0.4},
 ]
 # run_hours is uint32 at address 18 (register 40019)
 RUN_HOURS_ADDR = 18
@@ -40,7 +41,7 @@ start_time = time.time()
 
 def float32_to_regs(val):
     """Convert float to two 16-bit Modbus registers (big-endian word order)."""
-    packed = struct.pack('>f', val)
+    packed = struct.pack(">f", val)
     hi = (packed[0] << 8) | packed[1]
     lo = (packed[2] << 8) | packed[3]
     return [hi, lo]
@@ -98,7 +99,7 @@ async def write_registers():
             await client.write_registers(RUN_HOURS_ADDR, regs)
 
             # Write discrete inputs (coils) — compressor running, alarms OK
-            await client.write_coil(0, True)   # compressor running
+            await client.write_coil(0, True)  # compressor running
             await client.write_coil(1, False)  # high pressure alarm off
             await client.write_coil(2, False)  # low battery alarm off
             await client.write_coil(3, False)  # comm fault off

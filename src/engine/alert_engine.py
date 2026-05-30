@@ -219,9 +219,7 @@ class AlertEngine:
                         severity=severity,
                     )
                     # ISA-18.2 §7.5 — track fire rate, emit meta-alarm if chattering
-                    meta = self._record_fire_and_check_chattering(
-                        asset_id, asset_name, vital.label, now
-                    )
+                    meta = self._record_fire_and_check_chattering(asset_id, asset_name, vital.label, now)
                     if meta is not None:
                         changes.append(meta)
                 elif existing.severity != severity:

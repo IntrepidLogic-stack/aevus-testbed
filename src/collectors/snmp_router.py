@@ -14,36 +14,36 @@ from src.models.telemetry import RawTelemetry
 
 # Standard MIB-II OIDs (work on MikroTik, Cisco, any SNMP device)
 SYSTEM_OIDS = {
-    "sys_descr":   "1.3.6.1.2.1.1.1.0",
-    "sys_name":    "1.3.6.1.2.1.1.5.0",
-    "sys_uptime":  "1.3.6.1.2.1.1.3.0",
+    "sys_descr": "1.3.6.1.2.1.1.1.0",
+    "sys_name": "1.3.6.1.2.1.1.5.0",
+    "sys_uptime": "1.3.6.1.2.1.1.3.0",
     "sys_contact": "1.3.6.1.2.1.1.4.0",
     "sys_location": "1.3.6.1.2.1.1.6.0",
 }
 
 # Interface table OIDs — append .<ifIndex> for specific interface
 INTERFACE_OIDS = {
-    "if_descr":       "1.3.6.1.2.1.2.2.1.2",       # Interface description
-    "if_oper_status": "1.3.6.1.2.1.2.2.1.8",       # 1=up, 2=down
-    "if_in_octets":   "1.3.6.1.2.1.2.2.1.10",      # Bytes received
-    "if_out_octets":  "1.3.6.1.2.1.2.2.1.16",      # Bytes transmitted
-    "if_in_errors":   "1.3.6.1.2.1.2.2.1.14",      # Input errors
-    "if_out_errors":  "1.3.6.1.2.1.2.2.1.20",      # Output errors
+    "if_descr": "1.3.6.1.2.1.2.2.1.2",  # Interface description
+    "if_oper_status": "1.3.6.1.2.1.2.2.1.8",  # 1=up, 2=down
+    "if_in_octets": "1.3.6.1.2.1.2.2.1.10",  # Bytes received
+    "if_out_octets": "1.3.6.1.2.1.2.2.1.16",  # Bytes transmitted
+    "if_in_errors": "1.3.6.1.2.1.2.2.1.14",  # Input errors
+    "if_out_errors": "1.3.6.1.2.1.2.2.1.20",  # Output errors
 }
 
 # MikroTik-specific OIDs (RouterOS SNMP extension)
 MIKROTIK_OIDS = {
-    "cpu_load":        "1.3.6.1.2.1.25.3.3.1.2.1",   # hrProcessorLoad
-    "total_memory":    "1.3.6.1.2.1.25.2.3.1.5.65536",  # hrStorageSize
-    "used_memory":     "1.3.6.1.2.1.25.2.3.1.6.65536",  # hrStorageUsed
+    "cpu_load": "1.3.6.1.2.1.25.3.3.1.2.1",  # hrProcessorLoad
+    "total_memory": "1.3.6.1.2.1.25.2.3.1.5.65536",  # hrStorageSize
+    "used_memory": "1.3.6.1.2.1.25.2.3.1.6.65536",  # hrStorageUsed
 }
 
 # Cisco IOS-specific OIDs (CISCO-PROCESS-MIB + CISCO-MEMORY-POOL-MIB)
 # Verified against Catalyst 2960 / IOS 15.0(2)SE11 on 2026-05-26.
 CISCO_OIDS = {
-    "cpu_load":        "1.3.6.1.4.1.9.9.109.1.1.1.1.7.1",   # cpmCPUTotal1min, processor index 1
-    "memory_used":     "1.3.6.1.4.1.9.9.48.1.1.1.5.1",      # ciscoMemoryPoolUsed, pool 1 (Processor)
-    "memory_free":     "1.3.6.1.4.1.9.9.48.1.1.1.6.1",      # ciscoMemoryPoolFree, pool 1
+    "cpu_load": "1.3.6.1.4.1.9.9.109.1.1.1.1.7.1",  # cpmCPUTotal1min, processor index 1
+    "memory_used": "1.3.6.1.4.1.9.9.48.1.1.1.5.1",  # ciscoMemoryPoolUsed, pool 1 (Processor)
+    "memory_free": "1.3.6.1.4.1.9.9.48.1.1.1.6.1",  # ciscoMemoryPoolFree, pool 1
 }
 
 # ── Tier 1 (2026-05-27): expanded SCADA telemetry ──────────────────────
@@ -54,26 +54,25 @@ CISCO_OIDS = {
 #   .1.4 = neighbor IP address
 #   .1.7 = neighbor port (device port on the other side)
 CDP_NEIGHBOR_OIDS = {
-    "cdp_device_id":   "1.3.6.1.4.1.9.9.23.1.2.1.1.6",   # cdpCacheDeviceId
-    "cdp_device_port": "1.3.6.1.4.1.9.9.23.1.2.1.1.7",   # cdpCacheDevicePort
-    "cdp_platform":    "1.3.6.1.4.1.9.9.23.1.2.1.1.8",   # cdpCachePlatform
+    "cdp_device_id": "1.3.6.1.4.1.9.9.23.1.2.1.1.6",  # cdpCacheDeviceId
+    "cdp_device_port": "1.3.6.1.4.1.9.9.23.1.2.1.1.7",  # cdpCacheDevicePort
+    "cdp_platform": "1.3.6.1.4.1.9.9.23.1.2.1.1.8",  # cdpCachePlatform
 }
 
 # Per-port physical layer health
 PORT_HEALTH_OIDS = {
-    "if_speed":      "1.3.6.1.2.1.2.2.1.5",     # ifSpeed (bits/sec)
-    "if_in_discards":"1.3.6.1.2.1.2.2.1.13",    # ifInDiscards
-    "if_out_discards":"1.3.6.1.2.1.2.2.1.19",   # ifOutDiscards
+    "if_speed": "1.3.6.1.2.1.2.2.1.5",  # ifSpeed (bits/sec)
+    "if_in_discards": "1.3.6.1.2.1.2.2.1.13",  # ifInDiscards
+    "if_out_discards": "1.3.6.1.2.1.2.2.1.19",  # ifOutDiscards
 }
 
 # MikroTik hardware sensors (CPU temp, voltage)
 MIKROTIK_HW_OIDS = {
     "board_temperature": "1.3.6.1.4.1.14988.1.1.3.100.1.3.17",  # cpu-temperature value
-    "board_temp_label":  "1.3.6.1.4.1.14988.1.1.3.100.1.2.17",  # sensor name
-    "board_voltage":     "1.3.6.1.4.1.14988.1.1.3.11.0",        # mtxrHlVoltage (decivolts)
-    "board_total_mem":   "1.3.6.1.4.1.14988.1.1.3.14.0",        # mtxrHlActiveFan (or memory — varies by model)
+    "board_temp_label": "1.3.6.1.4.1.14988.1.1.3.100.1.2.17",  # sensor name
+    "board_voltage": "1.3.6.1.4.1.14988.1.1.3.11.0",  # mtxrHlVoltage (decivolts)
+    "board_total_mem": "1.3.6.1.4.1.14988.1.1.3.14.0",  # mtxrHlActiveFan (or memory — varies by model)
 }
-
 
 
 class SNMPNetworkCollector(BaseCollector):
@@ -117,10 +116,15 @@ class SNMPNetworkCollector(BaseCollector):
             cpu = await self._snmp_get(CISCO_OIDS["cpu_load"])
             if cpu is not None:
                 try:
-                    readings.append(self._make_reading(
-                        metric="cpu_load", value=float(cpu), unit="%",
-                        source="snmp", oid=CISCO_OIDS["cpu_load"],
-                    ))
+                    readings.append(
+                        self._make_reading(
+                            metric="cpu_load",
+                            value=float(cpu),
+                            unit="%",
+                            source="snmp",
+                            oid=CISCO_OIDS["cpu_load"],
+                        )
+                    )
                 except ValueError:
                     pass
 
@@ -133,10 +137,14 @@ class SNMPNetworkCollector(BaseCollector):
                     total = used + free
                     if total > 0:
                         pct = (used / total) * 100
-                        readings.append(self._make_reading(
-                            metric="memory_usage", value=round(pct, 1), unit="%",
-                            source="snmp",
-                        ))
+                        readings.append(
+                            self._make_reading(
+                                metric="memory_usage",
+                                value=round(pct, 1),
+                                unit="%",
+                                source="snmp",
+                            )
+                        )
                 except ValueError:
                     pass
         else:
@@ -144,10 +152,15 @@ class SNMPNetworkCollector(BaseCollector):
             cpu = await self._snmp_get(MIKROTIK_OIDS["cpu_load"])
             if cpu is not None:
                 try:
-                    readings.append(self._make_reading(
-                        metric="cpu_load", value=float(cpu), unit="%",
-                        source="snmp", oid=MIKROTIK_OIDS["cpu_load"],
-                    ))
+                    readings.append(
+                        self._make_reading(
+                            metric="cpu_load",
+                            value=float(cpu),
+                            unit="%",
+                            source="snmp",
+                            oid=MIKROTIK_OIDS["cpu_load"],
+                        )
+                    )
                 except ValueError:
                     pass
 
@@ -159,10 +172,14 @@ class SNMPNetworkCollector(BaseCollector):
                     used = float(used_mem)
                     if total > 0:
                         pct = (used / total) * 100
-                        readings.append(self._make_reading(
-                            metric="memory_usage", value=round(pct, 1), unit="%",
-                            source="snmp",
-                        ))
+                        readings.append(
+                            self._make_reading(
+                                metric="memory_usage",
+                                value=round(pct, 1),
+                                unit="%",
+                                source="snmp",
+                            )
+                        )
                 except ValueError:
                     pass
 
@@ -173,10 +190,15 @@ class SNMPNetworkCollector(BaseCollector):
                 # uptime comes as timeticks (hundredths of a second)
                 ticks = float(uptime_raw.split("(")[1].split(")")[0]) if "(" in uptime_raw else float(uptime_raw)
                 hours = ticks / 360000.0
-                readings.append(self._make_reading(
-                    metric="uptime", value=round(hours, 2), unit="hrs",
-                    source="snmp", oid=SYSTEM_OIDS["sys_uptime"],
-                ))
+                readings.append(
+                    self._make_reading(
+                        metric="uptime",
+                        value=round(hours, 2),
+                        unit="hrs",
+                        source="snmp",
+                        oid=SYSTEM_OIDS["sys_uptime"],
+                    )
+                )
             except (ValueError, IndexError):
                 pass
 
@@ -201,8 +223,6 @@ class SNMPNetworkCollector(BaseCollector):
 
         return readings
 
-
-
     async def _poll_cdp_neighbors(self):
         """Count CDP neighbors. Cisco devices return neighbor names in CDP
         cache; we only emit a numeric count here because RawTelemetry
@@ -210,36 +230,32 @@ class SNMPNetworkCollector(BaseCollector):
         non-numeric path later (events_json or /api/v1/diagnostics/topology)."""
         readings = []
         try:
-            neighbors = await asyncio.to_thread(
-                self._snmp_walk_sync, CDP_NEIGHBOR_OIDS["cdp_device_id"]
-            )
+            neighbors = await asyncio.to_thread(self._snmp_walk_sync, CDP_NEIGHBOR_OIDS["cdp_device_id"])
         except Exception:
             return readings
-        count = sum(
-            1 for _, v in (neighbors or {}).items()
-            if self._parse_snmp_walk_value(v)
-        )
+        count = sum(1 for _, v in (neighbors or {}).items() if self._parse_snmp_walk_value(v))
         if count > 0:
             try:
-                readings.append(self._make_reading(
-                    metric="cdp_neighbor_count",
-                    value=float(count),
-                    unit="count",
-                    source="snmp",
-                    oid=CDP_NEIGHBOR_OIDS["cdp_device_id"],
-                ))
+                readings.append(
+                    self._make_reading(
+                        metric="cdp_neighbor_count",
+                        value=float(count),
+                        unit="count",
+                        source="snmp",
+                        oid=CDP_NEIGHBOR_OIDS["cdp_device_id"],
+                    )
+                )
             except Exception:
                 pass
         return readings
+
     async def _poll_port_health(self) -> list[RawTelemetry]:
         """Per-port speed + discards. Most physical-layer SCADA outages
         manifest first as discard counter increases (silent packet drop)
         long before they cross the if-errors threshold."""
         readings: list[RawTelemetry] = []
         try:
-            speeds = await asyncio.to_thread(
-                self._snmp_walk_sync, PORT_HEALTH_OIDS["if_speed"]
-            )
+            speeds = await asyncio.to_thread(self._snmp_walk_sync, PORT_HEALTH_OIDS["if_speed"])
         except Exception:
             return readings
         for oid, speed_raw in (speeds or {}).items():
@@ -249,17 +265,21 @@ class SNMPNetworkCollector(BaseCollector):
                 if bps == 0:
                     continue  # admin-down port, skip
                 mbps = bps / 1_000_000.0
-                readings.append(self._make_reading(
-                    metric=f"port_{if_index}_speed",
-                    value=round(mbps, 1),
-                    unit="Mbps",
-                    source="snmp",
-                ))
+                readings.append(
+                    self._make_reading(
+                        metric=f"port_{if_index}_speed",
+                        value=round(mbps, 1),
+                        unit="Mbps",
+                        source="snmp",
+                    )
+                )
             except (ValueError, TypeError):
                 pass
         # Discards
-        for direction, oid_base in [("in", PORT_HEALTH_OIDS["if_in_discards"]),
-                                     ("out", PORT_HEALTH_OIDS["if_out_discards"])]:
+        for direction, oid_base in [
+            ("in", PORT_HEALTH_OIDS["if_in_discards"]),
+            ("out", PORT_HEALTH_OIDS["if_out_discards"]),
+        ]:
             try:
                 discards = await asyncio.to_thread(self._snmp_walk_sync, oid_base)
             except Exception:
@@ -269,12 +289,14 @@ class SNMPNetworkCollector(BaseCollector):
                 try:
                     n = float(self._parse_snmp_walk_value(v))
                     if n > 0:  # only surface non-zero discards (avoid noise)
-                        readings.append(self._make_reading(
-                            metric=f"port_{if_index}_{direction}_discards",
-                            value=n,
-                            unit="count",
-                            source="snmp",
-                        ))
+                        readings.append(
+                            self._make_reading(
+                                metric=f"port_{if_index}_{direction}_discards",
+                                value=n,
+                                unit="count",
+                                source="snmp",
+                            )
+                        )
                 except (ValueError, TypeError):
                     pass
         return readings
@@ -288,13 +310,15 @@ class SNMPNetworkCollector(BaseCollector):
         t = await self._snmp_get(MIKROTIK_HW_OIDS["board_temperature"])
         if t is not None:
             try:
-                readings.append(self._make_reading(
-                    metric="board_temperature",
-                    value=float(str(t).strip().strip('"')),
-                    unit="°C",
-                    source="snmp",
-                    oid=MIKROTIK_HW_OIDS["board_temperature"],
-                ))
+                readings.append(
+                    self._make_reading(
+                        metric="board_temperature",
+                        value=float(str(t).strip().strip('"')),
+                        unit="°C",
+                        source="snmp",
+                        oid=MIKROTIK_HW_OIDS["board_temperature"],
+                    )
+                )
             except (ValueError, TypeError):
                 pass
         # board voltage (decivolts → volts)
@@ -302,13 +326,15 @@ class SNMPNetworkCollector(BaseCollector):
         if v is not None:
             try:
                 volts = float(str(v).strip().strip('"')) / 10.0
-                readings.append(self._make_reading(
-                    metric="board_voltage",
-                    value=round(volts, 1),
-                    unit="V",
-                    source="snmp",
-                    oid=MIKROTIK_HW_OIDS["board_voltage"],
-                ))
+                readings.append(
+                    self._make_reading(
+                        metric="board_voltage",
+                        value=round(volts, 1),
+                        unit="V",
+                        source="snmp",
+                        oid=MIKROTIK_HW_OIDS["board_voltage"],
+                    )
+                )
             except (ValueError, TypeError):
                 pass
         return readings
@@ -335,13 +361,15 @@ class SNMPNetworkCollector(BaseCollector):
                 val = await self._snmp_get(f"{base_oid}.{if_index}")
                 if val is not None:
                     try:
-                        readings.append(self._make_reading(
-                            metric=f"{if_name_clean}_{counter}",
-                            value=float(val),
-                            unit="bytes" if "octets" in counter else "count",
-                            source="snmp",
-                            oid=f"{base_oid}.{if_index}",
-                        ))
+                        readings.append(
+                            self._make_reading(
+                                metric=f"{if_name_clean}_{counter}",
+                                value=float(val),
+                                unit="bytes" if "octets" in counter else "count",
+                                source="snmp",
+                                oid=f"{base_oid}.{if_index}",
+                            )
+                        )
                     except ValueError:
                         pass
 
@@ -349,13 +377,15 @@ class SNMPNetworkCollector(BaseCollector):
             status_val = await self._snmp_get(f"{INTERFACE_OIDS['if_oper_status']}.{if_index}")
             if status_val is not None:
                 try:
-                    readings.append(self._make_reading(
-                        metric=f"{if_name_clean}_oper_status",
-                        value=float(status_val),
-                        unit="",  # 1=up, 2=down
-                        source="snmp",
-                        oid=f"{INTERFACE_OIDS['if_oper_status']}.{if_index}",
-                    ))
+                    readings.append(
+                        self._make_reading(
+                            metric=f"{if_name_clean}_oper_status",
+                            value=float(status_val),
+                            unit="",  # 1=up, 2=down
+                            source="snmp",
+                            oid=f"{INTERFACE_OIDS['if_oper_status']}.{if_index}",
+                        )
+                    )
                 except ValueError:
                     pass
 
@@ -374,7 +404,9 @@ class SNMPNetworkCollector(BaseCollector):
         try:
             result = subprocess.run(
                 ["snmpget", "-v2c", "-c", self.community, "-t", "5", "-r", "1", "-Oqv", self.host, oid],
-                capture_output=True, text=True, timeout=10,
+                capture_output=True,
+                text=True,
+                timeout=10,
             )
             if result.returncode != 0 or not result.stdout.strip():
                 return None
@@ -392,10 +424,19 @@ class SNMPNetworkCollector(BaseCollector):
         if raw is None:
             return ""
         s = str(raw).strip().strip('"')
-        for prefix in ("STRING:", "Gauge32:", "Counter32:", "Counter64:",
-                       "INTEGER:", "Timeticks:", "Hex-STRING:", "OID:", "IpAddress:"):
+        for prefix in (
+            "STRING:",
+            "Gauge32:",
+            "Counter32:",
+            "Counter64:",
+            "INTEGER:",
+            "Timeticks:",
+            "Hex-STRING:",
+            "OID:",
+            "IpAddress:",
+        ):
             if s.startswith(prefix):
-                s = s[len(prefix):].strip().strip('"')
+                s = s[len(prefix) :].strip().strip('"')
                 break
         return s
 

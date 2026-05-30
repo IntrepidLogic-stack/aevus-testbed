@@ -49,16 +49,10 @@ def test_every_referenced_app_state_attr_exists():
     """
     referenced = _collect_app_state_attrs()
     state = AppState()
-    missing = {
-        attr: sites
-        for attr, sites in referenced.items()
-        if attr not in WHITELIST and not hasattr(state, attr)
-    }
+    missing = {attr: sites for attr, sites in referenced.items() if attr not in WHITELIST and not hasattr(state, attr)}
     if missing:
         lines = ["AppState is missing attributes referenced by routers:"]
         for attr, sites in sorted(missing.items()):
             lines.append(f"  - app_state.{attr}  ←  {', '.join(sites)}")
-        lines.append(
-            "\nFix: instantiate each missing attribute in src/main.py AppState.__init__()."
-        )
+        lines.append("\nFix: instantiate each missing attribute in src/main.py AppState.__init__().")
         raise AssertionError("\n".join(lines))

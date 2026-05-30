@@ -140,6 +140,7 @@ async def unshelve_alarm(
     if was_shelved:
         # Force-expire by setting expiry to now
         from datetime import UTC, datetime
+
         app_state.alert_engine._shelved_until[(asset_id, metric_label)] = datetime.now(UTC)
         # And the next is_shelved() call will clean it up
         app_state.alert_engine.is_shelved(asset_id, metric_label)

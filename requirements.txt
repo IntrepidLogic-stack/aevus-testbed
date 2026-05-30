@@ -1,6 +1,6 @@
 -e git+ssh://git@github.com/IntrepidLogic-stack/aevus-testbed.git@ebfa9b146ff9bd347a0453b077a197f269df0b39#egg=aevus_testbed
 aiocsv==1.4.0
-aiohappyeyeballs==2.6.1
+aiohappyeyeballs==2.6.2
 aiohttp==3.13.5
 aiosignal==1.4.0
 aiosqlite==0.22.1

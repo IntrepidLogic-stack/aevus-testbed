@@ -186,16 +186,51 @@ resource "aws_iot_topic_rule" "edge_mqtt_health" {
   description = "Task #151 — pump MQTTPublisher half-open failure counter into CloudWatch every minute. Lets us alarm at first failure (vs the in-process threshold of 5)."
 
   enabled     = true
-  sql         = "SELECT payload.consecutive_publish_failures AS value, site_id FROM 'aevus/+/EDGE-01/state/mqtt_publisher_health'"
+  sql         = "SELECT * FROM 'aevus/+/EDGE-01/state/mqtt_publisher_health'"
   sql_version = "2016-03-23"
 
+  # IMPORTANT: the metric_value substitution evaluates against the INBOUND
+  # message JSON, not the SELECT projection. Using `${payload.consecutive_publish_failures}`
+  # references the raw field directly; `${alias}` does NOT work for SELECT
+  # aliases here (verified 2026-05-30 — silently returns empty string and
+  # the action errors out with "empty String" in CloudWatch logs).
   cloudwatch_metric {
     role_arn         = aws_iam_role.iot_cloudwatch_metric.arn
     metric_namespace = "Aevus/Edge"
     metric_name      = "ConsecutivePublishFailures"
-    metric_value     = "$${value}"
+    metric_value     = "$${payload.consecutive_publish_failures}"
     metric_unit      = "Count"
   }
+
+  # errorAction routes action failures to a dedicated CloudWatch log group
+  # so the next debugging session has decoded payloads + error messages.
+  error_action {
+    cloudwatch_logs {
+      role_arn       = aws_iam_role.iot_cloudwatch_metric.arn
+      log_group_name = aws_cloudwatch_log_group.rule_errors.name
+    }
+  }
+}
+
+resource "aws_cloudwatch_log_group" "rule_errors" {
+  name              = "/aws/iot/aevus_edge_mqtt_health_errors"
+  retention_in_days = 14
+}
+
+# Add logs:CreateLogStream + PutLogEvents to the IoT role so the errorAction
+# above can write. Scoped to just this log group.
+resource "aws_iam_role_policy" "iot_error_logs" {
+  name = "allow-error-logs"
+  role = aws_iam_role.iot_cloudwatch_metric.id
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [{
+      Effect   = "Allow"
+      Action   = ["logs:CreateLogStream", "logs:PutLogEvents"]
+      Resource = "${aws_cloudwatch_log_group.rule_errors.arn}:*"
+    }]
+  })
 }
 
 # ---------------------------------------------------------------------------

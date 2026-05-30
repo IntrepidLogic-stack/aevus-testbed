@@ -26,6 +26,14 @@ terraform import aws_iam_role_policy.iot_cloudwatch_metric \
 terraform import aws_iot_topic_rule.edge_mqtt_health \
   aevus_edge_mqtt_health
 
+# 3d. CloudWatch log group for rule's errorAction
+terraform import aws_cloudwatch_log_group.rule_errors \
+  /aws/iot/aevus_edge_mqtt_health_errors
+
+# 3e. Second inline policy on the IoT role (allow-error-logs)
+terraform import aws_iam_role_policy.iot_error_logs \
+  aevus-iot-cloudwatch-metric-role:allow-error-logs
+
 # 4. Publish-failures CloudWatch alarm
 terraform import aws_cloudwatch_metric_alarm.edge_mqtt_publish_failures \
   aevus-edge-mqtt-publish-failures

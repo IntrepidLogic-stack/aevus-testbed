@@ -52,10 +52,12 @@ from src.api.predictions import router as predictions_router  # noqa: E402
 from src.api.reports import router as reports_router  # noqa: E402
 from src.api.weather import router as weather_router  # noqa: E402
 from src.api.ws import router as ws_router  # noqa: E402
+from src.api.ws import ws_manager  # noqa: E402 — module-level singleton
 from src.collectors.pi_self_metrics import PiSelfMetricsCollector  # noqa: E402
 from src.collectors.simulator import SimulatorCollector  # noqa: E402
 from src.collectors.snmp_radio import TrioJR900Collector  # noqa: E402
 from src.collectors.snmp_router import SNMPNetworkCollector  # noqa: E402
+from src.collectors.snmp_trap_receiver import SNMPTrapReceiver  # noqa: E402
 from src.config import settings  # noqa: E402
 from src.engine.alert_engine import AlertEngine  # noqa: E402
 from src.engine.commander import Commander  # noqa: E402
@@ -127,6 +129,22 @@ class AppState:
         self.correlator = CorrelationEngine()
         self.commander = Commander()
         self.ws_clients = 0
+        # SNMP trap receiver — async UDP listener for unsolicited device events
+        # (linkUp/linkDown, coldStart, vendor traps). Gated on snmp_trap_enabled
+        # so EC2 (which doesn't need it) can opt out; Pi opts in via .env.
+        # NOTE: radios send to UDP/162 (no port field in trap target); receiver
+        # binds 1162 (unprivileged). Operator must add a one-time iptables NAT
+        # redirect on the Pi: iptables -t nat -A PREROUTING -p udp --dport 162
+        # -j REDIRECT --to-port 1162.
+        self.trap_receiver: SNMPTrapReceiver | None = (
+            SNMPTrapReceiver(
+                db=self.db,
+                ws_manager=ws_manager,
+                port=settings.snmp_trap_port,
+            )
+            if settings.snmp_trap_enabled
+            else None
+        )
 
 
 app_state = AppState()
@@ -306,8 +324,21 @@ async def lifespan(app: FastAPI):
     _register_mqtt_publisher()
     await app_state.scheduler.start()
     weather_task = asyncio.create_task(_weather_loop())
+    # Start the SNMP trap listener if enabled. Failures (e.g. port-in-use on a
+    # second instance, or no privileged-port capability) are logged but do NOT
+    # crash startup — the rest of the service is still useful without traps.
+    if app_state.trap_receiver is not None:
+        try:
+            await app_state.trap_receiver.start()
+        except Exception as e:  # noqa: BLE001
+            logger.warning("snmp_trap_receiver_start_failed", error=str(e))
     logger.info("aevus_main_started")
     yield
+    if app_state.trap_receiver is not None:
+        try:
+            await app_state.trap_receiver.stop()
+        except Exception as e:  # noqa: BLE001
+            logger.warning("snmp_trap_receiver_stop_failed", error=str(e))
     weather_task.cancel()
     await app_state.scheduler.stop()
 

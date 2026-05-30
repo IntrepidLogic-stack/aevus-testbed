@@ -19,7 +19,22 @@
 set -euo pipefail
 
 REPO=/home/ubuntu/aevus-testbed
-DASHBOARD_FILES="dashboard/Aevus_Console.html dashboard/api-client.js dashboard/login.html dashboard/rad-hover-live.js"
+DASHBOARD_FILES="\
+  dashboard/Aevus_Console.html \
+  dashboard/api-client.js \
+  dashboard/login.html \
+  dashboard/rad-hover-live.js \
+  dashboard/favicon.svg \
+  dashboard/manifest.json \
+  dashboard/leaflet.min.js \
+  dashboard/leaflet.min.css \
+  dashboard/maplibre-gl.min.js \
+  dashboard/maplibre-gl.min.css \
+"
+# Note: tests/test_dashboard_assets.py asserts every dashboard asset
+# referenced by Aevus_Console.html is in this whitelist — so CI fails before
+# a deploy that would leave a referenced asset missing in production (which
+# is exactly how the Leaflet-404 outage happened 2026-05-30).
 DASHBOARD_DIRS="dashboard/icons dashboard/images"
 LOG_TAG="aevus-deploy"
 VERSION="${1:-v$(date +%Y.%m.%d)-auto}"

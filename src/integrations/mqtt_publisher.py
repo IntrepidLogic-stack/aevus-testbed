@@ -94,6 +94,12 @@ class MQTTPublisher:
         self._connected: bool = False
         self._reconnect_task: asyncio.Task | None = None
         self._stop: asyncio.Event = asyncio.Event()
+        # Half-open detection (Task #151). If a publish raises or times out
+        # this many times in a row, we assume the MQTT session is dead even
+        # if paho's socket still looks alive, and trip the reconnect signal.
+        self._reconnect_signal: asyncio.Event = asyncio.Event()
+        self._consecutive_failures: int = 0
+        self._last_successful_publish: datetime | None = None
         self.log = logger.bind(
             component="mqtt_publisher",
             broker=f"{self.broker_host}:{self.broker_port}",
@@ -128,20 +134,73 @@ class MQTTPublisher:
     def connected(self) -> bool:
         return self._connected
 
+    @property
+    def health(self) -> dict[str, Any]:
+        """Snapshot for /api/v1/health/summary + CloudWatch metric pump.
+
+        Lets operators see the half-open detector's counter without
+        scraping logs, and gives us a probe for the next outage post-mortem.
+        """
+        last_pub = self._last_successful_publish
+        return {
+            "connected": self._connected,
+            "consecutive_publish_failures": self._consecutive_failures,
+            "last_successful_publish": last_pub.isoformat() if last_pub else None,
+            "seconds_since_last_publish": ((datetime.now(UTC) - last_pub).total_seconds() if last_pub else None),
+        }
+
     # ──────────────────────────────────────────────────────────────────
     # Connection management
     # ──────────────────────────────────────────────────────────────────
 
     async def _supervisor_loop(self) -> None:
-        """Maintain a connection with backoff reconnect."""
+        """Maintain a connection with backoff reconnect.
+
+        Wakes for either (a) shutdown, (b) the _reconnect_signal raised by
+        _publish() after too many consecutive failures (half-open
+        detection), or (c) the aiomqtt context manager raising on
+        underlying transport errors.
+        """
         backoff = settings.mqtt_initial_backoff
         while not self._stop.is_set():
             try:
                 await self._connect()
-                # Stay connected — aiomqtt context-manages the session.
-                # We loop here so reconnects pick up cleanly.
-                while not self._stop.is_set():
-                    await asyncio.sleep(1)
+                # Successful connect — reset backoff so a single bad
+                # network blip doesn't permanently push us to max delay.
+                backoff = settings.mqtt_initial_backoff
+                self._reconnect_signal.clear()
+                # Wait for either shutdown or a half-open detection
+                # signal from the publish path. Drop the old sleep(1)
+                # busy-wait, which never re-checked link health.
+                stop_task = asyncio.create_task(self._stop.wait())
+                reconn_task = asyncio.create_task(self._reconnect_signal.wait())
+                try:
+                    done, pending = await asyncio.wait(
+                        {stop_task, reconn_task},
+                        return_when=asyncio.FIRST_COMPLETED,
+                    )
+                finally:
+                    for t in (stop_task, reconn_task):
+                        if not t.done():
+                            t.cancel()
+                            with suppress(asyncio.CancelledError):
+                                await t
+                if self._stop.is_set():
+                    break
+                # Half-open tripped — force a clean tear-down so the next
+                # iteration opens a fresh session. Without this, the next
+                # _connect() would replace self._client but the old one
+                # could still hold the broker session slot.
+                self.log.warning(
+                    "mqtt_half_open_reconnect_triggered",
+                    consecutive_failures=self._consecutive_failures,
+                )
+                await self._disconnect()
+                self._consecutive_failures = 0
+                # Small grace period so we don't immediately re-grab a
+                # session the broker is still tearing down on its side.
+                with suppress(TimeoutError):
+                    await asyncio.wait_for(self._stop.wait(), timeout=1.0)
             except asyncio.CancelledError:
                 break
             except Exception as e:
@@ -306,16 +365,44 @@ class MQTTPublisher:
         }
 
         try:
-            await self._client.publish(
-                topic=topic,
-                payload=json.dumps(envelope, default=str).encode("utf-8"),
-                qos=self.qos,
-                retain=False,
+            # Hard timeout — a half-open TCP socket can otherwise hang
+            # the publish() call until the OS keepalive eventually fires
+            # (minutes), blocking the scheduler loop that awaited it.
+            await asyncio.wait_for(
+                self._client.publish(
+                    topic=topic,
+                    payload=json.dumps(envelope, default=str).encode("utf-8"),
+                    qos=self.qos,
+                    retain=False,
+                ),
+                timeout=settings.mqtt_publish_timeout,
             )
+            self._consecutive_failures = 0
+            self._last_successful_publish = datetime.now(UTC)
             self.log.debug("mqtt_published", topic=topic, type=envelope_type)
         except Exception as e:
             # Never let an MQTT failure interrupt the scheduler.
-            self.log.warning("mqtt_publish_failed", topic=topic, error=str(e))
+            self._consecutive_failures += 1
+            self.log.warning(
+                "mqtt_publish_failed",
+                topic=topic,
+                error=str(e),
+                consecutive=self._consecutive_failures,
+                is_timeout=isinstance(e, TimeoutError),
+            )
+            # Half-open detection: paho's TCP layer may believe the
+            # session is alive while the broker has silently evicted us.
+            # After N consecutive failures, trip the supervisor so it
+            # tears down + reconnects. Mark _connected=False immediately
+            # so subsequent publishes skip cleanly until reconnected.
+            if self._consecutive_failures >= settings.mqtt_publish_failure_threshold:
+                self.log.error(
+                    "mqtt_half_open_detected",
+                    consecutive=self._consecutive_failures,
+                    threshold=settings.mqtt_publish_failure_threshold,
+                )
+                self._connected = False
+                self._reconnect_signal.set()
 
 
 # ──────────────────────────────────────────────────────────────────────────

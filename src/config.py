@@ -85,6 +85,15 @@ class Settings(BaseSettings):
     mqtt_keepalive: int = 60
     mqtt_initial_backoff: float = 2.0
     mqtt_max_backoff: float = 60.0
+    # Half-open detection (Task #151) — paho's TCP keepalive can succeed
+    # while the MQTT session is dead (broker evicted us, NAT timeout,
+    # silent close). After this many consecutive publish failures or
+    # timeouts, force a reconnect cycle rather than logging hopelessly.
+    mqtt_publish_failure_threshold: int = 5
+    # Hard upper bound on a single publish call. Longer than the broker's
+    # PUBACK round-trip but short enough that a wedged TCP socket can't
+    # hang the scheduler. 5s is well above the p99 IoT Core PUBACK.
+    mqtt_publish_timeout: float = 5.0
 
     # ── Polling Intervals (seconds) ──
     poll_interval_radio: int = 30

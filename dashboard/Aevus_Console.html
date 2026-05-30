@@ -5026,7 +5026,18 @@ html { scroll-behavior:smooth; }
     if (el) el.textContent = new Date().toLocaleTimeString('en-US', { hour12: false });
   }, 1000);
 </script>
-<script src="/dashboard/api-client.js?v=122"></script>
+<script>
+  /* Safe-default globals consumed by renderOverview functions in api-client.js.
+     Without these, bare references to `liveAlerts` and `attentionCount` throw
+     ReferenceError every 10s on the Overview page render — polluting the
+     console (~191 errors/min observed) and leaving the quick-actions bar +
+     shift-summary panels empty. Same "referenced-but-never-declared" bug
+     class as the AppState wiring issues (PRs #43/#49). Must be set BEFORE
+     api-client.js loads so the JS sees them on its first render pass. */
+  window.liveAlerts    = window.liveAlerts    || [];
+  window.attentionCount = window.attentionCount || 0;
+</script>
+<script src="/dashboard/api-client.js?v=123"></script>
 <script src="/dashboard/rad-hover-live.js?v=11"></script>
 
 <script>

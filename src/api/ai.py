@@ -17,6 +17,7 @@ Copyright 2026 Intrepid Logic LLC. All rights reserved.
 Patent Pending: Safety-Aware SCADA Model Routing (Provisional #7)
 Patent Pending: Edge-Cloud Hybrid Inference Architecture (Provisional #8)
 """
+
 from __future__ import annotations
 
 import hashlib
@@ -36,24 +37,82 @@ router = APIRouter(tags=["ai"])
 # ═══════════════════════════════════════
 
 MODELS = {
-    "nova-micro":    {"id": "us.amazon.nova-micro-v1:0",           "provider": "amazon",    "api": "nova",      "label": "Nova Micro",        "tier": 0, "cost_1k": 0.018},
-    "haiku":         {"id": "us.anthropic.claude-haiku-4-5-20251001-v1:0", "provider": "anthropic", "api": "anthropic", "label": "Haiku 4.5",   "tier": 1, "cost_1k": 0.06},
-    "sonnet":        {"id": "us.anthropic.claude-sonnet-4-6",      "provider": "anthropic", "api": "anthropic", "label": "Sonnet 4.6",        "tier": 2, "cost_1k": 0.15},
-    "opus":          {"id": "us.anthropic.claude-opus-4-7",        "provider": "anthropic", "api": "anthropic", "label": "Opus 4.7",          "tier": 3, "cost_1k": 0.75},
-    "nemotron-9b":   {"id": "nvidia.nemotron-nano-9b-v2",          "provider": "nvidia",    "api": "converse",  "label": "Nemotron 9B",       "tier": 1, "cost_1k": 0.02},
-    "nemotron-12b":  {"id": "nvidia.nemotron-nano-12b-v2",         "provider": "nvidia",    "api": "converse",  "label": "Nemotron 12B VL",   "tier": 1, "cost_1k": 0.03},
-    "nemotron-30b":  {"id": "nvidia.nemotron-nano-3-30b",          "provider": "nvidia",    "api": "converse",  "label": "Nemotron 30B",      "tier": 2, "cost_1k": 0.05},
-    "nova-pro":      {"id": "us.amazon.nova-pro-v1:0",             "provider": "amazon",    "api": "nova",      "label": "Nova Pro",          "tier": 2, "cost_1k": 0.08},
+    "nova-micro": {
+        "id": "us.amazon.nova-micro-v1:0",
+        "provider": "amazon",
+        "api": "nova",
+        "label": "Nova Micro",
+        "tier": 0,
+        "cost_1k": 0.018,
+    },
+    "haiku": {
+        "id": "us.anthropic.claude-haiku-4-5-20251001-v1:0",
+        "provider": "anthropic",
+        "api": "anthropic",
+        "label": "Haiku 4.5",
+        "tier": 1,
+        "cost_1k": 0.06,
+    },
+    "sonnet": {
+        "id": "us.anthropic.claude-sonnet-4-6",
+        "provider": "anthropic",
+        "api": "anthropic",
+        "label": "Sonnet 4.6",
+        "tier": 2,
+        "cost_1k": 0.15,
+    },
+    "opus": {
+        "id": "us.anthropic.claude-opus-4-7",
+        "provider": "anthropic",
+        "api": "anthropic",
+        "label": "Opus 4.7",
+        "tier": 3,
+        "cost_1k": 0.75,
+    },
+    "nemotron-9b": {
+        "id": "nvidia.nemotron-nano-9b-v2",
+        "provider": "nvidia",
+        "api": "converse",
+        "label": "Nemotron 9B",
+        "tier": 1,
+        "cost_1k": 0.02,
+    },
+    "nemotron-12b": {
+        "id": "nvidia.nemotron-nano-12b-v2",
+        "provider": "nvidia",
+        "api": "converse",
+        "label": "Nemotron 12B VL",
+        "tier": 1,
+        "cost_1k": 0.03,
+    },
+    "nemotron-30b": {
+        "id": "nvidia.nemotron-nano-3-30b",
+        "provider": "nvidia",
+        "api": "converse",
+        "label": "Nemotron 30B",
+        "tier": 2,
+        "cost_1k": 0.05,
+    },
+    "nova-pro": {
+        "id": "us.amazon.nova-pro-v1:0",
+        "provider": "amazon",
+        "api": "nova",
+        "label": "Nova Pro",
+        "tier": 2,
+        "cost_1k": 0.08,
+    },
 }
 
 # ═══════════════════════════════════════
 # Pydantic schemas
 # ═══════════════════════════════════════
 
+
 class AIRequest(BaseModel):
     prompt: str
     context: dict | None = None
     force_model: str | None = None  # override routing
+
 
 class AIResponse(BaseModel):
     reply: str
@@ -62,30 +121,37 @@ class AIResponse(BaseModel):
     latency_ms: int
     routed_reason: str
 
+
 class SimilarAlarm(BaseModel):
     alarm_text: str
     score: float
     resolution: str | None = None
 
+
 class SimilarityRequest(BaseModel):
     alarm_text: str
     history: list[dict] | None = None
+
 
 class SimilarityResponse(BaseModel):
     similar: list[SimilarAlarm]
     model: str
 
+
 class VisionRequest(BaseModel):
     prompt: str | None = "Analyze this equipment image for anomalies, corrosion, leaks, or safety concerns."
+
 
 class VisionResponse(BaseModel):
     analysis: str
     model: str
     latency_ms: int
 
+
 class BatchRequest(BaseModel):
     alarms: list[dict]
     analysis_type: str = "rationalization"  # rationalization | trends | nuisance
+
 
 class BatchResponse(BaseModel):
     analysis: str
@@ -93,16 +159,19 @@ class BatchResponse(BaseModel):
     alarm_count: int
     latency_ms: int
 
+
 class EdgeRequest(BaseModel):
     prompt: str
     context: dict | None = None
     model: str = "nemotron-9b"
+
 
 class EdgeResponse(BaseModel):
     reply: str
     model: str
     latency_ms: int
     simulated_edge: bool
+
 
 class FinetuneStatusResponse(BaseModel):
     status: str
@@ -111,15 +180,18 @@ class FinetuneStatusResponse(BaseModel):
     model_base: str
     estimated_improvement: str
 
+
 class VoiceRequest(BaseModel):
     text: str  # For TTS demo; real voice would use streaming audio
     context: dict | None = None
+
 
 class VoiceResponse(BaseModel):
     reply: str
     model: str
     voice_supported: bool
     latency_ms: int
+
 
 # ═══════════════════════════════════════
 # System prompts
@@ -140,7 +212,7 @@ Current site: Killdeer Field, North Dakota — oil production with compressors, 
 
 CLASSIFY_PROMPT = """Classify this operator query into exactly one category. Reply with ONLY the category word:
 - CHAT: casual question, greeting, simple status check
-- ANALYSIS: root cause, trend analysis, comparison, "why", "analyze", "compare"  
+- ANALYSIS: root cause, trend analysis, comparison, "why", "analyze", "compare"
 - SAFETY: anything involving safety, interlocks, H2S, LEL, ESD, emergency, ISA-18.2 compliance
 - REPORT: shift handover, summary, export, compliance report
 - NAVIGATE: "show me", "go to", "open", navigation request
@@ -151,9 +223,12 @@ Query: {query}"""
 # Helpers
 # ═══════════════════════════════════════
 
+
 def _get_client():
     import boto3
+
     return boto3.client("bedrock-runtime", region_name="us-east-1")
+
 
 def _build_context(ctx: dict | None) -> str:
     if not ctx:
@@ -164,13 +239,15 @@ def _build_context(ctx: dict | None) -> str:
         crits = sum(1 for a in alarms if a.get("severity") == "critical")
         parts.append(f"Active alarms: {len(alarms)} ({crits} critical)")
         for a in alarms[:5]:
-            parts.append(f"  [{a.get('severity','?')}] {a.get('asset_id','?')}: {a.get('description', a.get('alarm_text','?'))}")
+            parts.append(
+                f"  [{a.get('severity', '?')}] {a.get('asset_id', '?')}: {a.get('description', a.get('alarm_text', '?'))}"
+            )
     if "assets" in ctx:
         assets = ctx["assets"]
         unhealthy = [a for a in assets if (a.get("health_score") or 100) < 70]
         parts.append(f"Fleet: {len(assets)} assets, {len(unhealthy)} below 70% health")
         for a in unhealthy[:3]:
-            parts.append(f"  {a.get('id','')} {a.get('name','')}: health {a.get('health_score')}%")
+            parts.append(f"  {a.get('id', '')} {a.get('name', '')}: health {a.get('health_score')}%")
     if "predictions" in ctx:
         preds = ctx["predictions"]
         high_risk = [p for p in preds if (p.get("risk_score") or 0) > 60]
@@ -181,29 +258,32 @@ def _build_context(ctx: dict | None) -> str:
 def _sanitize_context(ctx_text: str) -> str:
     """Remove sensitive data per Langner security mandate — no raw IPs, GPS, credentials."""
     import re
-    ctx_text = re.sub(r'\b\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}\b', '[IP_REDACTED]', ctx_text)
-    ctx_text = re.sub(r'(?i)(password|secret|key|token)\s*[:=]\s*\S+', '[CREDENTIAL_REDACTED]', ctx_text)
+
+    ctx_text = re.sub(r"\b\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}\b", "[IP_REDACTED]", ctx_text)
+    ctx_text = re.sub(r"(?i)(password|secret|key|token)\s*[:=]\s*\S+", "[CREDENTIAL_REDACTED]", ctx_text)
     return ctx_text
 
 
 def _invoke_anthropic(client, model_id: str, system: str, user_msg: str, max_tokens: int = 400) -> str:
-    body = json.dumps({
-        "anthropic_version": "bedrock-2023-05-31",
-        "max_tokens": max_tokens,
-        "system": system,
-        "messages": [{"role": "user", "content": user_msg}],
-    })
+    body = json.dumps(
+        {
+            "anthropic_version": "bedrock-2023-05-31",
+            "max_tokens": max_tokens,
+            "system": system,
+            "messages": [{"role": "user", "content": user_msg}],
+        }
+    )
     r = client.invoke_model(modelId=model_id, contentType="application/json", accept="application/json", body=body)
     return json.loads(r["body"].read())["content"][0]["text"]
 
 
 def _invoke_nova(client, model_id: str, system: str, user_msg: str, max_tokens: int = 400) -> str:
-    body = json.dumps({
-        "messages": [
-            {"role": "user", "content": [{"text": f"{system}\n\n{user_msg}"}]}
-        ],
-        "inferenceConfig": {"maxTokens": max_tokens}
-    })
+    body = json.dumps(
+        {
+            "messages": [{"role": "user", "content": [{"text": f"{system}\n\n{user_msg}"}]}],
+            "inferenceConfig": {"maxTokens": max_tokens},
+        }
+    )
     r = client.invoke_model(modelId=model_id, contentType="application/json", accept="application/json", body=body)
     return json.loads(r["body"].read())["output"]["message"]["content"][0]["text"]
 
@@ -213,7 +293,7 @@ def _invoke_converse(client, model_id: str, system: str, user_msg: str, max_toke
         modelId=model_id,
         system=[{"text": system}],
         messages=[{"role": "user", "content": [{"text": user_msg}]}],
-        inferenceConfig={"maxTokens": max_tokens}
+        inferenceConfig={"maxTokens": max_tokens},
     )
     return r["output"]["message"]["content"][0]["text"]
 
@@ -247,11 +327,11 @@ def _route_model(classification: str, force_model: str | None = None) -> tuple[s
         return force_model, f"forced:{force_model}"
 
     routing = {
-        "CHAT":     ("haiku",  "real-time chat → Haiku 4.5"),
+        "CHAT": ("haiku", "real-time chat → Haiku 4.5"),
         "ANALYSIS": ("sonnet", "analysis query → Sonnet 4.6"),
-        "SAFETY":   ("sonnet", "safety-critical → Sonnet 4.6 (ISA-18.2 mandate)"),
-        "REPORT":   ("sonnet", "report generation → Sonnet 4.6"),
-        "NAVIGATE": ("haiku",  "navigation intent → Haiku 4.5"),
+        "SAFETY": ("sonnet", "safety-critical → Sonnet 4.6 (ISA-18.2 mandate)"),
+        "REPORT": ("sonnet", "report generation → Sonnet 4.6"),
+        "NAVIGATE": ("haiku", "navigation intent → Haiku 4.5"),
     }
     return routing.get(classification, ("haiku", "default → Haiku 4.5"))
 
@@ -263,6 +343,7 @@ _finetune_samples: list[dict] = []
 # ═══════════════════════════════════════
 # Endpoints
 # ═══════════════════════════════════════
+
 
 # --- #1 & #2: Tiered chat with safety-aware routing ---
 @router.post("/ai/ask", response_model=AIResponse)
@@ -292,13 +373,15 @@ async def ai_ask(req: AIRequest):
         reply = _invoke_model(client, model_key, SYSTEM_PROMPT, user_msg, max_tok)
 
         # Step 5: Store for fine-tuning data collection (#6)
-        _finetune_samples.append({
-            "prompt": req.prompt,
-            "context_hash": hashlib.md5(ctx_text.encode()).hexdigest()[:8] if ctx_text else None,
-            "classification": classification,
-            "model": model_key,
-            "timestamp": datetime.now(UTC).isoformat(),
-        })
+        _finetune_samples.append(
+            {
+                "prompt": req.prompt,
+                "context_hash": hashlib.md5(ctx_text.encode()).hexdigest()[:8] if ctx_text else None,  # noqa: S324 — non-crypto fingerprint for fine-tune dedup
+                "classification": classification,
+                "model": model_key,
+                "timestamp": datetime.now(UTC).isoformat(),
+            }
+        )
         if len(_finetune_samples) > 10000:
             _finetune_samples.pop(0)
 
@@ -326,47 +409,83 @@ async def alarm_similarity(req: SimilarityRequest):
     # Build alarm corpus from provided history or stored embeddings
     corpus = []
     if req.history:
-        corpus = [{"text": a.get("description", a.get("alarm_text", "")), "resolution": a.get("resolution")} for a in req.history if a.get("description") or a.get("alarm_text")]
+        corpus = [
+            {"text": a.get("description", a.get("alarm_text", "")), "resolution": a.get("resolution")}
+            for a in req.history
+            if a.get("description") or a.get("alarm_text")
+        ]
 
     if not corpus:
         # Use default SCADA alarm knowledge base
         corpus = [
-            {"text": "Compressor high vibration — bearing wear detected", "resolution": "Schedule bearing inspection within 48hrs. Check lubricant levels."},
-            {"text": "Compressor high discharge temperature", "resolution": "Check cooling system, verify ambient temp, inspect valves."},
-            {"text": "Separator high liquid level", "resolution": "Check dump valve operation, verify level transmitter calibration."},
+            {
+                "text": "Compressor high vibration — bearing wear detected",
+                "resolution": "Schedule bearing inspection within 48hrs. Check lubricant levels.",
+            },
+            {
+                "text": "Compressor high discharge temperature",
+                "resolution": "Check cooling system, verify ambient temp, inspect valves.",
+            },
+            {
+                "text": "Separator high liquid level",
+                "resolution": "Check dump valve operation, verify level transmitter calibration.",
+            },
             {"text": "Wellhead low flow rate", "resolution": "Check for paraffin buildup, verify rod pump operation."},
-            {"text": "RTU communication loss", "resolution": "Check radio link, verify power supply, inspect antenna connections."},
-            {"text": "High H2S concentration detected", "resolution": "IMMEDIATE: Evacuate area, activate ESD, notify safety officer."},
-            {"text": "Low suction pressure on compressor", "resolution": "Check inlet filter, verify upstream valve positions."},
-            {"text": "EFM differential pressure out of range", "resolution": "Inspect orifice plate, check impulse tubing for blockage."},
-            {"text": "Radio signal quality degraded", "resolution": "Check antenna alignment, inspect cable connections, verify no RF interference."},
-            {"text": "Battery voltage low on remote site", "resolution": "Check solar panel output, inspect charge controller, replace battery if below 11.5V."},
-            {"text": "Compressor failed to start", "resolution": "Check starting circuit, verify gas supply pressure, inspect unloader valves."},
-            {"text": "Tank high level alarm", "resolution": "Verify truck dispatch, check level switch calibration, confirm LACT operation."},
+            {
+                "text": "RTU communication loss",
+                "resolution": "Check radio link, verify power supply, inspect antenna connections.",
+            },
+            {
+                "text": "High H2S concentration detected",
+                "resolution": "IMMEDIATE: Evacuate area, activate ESD, notify safety officer.",
+            },
+            {
+                "text": "Low suction pressure on compressor",
+                "resolution": "Check inlet filter, verify upstream valve positions.",
+            },
+            {
+                "text": "EFM differential pressure out of range",
+                "resolution": "Inspect orifice plate, check impulse tubing for blockage.",
+            },
+            {
+                "text": "Radio signal quality degraded",
+                "resolution": "Check antenna alignment, inspect cable connections, verify no RF interference.",
+            },
+            {
+                "text": "Battery voltage low on remote site",
+                "resolution": "Check solar panel output, inspect charge controller, replace battery if below 11.5V.",
+            },
+            {
+                "text": "Compressor failed to start",
+                "resolution": "Check starting circuit, verify gas supply pressure, inspect unloader valves.",
+            },
+            {
+                "text": "Tank high level alarm",
+                "resolution": "Verify truck dispatch, check level switch calibration, confirm LACT operation.",
+            },
         ]
 
     docs = [c["text"] for c in corpus]
 
     # Step 1: Rerank with Cohere
-    rerank_body = json.dumps({
-        "query": req.alarm_text,
-        "documents": docs,
-        "top_n": min(5, len(docs)),
-        "api_version": 2
-    })
+    rerank_body = json.dumps({"query": req.alarm_text, "documents": docs, "top_n": min(5, len(docs)), "api_version": 2})
 
     try:
-        r = client.invoke_model(modelId="cohere.rerank-v3-5:0", contentType="application/json", accept="application/json", body=rerank_body)
+        r = client.invoke_model(
+            modelId="cohere.rerank-v3-5:0", contentType="application/json", accept="application/json", body=rerank_body
+        )
         results = json.loads(r["body"].read())["results"]
 
         similar = []
         for res in results:
             idx = res["index"]
-            similar.append(SimilarAlarm(
-                alarm_text=corpus[idx]["text"],
-                score=round(res["relevance_score"], 3),
-                resolution=corpus[idx].get("resolution"),
-            ))
+            similar.append(
+                SimilarAlarm(
+                    alarm_text=corpus[idx]["text"],
+                    score=round(res["relevance_score"], 3),
+                    resolution=corpus[idx].get("resolution"),
+                )
+            )
 
         return SimilarityResponse(similar=similar, model="Cohere Rerank 3.5 + Embed v4")
     except Exception as e:
@@ -483,7 +602,7 @@ async def batch_rationalize(req: BatchRequest):
     # Build alarm summary for analysis
     alarm_text = f"Analyze these {len(req.alarms)} alarms for {req.analysis_type}:\n\n"
     for i, a in enumerate(req.alarms[:100]):  # Cap at 100 for context limits
-        alarm_text += f"{i+1}. [{a.get('severity','?')}] {a.get('asset_id','?')}: {a.get('description', a.get('alarm_text','?'))} (status: {a.get('status','?')})\n"
+        alarm_text += f"{i + 1}. [{a.get('severity', '?')}] {a.get('asset_id', '?')}: {a.get('description', a.get('alarm_text', '?'))} (status: {a.get('status', '?')})\n"
 
     analysis_prompts = {
         "rationalization": "Identify nuisance alarms (>3 occurrences of same alarm), chattering alarms (rapid on/off), and standing alarms (open >24hrs). Provide ISA-18.2 rationalization recommendations. Group by asset.",
@@ -492,7 +611,7 @@ async def batch_rationalize(req: BatchRequest):
     }
 
     system = f"""You are an ISA-18.2 alarm management specialist analyzing SCADA alarm data.
-{analysis_prompts.get(req.analysis_type, analysis_prompts['rationalization'])}
+{analysis_prompts.get(req.analysis_type, analysis_prompts["rationalization"])}
 Format as a structured report with sections, counts, and specific recommendations."""
 
     try:
@@ -525,6 +644,7 @@ async def vision_inspect(
     t0 = time.time()
 
     import base64
+
     image_bytes = await image.read()
     if len(image_bytes) > 5_000_000:
         raise HTTPException(400, "Image must be under 5MB")
@@ -533,13 +653,10 @@ async def vision_inspect(
 
     # Determine media type
     ct = image.content_type or "image/jpeg"
-    if "png" in ct:
-        media_type = "image/png"
-    else:
-        media_type = "image/jpeg"
+    media_type = "image/png" if "png" in ct else "image/jpeg"
 
     vision_system = """You are an industrial equipment visual inspection AI deployed at an oil & gas well site.
-Analyze images for: corrosion, leaks (oil/gas/water), mechanical damage, safety hazards, 
+Analyze images for: corrosion, leaks (oil/gas/water), mechanical damage, safety hazards,
 gauge readings, equipment condition, and maintenance needs.
 Rate condition: GOOD / FAIR / POOR / CRITICAL.
 Provide specific, actionable maintenance recommendations."""
@@ -548,14 +665,16 @@ Provide specific, actionable maintenance recommendations."""
         r = client.converse(
             modelId="nvidia.nemotron-nano-12b-v2",
             system=[{"text": vision_system}],
-            messages=[{
-                "role": "user",
-                "content": [
-                    {"image": {"format": media_type.split("/")[1], "source": {"bytes": image_bytes}}},
-                    {"text": prompt},
-                ]
-            }],
-            inferenceConfig={"maxTokens": 500}
+            messages=[
+                {
+                    "role": "user",
+                    "content": [
+                        {"image": {"format": media_type.split("/")[1], "source": {"bytes": image_bytes}}},
+                        {"text": prompt},
+                    ],
+                }
+            ],
+            inferenceConfig={"maxTokens": 500},
         )
         reply = r["output"]["message"]["content"][0]["text"]
         latency = int((time.time() - t0) * 1000)
@@ -571,7 +690,10 @@ async def list_models():
     """List all available AI models and their roles in the Aevus architecture."""
     return {
         "architecture": "4-tier safety-aware routing (Patent Pending #7)",
-        "models": {k: {"label": v["label"], "tier": v["tier"], "provider": v["provider"], "cost_per_1k_queries": v["cost_1k"]} for k, v in MODELS.items()},
+        "models": {
+            k: {"label": v["label"], "tier": v["tier"], "provider": v["provider"], "cost_per_1k_queries": v["cost_1k"]}
+            for k, v in MODELS.items()
+        },
         "routing": {
             "CHAT": "haiku (Tier 1) — real-time operator Q&A",
             "ANALYSIS": "sonnet (Tier 2) — root cause, trends, comparisons",
@@ -614,7 +736,9 @@ Format: Return only 3 lines starting with "•"
 
     try:
         reply = _invoke_model(client, "haiku", SYSTEM_PROMPT, prompt, 200)
-        bullets = [line.strip().lstrip("•").strip() for line in reply.strip().split("\n") if line.strip().startswith("•")]
+        bullets = [
+            line.strip().lstrip("•").strip() for line in reply.strip().split("\n") if line.strip().startswith("•")
+        ]
         if not bullets:
             bullets = [line.strip() for line in reply.strip().split("\n") if line.strip()][:3]
 

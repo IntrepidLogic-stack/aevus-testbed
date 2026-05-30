@@ -13,6 +13,7 @@ Metrics:
   - mem_used_pct    : memory usage from /proc/meminfo (%)
   - uptime_hours    : system uptime from /proc/uptime
 """
+
 from __future__ import annotations
 
 import asyncio
@@ -46,8 +47,10 @@ class PiSelfMetricsCollector(BaseCollector):
         # 1. CPU temperature via vcgencmd (Raspberry Pi specific)
         try:
             out = await asyncio.to_thread(
-                subprocess.check_output, ["vcgencmd", "measure_temp"],
-                text=True, timeout=2,
+                subprocess.check_output,
+                ["vcgencmd", "measure_temp"],
+                text=True,
+                timeout=2,
             )
             # format: "temp=47.7'C\n"
             t = float(out.split("=")[1].split("'")[0])
@@ -58,8 +61,10 @@ class PiSelfMetricsCollector(BaseCollector):
         # 2. Disk usage on /
         try:
             out = await asyncio.to_thread(
-                subprocess.check_output, ["df", "--output=pcent", "/"],
-                text=True, timeout=2,
+                subprocess.check_output,
+                ["df", "--output=pcent", "/"],
+                text=True,
+                timeout=2,
             )
             pct = int(out.splitlines()[1].strip().rstrip("%"))
             r.append(self._make_reading(metric="disk_used_pct", value=pct, unit="%", source="local"))
@@ -77,8 +82,10 @@ class PiSelfMetricsCollector(BaseCollector):
         # 4. Failed systemd services
         try:
             out = await asyncio.to_thread(
-                subprocess.check_output, ["systemctl", "--failed", "--no-legend"],
-                text=True, timeout=2,
+                subprocess.check_output,
+                ["systemctl", "--failed", "--no-legend"],
+                text=True,
+                timeout=2,
             )
             failed = len([line for line in out.splitlines() if line.strip()])
             r.append(self._make_reading(metric="failed_services", value=failed, unit="count", source="local"))
@@ -88,8 +95,11 @@ class PiSelfMetricsCollector(BaseCollector):
         # 5. Memory usage from /proc/meminfo
         try:
             with open("/proc/meminfo") as f:
-                meminfo = {line.split(":")[0]: int(line.split(":")[1].strip().split()[0])
-                          for line in f if line.split(":")[0] in ("MemTotal", "MemAvailable")}
+                meminfo = {
+                    line.split(":")[0]: int(line.split(":")[1].strip().split()[0])
+                    for line in f
+                    if line.split(":")[0] in ("MemTotal", "MemAvailable")
+                }
             if "MemTotal" in meminfo and "MemAvailable" in meminfo:
                 used_pct = (1 - meminfo["MemAvailable"] / meminfo["MemTotal"]) * 100
                 r.append(self._make_reading(metric="mem_used_pct", value=round(used_pct, 1), unit="%", source="local"))

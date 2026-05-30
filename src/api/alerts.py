@@ -4,12 +4,15 @@ Aevus Testbed --- Alert API Routes
 
 from __future__ import annotations
 
-from datetime import datetime
+from typing import TYPE_CHECKING
 
 from fastapi import APIRouter, HTTPException, Query
 from pydantic import BaseModel, Field
 
 from src.models.alert import Alert
+
+if TYPE_CHECKING:
+    from datetime import datetime
 
 router = APIRouter(prefix="/alerts", tags=["alerts"])
 
@@ -137,6 +140,7 @@ async def unshelve_alarm(
     if was_shelved:
         # Force-expire by setting expiry to now
         from datetime import UTC, datetime
+
         app_state.alert_engine._shelved_until[(asset_id, metric_label)] = datetime.now(UTC)
         # And the next is_shelved() call will clean it up
         app_state.alert_engine.is_shelved(asset_id, metric_label)

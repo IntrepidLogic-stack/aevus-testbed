@@ -2,6 +2,7 @@
 Aevus — Cross-Domain AI Correlation Engine
 Combines field telemetry + network performance + weather for system-wide analysis.
 """
+
 from __future__ import annotations
 
 import uuid
@@ -54,43 +55,49 @@ class CorrelationEngine:
                 degraded_assets.append(asset.id)
 
         if len(degraded_assets) >= 2:
-            correlations.append(Correlation(
-                id=f"COR-{uuid.uuid4().hex[:8].upper()}",
-                type="comm_degradation",
-                severity="warning",
-                title="Multi-asset communication degradation",
-                description=(
-                    f"{len(degraded_assets)} assets showing degraded communication quality. "
-                    f"Possible network infrastructure issue or RF interference."
-                ),
-                affected_assets=degraded_assets,
-                detected_at=now,
-            ))
+            correlations.append(
+                Correlation(
+                    id=f"COR-{uuid.uuid4().hex[:8].upper()}",
+                    type="comm_degradation",
+                    severity="warning",
+                    title="Multi-asset communication degradation",
+                    description=(
+                        f"{len(degraded_assets)} assets showing degraded communication quality. "
+                        f"Possible network infrastructure issue or RF interference."
+                    ),
+                    affected_assets=degraded_assets,
+                    detected_at=now,
+                )
+            )
 
         # ── Pattern 2: Weather → RF Impact ──
         if weather and weather.condition in (
-            "rain", "heavy_rain", "thunderstorm", "thunderstorm_hail",
-            "heavy_showers", "snow", "heavy_snow",
+            "rain",
+            "heavy_rain",
+            "thunderstorm",
+            "thunderstorm_hail",
+            "heavy_showers",
+            "snow",
+            "heavy_snow",
         ):
             radio_assets = [a.id for a in assets if a.type == "radio"]
-            rf_degraded = [
-                aid for aid in radio_assets
-                if (cq := comm_quality.get(aid)) and cq.quality_score < 80
-            ]
+            rf_degraded = [aid for aid in radio_assets if (cq := comm_quality.get(aid)) and cq.quality_score < 80]
             if rf_degraded:
-                correlations.append(Correlation(
-                    id=f"COR-{uuid.uuid4().hex[:8].upper()}",
-                    type="weather_rf_impact",
-                    severity="warning",
-                    title="Weather-related RF degradation",
-                    description=(
-                        f"Adverse weather ({weather.condition}) coinciding with "
-                        f"RF performance degradation on {len(rf_degraded)} radio link(s). "
-                        f"Wind: {weather.wind_mph} mph, Precip: {weather.precip_in} in."
-                    ),
-                    affected_assets=rf_degraded,
-                    detected_at=now,
-                ))
+                correlations.append(
+                    Correlation(
+                        id=f"COR-{uuid.uuid4().hex[:8].upper()}",
+                        type="weather_rf_impact",
+                        severity="warning",
+                        title="Weather-related RF degradation",
+                        description=(
+                            f"Adverse weather ({weather.condition}) coinciding with "
+                            f"RF performance degradation on {len(rf_degraded)} radio link(s). "
+                            f"Wind: {weather.wind_mph} mph, Precip: {weather.precip_in} in."
+                        ),
+                        affected_assets=rf_degraded,
+                        detected_at=now,
+                    )
+                )
 
         # ── Pattern 3: Power Risk ──
         if weather:
@@ -107,43 +114,42 @@ class CorrelationEngine:
                         solar_vital = v
 
                 if battery_vital and battery_vital.status in ("warn", "bad"):
-                    is_night_approaching = (
-                        not weather.is_daylight
-                        or weather.solar_production_factor < 0.2
-                    )
-                    if is_night_approaching or (
-                        solar_vital and solar_vital.raw_value < 5.0
-                    ):
-                        correlations.append(Correlation(
-                            id=f"COR-{uuid.uuid4().hex[:8].upper()}",
-                            type="power_risk",
-                            severity="critical" if battery_vital.status == "bad" else "warning",
-                            title=f"Power loss risk: {asset.name}",
-                            description=(
-                                f"Battery at {battery_vital.value} with "
-                                f"{'nighttime' if not weather.is_daylight else 'low solar'} "
-                                f"conditions. Solar factor: {weather.solar_production_factor}. "
-                                f"Daylight remaining: {'none' if not weather.is_daylight else 'limited'}."
-                            ),
-                            affected_assets=[asset.id],
-                            detected_at=now,
-                        ))
+                    is_night_approaching = not weather.is_daylight or weather.solar_production_factor < 0.2
+                    if is_night_approaching or (solar_vital and solar_vital.raw_value < 5.0):
+                        correlations.append(
+                            Correlation(
+                                id=f"COR-{uuid.uuid4().hex[:8].upper()}",
+                                type="power_risk",
+                                severity="critical" if battery_vital.status == "bad" else "warning",
+                                title=f"Power loss risk: {asset.name}",
+                                description=(
+                                    f"Battery at {battery_vital.value} with "
+                                    f"{'nighttime' if not weather.is_daylight else 'low solar'} "
+                                    f"conditions. Solar factor: {weather.solar_production_factor}. "
+                                    f"Daylight remaining: {'none' if not weather.is_daylight else 'limited'}."
+                                ),
+                                affected_assets=[asset.id],
+                                detected_at=now,
+                            )
+                        )
 
         # ── Pattern 4: Systemic Failure ──
         bad_assets = [a.id for a in assets if a.status == "bad"]
         if len(bad_assets) >= 3:
-            correlations.append(Correlation(
-                id=f"COR-{uuid.uuid4().hex[:8].upper()}",
-                type="systemic_failure",
-                severity="critical",
-                title="Systemic infrastructure degradation",
-                description=(
-                    f"{len(bad_assets)} assets in critical state simultaneously. "
-                    f"Possible site-wide issue (power, network backbone, environmental)."
-                ),
-                affected_assets=bad_assets,
-                detected_at=now,
-            ))
+            correlations.append(
+                Correlation(
+                    id=f"COR-{uuid.uuid4().hex[:8].upper()}",
+                    type="systemic_failure",
+                    severity="critical",
+                    title="Systemic infrastructure degradation",
+                    description=(
+                        f"{len(bad_assets)} assets in critical state simultaneously. "
+                        f"Possible site-wide issue (power, network backbone, environmental)."
+                    ),
+                    affected_assets=bad_assets,
+                    detected_at=now,
+                )
+            )
 
         self._active = correlations
         if correlations:

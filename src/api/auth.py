@@ -47,7 +47,7 @@ def _get_cognito_jwks():
         return _jwks_cache["keys"]
     try:
         url = f"{COGNITO_ISSUER}/.well-known/jwks.json"
-        with urllib.request.urlopen(url, timeout=5) as resp:
+        with urllib.request.urlopen(url, timeout=5) as resp:  # noqa: S310 — trusted Cognito JWKS endpoint, https only
             data = json.loads(resp.read())
             _jwks_cache["keys"] = data["keys"]
             _jwks_cache["fetched_at"] = now
@@ -71,7 +71,7 @@ def _validate_cognito_jwt(token: str) -> bool:
             signing_key.key,
             algorithms=["RS256"],
             issuer=COGNITO_ISSUER,
-            options={"verify_aud": False}  # Cognito ID tokens use 'aud', access tokens use 'client_id'
+            options={"verify_aud": False},  # Cognito ID tokens use 'aud', access tokens use 'client_id'
         )
         return True
     except Exception:
@@ -87,8 +87,14 @@ class APIKeyMiddleware(BaseHTTPMiddleware):
             return await call_next(request)
 
         # Skip auth for health and deploy
-        if path in ("/api/v1/health/ping", "/api/v1/deploy/trigger", "/api/v1/ingest",
-                     "/api/v1/notes", "/api/v1/journal", "/api/v1/auth/config"):
+        if path in (
+            "/api/v1/health/ping",
+            "/api/v1/deploy/trigger",
+            "/api/v1/ingest",
+            "/api/v1/notes",
+            "/api/v1/journal",
+            "/api/v1/auth/config",
+        ):
             return await call_next(request)
 
         # Allow unauthenticated access request submissions (POST only) and auth config
@@ -102,7 +108,9 @@ class APIKeyMiddleware(BaseHTTPMiddleware):
         # Demo mode: allow read-only API access for demo sessions
         referer = request.headers.get("referer", "")
         demo_header = request.headers.get("x-aevus-demo", "")
-        if ("demo=true" in referer or demo_header == "true") and (request.method == "GET" or path.startswith("/api/v1/ai/")):
+        if ("demo=true" in referer or demo_header == "true") and (
+            request.method == "GET" or path.startswith("/api/v1/ai/")
+        ):
             return await call_next(request)
 
         # 1. Check session cookie

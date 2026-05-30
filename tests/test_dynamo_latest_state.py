@@ -17,19 +17,19 @@ def _reader() -> DynamoLatestStateReader:
 
 
 def _asset(**over) -> Asset:
-    base = dict(
-        id="RAD-01",
-        type="radio",
-        status="unknown",
-        name="Trio JR900 #1",
-        location="Lab",
-        health=None,
-        last_seen=datetime.now(UTC),
-        vendor="Trio",
-        model="JR900",
-        vitals=[],
-        events=[],
-    )
+    base = {
+        "id": "RAD-01",
+        "type": "radio",
+        "status": "unknown",
+        "name": "Trio JR900 #1",
+        "location": "Lab",
+        "health": None,
+        "last_seen": datetime.now(UTC),
+        "vendor": "Trio",
+        "model": "JR900",
+        "vitals": [],
+        "events": [],
+    }
     base.update(over)
     return Asset(**base)
 

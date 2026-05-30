@@ -51,7 +51,7 @@ def _referenced_local_assets() -> set[str]:
         # Strip cache-buster + fragment.
         path = ref.split("?")[0].split("#")[0]
         if path.startswith("/dashboard/"):
-            local.add(path[len("/dashboard/"):])
+            local.add(path[len("/dashboard/") :])
         elif "/" in path and not path.startswith("/") or "." in path and not path.startswith("/"):
             local.add(path)
     return local
@@ -74,7 +74,7 @@ def _deploy_whitelist() -> tuple[set[str], set[str]]:
         items: set[str] = set()
         for token in body.split():
             if token.startswith("dashboard/"):
-                items.add(token[len("dashboard/"):])
+                items.add(token[len("dashboard/") :])
         return items
 
     return _extract("DASHBOARD_FILES"), _extract("DASHBOARD_DIRS")
@@ -91,10 +91,7 @@ def test_every_referenced_asset_exists_in_repo():
     Caught: an HTML reference to a file someone forgot to commit, or a typo
     in the path. Both would 404 in production.
     """
-    missing = sorted(
-        asset for asset in _referenced_local_assets()
-        if not (REPO / "dashboard" / asset).is_file()
-    )
+    missing = sorted(asset for asset in _referenced_local_assets() if not (REPO / "dashboard" / asset).is_file())
     assert not missing, (
         "Aevus_Console.html references dashboard assets that don't exist in the repo:\n"
         + "\n".join(f"  - dashboard/{a}" for a in missing)
@@ -111,8 +108,7 @@ def test_every_referenced_asset_is_in_deploy_whitelist():
     """
     files, dirs = _deploy_whitelist()
     missing = sorted(
-        asset for asset in _referenced_local_assets()
-        if asset not in files and not _covered_by_dirs(asset, dirs)
+        asset for asset in _referenced_local_assets() if asset not in files and not _covered_by_dirs(asset, dirs)
     )
     assert not missing, (
         "Aevus_Console.html references dashboard assets that deploy.sh won't ship:\n"

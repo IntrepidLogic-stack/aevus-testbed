@@ -5,7 +5,7 @@ from datetime import datetime
 
 import boto3
 
-sw = boto3.client('iotsitewise', region_name='us-east-1')
+sw = boto3.client("iotsitewise", region_name="us-east-1")
 _s = {}
 ASSETS = {
     "3d266802-c081-43b0-bbd3-c03c3a3fa516": [
@@ -55,6 +55,8 @@ ASSETS = {
         ("862c0309-4ff8-4220-b3ca-659f9d704d4b", 680.0, 1.0),
     ],
 }
+
+
 def lambda_handler(event, context):
     now = int(time.time())
     entries = []
@@ -69,14 +71,23 @@ def lambda_handler(event, context):
             hour = datetime.utcnow().hour
             diurnal = math.sin((hour - 6) * math.pi / 12) * var * 0.1
             _s[k] = cur + drift + revert + diurnal * 0.01
-            entries.append({
-                'entryId': f"{aid[:8]}-{pid[:8]}-{now}",
-                'assetId': aid, 'propertyId': pid,
-                'propertyValues': [{'value': {'doubleValue': round(_s[k], 2)}, 'timestamp': {'timeInSeconds': now}, 'quality': 'GOOD'}]
-            })
+            entries.append(
+                {
+                    "entryId": f"{aid[:8]}-{pid[:8]}-{now}",
+                    "assetId": aid,
+                    "propertyId": pid,
+                    "propertyValues": [
+                        {
+                            "value": {"doubleValue": round(_s[k], 2)},
+                            "timestamp": {"timeInSeconds": now},
+                            "quality": "GOOD",
+                        }
+                    ],
+                }
+            )
     for i in range(0, len(entries), 10):
         try:
-            sw.batch_put_asset_property_value(entries=entries[i:i+10])
+            sw.batch_put_asset_property_value(entries=entries[i : i + 10])
         except Exception as e:
             print(f"Batch {i} error: {e}")
-    return {'statusCode': 200, 'body': f'{len(entries)} values published'}
+    return {"statusCode": 200, "body": f"{len(entries)} values published"}

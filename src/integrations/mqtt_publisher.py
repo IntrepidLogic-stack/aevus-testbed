@@ -337,10 +337,7 @@ async def _smoke_main() -> None:
     logging.basicConfig(level=logging.INFO)
 
     publisher = MQTTPublisher()
-    print(
-        f"Connecting to {publisher.broker_host}:{publisher.broker_port} "
-        f"(TLS={publisher.tls_enabled})"
-    )
+    print(f"Connecting to {publisher.broker_host}:{publisher.broker_port} (TLS={publisher.tls_enabled})")
     await publisher.start()
 
     # Give the supervisor a moment to connect.
@@ -380,10 +377,7 @@ async def _smoke_main() -> None:
         payload={"id": "ALT-SMOKE01", "message": "smoke test alarm", "status": "open"},
     )
 
-    print(
-        "Done. Verify in the IoT Core MQTT test client by subscribing to "
-        f"aevus/{publisher.site_id}/#"
-    )
+    print(f"Done. Verify in the IoT Core MQTT test client by subscribing to aevus/{publisher.site_id}/#")
     await asyncio.sleep(2)
     await publisher.stop()
 

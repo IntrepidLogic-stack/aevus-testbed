@@ -111,16 +111,10 @@ class MaintenanceTracker:
             MaintenanceDue event on new boundary crossing, else None.
         """
         if run_hours < 0:
-            self.log.warning(
-                "runhours_negative_rejected", asset=asset_id, value=run_hours
-            )
+            self.log.warning("runhours_negative_rejected", asset=asset_id, value=run_hours)
             return None
 
-        interval = (
-            interval_hours_override
-            if interval_hours_override is not None
-            else self.interval_hours
-        )
+        interval = interval_hours_override if interval_hours_override is not None else self.interval_hours
         if interval <= 0:
             raise ValueError(f"interval_hours_override must be positive (got {interval})")
 
@@ -129,9 +123,7 @@ class MaintenanceTracker:
         if prior is None:
             # First observation — seed silently.
             self._store(asset_id, run_hours)
-            self.log.info(
-                "runhours_baseline_set", asset=asset_id, run_hours=run_hours
-            )
+            self.log.info("runhours_baseline_set", asset=asset_id, run_hours=run_hours)
             return None
 
         if run_hours + ROLLOVER_TOLERANCE_HOURS < prior:
@@ -161,9 +153,7 @@ class MaintenanceTracker:
 
         # At least one boundary crossed.
         last_boundary_at_or_below = (run_hours // interval) * interval
-        boundaries_in_jump = (
-            (last_boundary_at_or_below - first_boundary_above_prior) // interval + 1
-        )
+        boundaries_in_jump = (last_boundary_at_or_below - first_boundary_above_prior) // interval + 1
 
         self._store(asset_id, run_hours)
         event = MaintenanceDue(

@@ -151,6 +151,5 @@ class Settings(BaseSettings):
     supabase_jwt_secret: str = ""
 
 
-
 # Singleton
 settings = Settings()

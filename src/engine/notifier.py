@@ -3,16 +3,20 @@ Aevus — Notification Engine
 Sends alerts via AWS SES (email) and AWS SNS (SMS).
 Rate-limited: max 1 notification per alert per 15 minutes.
 """
+
 from __future__ import annotations
 
 import asyncio
 import time
+from typing import TYPE_CHECKING
 
 import boto3
 import structlog
 
 from src.config import settings
-from src.models.alert import Alert
+
+if TYPE_CHECKING:
+    from src.models.alert import Alert
 
 logger = structlog.get_logger()
 
@@ -90,17 +94,20 @@ class NotificationEngine:
 
         try:
             loop = asyncio.get_running_loop()
-            await loop.run_in_executor(None, lambda: self._ses.send_email(
-                Source=settings.smtp_from,
-                Destination={"ToAddresses": recipients},
-                Message={
-                    "Subject": {"Data": subject, "Charset": "UTF-8"},
-                    "Body": {
-                        "Text": {"Data": body_text, "Charset": "UTF-8"},
-                        "Html": {"Data": body_html, "Charset": "UTF-8"},
+            await loop.run_in_executor(
+                None,
+                lambda: self._ses.send_email(
+                    Source=settings.smtp_from,
+                    Destination={"ToAddresses": recipients},
+                    Message={
+                        "Subject": {"Data": subject, "Charset": "UTF-8"},
+                        "Body": {
+                            "Text": {"Data": body_text, "Charset": "UTF-8"},
+                            "Html": {"Data": body_html, "Charset": "UTF-8"},
+                        },
                     },
-                },
-            ))
+                ),
+            )
             self.log.info("ses_email_sent", alert_id=alert.id, recipients=recipients)
         except Exception as e:
             self.log.error("ses_email_failed", alert_id=alert.id, error=str(e))
@@ -116,24 +123,33 @@ class NotificationEngine:
         loop = asyncio.get_running_loop()
         for number in numbers:
             try:
-                await loop.run_in_executor(None, lambda n=number: self._sns.publish(
-                    PhoneNumber=n,
-                    Message=body,
-                    MessageAttributes={
-                        "AWS.SNS.SMS.SenderID": {
-                            "DataType": "String",
-                            "StringValue": "AEVUS",
+                await loop.run_in_executor(
+                    None,
+                    lambda n=number: self._sns.publish(
+                        PhoneNumber=n,
+                        Message=body,
+                        MessageAttributes={
+                            "AWS.SNS.SMS.SenderID": {
+                                "DataType": "String",
+                                "StringValue": "AEVUS",
+                            },
+                            "AWS.SNS.SMS.SMSType": {
+                                "DataType": "String",
+                                "StringValue": "Transactional",
+                            },
                         },
-                        "AWS.SNS.SMS.SMSType": {
-                            "DataType": "String",
-                            "StringValue": "Transactional",
-                        },
-                    },
-                ))
+                    ),
+                )
                 self.log.info("sns_sms_sent", alert_id=alert.id, to=number)
             except Exception as e:
                 self.log.error("sns_sms_failed", alert_id=alert.id, to=number, error=str(e))
 
     @staticmethod
     def _severity_color(severity: str) -> str:
-        return {"critical": "#EF4444", "high": "#F59E0B", "warning": "#F59E0B", "medium": "#3B82F6", "low": "#6B7280"}.get(severity, "#6B7280")
+        return {
+            "critical": "#EF4444",
+            "high": "#F59E0B",
+            "warning": "#F59E0B",
+            "medium": "#3B82F6",
+            "low": "#6B7280",
+        }.get(severity, "#6B7280")

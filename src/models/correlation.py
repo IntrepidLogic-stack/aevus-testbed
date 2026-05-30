@@ -1,12 +1,15 @@
 """
 Aevus — Correlation Data Model
 """
+
 from __future__ import annotations
 
-from datetime import datetime
-from typing import Literal
+from typing import TYPE_CHECKING, Literal
 
 from pydantic import BaseModel
+
+if TYPE_CHECKING:
+    from datetime import datetime
 
 
 class Correlation(BaseModel):

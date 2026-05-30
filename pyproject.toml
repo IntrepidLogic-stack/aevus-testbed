@@ -95,7 +95,9 @@ extend-immutable-calls = [
 # the journal. simulator.py uses random for telemetry generation, not crypto.
 "src/collectors/*" = ["S110", "S112", "S311"]
 # Storage shutdown-race cleanup intentionally swallows late writes.
-"src/storage/sqlite_db.py" = ["S110"]
+# SIM118 ("key in dict.keys()") doesn't apply: sqlite3.Row.__iter__ yields
+# values, not keys, so `"col" in row` is wrong — must use row.keys().
+"src/storage/sqlite_db.py" = ["S110", "SIM118"]
 # Weather refresh is best-effort — a failed Open-Meteo poll must not crash
 # the lifespan task.
 "src/engine/weather.py" = ["S110"]

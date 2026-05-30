@@ -283,8 +283,10 @@ class SQLiteDB:
             protocol=row["protocol"],
             poll_interval=row["poll_interval"],
             vitals=vitals,
-            latitude=row.get("latitude", None),
-            longitude=row.get("longitude", None),
+            # sqlite3.Row has no .get(); use explicit "key in row" membership.
+            # SIM118 wants this exact form (without .keys()).
+            latitude=row["latitude"] if "latitude" in row.keys() else None,
+            longitude=row["longitude"] if "longitude" in row.keys() else None,
             events=events,
         )
 

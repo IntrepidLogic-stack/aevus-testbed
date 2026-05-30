@@ -5034,11 +5034,32 @@ html { scroll-behavior:smooth; }
      shift-summary panels empty. Same "referenced-but-never-declared" bug
      class as the AppState wiring issues (PRs #43/#49). Must be set BEFORE
      api-client.js loads so the JS sees them on its first render pass. */
-  window.liveAlerts    = window.liveAlerts    || [];
+  /* Safety net for the "bare-global read before api-client.js populates it"
+     bug class (PRs #51, #52). renderOverview + sibling renderers read these
+     top-level state names directly; if api-client.js hasn't assigned them
+     yet (first render, or fetch failed), bare reads throw ReferenceError and
+     halt the whole render IIFE. Pre-declaring them as harmless empty
+     defaults converts "blank page + 191 console errors" into "empty section
+     until data loads." Numbers default to 0, collections to []. */
+  window.liveAlerts     = window.liveAlerts     || [];
+  window.liveAssets     = window.liveAssets     || [];
   window.attentionCount = window.attentionCount || 0;
-  window.predictions   = window.predictions   || [];
+  window.predictions    = window.predictions    || [];
+  window.assets         = window.assets         || [];
+  window.alerts         = window.alerts         || [];
+  window.correlations   = window.correlations   || [];
+  window.weather        = window.weather        || null;
+  window.forecast       = window.forecast       || [];
+  window.fleet          = window.fleet          || [];
+  window.incidents      = window.incidents      || [];
+  window.sites          = window.sites          || [];
+  window.reports        = window.reports        || [];
+  window.users          = window.users          || [];
+  window.commandLog     = window.commandLog     || [];
+  window.accessRequests = window.accessRequests || [];
+  window.integrations   = window.integrations   || [];
 </script>
-<script src="/dashboard/api-client.js?v=124"></script>
+<script src="/dashboard/api-client.js?v=125"></script>
 <script src="/dashboard/rad-hover-live.js?v=11"></script>
 
 <script>

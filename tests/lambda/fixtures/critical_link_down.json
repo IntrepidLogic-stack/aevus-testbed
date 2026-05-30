@@ -1,0 +1,20 @@
+{
+  "schema_version": "1.0",
+  "ts": "2026-05-20T14:00:00.521Z",
+  "site_id": "lab",
+  "asset_id": "SW-01",
+  "type": "alert",
+  "source": "alert_engine",
+  "payload": {
+    "id": "ALT-LNKDOWN03",
+    "severity": "critical",
+    "asset_id": "SW-01",
+    "asset_name": "Cisco Catalyst 2960",
+    "message": "Cisco Catalyst 2960 interface link DOWN (ifIndex 3)",
+    "detected_at": "2026-05-20T14:00:00.521Z",
+    "status": "open",
+    "acknowledged_at": null,
+    "resolved_at": null,
+    "risk_score": null
+  }
+}

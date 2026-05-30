@@ -89,6 +89,20 @@ extend-immutable-calls = [
 
 [tool.ruff.lint.per-file-ignores]
 "tests/*" = ["S101", "S106"]
+# Collectors poll OT hardware where transient errors (SNMP timeouts,
+# malformed responses, dead Modbus slaves) are expected; the scheduler reads
+# next cycle. Silent-swallow is design intent — logging every hiccup drowns
+# the journal. simulator.py uses random for telemetry generation, not crypto.
+"src/collectors/*" = ["S110", "S112", "S311"]
+# Storage shutdown-race cleanup intentionally swallows late writes.
+"src/storage/sqlite_db.py" = ["S110"]
+# Weather refresh is best-effort — a failed Open-Meteo poll must not crash
+# the lifespan task.
+"src/engine/weather.py" = ["S110"]
+# Best-effort cleanup paths.
+"src/api/access_requests.py" = ["S110"]
+"src/register_writer.py" = ["S110"]
+"src/collectors/dnp3_master.py" = ["S110"]
 
 [tool.pytest.ini_options]
 asyncio_mode = "auto"

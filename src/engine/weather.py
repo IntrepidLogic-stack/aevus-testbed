@@ -151,7 +151,7 @@ class WeatherEngine:
         try:
             loop = asyncio.get_running_loop()
             response = await loop.run_in_executor(
-                None, lambda: urllib.request.urlopen(url, timeout=10).read()
+                None, lambda: urllib.request.urlopen(url, timeout=10).read()  # noqa: S310 — trusted Open-Meteo https endpoint
             )
             data = json.loads(response)
 

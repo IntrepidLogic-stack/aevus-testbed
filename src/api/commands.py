@@ -3,9 +3,12 @@ Aevus — Operator Commands API Router
 """
 from __future__ import annotations
 
+from typing import TYPE_CHECKING
+
 from fastapi import APIRouter
 
-from src.models.command import CommandRequest
+if TYPE_CHECKING:
+    from src.models.command import CommandRequest
 
 router = APIRouter(tags=["commands"])
 

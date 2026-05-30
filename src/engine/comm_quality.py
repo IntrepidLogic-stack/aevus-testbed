@@ -61,17 +61,11 @@ class CommQualityEngine:
             CommQuality with weighted composite score.
         """
         # Success rate
-        if poll_count > 0:
-            success_rate = (poll_success_count / poll_count) * 100.0
-        else:
-            success_rate = 100.0
+        success_rate = poll_success_count / poll_count * 100.0 if poll_count > 0 else 100.0
 
         # SNMP error rate
         total_io = in_octets + in_errors
-        if total_io > 0:
-            error_rate = (in_errors / total_io) * 100.0
-        else:
-            error_rate = 0.0
+        error_rate = in_errors / total_io * 100.0 if total_io > 0 else 0.0
 
         # Response time score (0-100, <50ms = 100, >2000ms = 0)
         if last_poll_duration_ms <= 50:

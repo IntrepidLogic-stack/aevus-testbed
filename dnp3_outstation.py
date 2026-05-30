@@ -218,11 +218,10 @@ class DNP3OutstationServer:
         elif qual == QUAL_RANGE_8BIT:
             if len(req_data) >= 5:
                 return req_data[3], req_data[4]
-        elif qual == QUAL_RANGE_16BIT:
-            if len(req_data) >= 7:
-                start = struct.unpack("<H", req_data[3:5])[0]
-                stop = struct.unpack("<H", req_data[5:7])[0]
-                return start, stop
+        elif qual == QUAL_RANGE_16BIT and len(req_data) >= 7:
+            start = struct.unpack("<H", req_data[3:5])[0]
+            stop = struct.unpack("<H", req_data[5:7])[0]
+            return start, stop
         return 0, 19
 
     def _encode_analogs(self, start: int, stop: int) -> bytes:
@@ -317,7 +316,7 @@ class DNP3OutstationServer:
                     writer.write(response)
                     await writer.drain()
 
-        except asyncio.TimeoutError:
+        except TimeoutError:
             pass
         except Exception as e:
             print(f"[DNP3] Client error: {e}")

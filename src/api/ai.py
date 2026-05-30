@@ -140,7 +140,7 @@ Current site: Killdeer Field, North Dakota — oil production with compressors, 
 
 CLASSIFY_PROMPT = """Classify this operator query into exactly one category. Reply with ONLY the category word:
 - CHAT: casual question, greeting, simple status check
-- ANALYSIS: root cause, trend analysis, comparison, "why", "analyze", "compare"  
+- ANALYSIS: root cause, trend analysis, comparison, "why", "analyze", "compare"
 - SAFETY: anything involving safety, interlocks, H2S, LEL, ESD, emergency, ISA-18.2 compliance
 - REPORT: shift handover, summary, export, compliance report
 - NAVIGATE: "show me", "go to", "open", navigation request
@@ -294,7 +294,7 @@ async def ai_ask(req: AIRequest):
         # Step 5: Store for fine-tuning data collection (#6)
         _finetune_samples.append({
             "prompt": req.prompt,
-            "context_hash": hashlib.md5(ctx_text.encode()).hexdigest()[:8] if ctx_text else None,
+            "context_hash": hashlib.md5(ctx_text.encode()).hexdigest()[:8] if ctx_text else None,  # noqa: S324 — non-crypto fingerprint for fine-tune dedup
             "classification": classification,
             "model": model_key,
             "timestamp": datetime.now(UTC).isoformat(),
@@ -533,13 +533,10 @@ async def vision_inspect(
 
     # Determine media type
     ct = image.content_type or "image/jpeg"
-    if "png" in ct:
-        media_type = "image/png"
-    else:
-        media_type = "image/jpeg"
+    media_type = "image/png" if "png" in ct else "image/jpeg"
 
     vision_system = """You are an industrial equipment visual inspection AI deployed at an oil & gas well site.
-Analyze images for: corrosion, leaks (oil/gas/water), mechanical damage, safety hazards, 
+Analyze images for: corrosion, leaks (oil/gas/water), mechanical damage, safety hazards,
 gauge readings, equipment condition, and maintenance needs.
 Rate condition: GOOD / FAIR / POOR / CRITICAL.
 Provide specific, actionable maintenance recommendations."""

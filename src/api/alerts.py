@@ -4,12 +4,15 @@ Aevus Testbed --- Alert API Routes
 
 from __future__ import annotations
 
-from datetime import datetime
+from typing import TYPE_CHECKING
 
 from fastapi import APIRouter, HTTPException, Query
 from pydantic import BaseModel, Field
 
 from src.models.alert import Alert
+
+if TYPE_CHECKING:
+    from datetime import datetime
 
 router = APIRouter(prefix="/alerts", tags=["alerts"])
 

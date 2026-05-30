@@ -33,11 +33,14 @@ from __future__ import annotations
 
 import asyncio
 import struct
+from typing import TYPE_CHECKING
 
 import structlog
 
 from src.collectors.base import BaseCollector
-from src.models.telemetry import RawTelemetry
+
+if TYPE_CHECKING:
+    from src.models.telemetry import RawTelemetry
 
 logger = structlog.get_logger()
 

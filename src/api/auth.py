@@ -47,7 +47,7 @@ def _get_cognito_jwks():
         return _jwks_cache["keys"]
     try:
         url = f"{COGNITO_ISSUER}/.well-known/jwks.json"
-        with urllib.request.urlopen(url, timeout=5) as resp:
+        with urllib.request.urlopen(url, timeout=5) as resp:  # noqa: S310 — trusted Cognito JWKS endpoint, https only
             data = json.loads(resp.read())
             _jwks_cache["keys"] = data["keys"]
             _jwks_cache["fetched_at"] = now

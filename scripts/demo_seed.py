@@ -60,19 +60,19 @@ def seed(mixed=False):
     if not os.path.exists(DB_PATH):
         print(f"DB not found at {DB_PATH}")
         return
-    
+
     conn = sqlite3.connect(DB_PATH)
     conn.row_factory = sqlite3.Row
-    
+
     for asset in ASSETS:
         if mixed and asset["id"] in MIXED_OVERRIDES:
             asset.update(MIXED_OVERRIDES[asset["id"]])
-        
+
         conn.execute("""
             UPDATE assets SET status=?, health=?, latitude=?, longitude=?
             WHERE id=?
         """, (asset["status"], asset["health"], asset["latitude"], asset["longitude"], asset["id"]))
-    
+
     if mixed:
         # Insert demo alarms
         for alarm in MIXED_ALARMS:
@@ -84,10 +84,10 @@ def seed(mixed=False):
                       alarm["message"], alarm["risk_score"], alarm["detected_at"], alarm["status"]))
             except Exception as e:
                 print(f"  Alarm insert failed: {e}")
-    
+
     conn.commit()
     conn.close()
-    
+
     mode = "MIXED (2 degraded + 3 alarms)" if mixed else "CLEAN (all healthy)"
     print(f"\n  Aevus Demo Seed Applied — {mode}")
     print("  Site: Killdeer Field — 10102 Clydesdale Dr, Needville TX 77461")

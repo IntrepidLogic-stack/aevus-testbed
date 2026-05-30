@@ -283,8 +283,8 @@ class SQLiteDB:
             protocol=row["protocol"],
             poll_interval=row["poll_interval"],
             vitals=vitals,
-            latitude=row["latitude"] if "latitude" in row.keys() else None,
-            longitude=row["longitude"] if "longitude" in row.keys() else None,
+            latitude=row.get("latitude", None),
+            longitude=row.get("longitude", None),
             events=events,
         )
 

@@ -60,7 +60,7 @@ async def site_summary_report():
     segments = [(good_count,'#10D478','Good'),(warn_count,'#FBBF24','Warning'),(bad_count,'#EF4444','Critical'),(offline_count,'#6B7280','Offline')]
     segments = [(c,col,lbl) for c,col,lbl in segments if c > 0]
     angle = -math.pi/2
-    for count, color, label in segments:
+    for count, color, _label in segments:
         sweep = (count/total) * 2 * math.pi if total > 0 else 0
         if sweep > 0:
             donut_svg += donut_arc(80, 80, 55, angle, angle + sweep - 0.05, color)
@@ -78,11 +78,9 @@ async def site_summary_report():
         if not a.vitals:
             continue
         vitals_html += f'<tr style="background:#f0f4f8;"><td colspan="4" style="font-weight:700;padding:8px 12px;">{a.name} ({a.id})</td></tr>'
-        shown = 0
         for v in a.vitals[:8]:
             sc = '#10D478' if v.status == 'good' else '#FBBF24' if v.status in ('warn','warning') else '#EF4444' if v.status in ('bad','critical') else '#666'
             vitals_html += f'<tr><td style="padding:4px 12px;">{v.label}</td><td style="font-family:monospace;font-weight:600;padding:4px 8px;">{v.value}</td><td style="color:#999;">{v.unit}</td><td><span style="color:{sc};">●</span> {v.status or "—"}</td></tr>'
-            shown += 1
 
     # Asset table
     asset_rows = ''

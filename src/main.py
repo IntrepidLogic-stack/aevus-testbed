@@ -214,6 +214,43 @@ async def _weather_loop() -> None:
         await asyncio.sleep(interval)
 
 
+async def _mqtt_health_publish_loop() -> None:
+    """Publish MQTTPublisher health snapshot every 60s to a dedicated topic.
+
+    AWS IoT Core has a `cloudwatchMetric` rule action — pointing a rule at
+    `aevus/+/health/mqtt_publisher` lets us push `consecutive_publish_failures`
+    into a CloudWatch custom metric without giving the Pi any IAM creds.
+    An alarm on that metric > 0 catches half-open at FIRST failure (vs the
+    in-process detector's threshold of 5).
+
+    Cleanly skips when the publisher is missing or disconnected — we don't
+    want to log spam when MQTT is disabled in dev.
+    """
+    while True:
+        try:
+            pub = app_state.mqtt_publisher
+            if pub is not None and pub.connected:
+                # publish_state() routes through the publisher's own failure-
+                # counting path, so we benefit from the half-open detector
+                # we're trying to surface. Worst case the health publish fails
+                # too and the alarm fires on missing-data — which is also
+                # correct (Pi can't reach IoT at all).
+                health = pub.health
+                await pub.publish_state(
+                    asset_id="EDGE-01",
+                    key="mqtt_publisher_health",
+                    state_value="up" if health["connected"] else "down",
+                    source="internal",
+                    extra={
+                        "consecutive_publish_failures": health["consecutive_publish_failures"],
+                        "seconds_since_last_publish": health["seconds_since_last_publish"],
+                    },
+                )
+        except Exception as e:  # noqa: BLE001 — health pump must not die
+            logger.warning("mqtt_health_publish_failed", error=str(e))
+        await asyncio.sleep(60)
+
+
 def _register_simulators() -> None:
     """Register simulator collectors for every lab asset (baseline)."""
     for spec in LAB_ASSETS:
@@ -374,6 +411,7 @@ async def lifespan(app: FastAPI):
     _register_mqtt_publisher()
     await app_state.scheduler.start()
     weather_task = asyncio.create_task(_weather_loop())
+    mqtt_health_task = asyncio.create_task(_mqtt_health_publish_loop())
     # Start the SNMP trap listener if enabled. Failures (e.g. port-in-use on a
     # second instance, or no privileged-port capability) are logged but do NOT
     # crash startup — the rest of the service is still useful without traps.
@@ -390,6 +428,7 @@ async def lifespan(app: FastAPI):
         except Exception as e:  # noqa: BLE001
             logger.warning("snmp_trap_receiver_stop_failed", error=str(e))
     weather_task.cancel()
+    mqtt_health_task.cancel()
     await app_state.scheduler.stop()
 
 

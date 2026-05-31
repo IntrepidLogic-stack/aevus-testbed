@@ -238,6 +238,44 @@
     if (r1 && r1.ip_address) setText('rf-r1-ip', r1.ip_address);
     if (r2 && r2.ip_address) setText('rf-r2-ip', r2.ip_address);
 
+    // Override the minified api-client.js's raw-float renders for the big
+    // callout numbers — it was writing values like "-65.524" for RSSI and
+    // "30.014" for TX PWR, which overflow the SVG column widths and visually
+    // collide with neighboring columns (user-reported 2026-05-30). Use the
+    // normalizer's pre-formatted display strings, stripped of units (units
+    // are already shown in the row below). Falls back to rounding raw_value.
+    function cleanNum(asset, label, decimals) {
+      var v = vital(asset, label);
+      if (!v) return null;
+      // Prefer the value string with the unit suffix removed
+      var s = (v.value || '').toString();
+      var m = s.match(/^(-?\d+(?:\.\d+)?)/);
+      if (m) {
+        var n = parseFloat(m[1]);
+        if (!isNaN(n)) return decimals != null ? n.toFixed(decimals) : String(Math.round(n));
+      }
+      if (typeof v.raw_value === 'number') {
+        return decimals != null ? v.raw_value.toFixed(decimals) : String(Math.round(v.raw_value));
+      }
+      return null;
+    }
+    [['r1', r1], ['r2', r2]].forEach(function (pair) {
+      var key = pair[0], asset = pair[1];
+      if (!asset) return;
+      var rssi = cleanNum(asset, 'RSSI', 0);             // -65 dBm  (int)
+      var qual = cleanNum(asset, 'SIGNAL QUALITY', 0);   // 96 %     (int)
+      var tx   = cleanNum(asset, 'TX POWER', 0);         // 10 dBm   (int)
+      var temp = cleanNum(asset, 'TEMPERATURE', 1);      // 37.0 °C  (1dp)
+      var volt = cleanNum(asset, 'VOLTAGE', 1);          // 13.3 V   (1dp)
+      if (rssi != null) setText('rf-' + key + '-rssi', rssi);
+      if (qual != null) setText('rf-' + key + '-qual', qual);
+      if (tx   != null) setText('rf-' + key + '-txpwr', tx);
+      // Temp + volts sit in the smaller sub-row — include units there since
+      // they don't have a separate unit row above them.
+      if (temp != null) setText('rf-' + key + '-temp',  temp + '°C');
+      if (volt != null) setText('rf-' + key + '-volts', volt + 'V');
+    });
+
     // Phase 2 secondary callout (Task #160): per-radio FW/ROLE/STATE +
     // per-direction error split. Inline because the data is here and the
     // callout structure mirrors rf-r1-* / rf-r2-* element naming.

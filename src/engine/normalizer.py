@@ -417,7 +417,10 @@ THRESHOLD_MAP: dict[str, dict] = {
         "fmt": "{:.0f}",
     },
     "link_state": {
-        "direction": "bool_bad",
+        # bool_good (not bool_bad): for radios, value=1 means LINKED which
+        # is the HEALTHY state. The generic bool_bad path would mislabel
+        # ACTIVE radios as "bad" (caught by data-coverage audit 2026-05-30).
+        "direction": "bool_good",
         "label": "LINK STATE",
         "fmt": "{}",
     },
@@ -471,7 +474,11 @@ def evaluate_status(
     if direction == "info":
         return ""
     if direction == "bool_bad":
+        # 1.0 = alarm active = bad (high_pressure_alarm, comm_fault, etc.)
         return "bad" if value >= 1.0 else "good"
+    if direction == "bool_good":
+        # 1.0 = healthy state = good (link_state when LINKED, etc.)
+        return "good" if value >= 1.0 else "bad"
     if warn is None or crit is None:
         return ""
 
@@ -526,9 +533,10 @@ def normalize_reading(reading: RawTelemetry) -> VitalSign:
     direction = spec["direction"]
     fmt = spec.get("fmt", "{}")
 
-    if direction == "bool_bad":
-        display = "ACTIVE" if reading.value >= 1.0 else "OK"
-    elif reading.metric == "compressor_running":
+    # Metric-specific display strings — checked BEFORE generic direction
+    # branches so a metric with bool_good/bool_bad direction can still
+    # use its own friendly label (e.g. link_state → LINKED, not ACTIVE).
+    if reading.metric == "compressor_running":
         display = "RUNNING" if reading.value >= 1.0 else "STOPPED"
     elif reading.metric == "compressor_loaded":
         display = "LOADED" if reading.value >= 1.0 else "UNLOADED"
@@ -536,6 +544,10 @@ def normalize_reading(reading: RawTelemetry) -> VitalSign:
         display = "LIT" if reading.value >= 1.0 else "OUT"
     elif reading.metric == "link_state":
         display = "LINKED" if reading.value >= 1.0 else "DOWN"
+    elif direction == "bool_bad":
+        display = "ACTIVE" if reading.value >= 1.0 else "OK"
+    elif direction == "bool_good":
+        display = "OK" if reading.value >= 1.0 else "DOWN"
     elif reading.metric == "radio_role":
         # Trio JR900: 1 = Access Point (master), 2 = Remote (slave)
         display = "MASTER" if reading.value == 1.0 else "SLAVE" if reading.value == 2.0 else "—"

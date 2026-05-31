@@ -272,6 +272,93 @@
         (linked ? '#10D478' : '#EF4444') + ';margin-right:6px;"></span>' +
         (linked ? 'LINK ACTIVE' : 'NO LINK');
     }
+
+    // Hero KPI strip (Task #154) — same numbers, just promoted to
+    // operator-glance-at-6-ft size. We compute them here once vs. duplicating
+    // logic, and use data-status attribute → CSS for color coding.
+    updateHeroKpis({
+      linked: linked,
+      worstRssi: worstRssi,
+      latVal: latVal,
+      linkUptime: linkUptime,
+      r1: r1,
+      r2: r2,
+    });
+  }
+
+  // ── Hero KPI tile updater (Task #154) ──────────────────────────────────
+  // 4 tiles: LINK STATE | LATENCY (P-008) | UPTIME 24H | ALARMS.
+  // Pulls from already-computed values in updateLinkCard so semantics stay in sync.
+  function updateHeroKpis(ctx) {
+    function setTile(id, value, sub, status) {
+      var tile = document.getElementById('rf-hero-' + id);
+      if (!tile) return;
+      tile.setAttribute('data-status', status || '');
+      var valEl = document.getElementById('rf-hero-' + id + '-val');
+      var subEl = document.getElementById('rf-hero-' + id + '-sub');
+      if (valEl) valEl.textContent = value;
+      if (subEl && sub != null) subEl.textContent = sub;
+    }
+
+    // 1. LINK STATE — derived from updateLinkCard's `linked` boolean +
+    //    worstRssi tier label
+    var lsLabel, lsSub, lsStatus;
+    if (!ctx.linked) {
+      lsLabel = 'NO LINK'; lsSub = 'check radio power + antenna'; lsStatus = 'bad';
+    } else if (ctx.worstRssi > -70) {
+      lsLabel = 'ACTIVE'; lsSub = 'excellent (' + Math.round(ctx.worstRssi) + ' dBm)'; lsStatus = 'good';
+    } else if (ctx.worstRssi > -85) {
+      lsLabel = 'ACTIVE'; lsSub = 'good (' + Math.round(ctx.worstRssi) + ' dBm)'; lsStatus = 'good';
+    } else if (ctx.worstRssi > -95) {
+      lsLabel = 'ACTIVE'; lsSub = 'fair (' + Math.round(ctx.worstRssi) + ' dBm)'; lsStatus = 'warn';
+    } else {
+      lsLabel = 'POOR'; lsSub = 'near floor (' + Math.round(ctx.worstRssi) + ' dBm)'; lsStatus = 'bad';
+    }
+    setTile('linkstate', lsLabel, lsSub, lsStatus);
+
+    // 2. LATENCY — patent-relevant (P-008 sub-second AI on OT events). Status
+    //    bands: ≤10ms excellent, ≤50ms good, ≤200ms warn, >200ms bad.
+    if (ctx.latVal == null) {
+      setTile('latency', '—', 'edge ↔ radio RTT', '');
+    } else {
+      var lv = Math.round(ctx.latVal);
+      var lStatus = lv <= 10 ? 'good' : lv <= 50 ? 'good' : lv <= 200 ? 'warn' : 'bad';
+      var lSub = lv <= 10 ? 'sub-10ms edge response' :
+                 lv <= 50 ? 'edge ↔ radio RTT' :
+                 lv <= 200 ? 'elevated — investigate' : 'CRITICAL';
+      var latEl = document.getElementById('rf-hero-latency-val');
+      if (latEl) latEl.textContent = lv;
+      var latTile = document.getElementById('rf-hero-latency');
+      if (latTile) latTile.setAttribute('data-status', lStatus);
+      var latSub = document.getElementById('rf-hero-latency-sub');
+      if (latSub) latSub.textContent = lSub;
+    }
+
+    // 3. UPTIME 24H — bands: ≥99.9% excellent, ≥99% good, ≥95% warn, <95% bad
+    if (ctx.linkUptime == null) {
+      setTile('uptime', '—', 'awaiting samples', '');
+    } else {
+      var up = ctx.linkUptime;
+      var upStatus = up >= 99.9 ? 'good' : up >= 99 ? 'good' : up >= 95 ? 'warn' : 'bad';
+      var upSub = up >= 99.9 ? 'five-nines class' :
+                  up >= 99 ? 'three-nines link' :
+                  up >= 95 ? 'degraded — review' : 'CRITICAL gap';
+      var upEl = document.getElementById('rf-hero-uptime-val');
+      if (upEl) upEl.textContent = up.toFixed(up >= 99 ? 2 : 1);
+      var upTile = document.getElementById('rf-hero-uptime');
+      if (upTile) upTile.setAttribute('data-status', upStatus);
+      var upSubEl = document.getElementById('rf-hero-uptime-sub');
+      if (upSubEl) upSubEl.textContent = upSub;
+    }
+
+    // 4. ALARMS — count active alerts (non-chattering) across both radios,
+    //    plus a separate badge for any chattering metric
+    var alarmCount = (alertCache['RAD-01'] || []).length + (alertCache['RAD-02'] || []).length;
+    var anyChatter = !!(chatterCache['RAD-01'] || chatterCache['RAD-02']);
+    var aStatus = alarmCount > 0 ? 'bad' : anyChatter ? 'warn' : 'good';
+    var aSub = alarmCount > 0 ? alarmCount + ' active — see Alarms tab' :
+               anyChatter ? 'chattering metric detected' : 'all clear';
+    setTile('alarms', String(alarmCount), aSub, aStatus);
   }
 
   // ── Open map-popup → rich live card ──────────────────────────────────
@@ -380,6 +467,9 @@
           if (isChatter) chatterCache[al.asset_id] = true;
           else alertCache[al.asset_id].push(al);
         });
+        // Hero ALARMS tile reads from alertCache + chatterCache, so refresh
+        // it whenever those change (not just on the slower asset poll cycle).
+        updateLinkCard();
       })
       .catch(function (e) { console.warn('[Aevus Rad Hover] alerts poll failed:', e.message); });
   }

@@ -438,6 +438,114 @@
     setTile('alarms', String(alarmCount), aSub, aStatus);
   }
 
+  // ── Inline per-radio detail panels (Task #164) ──────────────────────
+  // Surface ALL tooltip data as always-visible cards on the radio page so
+  // the operator doesn't have to hover to read anything. Diag tools at the
+  // bottom remain click-only. Idempotent — safe to call every poll.
+  function setStatusedVit(elId, value, status) {
+    var el = document.getElementById(elId);
+    if (!el) return;
+    el.textContent = value;
+    if (status != null) el.setAttribute('data-status', status);
+  }
+
+  function renderInlineRadioCards() {
+    [['RAD-01', 'r1', 'MASTER', 'Trio JR900 #1'],
+     ['RAD-02', 'r2', 'SLAVE',  'Trio JR900 #2']].forEach(function (cfg) {
+      var assetId = cfg[0], key = cfg[1], defaultRole = cfg[2], defaultName = cfg[3];
+      var a = assetCache[assetId];
+      var card = document.getElementById('rf-detail-' + assetId);
+      if (!card) return;
+
+      // status pill + card border tint
+      var status = (a && a.status) ? a.status : '';
+      card.setAttribute('data-status', status);
+      var pill = document.getElementById('rf-detail-' + key + '-status');
+      if (pill) pill.textContent = status ? status.toUpperCase() : 'AWAITING';
+
+      // chattering badge
+      var chatter = document.getElementById('rf-detail-' + key + '-chatter');
+      if (chatter) chatter.hidden = !chatterCache[assetId];
+
+      // sub-header line — vendor model + role
+      var roleVital = a ? vital(a, 'ROLE') : null;
+      var roleVal = (roleVital && roleVital.value && roleVital.value !== '—') ? roleVital.value : defaultRole;
+      var subText = a ? (a.vendor + ' ' + a.model + ' · ' + roleVal) : (defaultName + ' · ' + defaultRole + ' · awaiting live data');
+      setStatusedVit('rf-detail-' + key + '-sub', subText);
+
+      if (!a) {
+        // No live data yet — leave fields as "—" so layout doesn't reflow
+        return;
+      }
+
+      // Identification block
+      setStatusedVit('rf-detail-' + key + '-role', roleVal);
+      var fwRaw = a.firmware || '—';
+      setStatusedVit('rf-detail-' + key + '-fw', fwRaw);
+      setStatusedVit('rf-detail-' + key + '-ip', a.ip_address || '—');
+      setStatusedVit('rf-detail-' + key + '-health', a.health != null ? (a.health + ' / 100') : '—');
+      // Freshness — strip HTML, just keep text the badge would render
+      var freshHtml = freshnessBadge(a);
+      var tmp = document.createElement('div'); tmp.innerHTML = freshHtml;
+      setStatusedVit('rf-detail-' + key + '-fresh', (tmp.textContent || '—').trim());
+
+      // RF vitals — color-coded by normalizer status
+      function putVit(slot, label) {
+        var v = vital(a, label);
+        var el = document.getElementById('rf-detail-' + key + '-' + slot);
+        if (!el) return;
+        el.textContent = v ? v.value : '—';
+        el.setAttribute('data-status', (v && v.status) || '');
+      }
+      putVit('rssi', 'RSSI');
+      putVit('qual', 'SIGNAL QUALITY');
+      putVit('tx',   'TX POWER');
+      putVit('link', 'LINK STATE');
+      putVit('lat',  'LATENCY');
+      putVit('tmp',  'TEMPERATURE');
+      putVit('volt', 'VOLTAGE');
+
+      // Per-direction error split (RF engineer view from design doc)
+      function putErr(slot, label) {
+        var n = rawVital(a, label);
+        var el = document.getElementById('rf-detail-' + key + '-' + slot);
+        if (!el) return;
+        el.textContent = fmtCount(n);
+        el.removeAttribute('data-warn');
+        el.removeAttribute('data-bad');
+        if (n > 100) el.setAttribute('data-bad', '1');
+        else if (n > 0) el.setAttribute('data-warn', '1');
+      }
+      putErr('txerr', 'TX ERRORS');
+      putErr('rxerr', 'RX ERRORS');
+      putErr('drop',  'RX DROPPED');
+
+      // Active alarms list
+      var alarmsEl = document.getElementById('rf-detail-' + key + '-alarms');
+      if (alarmsEl) {
+        var unresolved = (alertCache[assetId] || []).filter(function (al) { return al.status !== 'resolved'; });
+        if (unresolved.length === 0 && !chatterCache[assetId]) {
+          alarmsEl.innerHTML = '<div class="rf-alarm-empty">No active alarms ✓</div>';
+        } else {
+          var rows = '';
+          if (chatterCache[assetId]) {
+            rows += '<div class="rf-alarm-row"><span class="rf-alarm-sev" data-sev="critical">CHATTER</span>' +
+                    '<span class="rf-alarm-msg">ISA-18.2 §7 chattering meta-alarm — metric oscillating</span></div>';
+          }
+          unresolved.slice(0, 6).forEach(function (al) {
+            rows += '<div class="rf-alarm-row"><span class="rf-alarm-sev" data-sev="' + esc(al.severity) + '">' +
+                    esc(al.severity.toUpperCase()) + '</span><span class="rf-alarm-msg">' + esc(al.message) + '</span></div>';
+          });
+          if (unresolved.length > 6) {
+            rows += '<div class="rf-alarm-row"><span class="rf-alarm-sev" data-sev="info">+' + (unresolved.length - 6) +
+                    '</span><span class="rf-alarm-msg">more — click radio for full diagnostics</span></div>';
+          }
+          alarmsEl.innerHTML = rows;
+        }
+      }
+    });
+  }
+
   // ── Open map-popup → rich live card ──────────────────────────────────
   // When a RAD-01/RAD-02 map popup is open, replace its body with the SAME
   // rich card used on the Radio Comms page (Role / Firmware / IP / Health /
@@ -1001,6 +1109,7 @@
           if (TARGETS.indexOf(a.id) !== -1) assetCache[a.id] = a;
         });
         updateLinkCard();
+        renderInlineRadioCards();  // Task #164 — always-visible per-radio details
         refreshOpenMapPopup();
         updateStaleBannerFromLive();
         renderNetworkPage();  // Task #158 — populate Network page from same feed
@@ -1028,6 +1137,7 @@
         // Hero ALARMS tile reads from alertCache + chatterCache, so refresh
         // it whenever those change (not just on the slower asset poll cycle).
         updateLinkCard();
+        renderInlineRadioCards();  // refresh chattering badge + alarm list inline
       })
       .catch(function (e) { console.warn('[Aevus Rad Hover] alerts poll failed:', e.message); });
   }

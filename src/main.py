@@ -37,6 +37,7 @@ from src.api.access_requests import router as access_requests_router  # noqa: E4
 from src.api.ai import router as ai_router  # noqa: E402
 from src.api.alerts import router as alerts_router  # noqa: E402
 from src.api.assets import router as assets_router  # noqa: E402
+from src.api.auth import APIKeyMiddleware  # noqa: E402
 from src.api.commands import router as commands_router  # noqa: E402
 from src.api.correlations import router as correlations_router  # noqa: E402
 from src.api.csv_io import router as csv_io_router  # noqa: E402
@@ -443,6 +444,13 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+# Task #154: restore API-key middleware (regression — was present in initial
+# commit 47e5901, accidentally dropped in a refactor between then and
+# 317870f). When API_KEY is empty (dev mode) the middleware no-ops; in prod
+# it enforces X-API-Key header, aevus_session cookie, or Cognito Bearer.
+# Auth-test failures (5 of the 9 pre-existing failures from PR #56) caught
+# this regression. See docs/TASK_BACKLOG_AUDIT_2026-05-30.md §Cluster 8.
+app.add_middleware(APIKeyMiddleware)
 
 # Register all routers under /api/v1
 for r in (

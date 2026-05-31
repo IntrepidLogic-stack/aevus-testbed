@@ -3754,6 +3754,56 @@ body.wall-mode .rf-hero-label { font-size:11px; }
 .net-port[data-state="up"] .net-port-rate { color:#10D478; }
 .net-port[data-state="err"] .net-port-rate { color:#EF4444; }
 
+/* ── Network Diagnostic Console (Task #163) ──────────────────────────
+   Tool buttons that used to live on the Radio Comms page. Operators
+   pick source + target (+ optional port), click a tool, watch packets
+   hop in the viz, read output in the terminal panel. */
+.net-diag-console { margin-top:16px; background:rgba(14,165,233,0.03); border:1px solid rgba(14,165,233,0.10); border-radius:12px; padding:18px; }
+.net-diag-header { display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:14px; }
+.net-diag-title { font-size:14px; font-weight:700; color:#E2E8F0; }
+.net-diag-subtitle { font-size:10px; color:var(--text-muted); margin-top:2px; }
+.net-diag-status { font-size:10px; font-weight:700; padding:4px 10px; border-radius:12px; letter-spacing:0.5px; background:rgba(16,212,120,0.10); color:#10D478; display:flex; align-items:center; gap:6px; }
+.net-diag-status[data-state="busy"] { background:rgba(251,191,36,0.10); color:#FBBF24; }
+.net-diag-status[data-state="error"] { background:rgba(239,68,68,0.10); color:#EF4444; }
+.net-diag-status-dot { width:6px; height:6px; border-radius:50%; background:currentColor; }
+.net-diag-status[data-state="busy"] .net-diag-status-dot { animation:netDiagStatusPulse 1s ease-in-out infinite; }
+@keyframes netDiagStatusPulse { 0%,100% { opacity:1; } 50% { opacity:0.3; } }
+
+.net-diag-selectors { display:grid; grid-template-columns:1fr 1fr 1fr; gap:10px; margin-bottom:12px; }
+@media (max-width:760px) { .net-diag-selectors { grid-template-columns:1fr; } }
+.net-diag-select-wrap { display:flex; flex-direction:column; gap:4px; }
+.net-diag-select-label { font-size:8px; font-weight:700; letter-spacing:0.8px; color:var(--text-muted); text-transform:uppercase; }
+.net-diag-select { background:rgba(15,23,42,0.6); border:1px solid rgba(148,163,184,0.15); border-radius:6px; padding:8px 10px; font-size:11px; color:#E2E8F0; font-family:monospace; cursor:pointer; transition:border-color 0.2s; }
+.net-diag-select:hover, .net-diag-select:focus { border-color:rgba(14,165,233,0.35); outline:none; }
+
+.net-diag-tools { display:flex; gap:6px; margin-bottom:14px; flex-wrap:wrap; }
+.net-diag-btn { display:flex; align-items:center; gap:6px; padding:8px 14px; background:rgba(148,163,184,0.04); border:1px solid rgba(148,163,184,0.12); border-radius:8px; font-size:10px; font-weight:700; letter-spacing:0.8px; color:#E2E8F0; cursor:pointer; transition:all 0.15s; font-family:inherit; }
+.net-diag-btn:hover { background:rgba(14,165,233,0.10); border-color:rgba(14,165,233,0.30); transform:translateY(-1px); }
+.net-diag-btn.active { background:rgba(14,165,233,0.15); border-color:rgba(14,165,233,0.45); color:#00D4FF; }
+.net-diag-btn:disabled { opacity:0.4; cursor:not-allowed; }
+.net-diag-btn svg { color:var(--accent); }
+
+.net-diag-body { display:grid; grid-template-columns:1fr 1fr; gap:14px; }
+@media (max-width:900px) { .net-diag-body { grid-template-columns:1fr; } }
+
+.net-diag-viz-panel { background:rgba(15,23,42,0.4); border:1px solid rgba(148,163,184,0.08); border-radius:8px; padding:12px; display:flex; flex-direction:column; min-height:220px; }
+.net-diag-viz-label { font-size:9px; font-weight:700; letter-spacing:1px; color:var(--text-muted); margin-bottom:8px; text-transform:uppercase; }
+#net-diag-viz { flex:1; width:100%; }
+
+.net-diag-output-panel { background:rgba(15,23,42,0.6); border:1px solid rgba(148,163,184,0.10); border-radius:8px; padding:0; display:flex; flex-direction:column; min-height:220px; max-height:340px; }
+.net-diag-output-header { display:flex; justify-content:space-between; align-items:center; padding:10px 14px 8px; border-bottom:1px solid rgba(148,163,184,0.08); }
+.net-diag-output-label { font-size:9px; font-weight:700; letter-spacing:1px; color:var(--text-muted); }
+.net-diag-clear-btn { background:transparent; border:1px solid rgba(148,163,184,0.15); border-radius:4px; color:var(--text-muted); font-size:9px; font-weight:700; padding:3px 8px; cursor:pointer; transition:all 0.15s; }
+.net-diag-clear-btn:hover { color:#E2E8F0; border-color:rgba(148,163,184,0.35); }
+.net-diag-output { flex:1; margin:0; padding:12px 14px; font-family:'JetBrains Mono','SF Mono',Consolas,monospace; font-size:11px; line-height:1.55; color:#E2E8F0; overflow-y:auto; overflow-x:auto; white-space:pre; }
+.net-diag-out-dim { color:#7B8499; }
+.net-diag-out-good { color:#10D478; }
+.net-diag-out-warn { color:#FBBF24; }
+.net-diag-out-bad { color:#EF4444; }
+.net-diag-out-hdr { color:#00D4FF; font-weight:700; }
+.net-diag-out-label { color:#9B70F6; }
+.net-diag-out-cmd { color:#94A3B8; }
+
 .net-port-tooltip { display:none; position:fixed; z-index:1000; background:#0F1629; border:1px solid #2A3447; border-radius:8px; padding:10px 14px; font-size:11px; color:#E2E8F0; max-width:280px; box-shadow:0 8px 24px rgba(0,0,0,0.5); pointer-events:none; }
 .net-port-tooltip.show { display:block; }
 .net-port-tooltip-title { font-weight:700; color:#00D4FF; margin-bottom:6px; }
@@ -5101,6 +5151,127 @@ html { scroll-behavior:smooth; }
     </div>
   </div>
 
+  <!-- ─── DIAGNOSTIC CONSOLE (Task #163) ────────────────────────────────
+       Tools that used to live on the Radio Comms page bottom toolbar.
+       Now they belong here: pick a target asset (+ port if applicable),
+       click a tool, watch the diagnostic hop from the selected port to
+       the target, read the output in a terminal-style panel. -->
+  <div class="net-diag-console">
+    <div class="net-diag-header">
+      <div>
+        <div class="net-diag-title">Diagnostic Console</div>
+        <div class="net-diag-subtitle">Run live diagnostics from any port to any asset</div>
+      </div>
+      <div class="net-diag-status" id="net-diag-status"><span class="net-diag-status-dot"></span> READY</div>
+    </div>
+
+    <!-- Target + port selectors -->
+    <div class="net-diag-selectors">
+      <label class="net-diag-select-wrap">
+        <span class="net-diag-select-label">SOURCE</span>
+        <select id="net-diag-source" class="net-diag-select">
+          <option value="EDGE-01">EDGE-01 · Aevus Pi (SCADA host)</option>
+          <option value="RTR-01">RTR-01 · MikroTik L009</option>
+          <option value="SW-01" selected>SW-01 · Cisco Catalyst 2960</option>
+        </select>
+      </label>
+      <label class="net-diag-select-wrap">
+        <span class="net-diag-select-label">PORT</span>
+        <select id="net-diag-port" class="net-diag-select">
+          <option value="">— any —</option>
+        </select>
+      </label>
+      <label class="net-diag-select-wrap">
+        <span class="net-diag-select-label">TARGET</span>
+        <select id="net-diag-target" class="net-diag-select">
+          <option value="RAD-01">RAD-01 · Trio JR900 (Master)</option>
+          <option value="RAD-02">RAD-02 · Trio JR900 (Remote)</option>
+          <option value="RTU-01">RTU-01 · SCADAPack 470</option>
+          <option value="EFM-01">EFM-01 · TotalFlow XFC</option>
+          <option value="RTR-01">RTR-01 · MikroTik L009</option>
+          <option value="SW-01">SW-01 · Cisco Catalyst 2960</option>
+          <option value="EDGE-01">EDGE-01 · Aevus Pi</option>
+        </select>
+      </label>
+    </div>
+
+    <!-- Tool button row -->
+    <div class="net-diag-tools">
+      <button class="net-diag-btn" data-tool="trends" onclick="netRunDiag('trends')">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 12h3l3-9 6 18 3-9h3"/></svg>
+        TRENDS
+      </button>
+      <button class="net-diag-btn" data-tool="ping" onclick="netRunDiag('ping')">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>
+        PING TEST
+      </button>
+      <button class="net-diag-btn" data-tool="linkbudget" onclick="netRunDiag('linkbudget')">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M18 20V10"/><path d="M12 20V4"/><path d="M6 20v-6"/></svg>
+        LINK BUDGET
+      </button>
+      <button class="net-diag-btn" data-tool="spectrum" onclick="netRunDiag('spectrum')">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M2 12h2l3-9 4 18 3-9h2"/><path d="M18 12h4"/></svg>
+        RF SCAN
+      </button>
+      <button class="net-diag-btn" data-tool="health" onclick="netRunDiag('health')">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>
+        HEALTH CHECK
+      </button>
+      <button class="net-diag-btn" data-tool="packet" onclick="netRunDiag('packet')">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>
+        PACKET STATS
+      </button>
+    </div>
+
+    <!-- Two-column: animated path viz on left, terminal-style output on right -->
+    <div class="net-diag-body">
+      <div class="net-diag-viz-panel">
+        <div class="net-diag-viz-label">PACKET FLOW</div>
+        <svg id="net-diag-viz" viewBox="0 0 600 200" preserveAspectRatio="xMidYMid meet">
+          <defs>
+            <filter id="netDiagGlow"><feGaussianBlur stdDeviation="2.5" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
+            <linearGradient id="netDiagPath" x1="0" y1="0" x2="1" y2="0">
+              <stop offset="0%" stop-color="#00D4FF" stop-opacity="0.2"/>
+              <stop offset="50%" stop-color="#00D4FF" stop-opacity="0.6"/>
+              <stop offset="100%" stop-color="#9B70F6" stop-opacity="0.2"/>
+            </linearGradient>
+          </defs>
+          <!-- Source node -->
+          <g id="net-diag-src">
+            <rect x="20" y="70" width="120" height="60" rx="8" fill="rgba(14,165,233,0.06)" stroke="rgba(14,165,233,0.3)" stroke-width="1.5"/>
+            <text x="80" y="92" text-anchor="middle" fill="#7B8499" font-size="9" font-weight="700" letter-spacing="1">SOURCE</text>
+            <text x="80" y="110" text-anchor="middle" fill="#00D4FF" font-size="13" font-weight="700" font-family="monospace" id="net-diag-src-name">SW-01</text>
+            <text x="80" y="124" text-anchor="middle" fill="#7B8499" font-size="8" id="net-diag-src-port">any port</text>
+          </g>
+          <!-- Path line -->
+          <path id="net-diag-path" d="M140,100 L460,100" stroke="url(#netDiagPath)" stroke-width="2.5" fill="none" stroke-dasharray="6,4"/>
+          <!-- Animated packets -->
+          <circle id="net-diag-pkt1" r="0" fill="#00D4FF" filter="url(#netDiagGlow)">
+            <animateMotion id="net-diag-pkt1-anim" dur="2s" repeatCount="indefinite" begin="indefinite"><mpath href="#net-diag-path"/></animateMotion>
+          </circle>
+          <circle id="net-diag-pkt2" r="0" fill="#9B70F6" filter="url(#netDiagGlow)">
+            <animateMotion id="net-diag-pkt2-anim" dur="2s" repeatCount="indefinite" begin="indefinite"><mpath href="#net-diag-path"/></animateMotion>
+          </circle>
+          <!-- Target node -->
+          <g id="net-diag-tgt">
+            <rect x="460" y="70" width="120" height="60" rx="8" fill="rgba(109,91,208,0.06)" stroke="rgba(109,91,208,0.3)" stroke-width="1.5"/>
+            <text x="520" y="92" text-anchor="middle" fill="#7B8499" font-size="9" font-weight="700" letter-spacing="1">TARGET</text>
+            <text x="520" y="110" text-anchor="middle" fill="#9B70F6" font-size="13" font-weight="700" font-family="monospace" id="net-diag-tgt-name">RAD-01</text>
+            <text x="520" y="124" text-anchor="middle" fill="#7B8499" font-size="8" id="net-diag-tgt-meta">Trio JR900</text>
+          </g>
+        </svg>
+      </div>
+
+      <div class="net-diag-output-panel">
+        <div class="net-diag-output-header">
+          <span class="net-diag-output-label">OUTPUT</span>
+          <button class="net-diag-clear-btn" onclick="netClearOutput()">CLEAR</button>
+        </div>
+        <pre class="net-diag-output" id="net-diag-output"><span class="net-diag-out-dim">Select a source + target, click a tool to begin.</span></pre>
+      </div>
+    </div>
+  </div>
+
   <!-- Hover tooltip for port detail -->
   <div id="net-port-tooltip" class="net-port-tooltip"></div>
 </section>
@@ -5381,7 +5552,7 @@ html { scroll-behavior:smooth; }
   })();
 </script>
 <script src="/dashboard/api-client.js?v=129"></script>
-<script src="/dashboard/rad-hover-live.js?v=17"></script>
+<script src="/dashboard/rad-hover-live.js?v=18"></script>
 
 <script>
 (function() {

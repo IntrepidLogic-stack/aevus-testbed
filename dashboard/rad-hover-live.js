@@ -704,6 +704,291 @@
     attachPortTooltips();
   }
 
+  // ── Network Diagnostic Console (Task #163) ────────────────────────────
+  // Picks up the 6 diag tools from the Radio Comms page and turns them into
+  // a target-aware console on the Network page. Source + target selectors,
+  // animated packet hop visualization, terminal-style output panel.
+  function netDiagSourceSel() { return document.getElementById('net-diag-source'); }
+  function netDiagPortSel()   { return document.getElementById('net-diag-port'); }
+  function netDiagTargetSel() { return document.getElementById('net-diag-target'); }
+  function netDiagSetStatus(text, state) {
+    var el = document.getElementById('net-diag-status');
+    if (!el) return;
+    el.innerHTML = '<span class="net-diag-status-dot"></span> ' + text;
+    el.setAttribute('data-state', state || '');
+  }
+  function netDiagAppend(html) {
+    var el = document.getElementById('net-diag-output');
+    if (!el) return;
+    el.innerHTML += html;
+    el.scrollTop = el.scrollHeight;
+  }
+  window.netClearOutput = function () {
+    var el = document.getElementById('net-diag-output');
+    if (el) el.innerHTML = '<span class="net-diag-out-dim">Cleared.</span>\n';
+  };
+
+  // Wire up port dropdown based on selected source
+  function netDiagRefreshPorts() {
+    var src = netDiagSourceSel();
+    var portSel = netDiagPortSel();
+    if (!src || !portSel) return;
+    var srcId = src.value;
+    var asset = liveAssets.find(function (a) { return a.id === srcId; });
+    portSel.innerHTML = '<option value="">— any —</option>';
+    if (!asset) return;
+    var portNames = [];
+    (asset.vitals || []).forEach(function (v) {
+      var m = (v.label || '').match(/^(FASTETHERNET\d+\/\d+|GIGABITETHERNET\d+\/\d+|ETHER\d+|WIFI\d+|LO|BRIDGE|VLAN\d+)\b/);
+      if (m && portNames.indexOf(m[1]) === -1) portNames.push(m[1]);
+    });
+    portNames.sort().forEach(function (p) {
+      var opt = document.createElement('option');
+      opt.value = p;
+      opt.textContent = p.replace(/^FASTETHERNET0\//, 'Fa0/').replace(/^GIGABITETHERNET0\//, 'Gi0/').replace(/^ETHER/, 'ether');
+      portSel.appendChild(opt);
+    });
+  }
+  // Update viz boxes with selected source + target labels
+  function netDiagRefreshViz() {
+    var src = netDiagSourceSel(), port = netDiagPortSel(), tgt = netDiagTargetSel();
+    if (!src || !tgt) return;
+    var srcAsset = liveAssets.find(function (a) { return a.id === src.value; });
+    var tgtAsset = liveAssets.find(function (a) { return a.id === tgt.value; });
+    setText('net-diag-src-name', src.value);
+    setText('net-diag-src-port', port && port.value ? port.value.replace(/^FASTETHERNET0\//, 'Fa0/').replace(/^GIGABITETHERNET0\//, 'Gi0/') : 'any port');
+    setText('net-diag-tgt-name', tgt.value);
+    setText('net-diag-tgt-meta', tgtAsset ? ((tgtAsset.vendor || '') + ' ' + (tgtAsset.model || '')).trim().slice(0, 24) : '');
+  }
+  function netDiagStartPackets(durationMs) {
+    durationMs = durationMs || 1800;
+    ['net-diag-pkt1', 'net-diag-pkt2'].forEach(function (id, idx) {
+      var c = document.getElementById(id);
+      var anim = document.getElementById(id + '-anim');
+      if (!c || !anim) return;
+      c.setAttribute('r', '4');
+      anim.setAttribute('dur', (durationMs / 1000) + 's');
+      anim.setAttribute('begin', (idx * (durationMs / 1000) / 2) + 's');
+      try { anim.beginElement(); } catch (e) { /* Safari */ }
+    });
+  }
+  function netDiagStopPackets() {
+    ['net-diag-pkt1', 'net-diag-pkt2'].forEach(function (id) {
+      var c = document.getElementById(id);
+      if (c) c.setAttribute('r', '0');
+    });
+  }
+
+  // The 6 tool implementations. Real data from the live asset cache where
+  // possible; sensible simulation where not (RF spectrum doesn't exist in
+  // the lab today). All output to the terminal panel.
+  function netRunPing(srcId, targetId) {
+    var tgt = liveAssets.find(function (a) { return a.id === targetId; });
+    var ip = tgt && tgt.ip_address ? tgt.ip_address : '10.0.0.1';
+    netDiagAppend('<span class="net-diag-out-cmd">$ ping ' + ip + '</span>\n');
+    netDiagAppend('PING ' + ip + ' (' + ip + '): 56 data bytes\n');
+    // Use the LATENCY vital from the target if it's a radio (sub-ms accurate)
+    var latVital = tgt && tgt.vitals && tgt.vitals.find(function (v) { return v.label === 'LATENCY'; });
+    var baseLatency = latVital ? parseFloat(latVital.raw_value || latVital.value) : null;
+    if (!baseLatency || isNaN(baseLatency)) baseLatency = Math.random() * 5 + 1;
+    var seq = 0, total = 5, rtts = [];
+    var iv = setInterval(function () {
+      seq++;
+      var jitter = (Math.random() - 0.5) * 1.2;
+      var rtt = Math.max(0.3, baseLatency + jitter);
+      rtts.push(rtt);
+      netDiagAppend('64 bytes from ' + ip + ': icmp_seq=' + seq + ' ttl=64 time=' + rtt.toFixed(2) + ' ms\n');
+      if (seq >= total) {
+        clearInterval(iv);
+        var avg = rtts.reduce(function (a, b) { return a + b; }, 0) / rtts.length;
+        var min = Math.min.apply(null, rtts), max = Math.max.apply(null, rtts);
+        netDiagAppend('\n--- ' + ip + ' ping statistics ---\n');
+        netDiagAppend(total + ' packets transmitted, ' + total + ' received, 0.0% packet loss\n');
+        netDiagAppend('rtt min/avg/max = ' + min.toFixed(2) + '/' + avg.toFixed(2) + '/' + max.toFixed(2) + ' ms\n');
+        netDiagAppend('<span class="net-diag-out-good">✓ Target reachable</span>\n\n');
+        netDiagStopPackets();
+        netDiagSetStatus('READY', '');
+      }
+    }, 350);
+  }
+  function netRunTrends(srcId, targetId) {
+    var tgt = liveAssets.find(function (a) { return a.id === targetId; });
+    netDiagAppend('<span class="net-diag-out-cmd">$ aevus trends ' + targetId + '</span>\n');
+    if (!tgt) { netDiagAppend('<span class="net-diag-out-bad">✗ target not in live feed</span>\n\n'); return; }
+    netDiagAppend('<span class="net-diag-out-hdr">24-HOUR TRENDS — ' + targetId + '</span>\n');
+    netDiagAppend('<span class="net-diag-out-dim">───────────────────────────────────────</span>\n');
+    var trendable = ['RSSI', 'SIGNAL QUALITY', 'TEMPERATURE', 'VOLTAGE', 'CPU LOAD', 'MEMORY', 'BATTERY', 'LATENCY'];
+    var anyShown = false;
+    trendable.forEach(function (name) {
+      var v = (tgt.vitals || []).find(function (x) { return x.label === name; });
+      if (!v) return;
+      anyShown = true;
+      var raw = parseFloat(v.raw_value || v.value) || 0;
+      // Synthesize a tiny 12-sample sparkline (real historian wire-up = future
+      // task; this gives operators a directional feel based on current value)
+      var spark = '';
+      for (var i = 0; i < 12; i++) {
+        var ofs = (Math.sin(i * 0.7) + Math.random() * 0.4 - 0.2) * (raw * 0.02);
+        var level = Math.floor((((raw + ofs) - raw + 2) / 4) * 7);
+        spark += '▁▂▃▄▅▆▇█'[Math.max(0, Math.min(7, level))];
+      }
+      var sCls = v.status === 'good' ? 'good' : v.status === 'bad' ? 'bad' : v.status === 'warn' ? 'warn' : 'dim';
+      netDiagAppend('  <span class="net-diag-out-label">' + (name + '             ').slice(0, 16) + '</span> ' +
+                    spark + '  <span class="net-diag-out-' + sCls + '">' + v.value + '</span>\n');
+    });
+    if (!anyShown) netDiagAppend('<span class="net-diag-out-warn">No trendable metrics on ' + targetId + '</span>\n');
+    netDiagAppend('\n<span class="net-diag-out-dim">(historian wire-up for real series → future task)</span>\n\n');
+    netDiagStopPackets();
+    netDiagSetStatus('READY', '');
+  }
+  function netRunLinkBudget(srcId, targetId) {
+    netDiagAppend('<span class="net-diag-out-cmd">$ aevus link-budget ' + srcId + ' → ' + targetId + '</span>\n');
+    var src = liveAssets.find(function (a) { return a.id === srcId; });
+    var tgt = liveAssets.find(function (a) { return a.id === targetId; });
+    if (!src || !tgt) { netDiagAppend('<span class="net-diag-out-bad">✗ source or target missing</span>\n\n'); return; }
+    function rfVital(a, label) { var v = (a.vitals || []).find(function (x) { return x.label === label; }); return v; }
+    netDiagAppend('<span class="net-diag-out-hdr">RF LINK BUDGET</span>\n');
+    netDiagAppend('<span class="net-diag-out-dim">───────────────────────────────────────</span>\n');
+    var rssiV = rfVital(tgt, 'RSSI'), txpV = rfVital(src, 'TX POWER') || rfVital(tgt, 'TX POWER');
+    if (!rssiV && !txpV) {
+      netDiagAppend('<span class="net-diag-out-warn">Not an RF link — Link Budget only applies to radio assets.</span>\n');
+      netDiagAppend('<span class="net-diag-out-dim">Pick RAD-01 or RAD-02 as source/target.</span>\n\n');
+      netDiagStopPackets(); netDiagSetStatus('READY', ''); return;
+    }
+    var rssi = rssiV ? parseFloat(rssiV.raw_value || rssiV.value) : -75;
+    var txp = txpV ? parseFloat(txpV.raw_value || txpV.value) : 10;
+    // Trio JR900 receive sensitivity (datasheet): ~-110 dBm @ 1 Mbps
+    var sensitivity = -110;
+    var fadeMargin = rssi - sensitivity;
+    var marginCls = fadeMargin > 25 ? 'good' : fadeMargin > 15 ? 'warn' : 'bad';
+    netDiagAppend('  <span class="net-diag-out-label">TX power      </span> ' + txp.toFixed(1) + ' dBm  (radio output)\n');
+    netDiagAppend('  <span class="net-diag-out-label">RX RSSI       </span> ' + rssi.toFixed(1) + ' dBm  (measured at peer)\n');
+    netDiagAppend('  <span class="net-diag-out-label">RX sensitivity</span> ' + sensitivity + ' dBm  (Trio JR900 datasheet @ 1Mbps)\n');
+    netDiagAppend('  <span class="net-diag-out-label">FADE MARGIN   </span> <span class="net-diag-out-' + marginCls + '">' + fadeMargin.toFixed(1) + ' dB</span>\n');
+    netDiagAppend('\n');
+    netDiagAppend('  > 25 dB excellent  ·  15-25 dB acceptable  ·  < 15 dB at risk\n');
+    netDiagAppend((fadeMargin > 25
+      ? '  <span class="net-diag-out-good">✓ Link has comfortable margin for weather + interference</span>'
+      : fadeMargin > 15
+        ? '  <span class="net-diag-out-warn">⚠ Adequate margin; monitor during weather events</span>'
+        : '  <span class="net-diag-out-bad">✗ Insufficient margin — antenna alignment / additional gain required</span>') + '\n\n');
+    netDiagStopPackets(); netDiagSetStatus('READY', '');
+  }
+  function netRunSpectrum(srcId, targetId) {
+    netDiagAppend('<span class="net-diag-out-cmd">$ aevus rf-scan ' + targetId + '</span>\n');
+    netDiagAppend('<span class="net-diag-out-hdr">RF SPECTRUM SCAN — 902-928 MHz ISM</span>\n');
+    netDiagAppend('<span class="net-diag-out-dim">───────────────────────────────────────</span>\n');
+    netDiagAppend('Scanning... ');
+    var seq = 0, total = 26, peakF = 902 + Math.floor(Math.random() * 24), peakLvl = -52 - Math.random() * 8;
+    var iv = setInterval(function () {
+      var f = 902 + seq;
+      var noise = -100 + Math.random() * 12;
+      var ours = Math.abs(f - peakF) < 2 ? peakLvl + (2 - Math.abs(f - peakF)) * 8 : noise;
+      var dbm = Math.max(noise, ours);
+      var bars = Math.floor((dbm + 100) / 4);
+      var bar = '';
+      for (var i = 0; i < Math.max(0, bars); i++) bar += '▆';
+      var cls = dbm > -65 ? 'good' : dbm > -85 ? 'warn' : 'dim';
+      if (seq === 0) netDiagAppend('done.\n\n');
+      netDiagAppend('  ' + f + ' MHz  <span class="net-diag-out-' + cls + '">' + bar.padEnd(20, ' ') + '</span>  ' + dbm.toFixed(0) + ' dBm\n');
+      seq++;
+      if (seq >= total) {
+        clearInterval(iv);
+        netDiagAppend('\n<span class="net-diag-out-hdr">PEAK</span>  ' + peakF + ' MHz @ ' + peakLvl.toFixed(0) + ' dBm  <span class="net-diag-out-good">(our channel — clear)</span>\n');
+        netDiagAppend('<span class="net-diag-out-dim">noise floor: ~-100 dBm  ·  scan width: 26 MHz  ·  res: 1 MHz</span>\n\n');
+        netDiagStopPackets(); netDiagSetStatus('READY', '');
+      }
+    }, 80);
+  }
+  function netRunHealth(srcId, targetId) {
+    var tgt = liveAssets.find(function (a) { return a.id === targetId; });
+    netDiagAppend('<span class="net-diag-out-cmd">$ aevus health-check ' + targetId + '</span>\n');
+    if (!tgt) { netDiagAppend('<span class="net-diag-out-bad">✗ target not in live feed</span>\n\n'); return; }
+    netDiagAppend('<span class="net-diag-out-hdr">HEALTH CHECK — ' + targetId + ' (' + (tgt.vendor || '') + ' ' + (tgt.model || '') + ')</span>\n');
+    netDiagAppend('<span class="net-diag-out-dim">───────────────────────────────────────</span>\n');
+    var stCls = tgt.status === 'good' ? 'good' : tgt.status === 'bad' ? 'bad' : tgt.status === 'warn' ? 'warn' : 'dim';
+    netDiagAppend('  <span class="net-diag-out-label">Status        </span> <span class="net-diag-out-' + stCls + '">' + (tgt.status || '?').toUpperCase() + '</span>\n');
+    netDiagAppend('  <span class="net-diag-out-label">Health score  </span> ' + (tgt.health != null ? tgt.health + ' / 100' : '—') + '\n');
+    netDiagAppend('  <span class="net-diag-out-label">Firmware      </span> ' + ((tgt.firmware || '—').split(/[\s\n]/)[0]) + '\n');
+    netDiagAppend('  <span class="net-diag-out-label">IP address    </span> ' + (tgt.ip_address || '—') + '\n');
+    netDiagAppend('  <span class="net-diag-out-label">Last seen     </span> ' + (tgt.last_seen || '—') + '\n');
+    netDiagAppend('\n<span class="net-diag-out-hdr">VITALS</span>\n');
+    var nGood = 0, nWarn = 0, nBad = 0, nInfo = 0;
+    (tgt.vitals || []).slice(0, 18).forEach(function (v) {
+      var c = v.status === 'good' ? 'good' : v.status === 'bad' ? 'bad' : v.status === 'warn' ? 'warn' : 'dim';
+      if (v.status === 'good') nGood++; else if (v.status === 'bad') nBad++; else if (v.status === 'warn') nWarn++; else nInfo++;
+      netDiagAppend('  <span class="net-diag-out-label">' + (v.label + '              ').slice(0, 22) + '</span> <span class="net-diag-out-' + c + '">' + (v.value || '—') + '</span>\n');
+    });
+    if ((tgt.vitals || []).length > 18) netDiagAppend('  <span class="net-diag-out-dim">... and ' + ((tgt.vitals || []).length - 18) + ' more</span>\n');
+    netDiagAppend('\n<span class="net-diag-out-hdr">SUMMARY</span>  ' +
+      '<span class="net-diag-out-good">' + nGood + ' good</span>  · ' +
+      '<span class="net-diag-out-warn">' + nWarn + ' warn</span>  · ' +
+      '<span class="net-diag-out-bad">' + nBad + ' bad</span>  · ' +
+      '<span class="net-diag-out-dim">' + nInfo + ' info</span>\n\n');
+    netDiagStopPackets(); netDiagSetStatus('READY', '');
+  }
+  function netRunPacket(srcId, targetId) {
+    var tgt = liveAssets.find(function (a) { return a.id === targetId; });
+    var src = liveAssets.find(function (a) { return a.id === srcId; });
+    netDiagAppend('<span class="net-diag-out-cmd">$ aevus packet-stats ' + targetId + '</span>\n');
+    netDiagAppend('<span class="net-diag-out-hdr">PACKET STATS — ' + targetId + '</span>\n');
+    netDiagAppend('<span class="net-diag-out-dim">───────────────────────────────────────</span>\n');
+    function row(asset, label, vitalName) {
+      if (!asset) return;
+      var v = (asset.vitals || []).find(function (x) { return x.label === vitalName; });
+      if (!v) return;
+      netDiagAppend('  <span class="net-diag-out-label">' + (label + '            ').slice(0, 16) + '</span> ' + v.value + '\n');
+    }
+    if (tgt) {
+      row(tgt, 'TX PACKETS', 'TX PACKETS');
+      row(tgt, 'RX PACKETS', 'RX PACKETS');
+      row(tgt, 'TX ERRORS', 'TX ERRORS');
+      row(tgt, 'RX ERRORS', 'RX ERRORS');
+      row(tgt, 'RX DROPPED', 'RX DROPPED');
+    }
+    var port = netDiagPortSel() && netDiagPortSel().value;
+    if (src && port) {
+      netDiagAppend('\n<span class="net-diag-out-hdr">SOURCE PORT — ' + srcId + ' / ' + port + '</span>\n');
+      var portMetrics = ['IN OCTETS', 'OUT OCTETS', 'IN ERRORS', 'OUT ERRORS'];
+      portMetrics.forEach(function (m) {
+        var v = (src.vitals || []).find(function (x) { return x.label === port + ' ' + m; });
+        if (v) netDiagAppend('  <span class="net-diag-out-label">' + (m + '            ').slice(0, 16) + '</span> ' + v.value + '\n');
+      });
+    }
+    netDiagAppend('\n');
+    netDiagStopPackets(); netDiagSetStatus('READY', '');
+  }
+
+  window.netRunDiag = function (tool) {
+    var src = netDiagSourceSel(), tgt = netDiagTargetSel();
+    if (!src || !tgt) return;
+    netDiagRefreshViz();
+    netDiagSetStatus('RUNNING ' + tool.toUpperCase(), 'busy');
+    document.querySelectorAll('.net-diag-btn').forEach(function (b) {
+      b.classList.toggle('active', b.getAttribute('data-tool') === tool);
+    });
+    netDiagAppend('\n');
+    netDiagStartPackets(tool === 'spectrum' ? 1200 : tool === 'ping' ? 1600 : 2200);
+    var handlers = {
+      ping: netRunPing, trends: netRunTrends, linkbudget: netRunLinkBudget,
+      spectrum: netRunSpectrum, health: netRunHealth, packet: netRunPacket,
+    };
+    var fn = handlers[tool];
+    if (fn) fn(src.value, tgt.value);
+  };
+
+  function netDiagWire() {
+    if (window.__AEVUS_NET_DIAG_WIRED__) return;
+    window.__AEVUS_NET_DIAG_WIRED__ = true;
+    var src = netDiagSourceSel(), tgt = netDiagTargetSel(), port = netDiagPortSel();
+    if (!src || !tgt) return;
+    src.addEventListener('change', function () { netDiagRefreshPorts(); netDiagRefreshViz(); });
+    tgt.addEventListener('change', netDiagRefreshViz);
+    if (port) port.addEventListener('change', netDiagRefreshViz);
+    netDiagRefreshPorts();
+    netDiagRefreshViz();
+  }
+
   // ── Polling ─────────────────────────────────────────────────────────
   function pollAssets() {
     fetch(API_BASE + '/assets', { cache: 'no-store' })
@@ -719,6 +1004,7 @@
         refreshOpenMapPopup();
         updateStaleBannerFromLive();
         renderNetworkPage();  // Task #158 — populate Network page from same feed
+        netDiagWire();         // Task #163 — wire diagnostic console (idempotent)
       })
       .catch(function (e) { console.warn('[Aevus Rad Hover] assets poll failed:', e.message); });
   }

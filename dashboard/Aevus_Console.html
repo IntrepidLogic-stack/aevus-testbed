@@ -2255,6 +2255,24 @@ body.wall-mode [data-page="sites"] .solar-grid { flex: 1; align-content: stretch
 body.wall-mode .solar-grid > * { min-height: 0; }
 body.wall-mode .solar-grid { grid-auto-rows: 1fr; }
 
+/* ── Help architecture (Task #178) ────────────────────────────────────
+   The floating "?" button is killed — all help is routed through the
+   IL-9000 lightbulb FAB. rad-hover-live.js appends a "Page Help" section
+   into the IL-9000 panel when it opens, scoped to the current hash. */
+.ctx-help-btn { display: none !important; }
+
+/* ── Historian button row (Task #178) ─────────────────────────────────
+   The minified bundle renders Query/Add Trace/Normalize as a vertical
+   stack to the right of the dropdowns. Rickerson-grade ergonomics says
+   they should be horizontal, aligned with the dropdowns, in the order
+   Add Trace → Query → Normalize so the primary action sits where the
+   eye lands first. */
+.hist-query-bar { align-items: flex-end !important; }
+.hist-query-bar > div { display: flex !important; flex-direction: column; }
+/* Group the three trailing buttons in a horizontal row */
+.hist-btn-row { display: flex; flex-direction: row !important; gap: 8px; align-items: center; margin-left: auto; }
+.hist-btn-row button { white-space: nowrap; min-width: 110px; height: 36px; }
+
 /* Wall mode overlay indicator */
 body.wall-mode::after {
   content: 'WALL DISPLAY · Press F11 to exit';
@@ -5749,7 +5767,7 @@ html { scroll-behavior:smooth; }
   })();
 </script>
 <script src="/dashboard/api-client.js?v=129"></script>
-<script src="/dashboard/rad-hover-live.js?v=21"></script>
+<script src="/dashboard/rad-hover-live.js?v=22"></script>
 
 <script>
 (function() {

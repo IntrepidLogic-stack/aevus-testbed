@@ -1281,12 +1281,133 @@
     console.log('[Aevus Rad Hover] rfHover wrapped — live mode active for', TARGETS.join(', '));
   }
 
+  // ── Historian button reorder (Task #178) ───────────────────────────
+  // The minified bundle stacks Query / Add Trace / Normalize vertically to
+  // the right of the dropdowns. UX wants horizontal row, dropdown-aligned,
+  // visual order: Add Trace → Query → Normalize. Idempotent — runs every
+  // 1.5s and bails fast once layout is correct.
+  function reorderHistorianButtons() {
+    var bar = document.querySelector('section[data-page="historian"] .hist-query-bar');
+    if (!bar || bar.__histReordered) return;
+    var btns = Array.from(bar.querySelectorAll('button'));
+    if (btns.length < 3) return;
+    var byLabel = {};
+    btns.forEach(function (b) {
+      var t = (b.textContent || '').trim().toLowerCase();
+      if (t.indexOf('query') !== -1) byLabel.query = b;
+      else if (t.indexOf('add trace') !== -1 || t.indexOf('+ add') !== -1) byLabel.addtrace = b;
+      else if (t.indexOf('normalize') !== -1) byLabel.normalize = b;
+    });
+    if (!byLabel.query || !byLabel.addtrace || !byLabel.normalize) return;
+
+    var row = document.createElement('div');
+    row.className = 'hist-btn-row';
+    // Order per UX directive: Add Trace, Query, Normalize
+    row.appendChild(byLabel.addtrace);
+    row.appendChild(byLabel.query);
+    row.appendChild(byLabel.normalize);
+    bar.appendChild(row);
+    bar.__histReordered = true;
+    console.log('[Aevus] Historian buttons reordered → row layout');
+  }
+
+  // ── Help architecture: route through IL-9000 (Task #178) ───────────
+  // User directive: kill the floating "?" button (handled via CSS), and
+  // surface context-help inside the IL-9000 lightbulb panel when it opens.
+  // The bundle's help panel is `#ctx-help-panel` populated by helpData[hash].
+  // We mirror its content into the IL-9000 impact card whenever the FAB is
+  // clicked. MutationObserver catches the panel-open event regardless of
+  // how the bundle wires the FAB internally.
+  var HELP_TEXT = {
+    overview:  [
+      ['Process Overview', 'L1 situational awareness. Hero KPIs, fleet status, active alarms.'],
+      ['Click a fleet card', 'Drills into the asset detail / faceplate view.'],
+      ['Hover any vital', 'Shows raw metric + last-update timestamp.']
+    ],
+    radio:     [
+      ['Hero KPIs', 'LINK STATE · LATENCY (P-008) · UPTIME 24H · ALARMS.'],
+      ['Per-radio cards', 'All vitals visible by default — no hover needed.'],
+      ['TRENDS button', 'Real 24h InfluxDB series; see source line in the result.']
+    ],
+    network:   [
+      ['Diagnostic console', 'Source/target selectors + 6 tools: PING / TRENDS / LINK BUDGET / RF SCAN / HEALTH / PACKETS.'],
+      ['Port grids', 'Live oper-status by port. Click for octet rates.']
+    ],
+    historian: [
+      ['Add Trace', 'Stack additional asset/metric series on the same chart.'],
+      ['Query', 'Runs the current asset+metric+range selection.'],
+      ['Normalize', 'Re-scales overlaid series to 0–100 for cross-metric comparison.']
+    ],
+    alarms:    [
+      ['Severity', 'CRITICAL = red, WARNING = amber, INFO = blue.'],
+      ['Shelve', 'ISA-18.2 §11 — audit-logged temporary suppression.'],
+      ['Chattering', 'ISA-18.2 §7 meta-alarm — metric oscillating.']
+    ],
+    cyber:     [
+      ['NIST CSF', 'Five-function scorecard 0–100.'],
+      ['IEC 62443 Zones', 'Network segmentation + conduit detail.']
+    ],
+    telecom:   [
+      ['Rickerson Scale', 'Edge → operator pearl strip. Each pearl = 0–100 normalized health.'],
+      ['Collimated grid', 'One card per tower. Header color = worst pearl in that tower.']
+    ]
+  };
+
+  function injectHelpIntoIL9000(panel) {
+    if (panel.__helpInjected) return;
+    var hash = (window.location.hash || '').replace('#','') || 'overview';
+    var items = HELP_TEXT[hash] || HELP_TEXT.overview;
+    var block = document.createElement('div');
+    block.className = 'il9k-help-block';
+    block.style.cssText = 'margin-top:14px;padding:12px 14px;background:rgba(14,165,233,0.06);border:1px solid rgba(14,165,233,0.22);border-radius:8px;';
+    var html = '<div style="font-size:10px;font-weight:700;letter-spacing:1px;color:#0EA5E9;text-transform:uppercase;margin-bottom:8px;display:flex;align-items:center;gap:6px;">' +
+               '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#0EA5E9" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>' +
+               'PAGE HELP — ' + hash.toUpperCase() + '</div>';
+    items.forEach(function (pair) {
+      html += '<div style="margin-bottom:6px;font-size:11px;"><span style="color:#E2E8F0;font-weight:600;">' + pair[0] + '</span>' +
+              '<span style="color:#94A3B8;"> · ' + pair[1] + '</span></div>';
+    });
+    block.innerHTML = html;
+    panel.appendChild(block);
+    panel.__helpInjected = true;
+  }
+
+  function watchIL9000Panel() {
+    // Watch for the IL-9000 impact card / any FAB-opened panel to appear,
+    // then append the help block to it. The bundle's exact panel id may
+    // vary, so we match a few known candidates.
+    var observer = new MutationObserver(function () {
+      var candidates = document.querySelectorAll(
+        '#il9000-impact-card, #cog-load-detail, .il9k-panel, [class*="impact-card"]'
+      );
+      candidates.forEach(function (el) {
+        if (el && el.offsetParent !== null && !el.__helpInjected) {
+          injectHelpIntoIL9000(el);
+        }
+      });
+    });
+    observer.observe(document.body, { childList: true, subtree: true, attributes: true, attributeFilter: ['class', 'style'] });
+  }
+
   // ── Boot ────────────────────────────────────────────────────────────
-  if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', function () { wrapHover(); wrapRfRunDiag(); startPolling(); });
-  } else {
+  function boot() {
     wrapHover();
     wrapRfRunDiag();
     startPolling();
+    watchIL9000Panel();
+    setInterval(reorderHistorianButtons, 1500);
+    // Re-inject help on hash change so it's scoped to the new page next open
+    window.addEventListener('hashchange', function () {
+      document.querySelectorAll('#il9000-impact-card, #cog-load-detail, .il9k-panel, [class*="impact-card"]').forEach(function (el) {
+        el.__helpInjected = false;
+        var existing = el.querySelector('.il9k-help-block');
+        if (existing) existing.remove();
+      });
+    });
+  }
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', boot);
+  } else {
+    boot();
   }
 })();

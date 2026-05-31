@@ -238,6 +238,40 @@
     if (r1 && r1.ip_address) setText('rf-r1-ip', r1.ip_address);
     if (r2 && r2.ip_address) setText('rf-r2-ip', r2.ip_address);
 
+    // Phase 2 secondary callout (Task #160): per-radio FW/ROLE/STATE +
+    // per-direction error split. Inline because the data is here and the
+    // callout structure mirrors rf-r1-* / rf-r2-* element naming.
+    [['r1', r1], ['r2', r2]].forEach(function (pair) {
+      var key = pair[0], asset = pair[1];
+      if (!asset) return;
+      // Firmware — collected via Trio MIB OID .5.0 → Asset.firmware
+      setText('rf-' + key + '-fw', asset.firmware || '—');
+      // ROLE — MASTER (AP) vs SLAVE (Remote)
+      var roleVital = vital(asset, 'ROLE');
+      setText('rf-' + key + '-role', (roleVital && roleVital.value) || (key === 'r1' ? 'MASTER' : 'SLAVE'));
+      // LINK STATE — normalizer now correctly returns "LINKED" for ACTIVE
+      // radios (Task #155). Color by status (good=green, bad=red).
+      var stateVital = vital(asset, 'LINK STATE');
+      var stateEl = document.getElementById('rf-' + key + '-state');
+      if (stateEl && stateVital) {
+        stateEl.textContent = stateVital.value || '—';
+        stateEl.setAttribute('fill',
+          stateVital.status === 'good' ? '#10D478' :
+          stateVital.status === 'bad'  ? '#EF4444' : '#FBBF24');
+      }
+      // Per-direction error split (RF engineer perspective from design doc)
+      function setErr(slot, label) {
+        var v = rawVital(asset, label);
+        var el = document.getElementById('rf-' + key + '-' + slot);
+        if (!el) return;
+        el.textContent = fmtCount(v);
+        el.setAttribute('fill', v > 0 ? '#FBBF24' : '#10D478');
+      }
+      setErr('txerr', 'TX ERRORS');
+      setErr('rxerr', 'RX ERRORS');
+      setErr('drop',  'RX DROPPED');
+    });
+
     // LINK QUALITY — derived from RSSI + link state of both radios
     // A real OTA link needs both ends above the noise floor. RSSI -143 = floor.
     function rssiOf(a) { return a ? rawVital(a, 'RSSI') : -200; }
@@ -433,6 +467,200 @@
     } catch (e) { /* never break the page */ }
   }
 
+  // ── Network page renderer (Task #158) ─────────────────────────────────
+  // Renders RTR-01 + SW-01 panels from the same live asset feed the radio
+  // page already polls. Idempotent — only updates DOM if the network page
+  // is in the document (other pages don't pay the parse cost).
+  function fmtBytes(n) {
+    if (n == null || isNaN(n)) return '—';
+    if (n < 1024) return Math.round(n) + ' B';
+    if (n < 1024 * 1024) return (n / 1024).toFixed(1) + ' KB';
+    if (n < 1024 * 1024 * 1024) return (n / 1024 / 1024).toFixed(1) + ' MB';
+    return (n / 1024 / 1024 / 1024).toFixed(2) + ' GB';
+  }
+  function fmtSeconds(s) {
+    if (s == null || isNaN(s) || s <= 0) return '—';
+    var d = Math.floor(s / 86400);
+    var h = Math.floor((s % 86400) / 3600);
+    var m = Math.floor((s % 3600) / 60);
+    if (d > 0) return d + 'd ' + h + 'h';
+    if (h > 0) return h + 'h ' + m + 'm';
+    return m + 'm';
+  }
+  function netVitalMap(asset) {
+    var m = {};
+    (asset.vitals || []).forEach(function (v) { m[v.label] = v; });
+    return m;
+  }
+  // Split SW-01's per-port vitals into a {port: {state, in_octets, ...}} dict
+  function netPortsFromVitals(asset, portRegex) {
+    var ports = {};
+    (asset.vitals || []).forEach(function (v) {
+      var lbl = (v.label || '');
+      var m = lbl.match(portRegex);
+      if (!m) return;
+      var port = m[1];
+      var metric = (m[2] || '').trim() || 'STATE';
+      ports[port] = ports[port] || {};
+      ports[port][metric] = v;
+    });
+    return ports;
+  }
+  function renderPortGrid(containerId, ports, sortFn) {
+    var el = document.getElementById(containerId);
+    if (!el) return;
+    var portNames = Object.keys(ports).sort(sortFn);
+    var html = '';
+    portNames.forEach(function (name) {
+      var p = ports[name];
+      var stateVital = p.STATE;
+      var inOct = p['IN OCTETS'] && parseFloat(p['IN OCTETS'].raw_value || p['IN OCTETS'].value) || 0;
+      var outOct = p['OUT OCTETS'] && parseFloat(p['OUT OCTETS'].raw_value || p['OUT OCTETS'].value) || 0;
+      var inErr = p['IN ERRORS'] && parseFloat(p['IN ERRORS'].raw_value || p['IN ERRORS'].value) || 0;
+      var outErr = p['OUT ERRORS'] && parseFloat(p['OUT ERRORS'].raw_value || p['OUT ERRORS'].value) || 0;
+      var hasErr = (inErr + outErr) > 0;
+      var stateLabel = stateVital ? (stateVital.value || '').toString().toLowerCase() : '';
+      var state = hasErr ? 'err' : (stateLabel === 'up' || stateLabel === 'linked') ? 'up' : 'down';
+      // Short port label: ether2 → e2, FastEthernet0/12 → 12
+      var shortLabel = name
+        .replace(/^FASTETHERNET0\//, '')
+        .replace(/^ETHER/, 'e')
+        .replace(/^GIGABITETHERNET0\//, 'g')
+        .replace(/^NULL/, 'null')
+        .replace(/^VLAN/, 'v');
+      var rate = (inOct + outOct) > 0 ? fmtBytes(inOct + outOct) : '';
+      // Tooltip data on hover via data-* attributes
+      html += '<div class="net-port" data-state="' + state + '"' +
+        ' data-name="' + name + '"' +
+        ' data-in-octets="' + inOct + '"' +
+        ' data-out-octets="' + outOct + '"' +
+        ' data-in-errors="' + inErr + '"' +
+        ' data-out-errors="' + outErr + '"' +
+        ' data-port-state="' + (stateVital ? stateVital.value : '?') + '">' +
+        '<div class="net-port-label">' + shortLabel + '</div>' +
+        (rate ? '<div class="net-port-rate">' + rate + '</div>' : '<div class="net-port-rate">·</div>') +
+        '</div>';
+    });
+    el.innerHTML = html;
+  }
+  function attachPortTooltips() {
+    var tip = document.getElementById('net-port-tooltip');
+    if (!tip) return;
+    document.querySelectorAll('.net-port').forEach(function (p) {
+      if (p.__netBound) return;
+      p.__netBound = true;
+      p.addEventListener('mouseenter', function (e) {
+        var d = p.dataset;
+        tip.innerHTML = '<div class="net-port-tooltip-title">' + d.name + '</div>' +
+          '<div class="net-port-tooltip-row"><span class="net-port-tooltip-label">State</span><span class="net-port-tooltip-val">' + d.portState + '</span></div>' +
+          '<div class="net-port-tooltip-row"><span class="net-port-tooltip-label">In octets</span><span class="net-port-tooltip-val">' + fmtBytes(parseFloat(d.inOctets)) + '</span></div>' +
+          '<div class="net-port-tooltip-row"><span class="net-port-tooltip-label">Out octets</span><span class="net-port-tooltip-val">' + fmtBytes(parseFloat(d.outOctets)) + '</span></div>' +
+          '<div class="net-port-tooltip-row"><span class="net-port-tooltip-label">In errors</span><span class="net-port-tooltip-val">' + d.inErrors + '</span></div>' +
+          '<div class="net-port-tooltip-row"><span class="net-port-tooltip-label">Out errors</span><span class="net-port-tooltip-val">' + d.outErrors + '</span></div>';
+        tip.classList.add('show');
+      });
+      p.addEventListener('mousemove', function (e) {
+        tip.style.left = Math.min(e.clientX + 14, window.innerWidth - 290) + 'px';
+        tip.style.top = (e.clientY + 14) + 'px';
+      });
+      p.addEventListener('mouseleave', function () { tip.classList.remove('show'); });
+    });
+  }
+  function renderNetworkPage() {
+    // Cheap no-op when not on network page (avoid DOM thrash on every poll)
+    if (!document.getElementById('net-rtr-ports')) return;
+    var rtr = liveAssets.find(function (a) { return a.id === 'RTR-01'; });
+    var sw  = liveAssets.find(function (a) { return a.id === 'SW-01'; });
+
+    // Aggregate KPI tiles (across both)
+    var totalPortsUp = 0, totalPortErrors = 0;
+
+    if (rtr) {
+      var rm = netVitalMap(rtr);
+      setText('net-rtr-name', rtr.name || 'MikroTik L009');
+      setText('net-rtr-meta', 'RTR-01 · ' + (rtr.firmware || rtr.model || 'RouterOS').split('\n')[0].slice(0, 40));
+      var pill = document.getElementById('net-rtr-pill');
+      if (pill) { pill.textContent = (rtr.status || '?').toUpperCase(); pill.setAttribute('data-status', rtr.status || ''); }
+      setText('net-rtr-cpu',   rm['CPU LOAD']     ? rm['CPU LOAD'].value     : '—');
+      setText('net-rtr-temp',  rm['BOARD TEMPERATURE'] ? rm['BOARD TEMPERATURE'].value : '—');
+      setText('net-rtr-volts', rm['BOARD VOLTAGE'] ? rm['BOARD VOLTAGE'].value : '—');
+      setText('net-rtr-uptime', rm['UPTIME'] ? rm['UPTIME'].value : '—');
+      setText('net-rtr-brin',  rm['BRIDGE IN OCTETS']  ? fmtBytes(parseFloat(rm['BRIDGE IN OCTETS'].raw_value  || rm['BRIDGE IN OCTETS'].value))  : '—');
+      setText('net-rtr-brout', rm['BRIDGE OUT OCTETS'] ? fmtBytes(parseFloat(rm['BRIDGE OUT OCTETS'].raw_value || rm['BRIDGE OUT OCTETS'].value)) : '—');
+      var brErr = (parseFloat((rm['BRIDGE IN ERRORS'] || {}).raw_value || 0) +
+                   parseFloat((rm['BRIDGE OUT ERRORS'] || {}).raw_value || 0));
+      setText('net-rtr-brerr', isNaN(brErr) ? '—' : String(Math.round(brErr)));
+      // Per-port (ether1..ether9 + wifi + lo)
+      var rtrPorts = netPortsFromVitals(rtr, /^(ETHER\d+|WIFI\d+|LO|BRIDGE|WAN)\s*(IN OCTETS|OUT OCTETS|IN ERRORS|OUT ERRORS)?$/);
+      renderPortGrid('net-rtr-ports', rtrPorts, function (a, b) {
+        // ether1 < ether2 < lo < bridge < wifi
+        var aNum = a.match(/(\d+)/), bNum = b.match(/(\d+)/);
+        if (a.startsWith('ETHER') && b.startsWith('ETHER')) return parseInt(aNum[1]) - parseInt(bNum[1]);
+        if (a.startsWith('ETHER')) return -1;
+        if (b.startsWith('ETHER')) return 1;
+        return a.localeCompare(b);
+      });
+      // Count up/error ports
+      Object.values(rtrPorts).forEach(function (p) {
+        var st = ((p.STATE && p.STATE.value) || '').toString().toLowerCase();
+        if (st === 'up' || st === 'linked') totalPortsUp++;
+        totalPortErrors += parseFloat((p['IN ERRORS'] || {}).raw_value || 0);
+        totalPortErrors += parseFloat((p['OUT ERRORS'] || {}).raw_value || 0);
+      });
+      // Router KPI tile
+      var rtrKpi = document.getElementById('net-kpi-router');
+      var rtrKpiVal = document.getElementById('net-kpi-router-val');
+      if (rtrKpi) rtrKpi.setAttribute('data-status', rtr.status || '');
+      if (rtrKpiVal) rtrKpiVal.textContent = (rtr.health != null ? rtr.health : '—');
+      setText('net-kpi-router-sub', 'health · ' + (rtr.vendor || '?') + ' ' + (rtr.model || '?').split(' ')[0]);
+    }
+
+    if (sw) {
+      var sm = netVitalMap(sw);
+      setText('net-sw-name', sw.name || 'Cisco Catalyst 2960');
+      // Cisco firmware string is verbose (multi-line); show just first line.
+      setText('net-sw-meta', 'SW-01 · ' + (sw.firmware || sw.model || 'IOS').split('\n')[0].slice(0, 40));
+      var swPill = document.getElementById('net-sw-pill');
+      if (swPill) { swPill.textContent = (sw.status || '?').toUpperCase(); swPill.setAttribute('data-status', sw.status || ''); }
+      setText('net-sw-cpu', sm['CPU LOAD'] ? sm['CPU LOAD'].value : '—');
+      setText('net-sw-mem', sm['MEMORY'] ? sm['MEMORY'].value : '—');
+      setText('net-sw-cdp', sm['CDP NEIGHBOR COUNT'] ? sm['CDP NEIGHBOR COUNT'].value : '—');
+      setText('net-sw-uptime', sm['UPTIME'] ? sm['UPTIME'].value : '—');
+      var swPorts = netPortsFromVitals(sw, /^(FASTETHERNET\d+\/\d+|GIGABITETHERNET\d+\/\d+|NULL\d+|VLAN\d+)\s*(IN OCTETS|OUT OCTETS|IN ERRORS|OUT ERRORS)?$/);
+      renderPortGrid('net-sw-ports', swPorts, function (a, b) {
+        // FastEthernet0/1 < FastEthernet0/2 < FastEthernet0/24 < Null0 < Vlan1
+        var aFe = a.match(/^FASTETHERNET0\/(\d+)/);
+        var bFe = b.match(/^FASTETHERNET0\/(\d+)/);
+        if (aFe && bFe) return parseInt(aFe[1]) - parseInt(bFe[1]);
+        if (aFe) return -1;
+        if (bFe) return 1;
+        return a.localeCompare(b);
+      });
+      Object.values(swPorts).forEach(function (p) {
+        var st = ((p.STATE && p.STATE.value) || '').toString().toLowerCase();
+        if (st === 'up' || st === 'linked') totalPortsUp++;
+        totalPortErrors += parseFloat((p['IN ERRORS'] || {}).raw_value || 0);
+        totalPortErrors += parseFloat((p['OUT ERRORS'] || {}).raw_value || 0);
+      });
+      // Switch KPI tile
+      var swKpi = document.getElementById('net-kpi-switch');
+      var swKpiVal = document.getElementById('net-kpi-switch-val');
+      if (swKpi) swKpi.setAttribute('data-status', sw.status || '');
+      if (swKpiVal) swKpiVal.textContent = (sw.health != null ? sw.health : '—');
+      setText('net-kpi-switch-sub', 'health · ' + (sw.vendor || '?') + ' ' + (sw.model || '?').split(' ')[0]);
+    }
+
+    // Aggregate KPIs
+    setText('net-kpi-ports-val', String(totalPortsUp));
+    var portsKpi = document.getElementById('net-kpi-ports');
+    if (portsKpi) portsKpi.setAttribute('data-status', totalPortsUp > 0 ? 'good' : '');
+    setText('net-kpi-errors-val', String(Math.round(totalPortErrors)));
+    var errKpi = document.getElementById('net-kpi-errors');
+    if (errKpi) errKpi.setAttribute('data-status', totalPortErrors > 100 ? 'bad' : totalPortErrors > 0 ? 'warn' : 'good');
+
+    attachPortTooltips();
+  }
+
   // ── Polling ─────────────────────────────────────────────────────────
   function pollAssets() {
     fetch(API_BASE + '/assets', { cache: 'no-store' })
@@ -447,6 +675,7 @@
         updateLinkCard();
         refreshOpenMapPopup();
         updateStaleBannerFromLive();
+        renderNetworkPage();  // Task #158 — populate Network page from same feed
       })
       .catch(function (e) { console.warn('[Aevus Rad Hover] assets poll failed:', e.message); });
   }

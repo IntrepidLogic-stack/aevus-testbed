@@ -3688,6 +3688,66 @@ body.map-active .main > div:first-child { display: none !important; }
 .rf-hero-sub   { font-size:9px; color:var(--text-faint); margin-top:6px; letter-spacing:0.3px; }
 body.wall-mode .rf-hero-value { font-size:42px; }
 body.wall-mode .rf-hero-label { font-size:11px; }
+
+/* ── Network page (Task #158) ─────────────────────────────────────────
+   Lays out router + switch as 2 panels each with KPIs + port grid. Port
+   tiles are color-coded by oper status. Hover → tooltip with octet rates. */
+.net-kpi-row { display:grid; grid-template-columns:repeat(4,1fr); gap:10px; margin-bottom:14px; }
+@media (max-width:760px) { .net-kpi-row { grid-template-columns:repeat(2,1fr); } }
+.net-kpi { padding:14px 18px; border-radius:10px; background:rgba(148,163,184,0.04); border:1px solid rgba(148,163,184,0.10); transition:background 0.3s,border 0.3s; }
+.net-kpi[data-status="good"] { background:rgba(16,212,120,0.05); border-color:rgba(16,212,120,0.20); }
+.net-kpi[data-status="warn"] { background:rgba(251,191,36,0.05); border-color:rgba(251,191,36,0.25); }
+.net-kpi[data-status="bad"]  { background:rgba(239,68,68,0.07);  border-color:rgba(239,68,68,0.30); }
+.net-kpi-label { font-size:9px; font-weight:700; letter-spacing:1.2px; text-transform:uppercase; color:var(--text-muted); }
+.net-kpi-value { font-size:26px; font-weight:800; font-family:'JetBrains Mono',monospace; color:#E2E8F0; line-height:1.1; margin-top:4px; }
+.net-kpi[data-status="good"] .net-kpi-value { color:#10D478; }
+.net-kpi[data-status="warn"] .net-kpi-value { color:#FBBF24; }
+.net-kpi[data-status="bad"]  .net-kpi-value { color:#EF4444; }
+.net-kpi-sub { font-size:9px; color:var(--text-faint); margin-top:6px; }
+
+.net-two-col { display:grid; grid-template-columns:1fr 1fr; gap:14px; }
+@media (max-width:900px) { .net-two-col { grid-template-columns:1fr; } }
+.net-device-panel { background:rgba(14,165,233,0.03); border:1px solid rgba(14,165,233,0.10); border-radius:12px; padding:18px; }
+.net-device-header { display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:14px; }
+.net-device-name { font-size:14px; font-weight:700; color:#E2E8F0; }
+.net-device-meta { font-size:10px; color:var(--text-muted); margin-top:2px; }
+.net-device-pill { font-size:10px; font-weight:700; padding:4px 10px; border-radius:12px; letter-spacing:0.5px; }
+.net-device-pill[data-status="good"] { background:rgba(16,212,120,0.15); color:#10D478; }
+.net-device-pill[data-status="warn"] { background:rgba(251,191,36,0.15); color:#FBBF24; }
+.net-device-pill[data-status="bad"]  { background:rgba(239,68,68,0.15);  color:#EF4444; }
+
+.net-device-stats { display:grid; grid-template-columns:repeat(4,1fr); gap:8px; margin-bottom:12px; }
+.net-stat { padding:8px 10px; background:rgba(148,163,184,0.04); border-radius:6px; }
+.net-stat-label { font-size:8px; font-weight:700; letter-spacing:0.8px; color:var(--text-muted); text-transform:uppercase; }
+.net-stat-val { font-size:14px; font-weight:700; font-family:monospace; color:#E2E8F0; margin-top:3px; }
+
+.net-bridge-row { display:grid; grid-template-columns:repeat(3,1fr); gap:8px; margin-bottom:14px; padding:10px; background:rgba(14,165,233,0.04); border-radius:6px; }
+.net-bridge-stat { text-align:center; }
+.net-bridge-label { font-size:8px; font-weight:700; letter-spacing:0.8px; color:var(--text-muted); }
+.net-bridge-val { font-size:12px; font-weight:700; font-family:monospace; color:#00D4FF; margin-top:3px; }
+
+.net-port-grid-title { font-size:9px; font-weight:700; letter-spacing:1px; text-transform:uppercase; color:var(--text-muted); margin-bottom:8px; }
+.net-port-grid { display:grid; grid-template-columns:repeat(6,1fr); gap:6px; }
+.net-port-grid-24 { grid-template-columns:repeat(8,1fr); gap:4px; }
+@media (max-width:600px) { .net-port-grid-24 { grid-template-columns:repeat(6,1fr); } }
+.net-port { padding:8px 4px; border-radius:5px; text-align:center; cursor:pointer; transition:transform 0.15s, box-shadow 0.15s; border:1px solid transparent; position:relative; }
+.net-port:hover { transform:translateY(-1px); box-shadow:0 2px 8px rgba(0,0,0,0.3); }
+.net-port[data-state="up"]   { background:rgba(16,212,120,0.10); border-color:rgba(16,212,120,0.30); }
+.net-port[data-state="down"] { background:rgba(148,163,184,0.06); border-color:rgba(148,163,184,0.12); opacity:0.55; }
+.net-port[data-state="err"]  { background:rgba(239,68,68,0.10); border-color:rgba(239,68,68,0.40); animation:netPortPulse 2s ease-in-out infinite; }
+@keyframes netPortPulse { 0%,100% { box-shadow:0 0 0 rgba(239,68,68,0); } 50% { box-shadow:0 0 6px rgba(239,68,68,0.4); } }
+.net-port-label { font-size:9px; font-weight:700; font-family:monospace; color:#E2E8F0; }
+.net-port[data-state="down"] .net-port-label { color:var(--text-faint); }
+.net-port-rate { font-size:8px; color:var(--text-muted); margin-top:2px; font-family:monospace; }
+.net-port[data-state="up"] .net-port-rate { color:#10D478; }
+.net-port[data-state="err"] .net-port-rate { color:#EF4444; }
+
+.net-port-tooltip { display:none; position:fixed; z-index:1000; background:#0F1629; border:1px solid #2A3447; border-radius:8px; padding:10px 14px; font-size:11px; color:#E2E8F0; max-width:280px; box-shadow:0 8px 24px rgba(0,0,0,0.5); pointer-events:none; }
+.net-port-tooltip.show { display:block; }
+.net-port-tooltip-title { font-weight:700; color:#00D4FF; margin-bottom:6px; }
+.net-port-tooltip-row { display:flex; justify-content:space-between; gap:12px; padding:1px 0; }
+.net-port-tooltip-label { color:var(--text-muted); }
+.net-port-tooltip-val { font-family:monospace; }
 .rf-link-indicator { display:flex; align-items:center; gap:8px; }
 .rf-meta { font-size:10px; color:var(--text-muted); font-family:var(--font-mono); }
 .rf-flow-container { flex:1; display:flex; align-items:center; justify-content:center; min-height:0; }
@@ -4575,7 +4635,7 @@ html { scroll-behavior:smooth; }
 
     <!-- RF Flow Diagram -->
     <div class="rf-flow-container">
-      <svg id="rf-flow-svg" viewBox="0 0 1200 355" preserveAspectRatio="xMidYMid meet" class="rf-flow-svg">
+      <svg id="rf-flow-svg" viewBox="0 0 1200 410" preserveAspectRatio="xMidYMid meet" class="rf-flow-svg">
         <defs>
           <linearGradient id="rfWaveGrad" x1="0" y1="0" x2="1" y2="0">
             <stop offset="0%" stop-color="#00D4FF" stop-opacity="0.8"/>
@@ -4663,6 +4723,24 @@ html { scroll-behavior:smooth; }
           <text x="4" y="10" fill="#7B8499" font-size="6" letter-spacing="0.5">24H RSSI</text>
           <polyline id="rf-r1-sparkline" points="" class="rf-spark-line" stroke="#00D4FF"/>
           <text x="100" y="10" id="rf-r1-trend" fill="#10D478" font-size="7" font-weight="600">● Stable</text>
+        </g>
+        <!-- RAD-01 Phase 2 secondary callout (Task #160): FW/ROLE/STATE row +
+             per-direction error split (RF engineer perspective from design v2). -->
+        <g id="rf-r1-secondary" transform="translate(250,355)">
+          <rect x="0" y="0" width="160" height="50" rx="6" fill="rgba(14,165,233,0.04)" stroke="rgba(14,165,233,0.10)" stroke-width="0.8"/>
+          <text x="6" y="9" fill="#7B8499" font-size="6" font-weight="600" letter-spacing="0.5">FW</text>
+          <text x="60" y="9" fill="#7B8499" font-size="6" font-weight="600" letter-spacing="0.5">ROLE</text>
+          <text x="115" y="9" fill="#7B8499" font-size="6" font-weight="600" letter-spacing="0.5">STATE</text>
+          <text x="6" y="20" id="rf-r1-fw" fill="#E2E8F0" font-size="8" font-weight="600" font-family="monospace">—</text>
+          <text x="60" y="20" id="rf-r1-role" fill="#9B70F6" font-size="8" font-weight="700" font-family="monospace">—</text>
+          <text x="115" y="20" id="rf-r1-state" fill="#10D478" font-size="8" font-weight="700" font-family="monospace">—</text>
+          <line x1="6" y1="26" x2="154" y2="26" stroke="rgba(148,163,184,0.10)" stroke-width="0.5"/>
+          <text x="6" y="35" fill="#7B8499" font-size="6" font-weight="600" letter-spacing="0.5">TX ERR</text>
+          <text x="60" y="35" fill="#7B8499" font-size="6" font-weight="600" letter-spacing="0.5">RX ERR</text>
+          <text x="115" y="35" fill="#7B8499" font-size="6" font-weight="600" letter-spacing="0.5">DROP</text>
+          <text x="6" y="46" id="rf-r1-txerr" fill="#10D478" font-size="9" font-weight="700" font-family="monospace">—</text>
+          <text x="60" y="46" id="rf-r1-rxerr" fill="#10D478" font-size="9" font-weight="700" font-family="monospace">—</text>
+          <text x="115" y="46" id="rf-r1-drop" fill="#10D478" font-size="9" font-weight="700" font-family="monospace">—</text>
         </g>
 
         <!-- === RF WAVE ZONE === -->
@@ -4757,6 +4835,23 @@ html { scroll-behavior:smooth; }
           <text x="4" y="10" fill="#7B8499" font-size="6" letter-spacing="0.5">24H RSSI</text>
           <polyline id="rf-r2-sparkline" points="" class="rf-spark-line" stroke="#9B70F6"/>
           <text x="100" y="10" id="rf-r2-trend" fill="#10D478" font-size="7" font-weight="600">● Stable</text>
+        </g>
+        <!-- RAD-02 Phase 2 secondary callout (Task #160) -->
+        <g id="rf-r2-secondary" transform="translate(790,355)">
+          <rect x="0" y="0" width="160" height="50" rx="6" fill="rgba(109,91,208,0.04)" stroke="rgba(109,91,208,0.10)" stroke-width="0.8"/>
+          <text x="6" y="9" fill="#7B8499" font-size="6" font-weight="600" letter-spacing="0.5">FW</text>
+          <text x="60" y="9" fill="#7B8499" font-size="6" font-weight="600" letter-spacing="0.5">ROLE</text>
+          <text x="115" y="9" fill="#7B8499" font-size="6" font-weight="600" letter-spacing="0.5">STATE</text>
+          <text x="6" y="20" id="rf-r2-fw" fill="#E2E8F0" font-size="8" font-weight="600" font-family="monospace">—</text>
+          <text x="60" y="20" id="rf-r2-role" fill="#9B70F6" font-size="8" font-weight="700" font-family="monospace">—</text>
+          <text x="115" y="20" id="rf-r2-state" fill="#10D478" font-size="8" font-weight="700" font-family="monospace">—</text>
+          <line x1="6" y1="26" x2="154" y2="26" stroke="rgba(148,163,184,0.10)" stroke-width="0.5"/>
+          <text x="6" y="35" fill="#7B8499" font-size="6" font-weight="600" letter-spacing="0.5">TX ERR</text>
+          <text x="60" y="35" fill="#7B8499" font-size="6" font-weight="600" letter-spacing="0.5">RX ERR</text>
+          <text x="115" y="35" fill="#7B8499" font-size="6" font-weight="600" letter-spacing="0.5">DROP</text>
+          <text x="6" y="46" id="rf-r2-txerr" fill="#10D478" font-size="9" font-weight="700" font-family="monospace">—</text>
+          <text x="60" y="46" id="rf-r2-rxerr" fill="#10D478" font-size="9" font-weight="700" font-family="monospace">—</text>
+          <text x="115" y="46" id="rf-r2-drop" fill="#10D478" font-size="9" font-weight="700" font-family="monospace">—</text>
         </g>
 
         <!-- === RIGHT: FIELD DEVICE (same Y as SCADA Host) === -->
@@ -4881,7 +4976,83 @@ html { scroll-behavior:smooth; }
 </section>
 
 <section class="page-section" data-page="network">
-  <div id="network-page"></div>
+  <div class="page-header">
+    <div class="page-title">Network Infrastructure</div>
+    <div class="page-subtitle">Live state from MikroTik L009 router + Cisco Catalyst 2960 switch (Task #158)</div>
+  </div>
+
+  <!-- KPI strip: 4 tiles showing aggregate network health -->
+  <div class="net-kpi-row">
+    <div class="net-kpi" data-status="" id="net-kpi-router">
+      <div class="net-kpi-label">ROUTER</div>
+      <div class="net-kpi-value" id="net-kpi-router-val">—</div>
+      <div class="net-kpi-sub" id="net-kpi-router-sub">MikroTik L009</div>
+    </div>
+    <div class="net-kpi" data-status="" id="net-kpi-switch">
+      <div class="net-kpi-label">SWITCH</div>
+      <div class="net-kpi-value" id="net-kpi-switch-val">—</div>
+      <div class="net-kpi-sub" id="net-kpi-switch-sub">Catalyst 2960</div>
+    </div>
+    <div class="net-kpi" data-status="" id="net-kpi-ports">
+      <div class="net-kpi-label">PORTS UP</div>
+      <div class="net-kpi-value" id="net-kpi-ports-val">—</div>
+      <div class="net-kpi-sub" id="net-kpi-ports-sub">across router + switch</div>
+    </div>
+    <div class="net-kpi" data-status="" id="net-kpi-errors">
+      <div class="net-kpi-label">PORT ERRORS</div>
+      <div class="net-kpi-value" id="net-kpi-errors-val">—</div>
+      <div class="net-kpi-sub" id="net-kpi-errors-sub">total in+out across all ports</div>
+    </div>
+  </div>
+
+  <!-- Two-column: router on left, switch on right -->
+  <div class="net-two-col">
+    <!-- ─── ROUTER (RTR-01 MikroTik L009) ──────────────────────────── -->
+    <div class="net-device-panel">
+      <div class="net-device-header">
+        <div>
+          <div class="net-device-name" id="net-rtr-name">MikroTik L009</div>
+          <div class="net-device-meta" id="net-rtr-meta">RTR-01 · RouterOS</div>
+        </div>
+        <div class="net-device-pill" id="net-rtr-pill">—</div>
+      </div>
+      <div class="net-device-stats">
+        <div class="net-stat"><div class="net-stat-label">CPU</div><div class="net-stat-val" id="net-rtr-cpu">—</div></div>
+        <div class="net-stat"><div class="net-stat-label">BOARD TEMP</div><div class="net-stat-val" id="net-rtr-temp">—</div></div>
+        <div class="net-stat"><div class="net-stat-label">BOARD V</div><div class="net-stat-val" id="net-rtr-volts">—</div></div>
+        <div class="net-stat"><div class="net-stat-label">UPTIME</div><div class="net-stat-val" id="net-rtr-uptime">—</div></div>
+      </div>
+      <div class="net-bridge-row">
+        <div class="net-bridge-stat"><div class="net-bridge-label">BRIDGE IN</div><div class="net-bridge-val" id="net-rtr-brin">—</div></div>
+        <div class="net-bridge-stat"><div class="net-bridge-label">BRIDGE OUT</div><div class="net-bridge-val" id="net-rtr-brout">—</div></div>
+        <div class="net-bridge-stat"><div class="net-bridge-label">ERRORS</div><div class="net-bridge-val" id="net-rtr-brerr">—</div></div>
+      </div>
+      <div class="net-port-grid-title">ETHERNET PORTS</div>
+      <div class="net-port-grid" id="net-rtr-ports"></div>
+    </div>
+
+    <!-- ─── SWITCH (SW-01 Cisco Catalyst 2960) ─────────────────────── -->
+    <div class="net-device-panel">
+      <div class="net-device-header">
+        <div>
+          <div class="net-device-name" id="net-sw-name">Cisco Catalyst 2960</div>
+          <div class="net-device-meta" id="net-sw-meta">SW-01 · IOS</div>
+        </div>
+        <div class="net-device-pill" id="net-sw-pill">—</div>
+      </div>
+      <div class="net-device-stats">
+        <div class="net-stat"><div class="net-stat-label">CPU</div><div class="net-stat-val" id="net-sw-cpu">—</div></div>
+        <div class="net-stat"><div class="net-stat-label">MEMORY</div><div class="net-stat-val" id="net-sw-mem">—</div></div>
+        <div class="net-stat"><div class="net-stat-label">CDP NEIGHBORS</div><div class="net-stat-val" id="net-sw-cdp">—</div></div>
+        <div class="net-stat"><div class="net-stat-label">UPTIME</div><div class="net-stat-val" id="net-sw-uptime">—</div></div>
+      </div>
+      <div class="net-port-grid-title">FASTETHERNET PORTS (24)</div>
+      <div class="net-port-grid net-port-grid-24" id="net-sw-ports"></div>
+    </div>
+  </div>
+
+  <!-- Hover tooltip for port detail -->
+  <div id="net-port-tooltip" class="net-port-tooltip"></div>
 </section>
 
 <section class="page-section" data-page="cyber">
@@ -5159,8 +5330,8 @@ html { scroll-behavior:smooth; }
     }, true);  // capture phase — fires before the default error handler
   })();
 </script>
-<script src="/dashboard/api-client.js?v=128"></script>
-<script src="/dashboard/rad-hover-live.js?v=12"></script>
+<script src="/dashboard/api-client.js?v=129"></script>
+<script src="/dashboard/rad-hover-live.js?v=14"></script>
 
 <script>
 (function() {

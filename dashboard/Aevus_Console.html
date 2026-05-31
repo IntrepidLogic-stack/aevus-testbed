@@ -3911,7 +3911,13 @@ body.map-active .main > div:first-child { display: none !important; }
 .health-asset-row.expanded { border-color:rgba(14,165,233,0.2) !important; background:rgba(14,165,233,0.03) !important; }
 .health-asset-row .health-detail { animation:fadeSlide 0.25s ease; }
 /* ── RF Communications Page (34th audit) ── */
-.rf-page { height:calc(100vh - 80px); display:flex; flex-direction:column; overflow-y:auto; position:relative; margin-top:-8px; scroll-behavior:smooth; }
+.rf-page { min-height:calc(100vh - 80px); display:flex; flex-direction:column; overflow-y:visible; position:relative; margin-top:-8px; scroll-behavior:smooth; padding-bottom:24px; }
+/* Let the rf-page extend below viewport so the diagnostic tools at the
+   bottom are reachable via NORMAL page scroll instead of nested
+   overflow-y:auto (which was hiding the tools below the fold on
+   shorter viewports). The page-shift on NO-LINK→ACTIVE that the fixed
+   height originally guarded against is now handled by min-heights on
+   the hero tiles + detail cards, not by clamping the page. */
 /* FIXED height (back from min-height) — was reflowing when status flipped
    NO LINK → ACTIVE because the SVG packet animations + link-quality bar
    only render in the ACTIVE state, growing total content height past the
@@ -3951,7 +3957,7 @@ body.wall-mode .rf-hero-label { font-size:11px; }
    Two cards side-by-side; one per radio. Diag tools at bottom stay click. */
 .rf-detail-grid { display:grid; grid-template-columns:repeat(2,1fr); gap:10px; margin:14px 0 10px; }
 @media (max-width:900px) { .rf-detail-grid { grid-template-columns:1fr; } }
-.rf-detail-card { padding:12px 14px; border-radius:10px; background:rgba(148,163,184,0.04); border:1px solid rgba(148,163,184,0.10); transition:background 0.3s,border 0.3s; min-height:360px; }
+.rf-detail-card { padding:12px 14px; border-radius:10px; background:rgba(148,163,184,0.04); border:1px solid rgba(148,163,184,0.10); transition:background 0.3s,border 0.3s; min-height:280px; }
 .rf-detail-card[data-status="good"] { background:rgba(16,212,120,0.05); border-color:rgba(16,212,120,0.22); }
 .rf-detail-card[data-status="warn"] { background:rgba(251,191,36,0.05); border-color:rgba(251,191,36,0.28); }
 .rf-detail-card[data-status="bad"]  { background:rgba(239,68,68,0.06); border-color:rgba(239,68,68,0.32); }
@@ -3984,7 +3990,7 @@ body.wall-mode .rf-hero-label { font-size:11px; }
 .rf-err-v { font-family:'JetBrains Mono',monospace; font-size:13px; font-weight:700; color:#10D478; }
 .rf-err-v[data-warn="1"] { color:#FBBF24; }
 .rf-err-v[data-bad="1"]  { color:#EF4444; }
-.rf-detail-alarms { display:flex; flex-direction:column; gap:4px; height:80px; overflow-y:auto; }
+.rf-detail-alarms { display:flex; flex-direction:column; gap:4px; height:56px; overflow-y:auto; }
 .rf-alarm-empty { font-size:10px; color:#10D478; padding:4px 0; }
 .rf-alarm-row { display:flex; gap:8px; align-items:flex-start; font-size:10px; padding:3px 6px; background:rgba(11,16,32,0.45); border-radius:4px; }
 .rf-alarm-sev { font-weight:800; letter-spacing:0.6px; min-width:54px; }
@@ -5954,7 +5960,7 @@ html { scroll-behavior:smooth; }
   })();
 </script>
 <script src="/dashboard/api-client.js?v=129"></script>
-<script src="/dashboard/rad-hover-live.js?v=26"></script>
+<script src="/dashboard/rad-hover-live.js?v=27"></script>
 
 <script>
 (function() {

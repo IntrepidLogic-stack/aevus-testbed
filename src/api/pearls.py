@@ -26,7 +26,7 @@ demo hits Rickerson's ≥3-tower acceptance criterion without faking telemetry.
 
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import UTC, datetime
 from typing import Any
 
 from fastapi import APIRouter, Query
@@ -159,7 +159,7 @@ def _sim_pearl(pearl_id: str, label: str, score: int | None, status_override: st
             if score is not None
             else "offline"
         ),
-        "last_update": datetime.utcnow().isoformat(),
+        "last_update": datetime.now(UTC).isoformat(),
         "drill_url": "",
         "simulated": True,
     }
@@ -226,7 +226,7 @@ async def drill_radio_fade(duration: int = Query(60, ge=10, le=300), pearl_id: s
     header turns yellow because the chain is degraded'."""
     from datetime import timedelta
 
-    _drill_state["active_until"] = datetime.utcnow() + timedelta(seconds=duration)
+    _drill_state["active_until"] = datetime.now(UTC) + timedelta(seconds=duration)
     _drill_state["pearl_id"] = pearl_id
     return {
         "drill": "radio-fade",
@@ -247,7 +247,7 @@ def _apply_drill(tower: dict) -> dict:
     its score/status to 'bad' so the Loom shows a live degradation."""
     if _drill_state["active_until"] is None:
         return tower
-    if datetime.utcnow() > _drill_state["active_until"]:
+    if datetime.now(UTC) > _drill_state["active_until"]:
         return tower
     if tower.get("tower_id") != "killdeer":
         return tower
@@ -277,6 +277,6 @@ async def collimated_grid(include_sim: bool = Query(True)) -> dict:
         towers.append(_build_sim_tower("Culberson", "critical"))
     return {
         "towers": towers,
-        "generated_at": datetime.utcnow().isoformat(),
-        "drill_active": _drill_state["active_until"] is not None and datetime.utcnow() <= _drill_state["active_until"],
+        "generated_at": datetime.now(UTC).isoformat(),
+        "drill_active": _drill_state["active_until"] is not None and datetime.now(UTC) <= _drill_state["active_until"],
     }

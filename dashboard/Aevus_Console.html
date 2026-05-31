@@ -3669,14 +3669,14 @@ body.map-active .main > div:first-child { display: none !important; }
 .health-asset-row.expanded { border-color:rgba(14,165,233,0.2) !important; background:rgba(14,165,233,0.03) !important; }
 .health-asset-row .health-detail { animation:fadeSlide 0.25s ease; }
 /* ── RF Communications Page (34th audit) ── */
-.rf-page { min-height:calc(100vh - 80px); display:flex; flex-direction:column; overflow-y:auto; position:relative; margin-top:-8px; }
-/* min-height (was: height) + overflow-y:auto so the diag buttons + trends
-   panel don't get clipped below the viewport when the SVG fills the
-   100vh-80px ceiling. Operators reported "tools cut off at the bottom"
-   after PR #73 — that was overflow:hidden hiding the diag-bar. Now the
-   page scrolls if content exceeds the viewport, but stays single-page
-   when it fits. margin-top:-8px stays — still pulls page tight against
-   the top-bar to close the ~80px NO-LINK gap from PR #73. */
+.rf-page { height:calc(100vh - 80px); display:flex; flex-direction:column; overflow-y:auto; position:relative; margin-top:-8px; scroll-behavior:smooth; }
+/* FIXED height (back from min-height) — was reflowing when status flipped
+   NO LINK → ACTIVE because the SVG packet animations + link-quality bar
+   only render in the ACTIVE state, growing total content height past the
+   viewport, which forced the scrollbar in/out and the whole page jumped.
+   With a fixed height + overflow-y:auto, the rf-page is ALWAYS scrollable
+   (scrollbar present but content fits) — no reflow when state changes.
+   scroll-behavior:smooth so rfRunDiag's scrollIntoView feels good. */
 .rf-status-bar { display:flex; justify-content:space-between; align-items:center; padding:10px 20px; background:rgba(14,165,233,0.03); border:1px solid rgba(14,165,233,0.08); border-radius:10px; margin-bottom:8px; }
 
 /* ── Hero KPI strip (Task #154) ─────────────────────────────────────────
@@ -5552,7 +5552,7 @@ html { scroll-behavior:smooth; }
   })();
 </script>
 <script src="/dashboard/api-client.js?v=129"></script>
-<script src="/dashboard/rad-hover-live.js?v=18"></script>
+<script src="/dashboard/rad-hover-live.js?v=19"></script>
 
 <script>
 (function() {

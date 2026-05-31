@@ -3951,7 +3951,7 @@ body.wall-mode .rf-hero-label { font-size:11px; }
    Two cards side-by-side; one per radio. Diag tools at bottom stay click. */
 .rf-detail-grid { display:grid; grid-template-columns:repeat(2,1fr); gap:10px; margin:14px 0 10px; }
 @media (max-width:900px) { .rf-detail-grid { grid-template-columns:1fr; } }
-.rf-detail-card { padding:12px 14px; border-radius:10px; background:rgba(148,163,184,0.04); border:1px solid rgba(148,163,184,0.10); transition:background 0.3s,border 0.3s; }
+.rf-detail-card { padding:12px 14px; border-radius:10px; background:rgba(148,163,184,0.04); border:1px solid rgba(148,163,184,0.10); transition:background 0.3s,border 0.3s; min-height:360px; }
 .rf-detail-card[data-status="good"] { background:rgba(16,212,120,0.05); border-color:rgba(16,212,120,0.22); }
 .rf-detail-card[data-status="warn"] { background:rgba(251,191,36,0.05); border-color:rgba(251,191,36,0.28); }
 .rf-detail-card[data-status="bad"]  { background:rgba(239,68,68,0.06); border-color:rgba(239,68,68,0.32); }
@@ -5954,7 +5954,7 @@ html { scroll-behavior:smooth; }
   })();
 </script>
 <script src="/dashboard/api-client.js?v=129"></script>
-<script src="/dashboard/rad-hover-live.js?v=25"></script>
+<script src="/dashboard/rad-hover-live.js?v=26"></script>
 
 <script>
 (function() {

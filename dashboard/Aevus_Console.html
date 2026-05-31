@@ -2107,7 +2107,16 @@ body[data-role="operator"] .exec-summary { display: none; }
 /* Wall mode: page-fit with scroll-snap */
 body.wall-mode .main { scroll-snap-type: y mandatory; }
 body.wall-mode .page-section.active { scroll-snap-align: start; min-height: 100vh; display: flex; flex-direction: column; }
-body.wall-mode .page-section.active > div:first-child { flex: 1; }
+/* Original rule made first-child grow to fill leftover space — but on most
+   pages the first child IS .page-header (title strip), which then ballooned
+   into a huge empty banner above content (visible on Alarms + others).
+   Pin .page-header to its natural size; everything below stacks under it. */
+body.wall-mode .page-section.active > .page-header { flex: 0 0 auto !important; padding: 14px 24px !important; }
+body.wall-mode .page-section.active > .page-header .page-title { font-size: 24px !important; margin: 0; }
+body.wall-mode .page-section.active > .page-header .page-subtitle { font-size: 12px !important; margin-top: 2px; }
+/* Only grow first-child when it's NOT the page-header (preserves the
+   schematic-fills-screen behavior on Process Overview). */
+body.wall-mode .page-section.active > div:first-child:not(.page-header) { flex: 1; }
 body.wall-mode .footer { display: none !important; }
 
 /* Wall page indicator */

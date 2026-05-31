@@ -919,35 +919,108 @@
       }
     }, 350);
   }
+  // Label → InfluxDB metric ID. Backend collectors write these snake_case
+  // keys; matches src/collectors/snmp_radio.py TRIO_POLL_OIDS + RTU + network.
+  var TREND_METRIC_MAP = {
+    'RSSI':            'rssi',
+    'SIGNAL QUALITY':  'signal_quality',
+    'TEMPERATURE':     'temperature',
+    'VOLTAGE':         'voltage',
+    'BATTERY':         'battery_voltage',
+    'TX POWER':        'tx_power',
+    'CPU LOAD':        'cpu_load',
+    'MEMORY':          'memory_used',
+    'LATENCY':         'latency',
+    'SUCTION PRESSURE':   'suction_pressure',
+    'DISCHARGE PRESSURE': 'discharge_pressure',
+    'FLOW RATE':       'flow_rate',
+    'VIBRATION':       'vibration',
+    'TANK LEVEL':      'tank_level'
+  };
+
+  // Render an 8-level Unicode sparkline scaled to the real series range.
+  // Empty/single-point series → returns empty string (caller shows "—").
+  function sparkOf(values, width) {
+    if (!values || values.length < 2) return '';
+    var lo = Infinity, hi = -Infinity;
+    values.forEach(function (v) { if (v < lo) lo = v; if (v > hi) hi = v; });
+    var span = hi - lo;
+    var blocks = '▁▂▃▄▅▆▇█';
+    // Down-sample (or up-pad) to target width via linear bucket mean
+    var w = width || 24, out = '';
+    for (var i = 0; i < w; i++) {
+      var idx = Math.floor(i * values.length / w);
+      var v = values[idx];
+      var lvl = span === 0 ? 0 : Math.floor(((v - lo) / span) * 7);
+      out += blocks[Math.max(0, Math.min(7, lvl))];
+    }
+    return out;
+  }
+
   function netRunTrends(srcId, targetId) {
     var tgt = liveAssets.find(function (a) { return a.id === targetId; });
     netDiagAppend('<span class="net-diag-out-cmd">$ aevus trends ' + targetId + '</span>\n');
     if (!tgt) { netDiagAppend('<span class="net-diag-out-bad">✗ target not in live feed</span>\n\n'); return; }
     netDiagAppend('<span class="net-diag-out-hdr">24-HOUR TRENDS — ' + targetId + '</span>\n');
-    netDiagAppend('<span class="net-diag-out-dim">───────────────────────────────────────</span>\n');
-    var trendable = ['RSSI', 'SIGNAL QUALITY', 'TEMPERATURE', 'VOLTAGE', 'CPU LOAD', 'MEMORY', 'BATTERY', 'LATENCY'];
-    var anyShown = false;
-    trendable.forEach(function (name) {
-      var v = (tgt.vitals || []).find(function (x) { return x.label === name; });
-      if (!v) return;
-      anyShown = true;
-      var raw = parseFloat(v.raw_value || v.value) || 0;
-      // Synthesize a tiny 12-sample sparkline (real historian wire-up = future
-      // task; this gives operators a directional feel based on current value)
-      var spark = '';
-      for (var i = 0; i < 12; i++) {
-        var ofs = (Math.sin(i * 0.7) + Math.random() * 0.4 - 0.2) * (raw * 0.02);
-        var level = Math.floor((((raw + ofs) - raw + 2) / 4) * 7);
-        spark += '▁▂▃▄▅▆▇█'[Math.max(0, Math.min(7, level))];
-      }
-      var sCls = v.status === 'good' ? 'good' : v.status === 'bad' ? 'bad' : v.status === 'warn' ? 'warn' : 'dim';
-      netDiagAppend('  <span class="net-diag-out-label">' + (name + '             ').slice(0, 16) + '</span> ' +
-                    spark + '  <span class="net-diag-out-' + sCls + '">' + v.value + '</span>\n');
+    netDiagAppend('<span class="net-diag-out-dim">─────────────────────────────────────────────────</span>\n');
+    netDiagAppend('<span class="net-diag-out-dim">  METRIC          24H SPARK (5-min agg)       LAST    MIN    MAX</span>\n');
+
+    // Walk the asset's current vitals and resolve each to an Influx metric ID
+    var jobs = [];
+    (tgt.vitals || []).forEach(function (v) {
+      var metricId = TREND_METRIC_MAP[v.label];
+      if (!metricId) return;
+      jobs.push({ label: v.label, metric: metricId, vital: v });
     });
-    if (!anyShown) netDiagAppend('<span class="net-diag-out-warn">No trendable metrics on ' + targetId + '</span>\n');
-    netDiagAppend('\n<span class="net-diag-out-dim">(historian wire-up for real series → future task)</span>\n\n');
-    netDiagStopPackets();
-    netDiagSetStatus('READY', '');
+
+    if (jobs.length === 0) {
+      netDiagAppend('<span class="net-diag-out-warn">No trendable metrics on ' + targetId + '</span>\n\n');
+      netDiagSetStatus('READY', ''); netDiagStopPackets(); return;
+    }
+
+    netDiagSetStatus('FETCHING HISTORIAN', 'wait');
+    // Fetch all in parallel against the real InfluxDB-backed endpoint
+    Promise.all(jobs.map(function (j) {
+      return fetch(API_BASE + '/health/trend?asset_id=' + encodeURIComponent(targetId) +
+                   '&metric=' + encodeURIComponent(j.metric) + '&hours=24', { cache: 'no-store' })
+        .then(function (r) { return r.ok ? r.json() : []; })
+        .then(function (pts) { return { job: j, points: Array.isArray(pts) ? pts : [] }; })
+        .catch(function () { return { job: j, points: [] }; });
+    })).then(function (results) {
+      var anySeries = false;
+      results.forEach(function (res) {
+        var j = res.job, pts = res.points;
+        var label = (j.label + '                ').slice(0, 16);
+        var sCls = j.vital.status === 'good' ? 'good' :
+                   j.vital.status === 'bad'  ? 'bad'  :
+                   j.vital.status === 'warn' ? 'warn' : 'dim';
+        if (pts.length < 2) {
+          // Real "no historian data yet" — distinct from "no current vital"
+          netDiagAppend('  <span class="net-diag-out-label">' + label + '</span> ' +
+                        '<span class="net-diag-out-dim">' + (pts.length === 1 ? 'building series (1 sample)…' : 'no historian samples yet') +
+                        '</span>  <span class="net-diag-out-' + sCls + '">' + j.vital.value + '</span>\n');
+          return;
+        }
+        anySeries = true;
+        var vals = pts.map(function (p) { return p.value; }).filter(function (v) { return typeof v === 'number'; });
+        var spark = sparkOf(vals, 24);
+        var lo = Math.min.apply(null, vals);
+        var hi = Math.max.apply(null, vals);
+        var last = vals[vals.length - 1];
+        function fmt(n) { return Math.abs(n) >= 100 ? n.toFixed(0) : n.toFixed(1); }
+        netDiagAppend('  <span class="net-diag-out-label">' + label + '</span> ' +
+                      spark + '  <span class="net-diag-out-' + sCls + '">' +
+                      fmt(last).padStart(6) + '</span>  ' +
+                      '<span class="net-diag-out-dim">' + fmt(lo).padStart(5) + '  ' + fmt(hi).padStart(5) + '</span>\n');
+      });
+      netDiagAppend('\n<span class="net-diag-out-dim">source: InfluxDB · bucket=aevus_telemetry · agg=5min mean · range=24h</span>\n');
+      if (!anySeries) {
+        netDiagAppend('<span class="net-diag-out-warn">⚠ No historian series populated yet — collectors writing but bucket may be empty</span>\n');
+      }
+      netDiagAppend('\n');
+      netDiagStopPackets();
+      netDiagSetStatus('READY', '');
+    });
   }
   function netRunLinkBudget(srcId, targetId) {
     netDiagAppend('<span class="net-diag-out-cmd">$ aevus link-budget ' + srcId + ' → ' + targetId + '</span>\n');

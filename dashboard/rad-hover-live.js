@@ -244,8 +244,13 @@
     [['r1', r1], ['r2', r2]].forEach(function (pair) {
       var key = pair[0], asset = pair[1];
       if (!asset) return;
-      // Firmware — collected via Trio MIB OID .5.0 → Asset.firmware
-      setText('rf-' + key + '-fw', asset.firmware || '—');
+      // Firmware — collected via Trio MIB OID .5.0 → Asset.firmware.
+      // Truncate aggressively: Trio reports "3.8.4 Build 4104" which is
+      // 16 chars, way wider than the ~10-char SVG column. Show the major
+      // version only ("3.8.4") so it doesn't overlap the ROLE column.
+      var fwRaw = asset.firmware || '—';
+      var fwShort = fwRaw.split(/[\s\n]/)[0].slice(0, 10);
+      setText('rf-' + key + '-fw', fwShort);
       // ROLE — MASTER (AP) vs SLAVE (Remote)
       var roleVital = vital(asset, 'ROLE');
       setText('rf-' + key + '-role', (roleVital && roleVital.value) || (key === 'r1' ? 'MASTER' : 'SLAVE'));

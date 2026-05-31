@@ -5027,20 +5027,30 @@ html { scroll-behavior:smooth; }
   }, 1000);
 </script>
 <script>
-  /* Safe-default globals consumed by renderOverview functions in api-client.js.
-     Without these, bare references to `liveAlerts` and `attentionCount` throw
-     ReferenceError every 10s on the Overview page render — polluting the
-     console (~191 errors/min observed) and leaving the quick-actions bar +
-     shift-summary panels empty. Same "referenced-but-never-declared" bug
-     class as the AppState wiring issues (PRs #43/#49). Must be set BEFORE
-     api-client.js loads so the JS sees them on its first render pass. */
-  /* Safety net for the "bare-global read before api-client.js populates it"
-     bug class (PRs #51, #52). renderOverview + sibling renderers read these
-     top-level state names directly; if api-client.js hasn't assigned them
-     yet (first render, or fetch failed), bare reads throw ReferenceError and
-     halt the whole render IIFE. Pre-declaring them as harmless empty
-     defaults converts "blank page + 191 console errors" into "empty section
-     until data loads." Numbers default to 0, collections to []. */
+  /* ─────────────────────────────────────────────────────────────────────
+   * Dashboard bare-global safety net (Task #153 — structural close of the
+   * #51/#52/#53/#55 ReferenceError class)
+   * ─────────────────────────────────────────────────────────────────────
+   * Two layers:
+   *
+   * 1. KNOWN-GOOD shim below — explicit pre-declarations for every state
+   *    name renderOverview + siblings currently read. This is documentation
+   *    of the implicit contract between api-client.js (minified) and the
+   *    HTML's render IIFEs. Reviewers see exactly what's expected.
+   *
+   * 2. CATCH-ALL window error handler below — for any future render that
+   *    references a NEW bare name not in the explicit shim, the first
+   *    ReferenceError gets caught, auto-declares window[name] = [], logs a
+   *    warning so we know about it, and lets subsequent ticks render
+   *    cleanly. Converts "blank page + recurring ReferenceError" into
+   *    "one logged warning, then graceful continue."
+   *
+   * This is the structural fix the task audit (PR #64 §Cluster 4) called
+   * for. Without it, every new render function that adds a new state
+   * variable is a regression waiting to happen.
+   * ───────────────────────────────────────────────────────────────────── */
+
+  // Layer 1 — explicit known-good shim
   window.liveAlerts     = window.liveAlerts     || [];
   window.liveAssets     = window.liveAssets     || [];
   window.attentionCount = window.attentionCount || 0;
@@ -5059,8 +5069,51 @@ html { scroll-behavior:smooth; }
   window.accessRequests = window.accessRequests || [];
   window.integrations   = window.integrations   || [];
   window.healthSummary  = window.healthSummary  || {};
+
+  // Layer 2 — catch-all for anything we missed
+  (function installBareGlobalSafetyNet() {
+    // Names we never want to auto-declare (these SHOULD throw if missing —
+    // they're either browser builtins that genuinely shouldn't be undefined,
+    // or our own functions whose absence is a real bug worth surfacing).
+    var DO_NOT_AUTODECLARE = {
+      // Add names here if a future ReferenceError SHOULDN'T be silenced.
+    };
+    // Track what we've auto-declared so we don't log the same warning N×/sec
+    // when the render loop keeps hitting the same name.
+    var alreadyDeclared = {};
+
+    window.addEventListener('error', function(event) {
+      // event.message format varies by browser:
+      //   Chrome: "Uncaught ReferenceError: foo is not defined"
+      //   Firefox: "foo is not defined"
+      var msg = (event && event.message) || '';
+      var match = msg.match(/(?:ReferenceError:\s*)?(\w+)\s+is\s+not\s+defined/);
+      if (!match) return;
+      var name = match[1];
+      if (alreadyDeclared[name] || DO_NOT_AUTODECLARE[name]) return;
+      if (typeof window[name] !== 'undefined') return;
+
+      // Default value heuristic by name suffix — covers ~all real cases
+      // observed in PRs #51/#52/#53/#55. Counter-like names default to 0;
+      // singular-object names default to {}; everything else is [].
+      var defaultValue = [];
+      if (/Count$|Total$|Sum$/.test(name)) defaultValue = 0;
+      else if (/Summary$|Config$|Settings$|Meta$/.test(name)) defaultValue = {};
+
+      window[name] = defaultValue;
+      alreadyDeclared[name] = true;
+      // Don't suppress the original error message — operator visibility
+      // matters. Just add an annotation so we know the safety net caught
+      // it and what to add to Layer 1 if it persists.
+      console.warn(
+        '[dashboard-safety-net] auto-declared window.' + name +
+        ' = ' + JSON.stringify(defaultValue) +
+        ' after ReferenceError. Add to Layer 1 shim if this persists.'
+      );
+    }, true);  // capture phase — fires before the default error handler
+  })();
 </script>
-<script src="/dashboard/api-client.js?v=126"></script>
+<script src="/dashboard/api-client.js?v=127"></script>
 <script src="/dashboard/rad-hover-live.js?v=11"></script>
 
 <script>

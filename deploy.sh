@@ -66,9 +66,19 @@ else
 fi
 
 # 3. Surgically check out dashboard files from origin/main.
-# Also refresh deploy.sh itself so whitelist changes take effect on the
-# NEXT invocation without needing an out-of-band SSM hotfix.
+# Also refresh deploy.sh itself. If deploy.sh changed, re-exec immediately
+# so the NEW logic applies in this same invocation (otherwise a deploy.sh
+# fix needs two pushes to bite — bootstrap problem from the Rickerson
+# Scale pearls 404 / Task #179). Skip the re-exec on the FIRST pass after
+# this commit lands (no _RE_EXEC_GUARD set) so we don't infinite-loop.
+PRE_DEPLOY_SH_SHA=$(sha256sum "$REPO/deploy.sh" 2>/dev/null | cut -d' ' -f1 || echo "")
 sudo -u ubuntu git checkout origin/main -- deploy.sh 2>/dev/null || true
+POST_DEPLOY_SH_SHA=$(sha256sum "$REPO/deploy.sh" 2>/dev/null | cut -d' ' -f1 || echo "")
+if [ -n "$PRE_DEPLOY_SH_SHA" ] && [ "$PRE_DEPLOY_SH_SHA" != "$POST_DEPLOY_SH_SHA" ] && [ "${_AEVUS_DEPLOY_REEXEC:-0}" != "1" ]; then
+    log "    deploy.sh self-updated mid-run — re-executing with new logic"
+    export _AEVUS_DEPLOY_REEXEC=1
+    exec bash "$REPO/deploy.sh" "$VERSION"
+fi
 log "[3/5] Checking out dashboard/ from origin/main..."
 for f in $DASHBOARD_FILES; do
     if sudo -u ubuntu git ls-tree origin/main "$f" >/dev/null 2>&1; then
@@ -84,7 +94,7 @@ done
 
 # 4. Validate nginx config and reload. nginx -t writes to stderr;
 # we check the exit code instead of grepping output.
-log "[4/5] Validating + reloading nginx..."
+log "[4/6] Validating + reloading nginx..."
 if sudo nginx -t >/dev/null 2>&1; then
     sudo systemctl reload nginx
     log "    nginx reloaded"
@@ -93,7 +103,37 @@ else
     exit 2
 fi
 
-# 5. Record deploy.
+# 5. Backend deploy: pull src/ + restart aevus.service if Python changed.
+# Historically deploy.sh only touched dashboard/ ("Preserves local Python
+# edits"). That created a permanent drift: every backend change (router,
+# engine module, collector) sat in GitHub but never reached the running
+# FastAPI process. The Rickerson Scale pearls 404 (Task #179) exposed
+# this. Restart is gated on actual src/ diff so dashboard-only deploys
+# don't bounce live connections.
+log "[5/6] Checking for backend (src/) changes..."
+if sudo -u ubuntu git diff --quiet HEAD origin/main -- src/ pyproject.toml requirements.txt 2>/dev/null; then
+    log "    no backend changes — aevus.service untouched"
+else
+    log "    backend changes detected:"
+    sudo -u ubuntu git diff --name-only HEAD origin/main -- src/ pyproject.toml requirements.txt | sed 's/^/        /'
+    sudo -u ubuntu git checkout origin/main -- src/ 2>/dev/null || true
+    sudo -u ubuntu git checkout origin/main -- pyproject.toml 2>/dev/null || true
+    sudo -u ubuntu git checkout origin/main -- requirements.txt 2>/dev/null || true
+    log "    restarting aevus.service..."
+    sudo systemctl restart aevus.service
+    sleep 5
+    SERVICE_STATE=$(systemctl is-active aevus.service 2>&1 || true)
+    log "    service status: $SERVICE_STATE"
+    if [ "$SERVICE_STATE" != "active" ]; then
+        log "    ERROR: aevus.service failed to start. Check: journalctl -u aevus.service -n 50"
+        exit 3
+    fi
+    # Quick liveness probe — the service might be active but failing
+    HEALTH_CODE=$(curl -sf -o /dev/null -w "%{http_code}" http://127.0.0.1:8000/api/v1/health/ping 2>&1 || echo "fail")
+    log "    /api/v1/health/ping: $HEALTH_CODE"
+fi
+
+# 6. Record deploy.
 DEPLOY_SHA=$(sudo -u ubuntu git rev-parse --short origin/main)
-log "[5/5] Deploy $VERSION complete. Served commit: $DEPLOY_SHA"
+log "[6/6] Deploy $VERSION complete. Served commit: $DEPLOY_SHA"
 logger -t "$LOG_TAG" "deploy $VERSION commit=$DEPLOY_SHA"

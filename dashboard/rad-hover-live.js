@@ -1281,12 +1281,298 @@
     console.log('[Aevus Rad Hover] rfHover wrapped — live mode active for', TARGETS.join(', '));
   }
 
+  // ── Rickerson Scale renderer (Task #171 / P0c) ─────────────────────
+  // Polls /api/v1/pearls/grid every 5s, renders the primary strip + the
+  // collimated tower grid. Tracks per-pearl bad-state dwell time to drive
+  // the data-dwelled="1" attribute (60s+ in bad → pulse). Tooltip on hover
+  // shows label / score / status / last-update — never raw input vitals
+  // (trade-secret discipline matches the API contract).
+  var PEARL_GLYPH = { good: '✓', warn: '!', bad: '✕', offline: '·' };
+  var rickerDwellStart = {};   // key = tower_id + ':' + pearl_id → ms timestamp first turned bad
+  var rickerTooltipEl = null;
+
+  function ensureRickerTooltip() {
+    if (!rickerTooltipEl) {
+      rickerTooltipEl = document.createElement('div');
+      rickerTooltipEl.className = 'ricker-tooltip';
+      rickerTooltipEl.style.display = 'none';
+      document.body.appendChild(rickerTooltipEl);
+    }
+    return rickerTooltipEl;
+  }
+
+  function rickerFreshness(iso) {
+    if (!iso) return 'unknown';
+    var t = Date.parse(iso);
+    if (isNaN(t)) return 'unknown';
+    var s = Math.round((Date.now() - t) / 1000);
+    if (s < 5) return 'just now';
+    if (s < 60) return s + 's ago';
+    if (s < 3600) return Math.round(s / 60) + 'm ago';
+    return Math.round(s / 3600) + 'h ago';
+  }
+
+  function renderPearlStrip(towerData, mountEl, compact) {
+    if (!mountEl) return;
+    mountEl.className = 'ricker-strip' + (compact ? ' ricker-strip-compact' : '');
+    mountEl.innerHTML = '';
+    var pearls = towerData.pearls || [];
+    pearls.forEach(function (pearl, i) {
+      var wrap = document.createElement('div');
+      wrap.className = 'ricker-pearl-wrap';
+
+      var p = document.createElement('div');
+      p.className = 'ricker-pearl' + (pearl.score == null && pearl.status === 'offline' ? ' ricker-pearl-empty' : '');
+      p.setAttribute('data-status', pearl.status || 'offline');
+      p.setAttribute('data-glyph', PEARL_GLYPH[pearl.status] || '·');
+      p.textContent = pearl.score != null ? pearl.score : '—';
+
+      // Dwell tracking — only pulse after 60s+ in bad
+      var key = (towerData.tower_id || 'k') + ':' + pearl.pearl_id;
+      if (pearl.status === 'bad') {
+        if (!rickerDwellStart[key]) rickerDwellStart[key] = Date.now();
+        if (Date.now() - rickerDwellStart[key] >= 60000) {
+          p.setAttribute('data-dwelled', '1');
+        }
+      } else {
+        delete rickerDwellStart[key];
+      }
+
+      // Hover tooltip
+      p.addEventListener('mouseenter', function (e) {
+        var tip = ensureRickerTooltip();
+        tip.innerHTML =
+          '<div class="tt-head">' + (pearl.label || pearl.pearl_id) + '</div>' +
+          '<div class="tt-row"><span>Asset</span><span>' + (pearl.asset_label || pearl.asset_id || '—') + '</span></div>' +
+          '<div class="tt-row"><span>Score</span><span style="font-family:monospace;">' + (pearl.score != null ? pearl.score + ' / 100' : '—') + '</span></div>' +
+          '<div class="tt-row"><span>Status</span><span style="text-transform:uppercase;">' + (pearl.status || 'offline') + '</span></div>' +
+          '<div class="tt-row"><span>Last update</span><span>' + rickerFreshness(pearl.last_update) + '</span></div>' +
+          (pearl.simulated ? '<div class="tt-foot" style="color:#9B70F6;">⚠ Simulated peer tower — illustrative only</div>' :
+           pearl.drill_url ? '<div class="tt-foot">Click to drill →</div>' : '');
+        tip.style.display = 'block';
+        var r = p.getBoundingClientRect();
+        tip.style.left = Math.min(window.innerWidth - 290, r.left) + 'px';
+        tip.style.top = (r.bottom + 8) + 'px';
+      });
+      p.addEventListener('mouseleave', function () {
+        if (rickerTooltipEl) rickerTooltipEl.style.display = 'none';
+      });
+
+      // Click → drill (in-place navigation per SCADA-op-lens feedback)
+      if (pearl.drill_url) {
+        p.addEventListener('click', function () {
+          if (rickerTooltipEl) rickerTooltipEl.style.display = 'none';
+          var [hash, query] = pearl.drill_url.split('?');
+          window.location.hash = hash;
+        });
+      }
+
+      wrap.appendChild(p);
+      var lbl = document.createElement('div');
+      lbl.className = 'ricker-pearl-label';
+      lbl.textContent = pearl.label || pearl.pearl_id;
+      wrap.appendChild(lbl);
+      mountEl.appendChild(wrap);
+
+      // Connector to next pearl (worst-of-two color)
+      if (i < pearls.length - 1) {
+        var next = pearls[i + 1];
+        var order = { good: 0, warn: 1, bad: 2, offline: 3 };
+        var worst = order[next.status] > order[pearl.status] ? next.status : pearl.status;
+        var conn = document.createElement('div');
+        conn.className = 'ricker-connector';
+        conn.setAttribute('data-worst', worst);
+        mountEl.appendChild(conn);
+      }
+    });
+  }
+
+  function renderTowerCard(towerData) {
+    var card = document.createElement('div');
+    card.className = 'ricker-tower';
+    card.setAttribute('data-header', towerData.header_status || 'good');
+    if (towerData.simulated) card.setAttribute('data-sim', '1');
+
+    var head = document.createElement('div');
+    head.className = 'ricker-tower-head';
+    head.innerHTML =
+      '<div>' +
+        '<div class="ricker-tower-name">' + (towerData.tower_label || towerData.tower_id) + '</div>' +
+        '<div class="ricker-tower-sub">' + (towerData.simulated ? 'Synthetic peer tower' : 'Live testbed telemetry') + '</div>' +
+      '</div>' +
+      '<div class="ricker-tower-badges">' +
+        (towerData.simulated ? '<span class="ricker-sim-badge">SIM</span>' : '') +
+        '<span class="ricker-tower-roll" data-status="' + (towerData.header_status || 'good') + '">' +
+          (towerData.header_status || 'good').toUpperCase() + '</span>' +
+      '</div>';
+    card.appendChild(head);
+
+    var stripMount = document.createElement('div');
+    card.appendChild(stripMount);
+    renderPearlStrip(towerData, stripMount, false);
+    return card;
+  }
+
+  var rickerPollTimer = null;
+  function pollRickersonScale() {
+    fetch(API_BASE + '/pearls/grid?include_sim=true', { cache: 'no-store' })
+      .then(function (r) { return r.ok ? r.json() : null; })
+      .then(function (data) {
+        if (!data || !data.towers) return;
+
+        // Primary strip = first (real) tower
+        var primary = document.getElementById('rickerson-strip-primary');
+        if (primary && data.towers[0]) renderPearlStrip(data.towers[0], primary, false);
+
+        // Collimated grid
+        var grid = document.getElementById('rickerson-grid');
+        if (grid) {
+          grid.className = 'ricker-grid-mount';
+          grid.innerHTML = '';
+          data.towers.forEach(function (t) { grid.appendChild(renderTowerCard(t)); });
+        }
+
+        // Compact mount on Overview L1 (if present)
+        var compact = document.getElementById('rickerson-strip-overview');
+        if (compact && data.towers[0]) renderPearlStrip(data.towers[0], compact, true);
+      })
+      .catch(function (e) { console.warn('[Rickerson] grid poll failed:', e.message); });
+  }
+
+  function startRickersonPolling() {
+    if (rickerPollTimer) return;
+    pollRickersonScale();
+    rickerPollTimer = setInterval(pollRickersonScale, 5000);
+  }
+
+  // ── Historian button reorder (Task #178) ───────────────────────────
+  // The minified bundle stacks Query / Add Trace / Normalize vertically to
+  // the right of the dropdowns. UX wants horizontal row, dropdown-aligned,
+  // visual order: Add Trace → Query → Normalize. Idempotent — runs every
+  // 1.5s and bails fast once layout is correct.
+  function reorderHistorianButtons() {
+    var bar = document.querySelector('section[data-page="historian"] .hist-query-bar');
+    if (!bar || bar.__histReordered) return;
+    var btns = Array.from(bar.querySelectorAll('button'));
+    if (btns.length < 3) return;
+    var byLabel = {};
+    btns.forEach(function (b) {
+      var t = (b.textContent || '').trim().toLowerCase();
+      if (t.indexOf('query') !== -1) byLabel.query = b;
+      else if (t.indexOf('add trace') !== -1 || t.indexOf('+ add') !== -1) byLabel.addtrace = b;
+      else if (t.indexOf('normalize') !== -1) byLabel.normalize = b;
+    });
+    if (!byLabel.query || !byLabel.addtrace || !byLabel.normalize) return;
+
+    var row = document.createElement('div');
+    row.className = 'hist-btn-row';
+    // Order per UX directive: Add Trace, Query, Normalize
+    row.appendChild(byLabel.addtrace);
+    row.appendChild(byLabel.query);
+    row.appendChild(byLabel.normalize);
+    bar.appendChild(row);
+    bar.__histReordered = true;
+    console.log('[Aevus] Historian buttons reordered → row layout');
+  }
+
+  // ── Help architecture: route through IL-9000 (Task #178) ───────────
+  // User directive: kill the floating "?" button (handled via CSS), and
+  // surface context-help inside the IL-9000 lightbulb panel when it opens.
+  // The bundle's help panel is `#ctx-help-panel` populated by helpData[hash].
+  // We mirror its content into the IL-9000 impact card whenever the FAB is
+  // clicked. MutationObserver catches the panel-open event regardless of
+  // how the bundle wires the FAB internally.
+  var HELP_TEXT = {
+    overview:  [
+      ['Process Overview', 'L1 situational awareness. Hero KPIs, fleet status, active alarms.'],
+      ['Click a fleet card', 'Drills into the asset detail / faceplate view.'],
+      ['Hover any vital', 'Shows raw metric + last-update timestamp.']
+    ],
+    radio:     [
+      ['Hero KPIs', 'LINK STATE · LATENCY (P-008) · UPTIME 24H · ALARMS.'],
+      ['Per-radio cards', 'All vitals visible by default — no hover needed.'],
+      ['TRENDS button', 'Real 24h InfluxDB series; see source line in the result.']
+    ],
+    network:   [
+      ['Diagnostic console', 'Source/target selectors + 6 tools: PING / TRENDS / LINK BUDGET / RF SCAN / HEALTH / PACKETS.'],
+      ['Port grids', 'Live oper-status by port. Click for octet rates.']
+    ],
+    historian: [
+      ['Add Trace', 'Stack additional asset/metric series on the same chart.'],
+      ['Query', 'Runs the current asset+metric+range selection.'],
+      ['Normalize', 'Re-scales overlaid series to 0–100 for cross-metric comparison.']
+    ],
+    alarms:    [
+      ['Severity', 'CRITICAL = red, WARNING = amber, INFO = blue.'],
+      ['Shelve', 'ISA-18.2 §11 — audit-logged temporary suppression.'],
+      ['Chattering', 'ISA-18.2 §7 meta-alarm — metric oscillating.']
+    ],
+    cyber:     [
+      ['NIST CSF', 'Five-function scorecard 0–100.'],
+      ['IEC 62443 Zones', 'Network segmentation + conduit detail.']
+    ],
+    telecom:   [
+      ['Rickerson Scale', 'Edge → operator pearl strip. Each pearl = 0–100 normalized health.'],
+      ['Collimated grid', 'One card per tower. Header color = worst pearl in that tower.']
+    ]
+  };
+
+  function injectHelpIntoIL9000(panel) {
+    if (panel.__helpInjected) return;
+    var hash = (window.location.hash || '').replace('#','') || 'overview';
+    var items = HELP_TEXT[hash] || HELP_TEXT.overview;
+    var block = document.createElement('div');
+    block.className = 'il9k-help-block';
+    block.style.cssText = 'margin-top:14px;padding:12px 14px;background:rgba(14,165,233,0.06);border:1px solid rgba(14,165,233,0.22);border-radius:8px;';
+    var html = '<div style="font-size:10px;font-weight:700;letter-spacing:1px;color:#0EA5E9;text-transform:uppercase;margin-bottom:8px;display:flex;align-items:center;gap:6px;">' +
+               '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#0EA5E9" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>' +
+               'PAGE HELP — ' + hash.toUpperCase() + '</div>';
+    items.forEach(function (pair) {
+      html += '<div style="margin-bottom:6px;font-size:11px;"><span style="color:#E2E8F0;font-weight:600;">' + pair[0] + '</span>' +
+              '<span style="color:#94A3B8;"> · ' + pair[1] + '</span></div>';
+    });
+    block.innerHTML = html;
+    panel.appendChild(block);
+    panel.__helpInjected = true;
+  }
+
+  function watchIL9000Panel() {
+    // Watch for the IL-9000 impact card / any FAB-opened panel to appear,
+    // then append the help block to it. The bundle's exact panel id may
+    // vary, so we match a few known candidates.
+    var observer = new MutationObserver(function () {
+      var candidates = document.querySelectorAll(
+        '#il9000-impact-card, #cog-load-detail, .il9k-panel, [class*="impact-card"]'
+      );
+      candidates.forEach(function (el) {
+        if (el && el.offsetParent !== null && !el.__helpInjected) {
+          injectHelpIntoIL9000(el);
+        }
+      });
+    });
+    observer.observe(document.body, { childList: true, subtree: true, attributes: true, attributeFilter: ['class', 'style'] });
+  }
+
   // ── Boot ────────────────────────────────────────────────────────────
-  if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', function () { wrapHover(); wrapRfRunDiag(); startPolling(); });
-  } else {
+  function boot() {
     wrapHover();
     wrapRfRunDiag();
     startPolling();
+    watchIL9000Panel();
+    setInterval(reorderHistorianButtons, 1500);
+    startRickersonPolling();
+    // Re-inject help on hash change so it's scoped to the new page next open
+    window.addEventListener('hashchange', function () {
+      document.querySelectorAll('#il9000-impact-card, #cog-load-detail, .il9k-panel, [class*="impact-card"]').forEach(function (el) {
+        el.__helpInjected = false;
+        var existing = el.querySelector('.il9k-help-block');
+        if (existing) existing.remove();
+      });
+    });
+  }
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', boot);
+  } else {
+    boot();
   }
 })();

@@ -2255,6 +2255,176 @@ body.wall-mode [data-page="sites"] .solar-grid { flex: 1; align-content: stretch
 body.wall-mode .solar-grid > * { min-height: 0; }
 body.wall-mode .solar-grid { grid-auto-rows: 1fr; }
 
+/* ════════════════════════════════════════════════════════════════════
+   RICKERSON SCALE — Pearl strip + collimated grid (Task #171 / P0c)
+   Per Kinetik handoff 2026-05-29. Origin: David Rickerson, KNTK SCADA Mgr.
+   Naming acknowledged; methodology proprietary.
+   ════════════════════════════════════════════════════════════════════ */
+.ricker-section-label {
+  font-size: 11px; font-weight: 700; letter-spacing: 1.2px;
+  color: var(--text-muted); text-transform: uppercase;
+  margin: 4px 0 8px; display: flex; align-items: center; gap: 10px;
+}
+.ricker-live-tag {
+  font-size: 8px; padding: 2px 6px; border-radius: 3px;
+  background: rgba(16,212,120,0.18); color: #10D478;
+  font-weight: 700; letter-spacing: 0.5px;
+}
+.ricker-strip-mount { padding: 14px 16px; background: rgba(11,16,32,0.55); border: 1px solid rgba(148,163,184,0.10); border-radius: 12px; }
+.ricker-grid-mount { display: grid; gap: 12px; grid-template-columns: repeat(auto-fit, minmax(440px, 1fr)); }
+
+/* Pearl strip */
+.ricker-strip { display: flex; align-items: center; gap: 0; flex-wrap: nowrap; overflow-x: auto; padding: 6px 4px; }
+.ricker-pearl-wrap { display: flex; flex-direction: column; align-items: center; min-width: 64px; }
+.ricker-pearl {
+  width: 36px; height: 36px; border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  font-family: 'JetBrains Mono', monospace; font-size: 12px; font-weight: 800;
+  color: #fff; position: relative; cursor: pointer;
+  border: 2px solid transparent; transition: transform 0.15s ease, box-shadow 0.15s ease;
+  background: #6B7280;
+}
+.ricker-pearl:hover { transform: scale(1.12); box-shadow: 0 0 0 4px rgba(6,182,212,0.18); z-index: 2; }
+.ricker-pearl[data-status="good"]    { background: #10D478; }
+.ricker-pearl[data-status="warn"]    { background: #FBBF24; color: #1a1f2e; }
+.ricker-pearl[data-status="bad"]     { background: #EF4444; }
+.ricker-pearl[data-status="offline"] { background: #6B7280; color: #cbd5e1; }
+/* WCAG AA glyph badge — small inset icon for colorblind users */
+.ricker-pearl::after {
+  content: attr(data-glyph);
+  position: absolute; bottom: -2px; right: -2px;
+  width: 14px; height: 14px; border-radius: 50%;
+  background: rgba(11,16,32,0.92); color: #fff;
+  font-size: 9px; font-weight: 800;
+  display: flex; align-items: center; justify-content: center;
+  border: 1px solid rgba(148,163,184,0.25);
+}
+/* Pulse on critical — but only if data-dwelled="1" (60s+ in bad state).
+   SCADA-op-lens feedback: never pulse on transient blips or yellow. */
+@media (prefers-reduced-motion: no-preference) {
+  .ricker-pearl[data-status="bad"][data-dwelled="1"] {
+    animation: rickerPearlPulse 1.6s ease-in-out infinite;
+  }
+}
+@keyframes rickerPearlPulse {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(239,68,68,0.55); }
+  50%      { box-shadow: 0 0 0 8px rgba(239,68,68,0.0); }
+}
+.ricker-pearl-label {
+  font-size: 9px; color: var(--text-muted); margin-top: 6px;
+  text-align: center; letter-spacing: 0.4px; max-width: 60px; line-height: 1.2;
+}
+.ricker-pearl-empty { color: #6B7280; background: transparent; border: 2px dashed rgba(107,114,128,0.4); }
+
+/* Connector line between pearls — color = worst-of-two endpoints */
+.ricker-connector { height: 2px; flex: 1; min-width: 24px; background: rgba(148,163,184,0.25); margin: 0 -4px; align-self: center; position: relative; top: -8px; }
+.ricker-connector[data-worst="good"]    { background: #10D478; }
+.ricker-connector[data-worst="warn"]    { background: #FBBF24; }
+.ricker-connector[data-worst="bad"]     { background: #EF4444; }
+.ricker-connector[data-worst="offline"] { background: rgba(107,114,128,0.4); }
+/* Mid-arrow for connector clarity (UXDA-lens feedback) */
+.ricker-connector::after {
+  content: '›'; position: absolute; right: -2px; top: -10px;
+  color: inherit; font-size: 14px; opacity: 0.6;
+  font-family: monospace;
+}
+
+/* Tooltip */
+.ricker-tooltip {
+  position: fixed; z-index: 11000; max-width: 280px;
+  background: #0B1020; border: 1px solid rgba(6,182,212,0.35); border-radius: 8px;
+  padding: 10px 12px; font-size: 11px; color: #E2E8F0;
+  pointer-events: none; box-shadow: 0 8px 24px rgba(0,0,0,0.5);
+  font-family: 'Manrope', sans-serif;
+}
+.ricker-tooltip .tt-head { font-weight: 700; font-size: 12px; margin-bottom: 4px; color: #06B6D4; }
+.ricker-tooltip .tt-row { display: flex; justify-content: space-between; gap: 12px; margin: 2px 0; font-size: 10px; }
+.ricker-tooltip .tt-row span:first-child { color: var(--text-muted); }
+.ricker-tooltip .tt-foot { margin-top: 6px; font-size: 9px; color: #06B6D4; }
+
+/* Tower card (collimated mode) */
+.ricker-tower {
+  padding: 12px 14px; border-radius: 10px;
+  background: rgba(148,163,184,0.04); border: 1px solid rgba(148,163,184,0.12);
+  transition: border-color 0.3s, background 0.3s;
+}
+.ricker-tower[data-header="good"] { border-color: rgba(16,212,120,0.35); background: rgba(16,212,120,0.04); }
+.ricker-tower[data-header="warn"] { border-color: rgba(251,191,36,0.40); background: rgba(251,191,36,0.04); }
+.ricker-tower[data-header="bad"]  { border-color: rgba(239,68,68,0.45);  background: rgba(239,68,68,0.05); }
+/* Simulated peer towers get dashed border + SIM badge + slight desaturation */
+.ricker-tower[data-sim="1"] {
+  border-style: dashed; border-width: 1.5px;
+  filter: saturate(0.78);
+}
+.ricker-tower-head {
+  display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;
+  padding-bottom: 8px; border-bottom: 1px solid rgba(148,163,184,0.10);
+}
+.ricker-tower-name { font-size: 13px; font-weight: 700; color: #E2E8F0; }
+.ricker-tower-sub  { font-size: 10px; color: var(--text-muted); margin-top: 2px; }
+.ricker-tower-badges { display: flex; gap: 6px; align-items: center; }
+.ricker-sim-badge {
+  font-size: 8px; padding: 2px 7px; border-radius: 10px;
+  background: rgba(155,112,246,0.18); color: #9B70F6;
+  font-weight: 800; letter-spacing: 1px;
+}
+.ricker-tower-roll {
+  font-size: 9px; padding: 2px 8px; border-radius: 10px;
+  font-weight: 700; letter-spacing: 0.6px;
+}
+.ricker-tower-roll[data-status="good"] { background: rgba(16,212,120,0.18); color: #10D478; }
+.ricker-tower-roll[data-status="warn"] { background: rgba(251,191,36,0.18); color: #FBBF24; }
+.ricker-tower-roll[data-status="bad"]  { background: rgba(239,68,68,0.22);  color: #EF4444; }
+
+/* Legend */
+.ricker-legend {
+  margin-top: 14px; padding: 10px 14px; display: flex; gap: 18px; flex-wrap: wrap;
+  font-size: 10px; color: var(--text-muted); align-items: center;
+  background: rgba(11,16,32,0.55); border-radius: 8px;
+  border: 1px solid rgba(148,163,184,0.08);
+}
+.ricker-legend-item { display: inline-flex; align-items: center; gap: 6px; }
+.ricker-legend-dot {
+  width: 16px; height: 16px; border-radius: 50%;
+  display: inline-flex; align-items: center; justify-content: center;
+  font-size: 9px; font-weight: 800; color: #fff;
+}
+.ricker-legend-dot[data-status="good"]    { background: #10D478; }
+.ricker-legend-dot[data-status="warn"]    { background: #FBBF24; color: #1a1f2e; }
+.ricker-legend-dot[data-status="bad"]     { background: #EF4444; }
+.ricker-legend-dot[data-status="offline"] { background: #6B7280; }
+.ricker-legend-sim { margin-left: auto; font-size: 9px; color: #9B70F6; font-weight: 700; letter-spacing: 0.5px; }
+
+/* Compact strip variant for L1 topbar mount (Overview) */
+.ricker-strip-compact .ricker-pearl { width: 22px; height: 22px; font-size: 9px; }
+.ricker-strip-compact .ricker-pearl::after { width: 10px; height: 10px; font-size: 7px; }
+.ricker-strip-compact .ricker-pearl-label { font-size: 7px; max-width: 50px; }
+.ricker-strip-compact .ricker-connector { height: 1px; min-width: 12px; top: -6px; }
+
+/* Wall mode — promote the grid to hero typography */
+body.wall-mode .ricker-pearl { width: 56px; height: 56px; font-size: 18px; }
+body.wall-mode .ricker-pearl::after { width: 20px; height: 20px; font-size: 12px; }
+body.wall-mode .ricker-pearl-label { font-size: 12px; max-width: 90px; }
+body.wall-mode .ricker-tower-name { font-size: 18px; }
+
+/* ── Help architecture (Task #178) ────────────────────────────────────
+   The floating "?" button is killed — all help is routed through the
+   IL-9000 lightbulb FAB. rad-hover-live.js appends a "Page Help" section
+   into the IL-9000 panel when it opens, scoped to the current hash. */
+.ctx-help-btn { display: none !important; }
+
+/* ── Historian button row (Task #178) ─────────────────────────────────
+   The minified bundle renders Query/Add Trace/Normalize as a vertical
+   stack to the right of the dropdowns. Rickerson-grade ergonomics says
+   they should be horizontal, aligned with the dropdowns, in the order
+   Add Trace → Query → Normalize so the primary action sits where the
+   eye lands first. */
+.hist-query-bar { align-items: flex-end !important; }
+.hist-query-bar > div { display: flex !important; flex-direction: column; }
+/* Group the three trailing buttons in a horizontal row */
+.hist-btn-row { display: flex; flex-direction: row !important; gap: 8px; align-items: center; margin-left: auto; }
+.hist-btn-row button { white-space: nowrap; min-width: 110px; height: 36px; }
+
 /* Wall mode overlay indicator */
 body.wall-mode::after {
   content: 'WALL DISPLAY · Press F11 to exit';
@@ -4488,6 +4658,9 @@ html { scroll-behavior:smooth; }
     <a class="nav-item" href="#network" data-page="network">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="2" y="2" width="6" height="6" rx="1"/><rect x="16" y="2" width="6" height="6" rx="1"/><rect x="9" y="16" width="6" height="6" rx="1"/><path d="M5 8v3a3 3 0 0 0 3 3h8a3 3 0 0 0 3-3V8"/><line x1="12" y1="14" x2="12" y2="16"/></svg>
       Network</a>
+    <a class="nav-item" href="#telecom" data-page="telecom" aria-label="Telecom Operator landing — Rickerson Scale">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="5" cy="12" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="19" cy="12" r="2"/><line x1="7" y1="12" x2="10" y2="12"/><line x1="14" y1="12" x2="17" y2="12"/></svg>
+      Telecom</a>
     <a class="nav-item" href="#cyber" data-page="cyber" aria-label="Cybersecurity posture page">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
       Cybersecurity</a>
@@ -4576,6 +4749,14 @@ html { scroll-behavior:smooth; }
   <!-- ═══ ZONE 1: SITUATION AWARENESS — Status + AI at a Glance (v119 redesign) ═══ -->
   <div id="situation-banner" role="alert" title="Situation Awareness Model: Endsley L1→L2→L3 | ISA-101 HMI Standard | Dynamic Visual Weight Inversion" aria-live="assertive"></div>
   <div id="alarm-summary-strip" role="status" aria-live="polite" aria-label="Alarm summary" style="display:none;"></div>
+
+  <!-- Rickerson Scale — edge→operator path strip (Task #171). Click any
+       pearl to drill. Hover for raw metric + last update. -->
+  <div style="display:flex;align-items:center;gap:14px;padding:8px 14px;margin-bottom:8px;background:rgba(11,16,32,0.55);border:1px solid rgba(148,163,184,0.10);border-radius:8px;">
+    <div style="font-size:9px;font-weight:700;letter-spacing:1px;color:var(--text-muted);text-transform:uppercase;flex:0 0 auto;">PATH HEALTH</div>
+    <div id="rickerson-strip-overview" style="flex:1;min-width:0;"></div>
+    <a href="#telecom" style="font-size:9px;color:#06B6D4;text-decoration:none;letter-spacing:0.5px;flex:0 0 auto;">FULL VIEW →</a>
+  </div>
 
   <!-- ═══ ZONE 2: DENSE KPI BAR — One-line operational summary (16th Audit, 69-0-1) ═══ -->
   <div id="ov-kpi-bar" style="display:flex;align-items:center;gap:16px;padding:8px 16px;margin-bottom:8px;background:rgba(14,165,233,0.03);border:1px solid rgba(14,165,233,0.08);border-radius:8px;">
@@ -5272,6 +5453,27 @@ html { scroll-behavior:smooth; }
   <div id="historian-page"></div>
 </section>
 
+<!-- ━━━ PAGE: TELECOM (Rickerson Scale collimated grid) ━━━ -->
+<section class="page-section" data-page="telecom">
+  <div class="page-header">
+    <div class="page-title">Telecom Operator</div>
+    <div class="page-subtitle">Edge → operator pearl chain per tower. Each pearl: 0–100 normalized health.</div>
+  </div>
+  <div id="rickerson-strip-wrap" style="margin-bottom:18px;">
+    <div class="ricker-section-label">Killdeer Field · Primary Strip <span class="ricker-live-tag">LIVE</span></div>
+    <div id="rickerson-strip-primary" class="ricker-strip-mount"></div>
+  </div>
+  <div class="ricker-section-label">Collimated Grid · Multi-Tower View</div>
+  <div id="rickerson-grid" class="ricker-grid-mount"></div>
+  <div id="rickerson-legend" class="ricker-legend">
+    <span class="ricker-legend-item"><span class="ricker-legend-dot" data-status="good">✓</span> Healthy 60–100</span>
+    <span class="ricker-legend-item"><span class="ricker-legend-dot" data-status="warn">!</span> Degraded 30–59</span>
+    <span class="ricker-legend-item"><span class="ricker-legend-dot" data-status="bad">✕</span> Critical 0–29</span>
+    <span class="ricker-legend-item"><span class="ricker-legend-dot" data-status="offline"></span> Offline / unknown</span>
+    <span class="ricker-legend-sim">SIM = simulated peer tower</span>
+  </div>
+</section>
+
 <section class="page-section" data-page="network">
   <div class="page-header">
     <div class="page-title">Network Infrastructure</div>
@@ -5749,7 +5951,7 @@ html { scroll-behavior:smooth; }
   })();
 </script>
 <script src="/dashboard/api-client.js?v=129"></script>
-<script src="/dashboard/rad-hover-live.js?v=21"></script>
+<script src="/dashboard/rad-hover-live.js?v=23"></script>
 
 <script>
 (function() {

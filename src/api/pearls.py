@@ -79,12 +79,12 @@ def _find_by_id(assets: list, asset_id: str) -> Any | None:
 
 
 KILLDEER_CHAIN = [
-    ("efm_rtu",     "EFM/RTU/PLC",     lambda a: _find_by_type(a, "rtu") or _find_by_type(a, "efm")),
-    ("sub_radio",   "Subscriber Radio", _find_radio_slave),
-    ("mst_radio",   "Master Radio",     _find_radio_master),
-    ("plant_rtr",   "Plant Router",     lambda a: _find_by_type(a, "router")),
-    ("agg",         "Aggregation",      lambda a: _find_by_type(a, "switch")),
-    ("scada_host",  "SCADA Host",       lambda a: _find_by_id(a, "EDGE-01") or _find_by_type(a, "edge")),
+    ("efm_rtu", "EFM/RTU/PLC", lambda a: _find_by_type(a, "rtu") or _find_by_type(a, "efm")),
+    ("sub_radio", "Subscriber Radio", _find_radio_slave),
+    ("mst_radio", "Master Radio", _find_radio_master),
+    ("plant_rtr", "Plant Router", lambda a: _find_by_type(a, "router")),
+    ("agg", "Aggregation", lambda a: _find_by_type(a, "switch")),
+    ("scada_host", "SCADA Host", lambda a: _find_by_id(a, "EDGE-01") or _find_by_type(a, "edge")),
     # VPN + HMI hidden until present (spec allows hiding absent pearls)
 ]
 
@@ -149,10 +149,15 @@ def _sim_pearl(pearl_id: str, label: str, score: int | None, status_override: st
         "asset_id": None,
         "asset_label": "(simulated peer)",
         "score": score,
-        "status": status_override or (
-            "good" if score is not None and score >= 60
-            else "warn" if score is not None and score >= 30
-            else "bad" if score is not None else "offline"
+        "status": status_override
+        or (
+            "good"
+            if score is not None and score >= 60
+            else "warn"
+            if score is not None and score >= 30
+            else "bad"
+            if score is not None
+            else "offline"
         ),
         "last_update": datetime.utcnow().isoformat(),
         "drill_url": "",
@@ -215,8 +220,7 @@ _drill_state: dict = {"active_until": None, "pearl_id": None, "force_status": "b
 
 
 @router.post("/drill/radio-fade")
-async def drill_radio_fade(duration: int = Query(60, ge=10, le=300),
-                           pearl_id: str = Query("sub_radio")) -> dict:
+async def drill_radio_fade(duration: int = Query(60, ge=10, le=300), pearl_id: str = Query("sub_radio")) -> dict:
     """Demo-only: force a Killdeer pearl into bad status for N seconds.
     Loom narration: 'Watch the sub-radio pearl go red — upstream tower
     header turns yellow because the chain is degraded'."""
@@ -274,6 +278,5 @@ async def collimated_grid(include_sim: bool = Query(True)) -> dict:
     return {
         "towers": towers,
         "generated_at": datetime.utcnow().isoformat(),
-        "drill_active": _drill_state["active_until"] is not None
-                        and datetime.utcnow() <= _drill_state["active_until"],
+        "drill_active": _drill_state["active_until"] is not None and datetime.utcnow() <= _drill_state["active_until"],
     }

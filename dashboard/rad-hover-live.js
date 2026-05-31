@@ -1553,6 +1553,221 @@
     observer.observe(document.body, { childList: true, subtree: true, attributes: true, attributeFilter: ['class', 'style'] });
   }
 
+  // ── Alarm 24h Rate Chart enhancer (Task #197) ───────────────────────
+  // The minified bundle renders the ALARM RATE — LAST 24 HOURS panel as
+  // unlabeled tick marks. This enhancer waits for the panel to appear in
+  // the DOM, then replaces its content with a proper SVG bar chart:
+  //   - X-axis: hour labels 0-23 with current-hour highlight
+  //   - Y-axis: dynamic count scale with gridlines
+  //   - Bars: severity-stacked (critical=red, warning=amber, info=blue)
+  //   - Hover: tooltip per bar showing hour + count by severity
+  // Idempotent — uses __charted flag so it doesn't re-render every tick.
+
+  function buildAlarmChart24h(alerts) {
+    // Bucket last 24h by hour-of-day, split by severity
+    var now = Date.now();
+    var buckets = {};
+    for (var i = 0; i < 24; i++) {
+      var t = new Date(now - (23 - i) * 3600000);
+      buckets[i] = {
+        hour: t.getHours(),
+        label: ('0' + t.getHours()).slice(-2),
+        critical: 0,
+        warning: 0,
+        info: 0,
+        total: 0
+      };
+    }
+    (alerts || []).forEach(function (a) {
+      var ts = Date.parse(a.detected_at || a.timestamp || '');
+      if (isNaN(ts)) return;
+      var ageH = Math.floor((now - ts) / 3600000);
+      if (ageH < 0 || ageH > 23) return;
+      var idx = 23 - ageH;
+      var sev = (a.severity || 'info').toLowerCase();
+      if (!buckets[idx][sev]) sev = 'info';
+      buckets[idx][sev]++;
+      buckets[idx].total++;
+    });
+
+    var data = Object.keys(buckets).map(function (k) { return buckets[k]; });
+    var maxCount = Math.max(1, ...data.map(function (b) { return b.total; }));
+    // Round max up to a clean axis tick
+    var yMax = maxCount <= 5 ? 5 : maxCount <= 10 ? 10 : Math.ceil(maxCount / 5) * 5;
+    var yTicks = [0, yMax * 0.25, yMax * 0.5, yMax * 0.75, yMax].map(function (v) { return Math.round(v); });
+
+    var W = 760, H = 200, P = { top: 12, right: 12, bottom: 28, left: 36 };
+    var innerW = W - P.left - P.right;
+    var innerH = H - P.top - P.bottom;
+    var barW = (innerW / 24) - 2;
+    var SEV = {
+      critical: '#EF4444',
+      warning:  '#FBBF24',
+      info:     '#60A5FA'
+    };
+
+    var svg = '<svg viewBox="0 0 ' + W + ' ' + H + '" width="100%" style="display:block;background:transparent;font-family:Manrope,sans-serif;">';
+    // Y-axis gridlines + labels
+    yTicks.forEach(function (v) {
+      var y = P.top + innerH - (v / yMax) * innerH;
+      svg += '<line x1="' + P.left + '" y1="' + y + '" x2="' + (W - P.right) + '" y2="' + y +
+             '" stroke="rgba(148,163,184,0.12)" stroke-width="1" />';
+      svg += '<text x="' + (P.left - 6) + '" y="' + (y + 3) + '" text-anchor="end" font-size="9" fill="#7B8499" font-family="JetBrains Mono,monospace">' + v + '</text>';
+    });
+    // Axis lines
+    svg += '<line x1="' + P.left + '" y1="' + P.top + '" x2="' + P.left + '" y2="' + (P.top + innerH) + '" stroke="rgba(148,163,184,0.25)" stroke-width="1" />';
+    svg += '<line x1="' + P.left + '" y1="' + (P.top + innerH) + '" x2="' + (W - P.right) + '" y2="' + (P.top + innerH) + '" stroke="rgba(148,163,184,0.25)" stroke-width="1" />';
+
+    // Bars (stacked by severity: critical bottom, warning middle, info top)
+    data.forEach(function (b, i) {
+      var x = P.left + i * (innerW / 24) + 1;
+      var yBase = P.top + innerH;
+      var hCrit = (b.critical / yMax) * innerH;
+      var hWarn = (b.warning / yMax) * innerH;
+      var hInfo = (b.info / yMax) * innerH;
+
+      // Tooltip group for the whole bar column
+      svg += '<g class="alarm-chart-bar" data-hour="' + b.label + '" data-total="' + b.total +
+             '" data-critical="' + b.critical + '" data-warning="' + b.warning + '" data-info="' + b.info + '">';
+      svg += '<rect x="' + (x - 1) + '" y="' + P.top + '" width="' + (barW + 2) + '" height="' + innerH +
+             '" fill="transparent" style="cursor:pointer;"/>';
+      if (b.critical > 0)
+        svg += '<rect x="' + x + '" y="' + (yBase - hCrit) + '" width="' + barW + '" height="' + hCrit + '" fill="' + SEV.critical + '" rx="1"/>';
+      if (b.warning > 0)
+        svg += '<rect x="' + x + '" y="' + (yBase - hCrit - hWarn) + '" width="' + barW + '" height="' + hWarn + '" fill="' + SEV.warning + '" rx="1"/>';
+      if (b.info > 0)
+        svg += '<rect x="' + x + '" y="' + (yBase - hCrit - hWarn - hInfo) + '" width="' + barW + '" height="' + hInfo + '" fill="' + SEV.info + '" rx="1"/>';
+      svg += '</g>';
+
+      // X-axis hour label — every 3 hours to avoid clutter
+      if (i % 3 === 0 || i === 23) {
+        svg += '<text x="' + (x + barW / 2) + '" y="' + (H - 12) +
+               '" text-anchor="middle" font-size="9" fill="#7B8499" font-family="JetBrains Mono,monospace">' + b.label + 'h</text>';
+      }
+    });
+
+    // Now / 24h ago anchors
+    svg += '<text x="' + (P.left + 2) + '" y="' + (H - 2) + '" font-size="8" fill="#94A3B8" font-style="italic">24h ago</text>';
+    svg += '<text x="' + (W - P.right - 2) + '" y="' + (H - 2) + '" text-anchor="end" font-size="8" fill="#94A3B8" font-style="italic">now</text>';
+
+    // Legend
+    svg += '<g transform="translate(' + (P.left + 6) + ',' + (P.top + 4) + ')" font-size="9" font-family="Manrope,sans-serif">';
+    svg += '<rect x="0" y="-7" width="8" height="8" fill="' + SEV.critical + '" rx="1"/>';
+    svg += '<text x="12" y="0" fill="#EF4444">Critical</text>';
+    svg += '<rect x="58" y="-7" width="8" height="8" fill="' + SEV.warning + '" rx="1"/>';
+    svg += '<text x="70" y="0" fill="#FBBF24">Warning</text>';
+    svg += '<rect x="120" y="-7" width="8" height="8" fill="' + SEV.info + '" rx="1"/>';
+    svg += '<text x="132" y="0" fill="#60A5FA">Info</text>';
+    svg += '</g>';
+
+    svg += '</svg>';
+    return svg;
+  }
+
+  function ensureAlarmChartTooltip() {
+    var tip = document.getElementById('alarm-chart-tooltip');
+    if (!tip) {
+      tip = document.createElement('div');
+      tip.id = 'alarm-chart-tooltip';
+      tip.style.cssText = 'position:fixed;z-index:11000;background:#0B1020;border:1px solid rgba(6,182,212,0.35);border-radius:6px;padding:8px 10px;font-size:11px;color:#E2E8F0;pointer-events:none;box-shadow:0 6px 18px rgba(0,0,0,0.5);display:none;font-family:Manrope,sans-serif;';
+      document.body.appendChild(tip);
+    }
+    return tip;
+  }
+
+  function attachAlarmBarTooltips(container) {
+    var bars = container.querySelectorAll('.alarm-chart-bar');
+    bars.forEach(function (b) {
+      b.addEventListener('mouseenter', function (e) {
+        var tip = ensureAlarmChartTooltip();
+        var h = b.getAttribute('data-hour');
+        var tot = b.getAttribute('data-total');
+        var crit = b.getAttribute('data-critical');
+        var warn = b.getAttribute('data-warning');
+        var info = b.getAttribute('data-info');
+        tip.innerHTML =
+          '<div style="font-weight:700;color:#06B6D4;margin-bottom:4px;">' + h + ':00 — ' + h + ':59</div>' +
+          '<div style="display:flex;justify-content:space-between;gap:10px;"><span style="color:#94A3B8;">Total</span><span style="font-family:JetBrains Mono,monospace;">' + tot + '</span></div>' +
+          (crit > 0 ? '<div style="display:flex;justify-content:space-between;gap:10px;"><span style="color:#EF4444;">Critical</span><span style="font-family:JetBrains Mono,monospace;">' + crit + '</span></div>' : '') +
+          (warn > 0 ? '<div style="display:flex;justify-content:space-between;gap:10px;"><span style="color:#FBBF24;">Warning</span><span style="font-family:JetBrains Mono,monospace;">' + warn + '</span></div>' : '') +
+          (info > 0 ? '<div style="display:flex;justify-content:space-between;gap:10px;"><span style="color:#60A5FA;">Info</span><span style="font-family:JetBrains Mono,monospace;">' + info + '</span></div>' : '');
+        tip.style.display = 'block';
+        var r = b.getBoundingClientRect();
+        tip.style.left = Math.min(window.innerWidth - 200, r.left) + 'px';
+        tip.style.top = (r.top - 80) + 'px';
+      });
+      b.addEventListener('mouseleave', function () {
+        var tip = document.getElementById('alarm-chart-tooltip');
+        if (tip) tip.style.display = 'none';
+      });
+    });
+  }
+
+  function enhanceAlarmRateChart() {
+    // Find the panel by its title text — the minified bundle doesn't give
+    // us a stable selector, but the heading is invariant.
+    var titles = document.querySelectorAll('.pp-title');
+    var target = null;
+    titles.forEach(function (t) {
+      if ((t.textContent || '').indexOf('ALARM RATE') !== -1 &&
+          (t.textContent || '').indexOf('24 HOURS') !== -1) {
+        target = t.parentNode;
+      }
+    });
+    if (!target || target.__alarmChartEnhanced) return;
+
+    // Fetch live alerts (this is the same endpoint the rest of the page uses)
+    fetch(API_BASE + '/alerts', { cache: 'no-store' })
+      .then(function (r) { return r.ok ? r.json() : null; })
+      .then(function (data) {
+        var list = Array.isArray(data) ? data : (data && data.alerts) || [];
+        // Find the chart container (the div after the title + subtitle)
+        var chartHost = target.querySelector('svg, [style*="min-height"]');
+        if (!chartHost) {
+          // Fallback: nuke everything after subtitle, insert chart there
+          var subtitle = target.querySelector('div[style*="text-muted"]');
+          if (subtitle && subtitle.nextSibling) {
+            // Remove existing fake chart
+            while (subtitle.nextSibling) target.removeChild(subtitle.nextSibling);
+          }
+          var wrap = document.createElement('div');
+          wrap.id = 'alarm-rate-24h-chart';
+          wrap.style.cssText = 'margin-top:8px;';
+          wrap.innerHTML = buildAlarmChart24h(list);
+          target.appendChild(wrap);
+          attachAlarmBarTooltips(wrap);
+        } else {
+          // Replace existing chart container in place
+          var wrap2 = document.createElement('div');
+          wrap2.id = 'alarm-rate-24h-chart';
+          wrap2.innerHTML = buildAlarmChart24h(list);
+          chartHost.parentNode.replaceChild(wrap2, chartHost);
+          attachAlarmBarTooltips(wrap2);
+        }
+        target.__alarmChartEnhanced = true;
+        console.log('[Aevus] Alarm 24h chart upgraded with axes + severity bars');
+      })
+      .catch(function (e) { console.warn('[alarm chart] enhancement failed:', e.message); });
+  }
+
+  function watchAlarmAnalyticsPanel() {
+    // Re-run enhancement when the analytics tab becomes visible
+    var observer = new MutationObserver(function () {
+      var panel = document.querySelector('[data-alarm-panel="analytics"]');
+      if (panel && panel.classList.contains('active')) {
+        // Reset the flag on each tab-show so freshly-rendered chart gets enhanced
+        var titles = document.querySelectorAll('.pp-title');
+        titles.forEach(function (t) {
+          if ((t.textContent || '').indexOf('ALARM RATE') !== -1) {
+            t.parentNode.__alarmChartEnhanced = false;
+          }
+        });
+        enhanceAlarmRateChart();
+      }
+    });
+    observer.observe(document.body, { childList: true, subtree: true, attributes: true, attributeFilter: ['class'] });
+  }
+
   // ── Boot ────────────────────────────────────────────────────────────
   function boot() {
     wrapHover();
@@ -1561,6 +1776,7 @@
     watchIL9000Panel();
     setInterval(reorderHistorianButtons, 1500);
     startRickersonPolling();
+    watchAlarmAnalyticsPanel();
     // Re-inject help on hash change so it's scoped to the new page next open
     window.addEventListener('hashchange', function () {
       document.querySelectorAll('#il9000-impact-card, #cog-load-detail, .il9k-panel, [class*="impact-card"]').forEach(function (el) {

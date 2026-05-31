@@ -156,28 +156,32 @@ jobs:
       - name: Deploy backend src/ if changed
         run: |
           set -euo pipefail
-          # The SSM-run script does the change detection on EC2 itself — it
-          # has the full git history, while the runner has only a shallow
-          # clone. Restart is gated on actual src/ diff so a dashboard-only
-          # commit doesn't bounce live connections.
-          REMOTE_SCRIPT='set -euo pipefail
-cd /home/ubuntu/aevus-testbed
-sudo -u ubuntu git fetch origin main 2>&1 | sed "s/^/    /"
-if sudo -u ubuntu git diff --quiet HEAD origin/main -- src/ pyproject.toml requirements.txt 2>/dev/null; then
-  echo "[backend] no src/ changes — aevus.service untouched"
-  exit 0
-fi
-echo "[backend] src/ changes detected:"
-sudo -u ubuntu git diff --name-only HEAD origin/main -- src/ pyproject.toml requirements.txt | sed "s/^/    /"
-sudo -u ubuntu git checkout origin/main -- src/ 2>/dev/null || true
-sudo -u ubuntu git checkout origin/main -- pyproject.toml 2>/dev/null || true
-sudo -u ubuntu git checkout origin/main -- requirements.txt 2>/dev/null || true
-echo "[backend] restarting aevus.service..."
-sudo systemctl restart aevus.service
-sleep 5
-echo "[backend] service status: $(systemctl is-active aevus.service)"
-curl -sf -o /dev/null -w "[backend] /api/v1/health/ping: %{http_code}\n" http://127.0.0.1:8000/api/v1/health/ping || echo "[backend] ping check failed (may be normal during cold start)"
-'
+          # The SSM-run script does change detection on EC2 itself — it has
+          # the full git history, while the runner has only a shallow clone.
+          # Restart is gated on actual src/ diff so a dashboard-only commit
+          # doesn't bounce live connections. Script is written to a tmpfile
+          # to keep YAML indentation sane.
+          cat > /tmp/aevus-backend-deploy.sh <<'REMOTE'
+          #!/bin/bash
+          set -euo pipefail
+          cd /home/ubuntu/aevus-testbed
+          sudo -u ubuntu git fetch origin main 2>&1 | sed 's/^/    /'
+          if sudo -u ubuntu git diff --quiet HEAD origin/main -- src/ pyproject.toml requirements.txt 2>/dev/null; then
+            echo "[backend] no src/ changes — aevus.service untouched"
+            exit 0
+          fi
+          echo "[backend] src/ changes detected:"
+          sudo -u ubuntu git diff --name-only HEAD origin/main -- src/ pyproject.toml requirements.txt | sed 's/^/    /'
+          sudo -u ubuntu git checkout origin/main -- src/ 2>/dev/null || true
+          sudo -u ubuntu git checkout origin/main -- pyproject.toml 2>/dev/null || true
+          sudo -u ubuntu git checkout origin/main -- requirements.txt 2>/dev/null || true
+          echo "[backend] restarting aevus.service..."
+          sudo systemctl restart aevus.service
+          sleep 5
+          echo "[backend] service status: $(systemctl is-active aevus.service)"
+          curl -sf -o /dev/null -w "[backend] /api/v1/health/ping: %{http_code}\n" http://127.0.0.1:8000/api/v1/health/ping || echo "[backend] ping check failed (may be normal during cold start)"
+          REMOTE
+          REMOTE_SCRIPT=$(cat /tmp/aevus-backend-deploy.sh)
           COMMANDS=$(jq -nc --arg cmd "$REMOTE_SCRIPT" '[$cmd]')
           CMD_ID=$(aws ssm send-command \
             --instance-ids "${EC2_INSTANCE_ID}" \

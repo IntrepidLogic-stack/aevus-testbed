@@ -3666,6 +3666,28 @@ body.map-active .main > div:first-child { display: none !important; }
 /* ── RF Communications Page (34th audit) ── */
 .rf-page { height:calc(100vh - 80px); display:flex; flex-direction:column; overflow:hidden; position:relative; }
 .rf-status-bar { display:flex; justify-content:space-between; align-items:center; padding:10px 20px; background:rgba(14,165,233,0.03); border:1px solid rgba(14,165,233,0.08); border-radius:10px; margin-bottom:8px; }
+
+/* ── Hero KPI strip (Task #154) ─────────────────────────────────────────
+   4 oversized tiles operator-glance-able at 6 ft. Each tile carries a
+   data-status attribute (good/warn/bad/unknown) that the CSS keys color
+   off of. JS sets data-status; CSS does the visual. */
+.rf-hero-kpis { display:grid; grid-template-columns:repeat(4,1fr); gap:8px; margin-bottom:10px; }
+@media (max-width:760px) { .rf-hero-kpis { grid-template-columns:repeat(2,1fr); } }
+.rf-hero-tile { padding:12px 16px; border-radius:10px; background:rgba(148,163,184,0.04); border:1px solid rgba(148,163,184,0.10); transition:background 0.3s,border 0.3s; }
+.rf-hero-tile[data-status="good"] { background:rgba(16,212,120,0.06); border-color:rgba(16,212,120,0.25); }
+.rf-hero-tile[data-status="warn"] { background:rgba(251,191,36,0.06); border-color:rgba(251,191,36,0.30); }
+.rf-hero-tile[data-status="bad"]  { background:rgba(239,68,68,0.08);  border-color:rgba(239,68,68,0.35);  animation:rfHeroPulse 2s ease-in-out infinite; }
+@keyframes rfHeroPulse { 0%,100% { box-shadow:0 0 0 rgba(239,68,68,0); } 50% { box-shadow:0 0 12px rgba(239,68,68,0.25); } }
+.rf-hero-label { font-size:9px; font-weight:700; letter-spacing:1.2px; text-transform:uppercase; color:var(--text-muted); display:flex; align-items:center; gap:6px; }
+.rf-hero-tag { font-size:7px; padding:1px 5px; border-radius:3px; background:rgba(155,112,246,0.15); color:#9B70F6; font-weight:700; letter-spacing:0.5px; }
+.rf-hero-value { font-size:30px; font-weight:800; font-family:'JetBrains Mono',monospace; color:#E2E8F0; line-height:1.1; margin-top:4px; }
+.rf-hero-tile[data-status="good"] .rf-hero-value { color:#10D478; }
+.rf-hero-tile[data-status="warn"] .rf-hero-value { color:#FBBF24; }
+.rf-hero-tile[data-status="bad"]  .rf-hero-value { color:#EF4444; }
+.rf-hero-unit  { font-size:14px; font-weight:600; color:var(--text-muted); margin-left:4px; }
+.rf-hero-sub   { font-size:9px; color:var(--text-faint); margin-top:6px; letter-spacing:0.3px; }
+body.wall-mode .rf-hero-value { font-size:42px; }
+body.wall-mode .rf-hero-label { font-size:11px; }
 .rf-link-indicator { display:flex; align-items:center; gap:8px; }
 .rf-meta { font-size:10px; color:var(--text-muted); font-family:var(--font-mono); }
 .rf-flow-container { flex:1; display:flex; align-items:center; justify-content:center; min-height:0; }
@@ -4527,6 +4549,30 @@ html { scroll-behavior:smooth; }
       <div id="rf-link-meta" class="rf-meta"></div>
     </div>
 
+    <!-- ─── Hero KPI strip (Task #154) — 4 oversized tiles, operator-glance at 6 ft ─── -->
+    <div class="rf-hero-kpis" role="region" aria-label="Radio link KPIs">
+      <div class="rf-hero-tile" id="rf-hero-linkstate" data-status="">
+        <div class="rf-hero-label">LINK STATE</div>
+        <div class="rf-hero-value" id="rf-hero-linkstate-val">—</div>
+        <div class="rf-hero-sub" id="rf-hero-linkstate-sub">awaiting first poll</div>
+      </div>
+      <div class="rf-hero-tile" id="rf-hero-latency" data-status="">
+        <div class="rf-hero-label">LATENCY <span class="rf-hero-tag">P-008</span></div>
+        <div class="rf-hero-value"><span id="rf-hero-latency-val">—</span><span class="rf-hero-unit">ms</span></div>
+        <div class="rf-hero-sub" id="rf-hero-latency-sub">edge ↔ radio RTT</div>
+      </div>
+      <div class="rf-hero-tile" id="rf-hero-uptime" data-status="">
+        <div class="rf-hero-label">UPTIME 24H</div>
+        <div class="rf-hero-value"><span id="rf-hero-uptime-val">—</span><span class="rf-hero-unit">%</span></div>
+        <div class="rf-hero-sub" id="rf-hero-uptime-sub">link availability</div>
+      </div>
+      <div class="rf-hero-tile" id="rf-hero-alarms" data-status="">
+        <div class="rf-hero-label">ALARMS</div>
+        <div class="rf-hero-value" id="rf-hero-alarms-val">—</div>
+        <div class="rf-hero-sub" id="rf-hero-alarms-sub">RAD-01 + RAD-02</div>
+      </div>
+    </div>
+
     <!-- RF Flow Diagram -->
     <div class="rf-flow-container">
       <svg id="rf-flow-svg" viewBox="0 0 1200 355" preserveAspectRatio="xMidYMid meet" class="rf-flow-svg">
@@ -4666,7 +4712,7 @@ html { scroll-behavior:smooth; }
           <text x="25" y="34" text-anchor="middle" id="rf-total-pkts" fill="#E2E8F0" font-size="13" font-weight="700" font-family="monospace">—</text>
           <text x="72" y="34" text-anchor="middle" id="rf-total-err" fill="#10D478" font-size="13" font-weight="700" font-family="monospace">0</text>
           <text x="119" y="34" text-anchor="middle" id="rf-latency" fill="#10D478" font-size="13" font-weight="700" font-family="monospace">—</text>
-          <text x="166" y="34" text-anchor="middle" id="rf-uptime" fill="#10D478" font-size="13" font-weight="700" font-family="monospace">100%</text>
+          <text x="166" y="34" text-anchor="middle" id="rf-uptime" fill="#10D478" font-size="13" font-weight="700" font-family="monospace">—</text>
         </g>
 
         <!-- === RAD-02 TOWER === -->
@@ -5113,8 +5159,8 @@ html { scroll-behavior:smooth; }
     }, true);  // capture phase — fires before the default error handler
   })();
 </script>
-<script src="/dashboard/api-client.js?v=127"></script>
-<script src="/dashboard/rad-hover-live.js?v=11"></script>
+<script src="/dashboard/api-client.js?v=128"></script>
+<script src="/dashboard/rad-hover-live.js?v=12"></script>
 
 <script>
 (function() {

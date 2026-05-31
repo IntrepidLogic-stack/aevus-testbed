@@ -20,6 +20,14 @@ class TestEvaluateStatus:
     def test_bool_bad_inactive(self):
         assert evaluate_status(0.0, "bool_bad") == "good"
 
+    def test_bool_good_active(self):
+        """1.0 = healthy (e.g. link_state LINKED). Task #155 regression test."""
+        assert evaluate_status(1.0, "bool_good") == "good"
+
+    def test_bool_good_inactive(self):
+        """0.0 = down. The 'ACTIVE radio mislabeled as bad' bug."""
+        assert evaluate_status(0.0, "bool_good") == "bad"
+
     def test_lower_bad_good(self):
         """RSSI at -65 dBm is good (above -80 warn)."""
         assert evaluate_status(-65.0, "lower_bad", warn=-80.0, crit=-90.0) == "good"

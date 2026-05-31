@@ -48,6 +48,7 @@ from src.api.ingest import router as ingest_router  # noqa: E402
 from src.api.integrations import router as integrations_router  # noqa: E402
 from src.api.notes import journal_router  # noqa: E402
 from src.api.notes import router as notes_router  # noqa: E402
+from src.api.pearls import router as pearls_router  # noqa: E402
 from src.api.ping_diag import router as ping_diag_router  # noqa: E402
 from src.api.predictions import router as predictions_router  # noqa: E402
 from src.api.reports import router as reports_router  # noqa: E402
@@ -468,6 +469,7 @@ for r in (
     integrations_router,
     journal_router,
     notes_router,
+    pearls_router,
     ping_diag_router,
     predictions_router,
     reports_router,

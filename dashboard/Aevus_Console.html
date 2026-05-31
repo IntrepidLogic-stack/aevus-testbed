@@ -3669,11 +3669,14 @@ body.map-active .main > div:first-child { display: none !important; }
 .health-asset-row.expanded { border-color:rgba(14,165,233,0.2) !important; background:rgba(14,165,233,0.03) !important; }
 .health-asset-row .health-detail { animation:fadeSlide 0.25s ease; }
 /* ── RF Communications Page (34th audit) ── */
-.rf-page { height:calc(100vh - 80px); display:flex; flex-direction:column; overflow:hidden; position:relative; margin-top:-8px; }
-/* margin-top:-8px pulls .rf-page back against the top-bar to close the
-   ~80px gap operators reported when the page first renders with NO LINK.
-   The gap was the .page-section { padding:8px } stacking on top of the
-   100vh-80px .rf-page height calc that already accounts for the top-bar. */
+.rf-page { min-height:calc(100vh - 80px); display:flex; flex-direction:column; overflow-y:auto; position:relative; margin-top:-8px; }
+/* min-height (was: height) + overflow-y:auto so the diag buttons + trends
+   panel don't get clipped below the viewport when the SVG fills the
+   100vh-80px ceiling. Operators reported "tools cut off at the bottom"
+   after PR #73 — that was overflow:hidden hiding the diag-bar. Now the
+   page scrolls if content exceeds the viewport, but stays single-page
+   when it fits. margin-top:-8px stays — still pulls page tight against
+   the top-bar to close the ~80px NO-LINK gap from PR #73. */
 .rf-status-bar { display:flex; justify-content:space-between; align-items:center; padding:10px 20px; background:rgba(14,165,233,0.03); border:1px solid rgba(14,165,233,0.08); border-radius:10px; margin-bottom:8px; }
 
 /* ── Hero KPI strip (Task #154) ─────────────────────────────────────────
@@ -3765,8 +3768,11 @@ body.wall-mode .rf-hero-label { font-size:11px; }
    AND below it. Top-align keeps the diagram glued under the hero KPI row
    and lets any spare space accumulate just above the diag-bar (closer to
    where users expect it). */
-.rf-flow-container { flex:1; display:flex; align-items:flex-start; justify-content:center; min-height:0; }
-.rf-flow-svg { width:100%; height:auto; max-height:calc(100vh - 300px); }
+.rf-flow-container { flex:0 0 auto; display:flex; align-items:flex-start; justify-content:center; min-height:0; }
+/* flex:0 0 auto (was flex:1) — let the SVG size to its natural aspect
+   ratio instead of stretching to fill, so the rf-diag-bar + trends panel
+   below it stay above the fold. */
+.rf-flow-svg { width:100%; height:auto; max-height:calc(100vh - 320px); }
 
 /* RF Wave animations */
 .rf-wave { animation:rfWavePulse 2s ease-in-out infinite; }
@@ -4674,13 +4680,15 @@ html { scroll-behavior:smooth; }
           <line x1="900" y1="0" x2="900" y2="360"/>
         </g>
 
-        <!-- === LEFT: SCADA HOST === -->
-        <g transform="translate(40,120)" class="rf-clickable" onclick="rfDrill('RTU-01')" onmouseenter="rfHover(evt,'RTU-01')" onmouseleave="rfUnhover()">
+        <!-- === LEFT: SCADA HOST === (Aevus Pi running the scheduler — the
+             actual master station. Was mislabeled with RTU-01 which is a
+             field device; relabeled to EDGE-01 to match real architecture.) -->
+        <g transform="translate(40,120)" class="rf-clickable" onclick="rfDrill('EDGE-01')" onmouseenter="rfHover(evt,'EDGE-01')" onmouseleave="rfUnhover()">
           <rect x="-5" y="-5" width="130" height="80" fill="transparent" style="cursor:pointer;"/>
           <rect x="0" y="0" width="120" height="70" rx="8" fill="rgba(14,165,233,0.06)" stroke="rgba(14,165,233,0.2)" stroke-width="1.5"/>
           <text x="60" y="22" text-anchor="middle" fill="#7B8499" font-size="9" font-weight="600" letter-spacing="1">SCADA HOST</text>
-          <text x="60" y="40" text-anchor="middle" fill="#00D4FF" font-size="12" font-weight="700" font-family="monospace">RTU-01</text>
-          <text x="60" y="56" text-anchor="middle" fill="#7B8499" font-size="8">Modbus TCP</text>
+          <text x="60" y="40" text-anchor="middle" fill="#00D4FF" font-size="12" font-weight="700" font-family="monospace">EDGE-01</text>
+          <text x="60" y="56" text-anchor="middle" fill="#7B8499" font-size="8">Aevus Pi</text>
           <circle cx="105" cy="14" r="4" fill="#10D478" class="rf-led-pulse"/>
         </g>
 
@@ -4869,17 +4877,40 @@ html { scroll-behavior:smooth; }
           <text x="115" y="46" id="rf-r2-drop" fill="#10D478" font-size="9" font-weight="700" font-family="monospace">—</text>
         </g>
 
-        <!-- === RIGHT: FIELD DEVICE (same Y as SCADA Host) === -->
-        <line x1="940" y1="155" x2="1040" y2="155" stroke="rgba(109,91,208,0.3)" stroke-width="2" stroke-dasharray="6,4"/>
-        <text x="990" y="148" text-anchor="middle" fill="#7B8499" font-size="8">Serial/Eth</text>
+        <!-- === RIGHT: FIELD DEVICES (stacked — RTU-01 + EFM-01) ===
+             RTU-01 SCADAPack 470 is a FIELD device, not a SCADA host —
+             belongs on the remote side downstream of RAD-02, not on the
+             master side. Stacked vertically with EFM-01 since real field
+             sites typically have multiple devices per remote radio. -->
+        <!-- Serial/Eth branch — splits at the radio side, fans out to both -->
+        <line x1="940" y1="155" x2="1010" y2="155" stroke="rgba(109,91,208,0.3)" stroke-width="2" stroke-dasharray="6,4"/>
+        <line x1="1010" y1="155" x2="1010" y2="100" stroke="rgba(109,91,208,0.3)" stroke-width="2" stroke-dasharray="6,4"/>
+        <line x1="1010" y1="100" x2="1040" y2="100" stroke="rgba(109,91,208,0.3)" stroke-width="2" stroke-dasharray="6,4"/>
+        <line x1="1010" y1="155" x2="1010" y2="210" stroke="rgba(109,91,208,0.3)" stroke-width="2" stroke-dasharray="6,4"/>
+        <line x1="1010" y1="210" x2="1040" y2="210" stroke="rgba(109,91,208,0.3)" stroke-width="2" stroke-dasharray="6,4"/>
+        <text x="985" y="148" text-anchor="middle" fill="#7B8499" font-size="8">Serial/Eth</text>
         <circle r="3" fill="#9B70F6" opacity="0.8" class="rf-data-pkt-eth2">
-          <animateMotion dur="2.5s" repeatCount="indefinite" path="M940,155 L1040,155"/>
+          <animateMotion dur="2.5s" repeatCount="indefinite" path="M940,155 L1010,155 L1010,100 L1040,100"/>
+        </circle>
+        <circle r="3" fill="#9B70F6" opacity="0.8" class="rf-data-pkt-eth2">
+          <animateMotion dur="2.8s" repeatCount="indefinite" path="M940,155 L1010,155 L1010,210 L1040,210"/>
         </circle>
 
-        <g transform="translate(1040,120)" class="rf-clickable" onclick="rfDrill('EFM-01')" onmouseenter="rfHover(evt,'EFM-01')" onmouseleave="rfUnhover()">
+        <!-- RTU-01 SCADAPack 470 — FIELD RTU (top) -->
+        <g transform="translate(1040,65)" class="rf-clickable" onclick="rfDrill('RTU-01')" onmouseenter="rfHover(evt,'RTU-01')" onmouseleave="rfUnhover()">
           <rect x="-5" y="-5" width="130" height="80" fill="transparent" style="cursor:pointer;"/>
           <rect x="0" y="0" width="120" height="70" rx="8" fill="rgba(109,91,208,0.06)" stroke="rgba(109,91,208,0.2)" stroke-width="1.5"/>
-          <text x="60" y="22" text-anchor="middle" fill="#7B8499" font-size="9" font-weight="600" letter-spacing="1">FIELD DEVICE</text>
+          <text x="60" y="22" text-anchor="middle" fill="#7B8499" font-size="9" font-weight="600" letter-spacing="1">FIELD RTU</text>
+          <text x="60" y="40" text-anchor="middle" fill="#9B70F6" font-size="12" font-weight="700" font-family="monospace">RTU-01</text>
+          <text x="60" y="56" text-anchor="middle" fill="#7B8499" font-size="8">SCADAPack 470</text>
+          <circle cx="105" cy="14" r="4" fill="#10D478" class="rf-led-pulse"/>
+        </g>
+
+        <!-- EFM-01 TotalFlow XFC — FIELD EFM (bottom) -->
+        <g transform="translate(1040,175)" class="rf-clickable" onclick="rfDrill('EFM-01')" onmouseenter="rfHover(evt,'EFM-01')" onmouseleave="rfUnhover()">
+          <rect x="-5" y="-5" width="130" height="80" fill="transparent" style="cursor:pointer;"/>
+          <rect x="0" y="0" width="120" height="70" rx="8" fill="rgba(109,91,208,0.06)" stroke="rgba(109,91,208,0.2)" stroke-width="1.5"/>
+          <text x="60" y="22" text-anchor="middle" fill="#7B8499" font-size="9" font-weight="600" letter-spacing="1">FIELD EFM</text>
           <text x="60" y="40" text-anchor="middle" fill="#9B70F6" font-size="12" font-weight="700" font-family="monospace">EFM-01</text>
           <text x="60" y="56" text-anchor="middle" fill="#7B8499" font-size="8">TotalFlow XFC</text>
           <circle cx="105" cy="14" r="4" fill="#10D478" class="rf-led-pulse"/>
@@ -5346,7 +5377,7 @@ html { scroll-behavior:smooth; }
   })();
 </script>
 <script src="/dashboard/api-client.js?v=129"></script>
-<script src="/dashboard/rad-hover-live.js?v=15"></script>
+<script src="/dashboard/rad-hover-live.js?v=16"></script>
 
 <script>
 (function() {

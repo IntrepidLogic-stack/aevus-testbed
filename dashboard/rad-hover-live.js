@@ -1281,6 +1281,170 @@
     console.log('[Aevus Rad Hover] rfHover wrapped — live mode active for', TARGETS.join(', '));
   }
 
+  // ── Rickerson Scale renderer (Task #171 / P0c) ─────────────────────
+  // Polls /api/v1/pearls/grid every 5s, renders the primary strip + the
+  // collimated tower grid. Tracks per-pearl bad-state dwell time to drive
+  // the data-dwelled="1" attribute (60s+ in bad → pulse). Tooltip on hover
+  // shows label / score / status / last-update — never raw input vitals
+  // (trade-secret discipline matches the API contract).
+  var PEARL_GLYPH = { good: '✓', warn: '!', bad: '✕', offline: '·' };
+  var rickerDwellStart = {};   // key = tower_id + ':' + pearl_id → ms timestamp first turned bad
+  var rickerTooltipEl = null;
+
+  function ensureRickerTooltip() {
+    if (!rickerTooltipEl) {
+      rickerTooltipEl = document.createElement('div');
+      rickerTooltipEl.className = 'ricker-tooltip';
+      rickerTooltipEl.style.display = 'none';
+      document.body.appendChild(rickerTooltipEl);
+    }
+    return rickerTooltipEl;
+  }
+
+  function rickerFreshness(iso) {
+    if (!iso) return 'unknown';
+    var t = Date.parse(iso);
+    if (isNaN(t)) return 'unknown';
+    var s = Math.round((Date.now() - t) / 1000);
+    if (s < 5) return 'just now';
+    if (s < 60) return s + 's ago';
+    if (s < 3600) return Math.round(s / 60) + 'm ago';
+    return Math.round(s / 3600) + 'h ago';
+  }
+
+  function renderPearlStrip(towerData, mountEl, compact) {
+    if (!mountEl) return;
+    mountEl.className = 'ricker-strip' + (compact ? ' ricker-strip-compact' : '');
+    mountEl.innerHTML = '';
+    var pearls = towerData.pearls || [];
+    pearls.forEach(function (pearl, i) {
+      var wrap = document.createElement('div');
+      wrap.className = 'ricker-pearl-wrap';
+
+      var p = document.createElement('div');
+      p.className = 'ricker-pearl' + (pearl.score == null && pearl.status === 'offline' ? ' ricker-pearl-empty' : '');
+      p.setAttribute('data-status', pearl.status || 'offline');
+      p.setAttribute('data-glyph', PEARL_GLYPH[pearl.status] || '·');
+      p.textContent = pearl.score != null ? pearl.score : '—';
+
+      // Dwell tracking — only pulse after 60s+ in bad
+      var key = (towerData.tower_id || 'k') + ':' + pearl.pearl_id;
+      if (pearl.status === 'bad') {
+        if (!rickerDwellStart[key]) rickerDwellStart[key] = Date.now();
+        if (Date.now() - rickerDwellStart[key] >= 60000) {
+          p.setAttribute('data-dwelled', '1');
+        }
+      } else {
+        delete rickerDwellStart[key];
+      }
+
+      // Hover tooltip
+      p.addEventListener('mouseenter', function (e) {
+        var tip = ensureRickerTooltip();
+        tip.innerHTML =
+          '<div class="tt-head">' + (pearl.label || pearl.pearl_id) + '</div>' +
+          '<div class="tt-row"><span>Asset</span><span>' + (pearl.asset_label || pearl.asset_id || '—') + '</span></div>' +
+          '<div class="tt-row"><span>Score</span><span style="font-family:monospace;">' + (pearl.score != null ? pearl.score + ' / 100' : '—') + '</span></div>' +
+          '<div class="tt-row"><span>Status</span><span style="text-transform:uppercase;">' + (pearl.status || 'offline') + '</span></div>' +
+          '<div class="tt-row"><span>Last update</span><span>' + rickerFreshness(pearl.last_update) + '</span></div>' +
+          (pearl.simulated ? '<div class="tt-foot" style="color:#9B70F6;">⚠ Simulated peer tower — illustrative only</div>' :
+           pearl.drill_url ? '<div class="tt-foot">Click to drill →</div>' : '');
+        tip.style.display = 'block';
+        var r = p.getBoundingClientRect();
+        tip.style.left = Math.min(window.innerWidth - 290, r.left) + 'px';
+        tip.style.top = (r.bottom + 8) + 'px';
+      });
+      p.addEventListener('mouseleave', function () {
+        if (rickerTooltipEl) rickerTooltipEl.style.display = 'none';
+      });
+
+      // Click → drill (in-place navigation per SCADA-op-lens feedback)
+      if (pearl.drill_url) {
+        p.addEventListener('click', function () {
+          if (rickerTooltipEl) rickerTooltipEl.style.display = 'none';
+          var [hash, query] = pearl.drill_url.split('?');
+          window.location.hash = hash;
+        });
+      }
+
+      wrap.appendChild(p);
+      var lbl = document.createElement('div');
+      lbl.className = 'ricker-pearl-label';
+      lbl.textContent = pearl.label || pearl.pearl_id;
+      wrap.appendChild(lbl);
+      mountEl.appendChild(wrap);
+
+      // Connector to next pearl (worst-of-two color)
+      if (i < pearls.length - 1) {
+        var next = pearls[i + 1];
+        var order = { good: 0, warn: 1, bad: 2, offline: 3 };
+        var worst = order[next.status] > order[pearl.status] ? next.status : pearl.status;
+        var conn = document.createElement('div');
+        conn.className = 'ricker-connector';
+        conn.setAttribute('data-worst', worst);
+        mountEl.appendChild(conn);
+      }
+    });
+  }
+
+  function renderTowerCard(towerData) {
+    var card = document.createElement('div');
+    card.className = 'ricker-tower';
+    card.setAttribute('data-header', towerData.header_status || 'good');
+    if (towerData.simulated) card.setAttribute('data-sim', '1');
+
+    var head = document.createElement('div');
+    head.className = 'ricker-tower-head';
+    head.innerHTML =
+      '<div>' +
+        '<div class="ricker-tower-name">' + (towerData.tower_label || towerData.tower_id) + '</div>' +
+        '<div class="ricker-tower-sub">' + (towerData.simulated ? 'Synthetic peer tower' : 'Live testbed telemetry') + '</div>' +
+      '</div>' +
+      '<div class="ricker-tower-badges">' +
+        (towerData.simulated ? '<span class="ricker-sim-badge">SIM</span>' : '') +
+        '<span class="ricker-tower-roll" data-status="' + (towerData.header_status || 'good') + '">' +
+          (towerData.header_status || 'good').toUpperCase() + '</span>' +
+      '</div>';
+    card.appendChild(head);
+
+    var stripMount = document.createElement('div');
+    card.appendChild(stripMount);
+    renderPearlStrip(towerData, stripMount, false);
+    return card;
+  }
+
+  var rickerPollTimer = null;
+  function pollRickersonScale() {
+    fetch(API_BASE + '/pearls/grid?include_sim=true', { cache: 'no-store' })
+      .then(function (r) { return r.ok ? r.json() : null; })
+      .then(function (data) {
+        if (!data || !data.towers) return;
+
+        // Primary strip = first (real) tower
+        var primary = document.getElementById('rickerson-strip-primary');
+        if (primary && data.towers[0]) renderPearlStrip(data.towers[0], primary, false);
+
+        // Collimated grid
+        var grid = document.getElementById('rickerson-grid');
+        if (grid) {
+          grid.className = 'ricker-grid-mount';
+          grid.innerHTML = '';
+          data.towers.forEach(function (t) { grid.appendChild(renderTowerCard(t)); });
+        }
+
+        // Compact mount on Overview L1 (if present)
+        var compact = document.getElementById('rickerson-strip-overview');
+        if (compact && data.towers[0]) renderPearlStrip(data.towers[0], compact, true);
+      })
+      .catch(function (e) { console.warn('[Rickerson] grid poll failed:', e.message); });
+  }
+
+  function startRickersonPolling() {
+    if (rickerPollTimer) return;
+    pollRickersonScale();
+    rickerPollTimer = setInterval(pollRickersonScale, 5000);
+  }
+
   // ── Historian button reorder (Task #178) ───────────────────────────
   // The minified bundle stacks Query / Add Trace / Normalize vertically to
   // the right of the dropdowns. UX wants horizontal row, dropdown-aligned,
@@ -1396,6 +1560,7 @@
     startPolling();
     watchIL9000Panel();
     setInterval(reorderHistorianButtons, 1500);
+    startRickersonPolling();
     // Re-inject help on hash change so it's scoped to the new page next open
     window.addEventListener('hashchange', function () {
       document.querySelectorAll('#il9000-impact-card, #cog-load-detail, .il9k-panel, [class*="impact-card"]').forEach(function (el) {

@@ -207,13 +207,73 @@ async def killdeer_pearls() -> dict:
     }
 
 
+# ── Demo drill — radio-fade simulation (P0d) ──────────────────────────
+# When triggered, downshift one of Killdeer's pearls for `duration` seconds
+# so the show-back Loom can demo yellow→red transition + upstream-tower
+# header turning yellow. State lives in-memory (acceptable for demo path).
+_drill_state: dict = {"active_until": None, "pearl_id": None, "force_status": "bad"}
+
+
+@router.post("/drill/radio-fade")
+async def drill_radio_fade(duration: int = Query(60, ge=10, le=300),
+                           pearl_id: str = Query("sub_radio")) -> dict:
+    """Demo-only: force a Killdeer pearl into bad status for N seconds.
+    Loom narration: 'Watch the sub-radio pearl go red — upstream tower
+    header turns yellow because the chain is degraded'."""
+    from datetime import timedelta
+
+    _drill_state["active_until"] = datetime.utcnow() + timedelta(seconds=duration)
+    _drill_state["pearl_id"] = pearl_id
+    return {
+        "drill": "radio-fade",
+        "pearl_id": pearl_id,
+        "duration_s": duration,
+        "active_until": _drill_state["active_until"].isoformat(),
+    }
+
+
+@router.post("/drill/clear")
+async def drill_clear() -> dict:
+    _drill_state["active_until"] = None
+    return {"drill": "cleared"}
+
+
+def _apply_drill(tower: dict) -> dict:
+    """If a drill is active and targets one of this tower's pearls, override
+    its score/status to 'bad' so the Loom shows a live degradation."""
+    if _drill_state["active_until"] is None:
+        return tower
+    if datetime.utcnow() > _drill_state["active_until"]:
+        return tower
+    if tower.get("tower_id") != "killdeer":
+        return tower
+    target = _drill_state["pearl_id"]
+    pearls = tower.get("pearls", [])
+    any_bad = False
+    for p in pearls:
+        if p.get("pearl_id") == target:
+            p["score"] = 18
+            p["status"] = "bad"
+            any_bad = True
+    # Upstream header reflects degraded chain — warn (yellow) per spec
+    if any_bad and tower.get("header_status") == "good":
+        tower["header_status"] = "warn"
+    return tower
+
+
 @router.get("/grid")
 async def collimated_grid(include_sim: bool = Query(True)) -> dict:
     """Collimated tower grid: 1 real + 2 SIM (when include_sim=true).
     Returns the structure the frontend collimated-grid renders."""
     killdeer = await killdeer_pearls()
+    killdeer = _apply_drill(killdeer)
     towers = [killdeer]
     if include_sim:
         towers.append(_build_sim_tower("Eddy County", "degraded"))
         towers.append(_build_sim_tower("Culberson", "critical"))
-    return {"towers": towers, "generated_at": datetime.utcnow().isoformat()}
+    return {
+        "towers": towers,
+        "generated_at": datetime.utcnow().isoformat(),
+        "drill_active": _drill_state["active_until"] is not None
+                        and datetime.utcnow() <= _drill_state["active_until"],
+    }

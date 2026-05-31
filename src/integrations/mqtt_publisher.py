@@ -412,7 +412,7 @@ async def _smoke_main() -> None:
     """Publish a few test messages and exit.
 
     Useful for verifying the cert chain works against AWS IoT Core
-    BEFORE wrapping the full scheduler in a Greengrass component.
+    before letting the full scheduler use this publisher.
 
     Usage on the Pi (after `terraform apply` and pushing certs):
         python3 -m src.integrations.mqtt_publisher

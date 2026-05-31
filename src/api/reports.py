@@ -1,10 +1,94 @@
 import math
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 
-from fastapi import APIRouter
+from fastapi import APIRouter, Query
 from fastapi.responses import HTMLResponse
 
 router = APIRouter(prefix="/reports", tags=["reports"])
+
+
+# ──────────────────────────────────────────────────────────────────────────
+# JSON reports (Task #154 — restored from test contract that predates the
+# current src/api/reports.py file; tests/test_reports.py expected these
+# endpoints since before PR #56 caught the gap)
+# ──────────────────────────────────────────────────────────────────────────
+@router.get("/fleet-health")
+async def fleet_health_report(hours: int = Query(24, ge=1, le=720)):
+    """Fleet health snapshot for the trailing `hours` window.
+
+    Shape matches tests/test_reports.py contract:
+      { report: "fleet-health", generated_at, period_hours, total_assets,
+        assets: [{id, name, status, health, ...}] }
+    """
+    from src.main import app_state
+
+    assets = app_state.db.list_assets()
+    asset_records = [
+        {
+            "id": a.id,
+            "name": a.name,
+            "type": a.type,
+            "status": a.status,
+            "health": a.health,
+            "vendor": a.vendor,
+            "model": a.model,
+            "location": a.location,
+        }
+        for a in assets
+    ]
+    by_status: dict[str, int] = {}
+    for a in assets:
+        by_status[a.status] = by_status.get(a.status, 0) + 1
+
+    healths = [a.health for a in assets if a.health is not None]
+    avg_health = round(sum(healths) / len(healths)) if healths else None
+
+    return {
+        "report": "fleet-health",
+        "generated_at": datetime.now(UTC).isoformat(),
+        "period_hours": hours,
+        "total_assets": len(assets),
+        "average_health": avg_health,
+        "by_status": by_status,
+        "assets": asset_records,
+    }
+
+
+@router.get("/alerts")
+async def alert_history_report(
+    hours: int = Query(168, ge=1, le=8760),
+    severity: str | None = Query(None, pattern="^(critical|warning|info)$"),
+):
+    """Alert history for the trailing `hours` window, optional severity filter.
+
+    Shape matches tests/test_reports.py contract:
+      { report: "alert-history", generated_at, period_hours, total_alerts,
+        severity_filter, alerts: [...] }
+    """
+    from src.main import app_state
+
+    cutoff = datetime.now(UTC) - timedelta(hours=hours)
+    raw = app_state.db.list_alerts(limit=1000)
+    in_window = [a for a in raw if a.detected_at >= cutoff and (severity is None or a.severity == severity)]
+    return {
+        "report": "alert-history",
+        "generated_at": datetime.now(UTC).isoformat(),
+        "period_hours": hours,
+        "severity_filter": severity,
+        "total_alerts": len(in_window),
+        "alerts": [
+            {
+                "id": a.id,
+                "severity": a.severity,
+                "asset_id": a.asset_id,
+                "asset_name": a.asset_name,
+                "message": a.message,
+                "detected_at": a.detected_at.isoformat(),
+                "status": a.status,
+            }
+            for a in in_window
+        ],
+    }
 
 
 @router.get("/site-summary", response_class=HTMLResponse)

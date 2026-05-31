@@ -16,10 +16,11 @@ all key off these patterns. Centralizing the generation keeps the
 publisher, the dashboard subscriber, and the Terraform rules in sync.
 
 Topic-level IAM (production):
-  Each Greengrass core only has IAM publish permission under its own
-  {site_id}/ prefix. A misbehaving (or compromised) edge can't poison
-  topics belonging to other sites. Enforced via the IoT Core policy
-  in infra/terraform/aws-iot-core.tf.
+  Each edge cert only has IAM publish permission under its own
+  aevus/{site_id}/ prefix. A misbehaving (or compromised) edge can't
+  poison topics belonging to other sites. Enforced via the
+  aevus-edge-publish IoT policy v3 (see Task #152, IaC at
+  infra/terraform/edge-mqtt-observability/main.tf).
 """
 
 from __future__ import annotations

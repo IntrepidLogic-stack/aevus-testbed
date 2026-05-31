@@ -438,6 +438,114 @@
     setTile('alarms', String(alarmCount), aSub, aStatus);
   }
 
+  // ── Inline per-radio detail panels (Task #164) ──────────────────────
+  // Surface ALL tooltip data as always-visible cards on the radio page so
+  // the operator doesn't have to hover to read anything. Diag tools at the
+  // bottom remain click-only. Idempotent — safe to call every poll.
+  function setStatusedVit(elId, value, status) {
+    var el = document.getElementById(elId);
+    if (!el) return;
+    el.textContent = value;
+    if (status != null) el.setAttribute('data-status', status);
+  }
+
+  function renderInlineRadioCards() {
+    [['RAD-01', 'r1', 'MASTER', 'Trio JR900 #1'],
+     ['RAD-02', 'r2', 'SLAVE',  'Trio JR900 #2']].forEach(function (cfg) {
+      var assetId = cfg[0], key = cfg[1], defaultRole = cfg[2], defaultName = cfg[3];
+      var a = assetCache[assetId];
+      var card = document.getElementById('rf-detail-' + assetId);
+      if (!card) return;
+
+      // status pill + card border tint
+      var status = (a && a.status) ? a.status : '';
+      card.setAttribute('data-status', status);
+      var pill = document.getElementById('rf-detail-' + key + '-status');
+      if (pill) pill.textContent = status ? status.toUpperCase() : 'AWAITING';
+
+      // chattering badge
+      var chatter = document.getElementById('rf-detail-' + key + '-chatter');
+      if (chatter) chatter.hidden = !chatterCache[assetId];
+
+      // sub-header line — vendor model + role
+      var roleVital = a ? vital(a, 'ROLE') : null;
+      var roleVal = (roleVital && roleVital.value && roleVital.value !== '—') ? roleVital.value : defaultRole;
+      var subText = a ? (a.vendor + ' ' + a.model + ' · ' + roleVal) : (defaultName + ' · ' + defaultRole + ' · awaiting live data');
+      setStatusedVit('rf-detail-' + key + '-sub', subText);
+
+      if (!a) {
+        // No live data yet — leave fields as "—" so layout doesn't reflow
+        return;
+      }
+
+      // Identification block
+      setStatusedVit('rf-detail-' + key + '-role', roleVal);
+      var fwRaw = a.firmware || '—';
+      setStatusedVit('rf-detail-' + key + '-fw', fwRaw);
+      setStatusedVit('rf-detail-' + key + '-ip', a.ip_address || '—');
+      setStatusedVit('rf-detail-' + key + '-health', a.health != null ? (a.health + ' / 100') : '—');
+      // Freshness — strip HTML, just keep text the badge would render
+      var freshHtml = freshnessBadge(a);
+      var tmp = document.createElement('div'); tmp.innerHTML = freshHtml;
+      setStatusedVit('rf-detail-' + key + '-fresh', (tmp.textContent || '—').trim());
+
+      // RF vitals — color-coded by normalizer status
+      function putVit(slot, label) {
+        var v = vital(a, label);
+        var el = document.getElementById('rf-detail-' + key + '-' + slot);
+        if (!el) return;
+        el.textContent = v ? v.value : '—';
+        el.setAttribute('data-status', (v && v.status) || '');
+      }
+      putVit('rssi', 'RSSI');
+      putVit('qual', 'SIGNAL QUALITY');
+      putVit('tx',   'TX POWER');
+      putVit('link', 'LINK STATE');
+      putVit('lat',  'LATENCY');
+      putVit('tmp',  'TEMPERATURE');
+      putVit('volt', 'VOLTAGE');
+
+      // Per-direction error split (RF engineer view from design doc)
+      function putErr(slot, label) {
+        var n = rawVital(a, label);
+        var el = document.getElementById('rf-detail-' + key + '-' + slot);
+        if (!el) return;
+        el.textContent = fmtCount(n);
+        el.removeAttribute('data-warn');
+        el.removeAttribute('data-bad');
+        if (n > 100) el.setAttribute('data-bad', '1');
+        else if (n > 0) el.setAttribute('data-warn', '1');
+      }
+      putErr('txerr', 'TX ERRORS');
+      putErr('rxerr', 'RX ERRORS');
+      putErr('drop',  'RX DROPPED');
+
+      // Active alarms list
+      var alarmsEl = document.getElementById('rf-detail-' + key + '-alarms');
+      if (alarmsEl) {
+        var unresolved = (alertCache[assetId] || []).filter(function (al) { return al.status !== 'resolved'; });
+        if (unresolved.length === 0 && !chatterCache[assetId]) {
+          alarmsEl.innerHTML = '<div class="rf-alarm-empty">No active alarms ✓</div>';
+        } else {
+          var rows = '';
+          if (chatterCache[assetId]) {
+            rows += '<div class="rf-alarm-row"><span class="rf-alarm-sev" data-sev="critical">CHATTER</span>' +
+                    '<span class="rf-alarm-msg">ISA-18.2 §7 chattering meta-alarm — metric oscillating</span></div>';
+          }
+          unresolved.slice(0, 6).forEach(function (al) {
+            rows += '<div class="rf-alarm-row"><span class="rf-alarm-sev" data-sev="' + esc(al.severity) + '">' +
+                    esc(al.severity.toUpperCase()) + '</span><span class="rf-alarm-msg">' + esc(al.message) + '</span></div>';
+          });
+          if (unresolved.length > 6) {
+            rows += '<div class="rf-alarm-row"><span class="rf-alarm-sev" data-sev="info">+' + (unresolved.length - 6) +
+                    '</span><span class="rf-alarm-msg">more — click radio for full diagnostics</span></div>';
+          }
+          alarmsEl.innerHTML = rows;
+        }
+      }
+    });
+  }
+
   // ── Open map-popup → rich live card ──────────────────────────────────
   // When a RAD-01/RAD-02 map popup is open, replace its body with the SAME
   // rich card used on the Radio Comms page (Role / Firmware / IP / Health /
@@ -811,35 +919,108 @@
       }
     }, 350);
   }
+  // Label → InfluxDB metric ID. Backend collectors write these snake_case
+  // keys; matches src/collectors/snmp_radio.py TRIO_POLL_OIDS + RTU + network.
+  var TREND_METRIC_MAP = {
+    'RSSI':            'rssi',
+    'SIGNAL QUALITY':  'signal_quality',
+    'TEMPERATURE':     'temperature',
+    'VOLTAGE':         'voltage',
+    'BATTERY':         'battery_voltage',
+    'TX POWER':        'tx_power',
+    'CPU LOAD':        'cpu_load',
+    'MEMORY':          'memory_used',
+    'LATENCY':         'latency',
+    'SUCTION PRESSURE':   'suction_pressure',
+    'DISCHARGE PRESSURE': 'discharge_pressure',
+    'FLOW RATE':       'flow_rate',
+    'VIBRATION':       'vibration',
+    'TANK LEVEL':      'tank_level'
+  };
+
+  // Render an 8-level Unicode sparkline scaled to the real series range.
+  // Empty/single-point series → returns empty string (caller shows "—").
+  function sparkOf(values, width) {
+    if (!values || values.length < 2) return '';
+    var lo = Infinity, hi = -Infinity;
+    values.forEach(function (v) { if (v < lo) lo = v; if (v > hi) hi = v; });
+    var span = hi - lo;
+    var blocks = '▁▂▃▄▅▆▇█';
+    // Down-sample (or up-pad) to target width via linear bucket mean
+    var w = width || 24, out = '';
+    for (var i = 0; i < w; i++) {
+      var idx = Math.floor(i * values.length / w);
+      var v = values[idx];
+      var lvl = span === 0 ? 0 : Math.floor(((v - lo) / span) * 7);
+      out += blocks[Math.max(0, Math.min(7, lvl))];
+    }
+    return out;
+  }
+
   function netRunTrends(srcId, targetId) {
     var tgt = liveAssets.find(function (a) { return a.id === targetId; });
     netDiagAppend('<span class="net-diag-out-cmd">$ aevus trends ' + targetId + '</span>\n');
     if (!tgt) { netDiagAppend('<span class="net-diag-out-bad">✗ target not in live feed</span>\n\n'); return; }
     netDiagAppend('<span class="net-diag-out-hdr">24-HOUR TRENDS — ' + targetId + '</span>\n');
-    netDiagAppend('<span class="net-diag-out-dim">───────────────────────────────────────</span>\n');
-    var trendable = ['RSSI', 'SIGNAL QUALITY', 'TEMPERATURE', 'VOLTAGE', 'CPU LOAD', 'MEMORY', 'BATTERY', 'LATENCY'];
-    var anyShown = false;
-    trendable.forEach(function (name) {
-      var v = (tgt.vitals || []).find(function (x) { return x.label === name; });
-      if (!v) return;
-      anyShown = true;
-      var raw = parseFloat(v.raw_value || v.value) || 0;
-      // Synthesize a tiny 12-sample sparkline (real historian wire-up = future
-      // task; this gives operators a directional feel based on current value)
-      var spark = '';
-      for (var i = 0; i < 12; i++) {
-        var ofs = (Math.sin(i * 0.7) + Math.random() * 0.4 - 0.2) * (raw * 0.02);
-        var level = Math.floor((((raw + ofs) - raw + 2) / 4) * 7);
-        spark += '▁▂▃▄▅▆▇█'[Math.max(0, Math.min(7, level))];
-      }
-      var sCls = v.status === 'good' ? 'good' : v.status === 'bad' ? 'bad' : v.status === 'warn' ? 'warn' : 'dim';
-      netDiagAppend('  <span class="net-diag-out-label">' + (name + '             ').slice(0, 16) + '</span> ' +
-                    spark + '  <span class="net-diag-out-' + sCls + '">' + v.value + '</span>\n');
+    netDiagAppend('<span class="net-diag-out-dim">─────────────────────────────────────────────────</span>\n');
+    netDiagAppend('<span class="net-diag-out-dim">  METRIC          24H SPARK (5-min agg)       LAST    MIN    MAX</span>\n');
+
+    // Walk the asset's current vitals and resolve each to an Influx metric ID
+    var jobs = [];
+    (tgt.vitals || []).forEach(function (v) {
+      var metricId = TREND_METRIC_MAP[v.label];
+      if (!metricId) return;
+      jobs.push({ label: v.label, metric: metricId, vital: v });
     });
-    if (!anyShown) netDiagAppend('<span class="net-diag-out-warn">No trendable metrics on ' + targetId + '</span>\n');
-    netDiagAppend('\n<span class="net-diag-out-dim">(historian wire-up for real series → future task)</span>\n\n');
-    netDiagStopPackets();
-    netDiagSetStatus('READY', '');
+
+    if (jobs.length === 0) {
+      netDiagAppend('<span class="net-diag-out-warn">No trendable metrics on ' + targetId + '</span>\n\n');
+      netDiagSetStatus('READY', ''); netDiagStopPackets(); return;
+    }
+
+    netDiagSetStatus('FETCHING HISTORIAN', 'wait');
+    // Fetch all in parallel against the real InfluxDB-backed endpoint
+    Promise.all(jobs.map(function (j) {
+      return fetch(API_BASE + '/health/trend?asset_id=' + encodeURIComponent(targetId) +
+                   '&metric=' + encodeURIComponent(j.metric) + '&hours=24', { cache: 'no-store' })
+        .then(function (r) { return r.ok ? r.json() : []; })
+        .then(function (pts) { return { job: j, points: Array.isArray(pts) ? pts : [] }; })
+        .catch(function () { return { job: j, points: [] }; });
+    })).then(function (results) {
+      var anySeries = false;
+      results.forEach(function (res) {
+        var j = res.job, pts = res.points;
+        var label = (j.label + '                ').slice(0, 16);
+        var sCls = j.vital.status === 'good' ? 'good' :
+                   j.vital.status === 'bad'  ? 'bad'  :
+                   j.vital.status === 'warn' ? 'warn' : 'dim';
+        if (pts.length < 2) {
+          // Real "no historian data yet" — distinct from "no current vital"
+          netDiagAppend('  <span class="net-diag-out-label">' + label + '</span> ' +
+                        '<span class="net-diag-out-dim">' + (pts.length === 1 ? 'building series (1 sample)…' : 'no historian samples yet') +
+                        '</span>  <span class="net-diag-out-' + sCls + '">' + j.vital.value + '</span>\n');
+          return;
+        }
+        anySeries = true;
+        var vals = pts.map(function (p) { return p.value; }).filter(function (v) { return typeof v === 'number'; });
+        var spark = sparkOf(vals, 24);
+        var lo = Math.min.apply(null, vals);
+        var hi = Math.max.apply(null, vals);
+        var last = vals[vals.length - 1];
+        function fmt(n) { return Math.abs(n) >= 100 ? n.toFixed(0) : n.toFixed(1); }
+        netDiagAppend('  <span class="net-diag-out-label">' + label + '</span> ' +
+                      spark + '  <span class="net-diag-out-' + sCls + '">' +
+                      fmt(last).padStart(6) + '</span>  ' +
+                      '<span class="net-diag-out-dim">' + fmt(lo).padStart(5) + '  ' + fmt(hi).padStart(5) + '</span>\n');
+      });
+      netDiagAppend('\n<span class="net-diag-out-dim">source: InfluxDB · bucket=aevus_telemetry · agg=5min mean · range=24h</span>\n');
+      if (!anySeries) {
+        netDiagAppend('<span class="net-diag-out-warn">⚠ No historian series populated yet — collectors writing but bucket may be empty</span>\n');
+      }
+      netDiagAppend('\n');
+      netDiagStopPackets();
+      netDiagSetStatus('READY', '');
+    });
   }
   function netRunLinkBudget(srcId, targetId) {
     netDiagAppend('<span class="net-diag-out-cmd">$ aevus link-budget ' + srcId + ' → ' + targetId + '</span>\n');
@@ -1001,6 +1182,7 @@
           if (TARGETS.indexOf(a.id) !== -1) assetCache[a.id] = a;
         });
         updateLinkCard();
+        renderInlineRadioCards();  // Task #164 — always-visible per-radio details
         refreshOpenMapPopup();
         updateStaleBannerFromLive();
         renderNetworkPage();  // Task #158 — populate Network page from same feed
@@ -1028,6 +1210,7 @@
         // Hero ALARMS tile reads from alertCache + chatterCache, so refresh
         // it whenever those change (not just on the slower asset poll cycle).
         updateLinkCard();
+        renderInlineRadioCards();  // refresh chattering badge + alarm list inline
       })
       .catch(function (e) { console.warn('[Aevus Rad Hover] alerts poll failed:', e.message); });
   }

@@ -2107,7 +2107,16 @@ body[data-role="operator"] .exec-summary { display: none; }
 /* Wall mode: page-fit with scroll-snap */
 body.wall-mode .main { scroll-snap-type: y mandatory; }
 body.wall-mode .page-section.active { scroll-snap-align: start; min-height: 100vh; display: flex; flex-direction: column; }
-body.wall-mode .page-section.active > div:first-child { flex: 1; }
+/* Original rule made first-child grow to fill leftover space — but on most
+   pages the first child IS .page-header (title strip), which then ballooned
+   into a huge empty banner above content (visible on Alarms + others).
+   Pin .page-header to its natural size; everything below stacks under it. */
+body.wall-mode .page-section.active > .page-header { flex: 0 0 auto !important; padding: 14px 24px !important; }
+body.wall-mode .page-section.active > .page-header .page-title { font-size: 24px !important; margin: 0; }
+body.wall-mode .page-section.active > .page-header .page-subtitle { font-size: 12px !important; margin-top: 2px; }
+/* Only grow first-child when it's NOT the page-header (preserves the
+   schematic-fills-screen behavior on Process Overview). */
+body.wall-mode .page-section.active > div:first-child:not(.page-header) { flex: 1; }
 body.wall-mode .footer { display: none !important; }
 
 /* Wall page indicator */
@@ -2182,6 +2191,69 @@ body.wall-mode #shift-summary { display: none !important; }
 body.wall-mode #correlations-panel { display: none !important; }
 body.wall-mode [data-page="overview"] .panel-box { display: none !important; }
 body.wall-mode #pid-hero-wrap .process-panel { border: none !important; background: transparent !important; box-shadow: none !important; }
+
+/* ── Wall mode improvements (Task #165) ─────────────────────────────
+   Fixes for: (a) Radio Comms SVG callout text overlapping at wall scale,
+   (b) Process Overview empty banner taking huge vertical space,
+   (c) Sites/Solar grid not filling viewport evenly. */
+
+/* RADIO COMMS — hide the cramped SVG-embedded callout grids in wall mode.
+   They're position-fixed inside the SVG viewBox so they overlap badly when
+   the SVG scales up. The new .rf-detail-grid cards (always-visible inline
+   per-radio details) carry the same data at proper readable sizes. */
+body.wall-mode #rf-r1-values,
+body.wall-mode #rf-r2-values,
+body.wall-mode #rf-r1-secondary,
+body.wall-mode #rf-r2-secondary { display: none !important; }
+/* Don't upscale SVG text either — it makes the remaining bits (24H RSSI
+   sparkline labels etc) overlap their containers. */
+body.wall-mode #rf-r1-values text,
+body.wall-mode #rf-r2-values text { font-size: 100% !important; }
+
+/* Promote the inline detail cards to hero size in wall mode */
+body.wall-mode .rf-detail-grid { gap: 20px; margin: 18px 24px; }
+body.wall-mode .rf-detail-card { padding: 20px 24px; }
+body.wall-mode .rf-detail-asset { font-size: 28px; }
+body.wall-mode .rf-detail-pill { font-size: 12px; padding: 4px 12px; }
+body.wall-mode .rf-detail-chatter { font-size: 12px; padding: 4px 12px; }
+body.wall-mode .rf-detail-sub { font-size: 13px; }
+body.wall-mode .rf-detail-k { font-size: 12px; }
+body.wall-mode .rf-detail-v { font-size: 14px; }
+body.wall-mode .rf-detail-section-label { font-size: 11px; margin: 10px 0 8px; }
+body.wall-mode .rf-vit { padding: 10px 12px; gap: 4px; }
+body.wall-mode .rf-vit-k { font-size: 10px; }
+body.wall-mode .rf-vit-v { font-size: 18px; }
+body.wall-mode .rf-err { padding: 8px 12px; }
+body.wall-mode .rf-err-k { font-size: 11px; }
+body.wall-mode .rf-err-v { font-size: 18px; }
+body.wall-mode .rf-alarm-empty { font-size: 12px; }
+body.wall-mode .rf-alarm-row { font-size: 12px; padding: 5px 10px; }
+body.wall-mode .rf-detail-alarms { max-height: 160px; }
+/* Let the rf-page actually scroll in wall mode so all content is reachable */
+body.wall-mode .rf-flow-container { flex: 0 0 auto; }
+body.wall-mode .rf-flow-svg { max-height: 50vh; }
+
+/* PROCESS OVERVIEW — when situation-banner is empty (no active alert), it
+   still reserves padding + border which adds ~80px of dead vertical space
+   above the schematic. Collapse it when it has no text content via :empty,
+   and tighten pid-hero-wrap. */
+body.wall-mode #situation-banner:empty { display: none !important; }
+body.wall-mode #situation-banner { padding: 8px 24px !important; margin: 0 !important; }
+body.wall-mode #pid-hero-wrap { margin-top: 0 !important; padding: 0 !important; }
+body.wall-mode #pid-hero-wrap .process-panel { padding: 4px 16px !important; }
+/* Make the schematic SVG actually fill the available height (was max 60vh, but
+   with the banner removed we have most of the screen). */
+body.wall-mode #process-schematic { padding: 0 24px !important; }
+body.wall-mode #process-schematic svg { max-height: 88vh !important; }
+/* Section becomes pure flex column so schematic gets all leftover space */
+body.wall-mode [data-page="overview"].active { padding: 0 !important; gap: 0 !important; }
+
+/* SITES / SOLAR KILLDEER — make the 2-row grid distribute height evenly so
+   the bottom row doesn't collapse into a thin strip with empty space below. */
+body.wall-mode [data-page="sites"] { display: flex !important; flex-direction: column !important; height: 100vh !important; }
+body.wall-mode [data-page="sites"] .solar-grid { flex: 1; align-content: stretch; }
+body.wall-mode .solar-grid > * { min-height: 0; }
+body.wall-mode .solar-grid { grid-auto-rows: 1fr; }
 
 /* Wall mode overlay indicator */
 body.wall-mode::after {
@@ -3701,6 +3773,53 @@ body.map-active .main > div:first-child { display: none !important; }
 body.wall-mode .rf-hero-value { font-size:42px; }
 body.wall-mode .rf-hero-label { font-size:11px; }
 
+/* ── Inline Per-Radio Detail Panels (Task #164) ────────────────────────
+   Surface ALL data formerly hidden behind hover tooltip as default view.
+   Two cards side-by-side; one per radio. Diag tools at bottom stay click. */
+.rf-detail-grid { display:grid; grid-template-columns:repeat(2,1fr); gap:10px; margin:14px 0 10px; }
+@media (max-width:900px) { .rf-detail-grid { grid-template-columns:1fr; } }
+.rf-detail-card { padding:12px 14px; border-radius:10px; background:rgba(148,163,184,0.04); border:1px solid rgba(148,163,184,0.10); transition:background 0.3s,border 0.3s; }
+.rf-detail-card[data-status="good"] { background:rgba(16,212,120,0.05); border-color:rgba(16,212,120,0.22); }
+.rf-detail-card[data-status="warn"] { background:rgba(251,191,36,0.05); border-color:rgba(251,191,36,0.28); }
+.rf-detail-card[data-status="bad"]  { background:rgba(239,68,68,0.06); border-color:rgba(239,68,68,0.32); }
+.rf-detail-head { display:flex; flex-direction:column; gap:4px; padding-bottom:8px; border-bottom:1px solid rgba(148,163,184,0.10); margin-bottom:10px; }
+.rf-detail-id { display:flex; align-items:center; gap:8px; flex-wrap:wrap; }
+.rf-detail-asset { font-family:'JetBrains Mono',monospace; font-size:18px; font-weight:800; color:#E2E8F0; letter-spacing:1px; }
+.rf-detail-pill { font-size:9px; font-weight:700; letter-spacing:1px; padding:2px 8px; border-radius:10px; background:rgba(148,163,184,0.10); color:#7B8499; text-transform:uppercase; }
+.rf-detail-card[data-status="good"] .rf-detail-pill { background:rgba(16,212,120,0.18); color:#10D478; }
+.rf-detail-card[data-status="warn"] .rf-detail-pill { background:rgba(251,191,36,0.18); color:#FBBF24; }
+.rf-detail-card[data-status="bad"]  .rf-detail-pill { background:rgba(239,68,68,0.22); color:#EF4444; }
+.rf-detail-chatter { font-size:9px; font-weight:800; letter-spacing:0.5px; padding:2px 8px; border-radius:10px; background:rgba(239,68,68,0.22); color:#EF4444; animation:rfHeroPulse 1.5s ease-in-out infinite; }
+.rf-detail-sub { font-size:10px; color:var(--text-muted); letter-spacing:0.3px; }
+.rf-detail-ident { display:grid; grid-template-columns:repeat(2,1fr); gap:4px 14px; margin-bottom:10px; }
+.rf-detail-ident > div { display:flex; justify-content:space-between; gap:8px; font-size:11px; padding:2px 0; }
+.rf-detail-k { color:var(--text-muted); font-size:10px; letter-spacing:0.4px; text-transform:uppercase; }
+.rf-detail-v { color:#E2E8F0; font-family:'JetBrains Mono',monospace; font-size:11px; font-weight:600; text-align:right; }
+.rf-detail-section-label { font-size:9px; font-weight:700; letter-spacing:1.2px; color:var(--text-muted); text-transform:uppercase; margin:8px 0 6px; display:flex; align-items:center; gap:6px; }
+.rf-detail-tag { font-size:7px; padding:1px 5px; border-radius:3px; background:rgba(155,112,246,0.15); color:#9B70F6; font-weight:700; letter-spacing:0.5px; }
+.rf-detail-vitals { display:grid; grid-template-columns:repeat(4,1fr); gap:6px; margin-bottom:6px; }
+@media (max-width:560px) { .rf-detail-vitals { grid-template-columns:repeat(2,1fr); } }
+.rf-vit { background:rgba(11,16,32,0.45); border:1px solid rgba(148,163,184,0.08); border-radius:6px; padding:6px 8px; display:flex; flex-direction:column; gap:2px; }
+.rf-vit-k { font-size:8px; font-weight:700; letter-spacing:0.8px; color:var(--text-muted); }
+.rf-vit-v { font-family:'JetBrains Mono',monospace; font-size:13px; font-weight:700; color:#E2E8F0; }
+.rf-vit-v[data-status="good"] { color:#10D478; }
+.rf-vit-v[data-status="warn"] { color:#FBBF24; }
+.rf-vit-v[data-status="bad"]  { color:#EF4444; }
+.rf-detail-errs { display:grid; grid-template-columns:repeat(3,1fr); gap:6px; margin-bottom:6px; }
+.rf-err { background:rgba(11,16,32,0.45); border:1px solid rgba(148,163,184,0.08); border-radius:6px; padding:5px 8px; display:flex; justify-content:space-between; align-items:center; }
+.rf-err-k { font-size:9px; font-weight:700; letter-spacing:0.6px; color:var(--text-muted); }
+.rf-err-v { font-family:'JetBrains Mono',monospace; font-size:13px; font-weight:700; color:#10D478; }
+.rf-err-v[data-warn="1"] { color:#FBBF24; }
+.rf-err-v[data-bad="1"]  { color:#EF4444; }
+.rf-detail-alarms { display:flex; flex-direction:column; gap:4px; max-height:120px; overflow-y:auto; }
+.rf-alarm-empty { font-size:10px; color:#10D478; padding:4px 0; }
+.rf-alarm-row { display:flex; gap:8px; align-items:flex-start; font-size:10px; padding:3px 6px; background:rgba(11,16,32,0.45); border-radius:4px; }
+.rf-alarm-sev { font-weight:800; letter-spacing:0.6px; min-width:54px; }
+.rf-alarm-sev[data-sev="critical"] { color:#EF4444; }
+.rf-alarm-sev[data-sev="warning"]  { color:#FBBF24; }
+.rf-alarm-sev[data-sev="info"]     { color:#60A5FA; }
+.rf-alarm-msg { color:#E2E8F0; flex:1; line-height:1.3; }
+
 /* ── Network page (Task #158) ─────────────────────────────────────────
    Lays out router + switch as 2 panels each with KPIs + port grid. Port
    tiles are color-coded by oper status. Hover → tooltip with octet rates. */
@@ -4973,6 +5092,84 @@ html { scroll-behavior:smooth; }
       </svg>
     </div>
 
+    <!-- Inline Per-Radio Detail Panels (Task #161) ─────────────────────
+         Surfaces ALL data formerly hidden behind hover tooltip — visible by
+         default when the page opens. Populated by renderInlineRadioCards()
+         in rad-hover-live.js on every poll. -->
+    <div class="rf-detail-grid" role="region" aria-label="Per-radio live details">
+      <div class="rf-detail-card" id="rf-detail-RAD-01" data-status="">
+        <div class="rf-detail-head">
+          <div class="rf-detail-id">
+            <span class="rf-detail-asset" id="rf-detail-r1-asset">RAD-01</span>
+            <span class="rf-detail-pill" id="rf-detail-r1-status">—</span>
+            <span class="rf-detail-chatter" id="rf-detail-r1-chatter" hidden>⚠ CHATTERING</span>
+          </div>
+          <div class="rf-detail-sub" id="rf-detail-r1-sub">Trio JR900 #1 · MASTER</div>
+        </div>
+        <div class="rf-detail-ident">
+          <div><span class="rf-detail-k">Role</span><span class="rf-detail-v" id="rf-detail-r1-role">—</span></div>
+          <div><span class="rf-detail-k">Firmware</span><span class="rf-detail-v" id="rf-detail-r1-fw">—</span></div>
+          <div><span class="rf-detail-k">IP Address</span><span class="rf-detail-v" id="rf-detail-r1-ip">—</span></div>
+          <div><span class="rf-detail-k">Health</span><span class="rf-detail-v" id="rf-detail-r1-health">—</span></div>
+          <div><span class="rf-detail-k">Last Poll</span><span class="rf-detail-v" id="rf-detail-r1-fresh">—</span></div>
+        </div>
+        <div class="rf-detail-section-label">RF VITALS</div>
+        <div class="rf-detail-vitals">
+          <div class="rf-vit"><span class="rf-vit-k">RSSI</span><span class="rf-vit-v" id="rf-detail-r1-rssi">—</span></div>
+          <div class="rf-vit"><span class="rf-vit-k">QUALITY</span><span class="rf-vit-v" id="rf-detail-r1-qual">—</span></div>
+          <div class="rf-vit"><span class="rf-vit-k">TX POWER</span><span class="rf-vit-v" id="rf-detail-r1-tx">—</span></div>
+          <div class="rf-vit"><span class="rf-vit-k">LINK</span><span class="rf-vit-v" id="rf-detail-r1-link">—</span></div>
+          <div class="rf-vit"><span class="rf-vit-k">LATENCY</span><span class="rf-vit-v" id="rf-detail-r1-lat">—</span></div>
+          <div class="rf-vit"><span class="rf-vit-k">TEMP</span><span class="rf-vit-v" id="rf-detail-r1-tmp">—</span></div>
+          <div class="rf-vit"><span class="rf-vit-k">VOLTAGE</span><span class="rf-vit-v" id="rf-detail-r1-volt">—</span></div>
+        </div>
+        <div class="rf-detail-section-label">ERROR BREAKDOWN <span class="rf-detail-tag">RF ENG</span></div>
+        <div class="rf-detail-errs">
+          <div class="rf-err"><span class="rf-err-k">TX ERRORS</span><span class="rf-err-v" id="rf-detail-r1-txerr">—</span></div>
+          <div class="rf-err"><span class="rf-err-k">RX ERRORS</span><span class="rf-err-v" id="rf-detail-r1-rxerr">—</span></div>
+          <div class="rf-err"><span class="rf-err-k">DROPPED</span><span class="rf-err-v" id="rf-detail-r1-drop">—</span></div>
+        </div>
+        <div class="rf-detail-section-label">ACTIVE ALARMS</div>
+        <div class="rf-detail-alarms" id="rf-detail-r1-alarms"><div class="rf-alarm-empty">No active alarms ✓</div></div>
+      </div>
+
+      <div class="rf-detail-card" id="rf-detail-RAD-02" data-status="">
+        <div class="rf-detail-head">
+          <div class="rf-detail-id">
+            <span class="rf-detail-asset" id="rf-detail-r2-asset">RAD-02</span>
+            <span class="rf-detail-pill" id="rf-detail-r2-status">—</span>
+            <span class="rf-detail-chatter" id="rf-detail-r2-chatter" hidden>⚠ CHATTERING</span>
+          </div>
+          <div class="rf-detail-sub" id="rf-detail-r2-sub">Trio JR900 #2 · SLAVE</div>
+        </div>
+        <div class="rf-detail-ident">
+          <div><span class="rf-detail-k">Role</span><span class="rf-detail-v" id="rf-detail-r2-role">—</span></div>
+          <div><span class="rf-detail-k">Firmware</span><span class="rf-detail-v" id="rf-detail-r2-fw">—</span></div>
+          <div><span class="rf-detail-k">IP Address</span><span class="rf-detail-v" id="rf-detail-r2-ip">—</span></div>
+          <div><span class="rf-detail-k">Health</span><span class="rf-detail-v" id="rf-detail-r2-health">—</span></div>
+          <div><span class="rf-detail-k">Last Poll</span><span class="rf-detail-v" id="rf-detail-r2-fresh">—</span></div>
+        </div>
+        <div class="rf-detail-section-label">RF VITALS</div>
+        <div class="rf-detail-vitals">
+          <div class="rf-vit"><span class="rf-vit-k">RSSI</span><span class="rf-vit-v" id="rf-detail-r2-rssi">—</span></div>
+          <div class="rf-vit"><span class="rf-vit-k">QUALITY</span><span class="rf-vit-v" id="rf-detail-r2-qual">—</span></div>
+          <div class="rf-vit"><span class="rf-vit-k">TX POWER</span><span class="rf-vit-v" id="rf-detail-r2-tx">—</span></div>
+          <div class="rf-vit"><span class="rf-vit-k">LINK</span><span class="rf-vit-v" id="rf-detail-r2-link">—</span></div>
+          <div class="rf-vit"><span class="rf-vit-k">LATENCY</span><span class="rf-vit-v" id="rf-detail-r2-lat">—</span></div>
+          <div class="rf-vit"><span class="rf-vit-k">TEMP</span><span class="rf-vit-v" id="rf-detail-r2-tmp">—</span></div>
+          <div class="rf-vit"><span class="rf-vit-k">VOLTAGE</span><span class="rf-vit-v" id="rf-detail-r2-volt">—</span></div>
+        </div>
+        <div class="rf-detail-section-label">ERROR BREAKDOWN <span class="rf-detail-tag">RF ENG</span></div>
+        <div class="rf-detail-errs">
+          <div class="rf-err"><span class="rf-err-k">TX ERRORS</span><span class="rf-err-v" id="rf-detail-r2-txerr">—</span></div>
+          <div class="rf-err"><span class="rf-err-k">RX ERRORS</span><span class="rf-err-v" id="rf-detail-r2-rxerr">—</span></div>
+          <div class="rf-err"><span class="rf-err-k">DROPPED</span><span class="rf-err-v" id="rf-detail-r2-drop">—</span></div>
+        </div>
+        <div class="rf-detail-section-label">ACTIVE ALARMS</div>
+        <div class="rf-detail-alarms" id="rf-detail-r2-alarms"><div class="rf-alarm-empty">No active alarms ✓</div></div>
+      </div>
+    </div>
+
     <!-- Bottom KPI Strip -->
     <div class="rf-kpi-strip" id="rf-kpi-strip"></div>
 
@@ -5552,7 +5749,7 @@ html { scroll-behavior:smooth; }
   })();
 </script>
 <script src="/dashboard/api-client.js?v=129"></script>
-<script src="/dashboard/rad-hover-live.js?v=19"></script>
+<script src="/dashboard/rad-hover-live.js?v=21"></script>
 
 <script>
 (function() {

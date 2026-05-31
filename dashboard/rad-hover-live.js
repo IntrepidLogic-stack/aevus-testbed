@@ -1044,6 +1044,38 @@
     setInterval(refreshOpenMapPopup, 2000);
   }
 
+  // ── Wrap rfRunDiag — scroll the opened panel into view ───────────────
+  // The minified api-client.js's rfRunDiag opens .rf-trends-panel.open or
+  // #rf-diag-result.open BELOW the SVG. Since PR #74 made .rf-page
+  // scrollable, those panels can land below the fold and operators don't
+  // realize they need to scroll. Wrap rfRunDiag to scrollIntoView the
+  // freshly-opened panel after each click. Plays well with the rf-page's
+  // scroll-behavior:smooth from this PR.
+  function wrapRfRunDiag() {
+    if (typeof window.rfRunDiag !== 'function') {
+      setTimeout(wrapRfRunDiag, 200);
+      return;
+    }
+    if (window.rfRunDiag.__radWrapped) return;
+    var originalDiag = window.rfRunDiag;
+    window.rfRunDiag = function (tool) {
+      var rv = originalDiag.apply(this, arguments);
+      // Let the panel commit its .open class before measuring.
+      setTimeout(function () {
+        var trends = document.getElementById('rf-trends-panel');
+        var result = document.getElementById('rf-diag-result');
+        var target = (trends && trends.classList.contains('open')) ? trends
+                   : (result && result.classList.contains('open')) ? result
+                   : null;
+        if (target && target.scrollIntoView) {
+          target.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+        }
+      }, 80);
+      return rv;
+    };
+    window.rfRunDiag.__radWrapped = true;
+  }
+
   // ── Wrap rfHover ────────────────────────────────────────────────────
   function wrapHover() {
     if (typeof window.rfHover !== 'function') {
@@ -1068,9 +1100,10 @@
 
   // ── Boot ────────────────────────────────────────────────────────────
   if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', function () { wrapHover(); startPolling(); });
+    document.addEventListener('DOMContentLoaded', function () { wrapHover(); wrapRfRunDiag(); startPolling(); });
   } else {
     wrapHover();
+    wrapRfRunDiag();
     startPolling();
   }
 })();

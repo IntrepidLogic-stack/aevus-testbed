@@ -84,50 +84,70 @@ class TestBand:
 # ── Radio scoring ───────────────────────────────────────────────────
 class TestScoreRadio:
     def test_pristine_radio_scores_good(self):
-        a = _mk_asset("RAD-01", "radio", "good", [
-            ("RSSI", -65, "dBm"),
-            ("LINK STATE", 1, ""),
-            ("TEMPERATURE", 35, "°C"),
-            ("VOLTAGE", 13.3, "V"),
-            ("LATENCY", 5, "ms"),
-            ("TX ERRORS", 0, ""),
-            ("RX ERRORS", 0, ""),
-        ])
+        a = _mk_asset(
+            "RAD-01",
+            "radio",
+            "good",
+            [
+                ("RSSI", -65, "dBm"),
+                ("LINK STATE", 1, ""),
+                ("TEMPERATURE", 35, "°C"),
+                ("VOLTAGE", 13.3, "V"),
+                ("LATENCY", 5, "ms"),
+                ("TX ERRORS", 0, ""),
+                ("RX ERRORS", 0, ""),
+            ],
+        )
         score = score_radio(a)
         assert score is not None
         assert score >= 90
 
     def test_fading_radio_scores_warn(self):
-        a = _mk_asset("RAD-02", "radio", "warn", [
-            ("RSSI", -87, "dBm"),
-            ("LINK STATE", 1, ""),
-            ("TEMPERATURE", 50, "°C"),
-            ("VOLTAGE", 12.5, "V"),
-            ("LATENCY", 80, "ms"),
-            ("TX ERRORS", 0, ""),
-            ("RX ERRORS", 0, ""),
-        ])
+        a = _mk_asset(
+            "RAD-02",
+            "radio",
+            "warn",
+            [
+                ("RSSI", -87, "dBm"),
+                ("LINK STATE", 1, ""),
+                ("TEMPERATURE", 50, "°C"),
+                ("VOLTAGE", 12.5, "V"),
+                ("LATENCY", 80, "ms"),
+                ("TX ERRORS", 0, ""),
+                ("RX ERRORS", 0, ""),
+            ],
+        )
         score = score_radio(a)
         assert score is not None
         assert 30 <= score < 80
 
     def test_dead_link_scores_bad(self):
-        a = _mk_asset("RAD-02", "radio", "bad", [
-            ("RSSI", -100, "dBm"),
-            ("LINK STATE", 0, ""),
-            ("TEMPERATURE", 35, "°C"),
-            ("VOLTAGE", 13.3, "V"),
-        ])
+        a = _mk_asset(
+            "RAD-02",
+            "radio",
+            "bad",
+            [
+                ("RSSI", -100, "dBm"),
+                ("LINK STATE", 0, ""),
+                ("TEMPERATURE", 35, "°C"),
+                ("VOLTAGE", 13.3, "V"),
+            ],
+        )
         score = score_radio(a)
         assert score is not None
         assert score < 30
 
     def test_missing_vitals_renormalizes(self):
         """A radio with only RSSI + link should still score, not crash."""
-        a = _mk_asset("RAD-01", "radio", "good", [
-            ("RSSI", -65, "dBm"),
-            ("LINK STATE", 1, ""),
-        ])
+        a = _mk_asset(
+            "RAD-01",
+            "radio",
+            "good",
+            [
+                ("RSSI", -65, "dBm"),
+                ("LINK STATE", 1, ""),
+            ],
+        )
         score = score_radio(a)
         assert score is not None
         assert score >= 60
@@ -140,17 +160,27 @@ class TestScoreRadio:
 # ── Router / switch / RTU / edge ────────────────────────────────────
 class TestScoreOthers:
     def test_router_healthy(self):
-        a = _mk_asset("RTR-01", "router", "good", [
-            ("CPU LOAD", 15, "%"),
-        ])
+        a = _mk_asset(
+            "RTR-01",
+            "router",
+            "good",
+            [
+                ("CPU LOAD", 15, "%"),
+            ],
+        )
         score = score_router(a)
         assert score is not None
         assert score >= 80
 
     def test_router_cpu_pegged(self):
-        a = _mk_asset("RTR-01", "router", "warn", [
-            ("CPU LOAD", 95, "%"),
-        ])
+        a = _mk_asset(
+            "RTR-01",
+            "router",
+            "warn",
+            [
+                ("CPU LOAD", 95, "%"),
+            ],
+        )
         score = score_router(a)
         assert score is not None
         assert score < 30
@@ -160,18 +190,28 @@ class TestScoreOthers:
         assert score_rtu(a) is None
 
     def test_rtu_healthy_battery(self):
-        a = _mk_asset("RTU-01", "rtu", "good", [
-            ("BATTERY", 13.3, "V"),
-        ])
+        a = _mk_asset(
+            "RTU-01",
+            "rtu",
+            "good",
+            [
+                ("BATTERY", 13.3, "V"),
+            ],
+        )
         score = score_rtu(a)
         assert score is not None
         assert score >= 60
 
     def test_edge_healthy(self):
-        a = _mk_asset("EDGE-01", "edge", "good", [
-            ("CPU LOAD", 10, "%"),
-            ("MEMORY USED", 25, "%"),
-        ])
+        a = _mk_asset(
+            "EDGE-01",
+            "edge",
+            "good",
+            [
+                ("CPU LOAD", 10, "%"),
+                ("MEMORY USED", 25, "%"),
+            ],
+        )
         score = score_edge(a)
         assert score is not None
         assert score >= 80
@@ -180,10 +220,15 @@ class TestScoreOthers:
 # ── score_asset dispatch + offline override ────────────────────────
 class TestScoreAsset:
     def test_offline_always_returns_none_offline(self):
-        a = _mk_asset("RAD-01", "radio", "offline", [
-            ("RSSI", -65, "dBm"),
-            ("LINK STATE", 1, ""),
-        ])
+        a = _mk_asset(
+            "RAD-01",
+            "radio",
+            "offline",
+            [
+                ("RSSI", -65, "dBm"),
+                ("LINK STATE", 1, ""),
+            ],
+        )
         score, status = score_asset(a)
         assert score is None
         assert status == "offline"
@@ -203,6 +248,7 @@ def test_engine_module_has_trade_secret_header():
     from pathlib import Path
 
     from src.engine import pearl_score
+
     src = Path(pearl_score.__file__).read_text()
     assert "TRADE SECRET" in src
     assert "INTREPID LOGIC PROPRIETARY" in src

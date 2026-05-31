@@ -89,68 +89,68 @@ def _vital(asset: Asset, label: str) -> float | None:
 # ISA-101 alarm bands for temperature/voltage; midstream-RTU comm-success
 # defaults (≥98% = healthy in Wonderware-class deployments).
 _RSSI_CURVE = [
-    (-110.0, 0.0),    # below link floor — dead
-    (-95.0,  20.0),   # critical — at margin
-    (-90.0,  40.0),   # link floor, warn band start
-    (-85.0,  60.0),   # warn → good boundary
-    (-75.0,  85.0),   # comfortable headroom
-    (-65.0,  98.0),   # excellent
-    (-50.0,  100.0),  # ceiling
+    (-110.0, 0.0),  # below link floor — dead
+    (-95.0, 20.0),  # critical — at margin
+    (-90.0, 40.0),  # link floor, warn band start
+    (-85.0, 60.0),  # warn → good boundary
+    (-75.0, 85.0),  # comfortable headroom
+    (-65.0, 98.0),  # excellent
+    (-50.0, 100.0),  # ceiling
 ]
 
 _TEMP_RADIO_CURVE = [
     (-20.0, 60.0),
-    (0.0,   80.0),
-    (45.0,  100.0),   # nominal band
-    (60.0,  70.0),    # ISA-101 warn boundary
-    (75.0,  30.0),    # critical
-    (85.0,  0.0),     # thermal shutdown territory
+    (0.0, 80.0),
+    (45.0, 100.0),  # nominal band
+    (60.0, 70.0),  # ISA-101 warn boundary
+    (75.0, 30.0),  # critical
+    (85.0, 0.0),  # thermal shutdown territory
 ]
 
 _VOLTAGE_RADIO_CURVE = [
-    (9.0,   0.0),
-    (10.5,  30.0),
-    (11.5,  60.0),    # Trio low-volt warn
-    (12.0,  85.0),
-    (13.5,  100.0),
-    (15.0,  100.0),
-    (16.0,  70.0),
-    (17.0,  20.0),    # over-volt risk
+    (9.0, 0.0),
+    (10.5, 30.0),
+    (11.5, 60.0),  # Trio low-volt warn
+    (12.0, 85.0),
+    (13.5, 100.0),
+    (15.0, 100.0),
+    (16.0, 70.0),
+    (17.0, 20.0),  # over-volt risk
 ]
 
 _BATTERY_RTU_CURVE = [
-    (10.0,  0.0),
-    (11.5,  20.0),
-    (12.0,  60.0),    # SCADAPack low-batt warn
-    (12.6,  85.0),
-    (13.2,  100.0),
-    (14.0,  100.0),
+    (10.0, 0.0),
+    (11.5, 20.0),
+    (12.0, 60.0),  # SCADAPack low-batt warn
+    (12.6, 85.0),
+    (13.2, 100.0),
+    (14.0, 100.0),
 ]
 
 _CPU_CURVE = [
-    (0.0,   100.0),
-    (50.0,  95.0),
-    (70.0,  70.0),    # default warn
-    (85.0,  40.0),
-    (95.0,  10.0),
+    (0.0, 100.0),
+    (50.0, 95.0),
+    (70.0, 70.0),  # default warn
+    (85.0, 40.0),
+    (95.0, 10.0),
     (100.0, 0.0),
 ]
 
 _LATENCY_MS_CURVE = [
-    (0.0,    100.0),
-    (10.0,   95.0),   # sub-10ms = P-008 patent-relevant edge claim
-    (50.0,   80.0),
-    (200.0,  50.0),   # warn boundary
-    (500.0,  20.0),
+    (0.0, 100.0),
+    (10.0, 95.0),  # sub-10ms = P-008 patent-relevant edge claim
+    (50.0, 80.0),
+    (200.0, 50.0),  # warn boundary
+    (500.0, 20.0),
     (1000.0, 0.0),
 ]
 
 _COMM_SUCCESS_CURVE = [
-    (0.0,    0.0),
-    (90.0,   30.0),
-    (98.0,   60.0),   # Wonderware-class healthy boundary
-    (99.5,   90.0),
-    (100.0,  100.0),
+    (0.0, 0.0),
+    (90.0, 30.0),
+    (98.0, 60.0),  # Wonderware-class healthy boundary
+    (99.5, 90.0),
+    (100.0, 100.0),
 ]
 
 
@@ -206,11 +206,11 @@ def score_radio(asset: Asset) -> int | None:
     still gets a meaningful score.
     """
     components = [
-        (_radio_rssi_component(asset),     0.40),
-        (_radio_link_component(asset),     0.25),
-        (_radio_thermal_component(asset),  0.15),
-        (_radio_power_component(asset),    0.10),
-        (_radio_latency_component(asset),  0.10),
+        (_radio_rssi_component(asset), 0.40),
+        (_radio_link_component(asset), 0.25),
+        (_radio_thermal_component(asset), 0.15),
+        (_radio_power_component(asset), 0.10),
+        (_radio_latency_component(asset), 0.10),
     ]
     available = [(s, w) for s, w in components if s is not None]
     if not available:
@@ -310,11 +310,11 @@ def score_hmi(latency_ms: float | None, session_active: bool) -> int | None:
 
 # ── Top-level dispatch ─────────────────────────────────────────────────
 _DISPATCH = {
-    "radio":  score_radio,
+    "radio": score_radio,
     "router": score_router,
     "switch": score_switch,
-    "rtu":    score_rtu,
-    "edge":   score_edge,
+    "rtu": score_rtu,
+    "edge": score_edge,
     "scada_host": score_scada_host,
     "sensor": lambda a: 80 if a.status != "offline" else None,
 }

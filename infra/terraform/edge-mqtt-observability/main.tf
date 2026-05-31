@@ -242,13 +242,14 @@ resource "aws_iam_role_policy" "iot_error_logs" {
 # at all (cert revoked, process dead, network out).
 resource "aws_cloudwatch_metric_alarm" "edge_mqtt_publish_failures" {
   alarm_name        = "aevus-edge-mqtt-publish-failures"
-  alarm_description = "MQTTPublisher half-open detector counter > 0 (Task #151). In-process detector catches this at 5 consecutive failures (~25s); this alarm catches the FIRST failure (~60s). Also fires on missing-data (>10 min) — means the Pi can't publish to IoT Core at all (cert/network/process issue)."
+  alarm_description = "MQTTPublisher half-open detector counter > 0 (Task #151). In-process detector catches this at 5 consecutive failures (~25s); this alarm catches the FIRST failure (~60s). Also fires on missing-data (~10 min) — means the Pi can't publish to IoT Core at all (cert/network/process issue). 60s period chosen so alarm clears within 60s of a failure spike — matches the Pi's 60s health heartbeat cadence (a 300s period kept the alarm armed for 5 min after recovery, verified 2026-05-30)."
 
   namespace           = "Aevus/Edge"
   metric_name         = "ConsecutivePublishFailures"
   statistic           = "Maximum"
-  period              = 300
+  period              = 60
   evaluation_periods  = 1
+  datapoints_to_alarm = 1
   threshold           = 0
   comparison_operator = "GreaterThanThreshold"
   treat_missing_data  = "breaching"

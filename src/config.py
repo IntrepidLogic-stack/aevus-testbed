@@ -146,6 +146,9 @@ class Settings(BaseSettings):
     smtp_password: str = ""
     smtp_from: str = "aevus@intrepidlogic.io"
     notification_email_to: str = ""
+    # WARNING-level alerts batch into a digest sent every N seconds (Task #201).
+    # Default hourly. CRITICAL alerts still email in real time.
+    warning_digest_interval: int = 3600
     notification_sms_to: str = ""
     twilio_account_sid: str = ""
     twilio_auth_token: str = ""

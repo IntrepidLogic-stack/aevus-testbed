@@ -24,7 +24,10 @@ logger = structlog.get_logger()
 
 # ISA-18.2 §7.5 chattering detection
 CHATTER_WINDOW_S = 600  # 10-minute rolling window
-CHATTER_THRESHOLD = 5  # fires within window → chattering
+# Lowered 5→3 (Task #201). A vital that fires 3× in 10 min is flapping —
+# auto-shelve it sooner so fewer alerts leak before the deadband kicks in.
+# ISA-18.2 §7.5 considers 3+ activations in a short window a chattering alarm.
+CHATTER_THRESHOLD = 3  # fires within window → chattering
 CHATTER_SHELF_S = 1800  # 30-minute auto-shelf after chattering meta-alarm
 
 # Metrics that should generate alerts when status is warn or bad

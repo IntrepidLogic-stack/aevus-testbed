@@ -108,9 +108,7 @@ class TestNoRawVitalLeak:
             strings = _flatten_strings(pearl)
             for token in FORBIDDEN_INPUT_TOKENS:
                 for s in strings:
-                    assert token not in s, (
-                        f"Forbidden token '{token}' leaked into sim pearl: {s}"
-                    )
+                    assert token not in s, f"Forbidden token '{token}' leaked into sim pearl: {s}"
 
     def test_sim_pearl_score_is_a_number_not_a_computation(self):
         """Sim pearls must NOT expose the formula by leaking intermediate

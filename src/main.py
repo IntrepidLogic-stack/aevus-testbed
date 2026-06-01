@@ -216,6 +216,23 @@ async def _weather_loop() -> None:
         await asyncio.sleep(interval)
 
 
+async def _warning_digest_loop() -> None:
+    """Flush the notifier's WARNING digest on a timer (Task #201).
+
+    WARNING-level alerts are buffered by the notifier and never emailed
+    individually — this loop sends ONE roll-up email per interval, so a
+    flapping vital can't flood the inbox. CRITICAL alerts still go out
+    in real time. Default interval is hourly (settings.warning_digest_interval).
+    """
+    interval = max(300, settings.warning_digest_interval)
+    while True:
+        await asyncio.sleep(interval)
+        try:
+            await app_state.notifier.flush_warning_digest()
+        except Exception as e:  # noqa: BLE001 — never let the digest loop die
+            logger.warning("warning_digest_loop_failed", error=str(e))
+
+
 async def _mqtt_health_publish_loop() -> None:
     """Publish MQTTPublisher health snapshot every 60s to a dedicated topic.
 
@@ -457,6 +474,7 @@ async def lifespan(app: FastAPI):
     await app_state.scheduler.start()
     weather_task = asyncio.create_task(_weather_loop())
     mqtt_health_task = asyncio.create_task(_mqtt_health_publish_loop())
+    warning_digest_task = asyncio.create_task(_warning_digest_loop())
     # Start the SNMP trap listener if enabled. Failures (e.g. port-in-use on a
     # second instance, or no privileged-port capability) are logged but do NOT
     # crash startup — the rest of the service is still useful without traps.
@@ -474,6 +492,7 @@ async def lifespan(app: FastAPI):
             logger.warning("snmp_trap_receiver_stop_failed", error=str(e))
     weather_task.cancel()
     mqtt_health_task.cancel()
+    warning_digest_task.cancel()
     await app_state.scheduler.stop()
 
 

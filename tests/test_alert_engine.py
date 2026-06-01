@@ -284,7 +284,7 @@ class TestChatteringDetection:
 
     def test_below_threshold_no_meta_alarm(self):
         engine = AlertEngine()
-        for _ in range(5):  # CHATTER_THRESHOLD = 5 — exactly at, not above
+        for _ in range(3):  # CHATTER_THRESHOLD = 3 (Task #201) — exactly at, not above
             self._flap_once(engine)
         meta = [a for a in engine.open_alerts if a.id.startswith("CHAT-")]
         assert meta == []
@@ -292,7 +292,7 @@ class TestChatteringDetection:
 
     def test_threshold_crossed_emits_meta_and_shelves(self):
         engine = AlertEngine()
-        for _ in range(6):  # one past CHATTER_THRESHOLD
+        for _ in range(4):  # one past CHATTER_THRESHOLD (3)
             self._flap_once(engine)
         meta = [a for a in engine.open_alerts if a.id.startswith("CHAT-")]
         assert len(meta) == 1

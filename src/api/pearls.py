@@ -71,6 +71,23 @@ def _find_by_type(assets: list, t: str) -> Any | None:
     return None
 
 
+def _find_efm_rtu(assets: list) -> Any | None:
+    """EFM/RTU/PLC slot. Prefer a REAL-sourced (relay/Modbus/DNP3/SNMP) RTU or
+    EFM over a seeded simulator — so once the live SCADAPack 470 starts
+    relaying over Modbus, this pearl reflects the real device instead of the
+    demo EFM. Falls back to first rtu, then first efm (pre-existing behavior)
+    when no real-sourced device is present."""
+    from src.api.relay_overlay import is_real_sourced
+
+    candidates = [a for a in assets if a.type in ("rtu", "efm")]
+    real = [a for a in candidates if is_real_sourced(a)]
+    if real:
+        # Prefer a real rtu over a real efm if both exist
+        return next((a for a in real if a.type == "rtu"), real[0])
+    rtu = _find_by_type(assets, "rtu")
+    return rtu or _find_by_type(assets, "efm")
+
+
 def _find_by_id(assets: list, asset_id: str) -> Any | None:
     for a in assets:
         if a.id == asset_id:
@@ -79,7 +96,7 @@ def _find_by_id(assets: list, asset_id: str) -> Any | None:
 
 
 KILLDEER_CHAIN = [
-    ("efm_rtu", "EFM/RTU/PLC", lambda a: _find_by_type(a, "rtu") or _find_by_type(a, "efm")),
+    ("efm_rtu", "EFM/RTU/PLC", _find_efm_rtu),
     ("sub_radio", "Subscriber Radio", _find_radio_slave),
     ("mst_radio", "Master Radio", _find_radio_master),
     ("plant_rtr", "Plant Router", lambda a: _find_by_type(a, "router")),
@@ -190,9 +207,10 @@ def _build_sim_tower(name: str, profile: str) -> dict:
 @router.get("/killdeer")
 async def killdeer_pearls() -> dict:
     """Single tower: Killdeer Field testbed. Real telemetry only."""
+    from src.api.relay_overlay import apply_relay_overlay
     from src.main import app_state
 
-    assets = app_state.db.list_assets()
+    assets = apply_relay_overlay(app_state.db.list_assets())
     pearls = []
     worst = "good"
     for pearl_id, label, resolver in KILLDEER_CHAIN:

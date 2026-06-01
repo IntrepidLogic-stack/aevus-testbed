@@ -62,7 +62,9 @@ async def list_assets(
     from src.main import app_state
 
     assets = app_state.db.list_assets(type_filter=type, status_filter=status)
-    return _apply_read_source(assets)
+    from src.api.relay_overlay import apply_relay_overlay
+
+    return apply_relay_overlay(_apply_read_source(assets))
 
 
 @router.get("/{asset_id}", response_model=Asset)
@@ -73,7 +75,9 @@ async def get_asset(asset_id: str) -> Asset:
     asset = app_state.db.get_asset(asset_id)
     if asset is None:
         raise HTTPException(status_code=404, detail=f"Asset {asset_id} not found")
-    return _apply_read_source([asset])[0]
+    from src.api.relay_overlay import apply_relay_overlay
+
+    return apply_relay_overlay(_apply_read_source([asset]))[0]
 
 
 from pydantic import BaseModel as PydanticBaseModel

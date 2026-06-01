@@ -83,6 +83,16 @@ def _vital(asset: Asset, label: str) -> float | None:
     return None
 
 
+def _has_any_vital(asset: Asset) -> bool:
+    """True if the asset is reporting ANY numeric telemetry. An asset with
+    zero vitals isn't 'healthy' — it's silent. The 'alive but unmeasured'
+    fallback scores below only apply when there's at least one real signal,
+    otherwise we'd paint a confident green on a device that stopped
+    reporting (the exact 'looks fine but is lying' failure an RF engineer
+    catches instantly). No signal → gray, full stop."""
+    return any(isinstance(v.raw_value, int | float) for v in asset.vitals or [])
+
+
 # ── Per-device-class curves (TRADE SECRET) ─────────────────────────────
 # Sourced from: Trio JR900 datasheet RSSI sensitivity table (-90 dBm =
 # link floor, -85 = warn boundary, -70 = clean above-noise headroom);
@@ -244,9 +254,9 @@ def score_router(asset: Asset) -> int | None:
     parts = [(cpu_score, 0.6), (iface_score, 0.4)]
     available = [(s, w) for s, w in parts if s is not None]
     if not available:
-        # Fall back to "alive but unmeasured" — a reachable router with no
-        # CPU sensor still beats offline
-        return 70 if asset.status != "offline" else None
+        # Fall back to "alive but unmeasured" ONLY if the asset is reporting
+        # some telemetry. No vitals at all → gray (silent device, not healthy).
+        return 70 if (asset.status != "offline" and _has_any_vital(asset)) else None
     weight_sum = sum(w for _, w in available)
     return int(round(sum(s * w for s, w in available) / weight_sum))
 
@@ -272,6 +282,11 @@ def score_rtu(asset: Asset) -> int | None:
             alarm_penalty += 25.0
     comm_score = max(0.0, 100.0 - alarm_penalty)
 
+    # comm_score is always present (starts at 100), so to avoid painting a
+    # confident score on an RTU with ZERO telemetry, require at least one
+    # real vital. A SCADAPack that isn't polling → gray, not green.
+    if not _has_any_vital(asset):
+        return None
     parts = [(batt_score, 0.5), (comm_score, 0.5)]
     available = [(s, w) for s, w in parts if s is not None]
     if not available:
@@ -289,7 +304,7 @@ def score_edge(asset: Asset) -> int | None:
     parts = [(cpu_score, 0.6), (mem_score, 0.4)]
     available = [(s, w) for s, w in parts if s is not None]
     if not available:
-        return 80 if asset.status != "offline" else None
+        return 80 if (asset.status != "offline" and _has_any_vital(asset)) else None
     weight_sum = sum(w for _, w in available)
     return int(round(sum(s * w for s, w in available) / weight_sum))
 

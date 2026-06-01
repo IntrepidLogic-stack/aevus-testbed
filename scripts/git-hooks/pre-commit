@@ -1,0 +1,43 @@
+#!/usr/bin/env bash
+# Aevus pre-commit hook (Task #201 follow-up).
+#
+# Prevents the recurring "ruff format diff blocked the deploy" failure:
+# auto-formats staged Python with `ruff format`, applies safe `ruff check
+# --fix`, and re-stages the result — so code can NEVER reach CI unformatted.
+# Also runs git-secrets to block credential leaks.
+#
+# Installed via scripts/install-hooks.sh (chains, doesn't replace, the
+# git-secrets hook). Source of truth lives in scripts/git-hooks/ so it's
+# version-controlled and reproducible on any clone.
+
+set -euo pipefail
+
+# 1. git-secrets — block credential leaks (if installed)
+if command -v git-secrets >/dev/null 2>&1; then
+    git secrets --pre_commit_hook -- "$@" || exit 1
+fi
+
+# 2. ruff format + lint-fix on staged Python files only
+STAGED_PY=$(git diff --cached --name-only --diff-filter=ACM | grep -E '\.py$' || true)
+if [ -n "$STAGED_PY" ]; then
+    if command -v ruff >/dev/null 2>&1; then
+        echo "[pre-commit] ruff format + check --fix on staged Python..."
+        # shellcheck disable=SC2086
+        ruff format $STAGED_PY
+        # shellcheck disable=SC2086
+        ruff check --fix $STAGED_PY || true
+        # Re-stage anything ruff rewrote so the commit is always clean
+        # shellcheck disable=SC2086
+        git add $STAGED_PY
+        # Final gate: if anything STILL fails format check, block the commit
+        # shellcheck disable=SC2086
+        if ! ruff format --check $STAGED_PY >/dev/null 2>&1; then
+            echo "[pre-commit] ERROR: ruff format still failing after auto-fix. Aborting." >&2
+            exit 1
+        fi
+    else
+        echo "[pre-commit] WARNING: ruff not found — skipping format check. Install: pip install ruff" >&2
+    fi
+fi
+
+exit 0

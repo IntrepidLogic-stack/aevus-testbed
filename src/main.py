@@ -355,6 +355,48 @@ def _register_real_snmp_collectors() -> None:
             )
 
 
+def _register_modbus_collectors() -> None:
+    """Wire the SCADAPack 470 Modbus collector if modbus_enabled=true.
+
+    OFF by default (Task #198). This MUST run on the EDGE Pi — it polls the
+    SCADAPack at settings.scadapack_ip (172.16.1.200) over Modbus TCP, which
+    is on the lab LAN. EC2 (AWS) cannot route to a 172.16.x private IP, so
+    on EC2 leave modbus_enabled unset and the asset stays on the simulator.
+
+    Registration failure falls back to the simulator entry — a SCADAPack
+    that's powered off or unreachable must not crash startup or the
+    scheduler. The pearl strip's EFM/RTU node will show gray (no telemetry)
+    until the device is actually polling, which is the honest state.
+    """
+    if not settings.modbus_enabled:
+        logger.info("modbus_collector_disabled_in_config")
+        return
+    try:
+        from src.collectors.modbus_rtu import SCADAPack470Collector
+
+        collector = SCADAPack470Collector(
+            asset_id="RTU-01",
+            host=settings.scadapack_ip,
+            port=settings.modbus_port,
+            slave_id=settings.modbus_slave_id,
+            poll_interval=settings.poll_interval_rtu,
+        )
+        app_state.scheduler.register("RTU-01", collector)
+        logger.info(
+            "modbus_collector_registered",
+            asset_id="RTU-01",
+            host=settings.scadapack_ip,
+            port=settings.modbus_port,
+        )
+    except Exception as e:
+        logger.warning(
+            "modbus_collector_failed_fallback_to_sim",
+            asset_id="RTU-01",
+            host=settings.scadapack_ip,
+            error=str(e),
+        )
+
+
 def _register_mqtt_publisher() -> None:
     """Wire MQTTPublisher into the scheduler if mqtt_enabled=true in config.
     Off by default — Pi enables via .env once IoT Core certs are in place."""
@@ -410,6 +452,7 @@ async def lifespan(app: FastAPI):
     _seed_lab_assets()
     _register_simulators()
     _register_real_snmp_collectors()
+    _register_modbus_collectors()
     _register_mqtt_publisher()
     await app_state.scheduler.start()
     weather_task = asyncio.create_task(_weather_loop())

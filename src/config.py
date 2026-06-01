@@ -23,7 +23,14 @@ class Settings(BaseSettings):
     rad_02_ip: str = ""
     trio_radio_1_ip: str = "192.168.88.11"
     trio_radio_2_ip: str = "192.168.88.12"
-    scadapack_ip: str = "192.168.88.21"
+    # SCADAPack 470 found at 172.16.1.200 (NOT the original .88.21 plan —
+    # it lives on a different lab subnet). Task #198/#134. The Modbus
+    # collector only registers when modbus_enabled=true AND scadapack_ip is
+    # set — and it must run on the EDGE Pi (which is on the lab LAN), NOT on
+    # EC2 (AWS can't route to a 172.16.x private IP). On EC2 leave
+    # modbus_enabled unset/false so the asset stays on the simulator.
+    scadapack_ip: str = "172.16.1.200"
+    modbus_enabled: bool = False
     edge_collector_ip: str = "192.168.88.254"
     snmp_community: str = "aevus_ro"
     snmp_version: str = "2c"

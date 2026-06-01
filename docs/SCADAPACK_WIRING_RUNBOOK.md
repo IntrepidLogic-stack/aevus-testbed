@@ -1,8 +1,10 @@
 # SCADAPack 470 — Edge Modbus Wiring Runbook (Task #198 / #134)
 
-**Status:** Code-ready, blocked on field steps.
+**Status:** ✅ WIRED (2026-06-01) — SHOP-01 relay path shipped. The
+"UPDATE 2026-06-01" section at the BOTTOM supersedes the Pi-direct steps below.
 **Device:** Schneider Electric SCADAPack 470, found at **172.16.1.200**
-(NOT the original `.88.21` plan — it lives on a different lab subnet).
+(NOT the original `.88.21` plan — it lives on a different lab subnet, and
+`.88.21` turned out to be a phantom ARP reply, not this device).
 
 ---
 
@@ -90,3 +92,67 @@ interlock check. (Patentable invention P-008.)
 
 *Generated 2026-05-31. Code is ready; the remaining steps are field/edge
 actions only Woody (or on-site) can perform.*
+
+---
+
+## UPDATE 2026-06-01 — SHIPPED via SHOP-01 relay (supersedes Pi-direct)
+
+Field reality killed the Pi-direct assumption: the SCADAPack sits on
+`172.16.1.200`, and the edge Pi (`192.168.88.x`) has **no route** to that
+subnet. The one host on BOTH the RTU subnet and the internet is **SHOP-01**
+(multi-homed; its `172.16.1.100` interface reaches the RTU). So SHOP-01 is the
+Modbus relay — exactly the "shop PC polling SCADAPack" path `/ingest` was built
+for.
+
+### What was verified on the bench (2026-06-01)
+- Catalyst `Fa0/2` → SCADAPack, MAC `0005.2103.ebbe` (OUI `00:05:21` =
+  Control Microsystems / Schneider). ✅ identified
+- `ping -S 172.16.1.100 172.16.1.200` → 4/4, 0% loss. ✅ reachable from SHOP-01
+- `TcpClient` bound to `172.16.1.100` → `172.16.1.200:502` → **OPEN** ✅
+- Raw Modbus FC3 read (8 holding regs @ 0) → valid response `01 03 10 00…`
+  (function code `03`, not exception `83`) → **Modbus confirmed answering**,
+  unit IDs 1 and 0 both respond. Registers read `0x0000` (bench unit, no field
+  I/O configured) → only **comms-health** is real telemetry today.
+
+### The pipeline (3 connections, all shipped)
+1. **`scripts/scadapack_relay.ps1`** (runs on SHOP-01) — raw Modbus over a
+   socket BOUND to `172.16.1.100`, measures latency + rolling comms-success,
+   POSTs honest vitals (`MODBUS LINK`, `MODBUS LATENCY`, `COMM SUCCESS`; on
+   failure `MODBUS LINK=0` + `COMMUNICATION FAULT ALARM=ACTIVE`) to
+   `/api/v1/ingest`. **Read-only** — never writes the RTU (IL-009 / P-008).
+2. **`src/api/relay_overlay.py`** — the missing consumer of `_relay_data`.
+   Overlays FRESH (<180 s) relay vitals onto the matching registry asset in
+   `/assets` AND the pearl chain. Additive + freshness-gated: with the relay
+   off, behavior is byte-identical to before (simulator demo untouched).
+3. **`pearls._find_efm_rtu`** — the EFM/RTU pearl now prefers a REAL-sourced
+   (relay/Modbus) RTU over the seeded simulator EFM. Live SCADAPack → real
+   pearl; relay off → falls back to prior behavior.
+
+### Honesty note (important for the Rickerson show-back)
+The bench RTU has no transducers wired, so the registers are genuinely zero.
+The relay reports **device-health** (RTU reachable, Modbus answering, no comm
+fault) → `score_rtu` → ~100 "good". It does NOT fake pressures or battery.
+When real field I/O is configured, add the documented register decodes
+(suction @ 40001 Float32, battery @ 40011, etc.) to `Invoke-ModbusRead` and
+they flow through automatically.
+
+### Run it on SHOP-01 (RustDesk → SHOP-01 PowerShell)
+```powershell
+# 1) Verify a single cycle (prints poll + ingest result):
+powershell -ExecutionPolicy Bypass -File scadapack_relay.ps1 -Once
+
+# 2) Run continuously:
+powershell -ExecutionPolicy Bypass -File scadapack_relay.ps1
+
+# 3) Install as a Scheduled Task at boot (run once, elevated):
+$action  = New-ScheduledTaskAction -Execute 'powershell.exe' `
+  -Argument '-ExecutionPolicy Bypass -WindowStyle Hidden -File C:\aevus\scadapack_relay.ps1'
+$trigger = New-ScheduledTaskTrigger -AtStartup
+$principal = New-ScheduledTaskPrincipal -UserId 'SYSTEM' -LogonType ServiceAccount -RunLevel Highest
+Register-ScheduledTask -TaskName 'AevusScadaPackRelay' -Action $action -Trigger $trigger -Principal $principal
+```
+
+Verify it surfaced: the EFM/RTU pearl on `/telecom` flips to the SCADAPack
+(`asset_id=RTU-01`, label "SCADAPack 470") with `source=relay`, and `/assets/RTU-01`
+shows `MODBUS LINK/LATENCY/COMM SUCCESS` vitals with `"source":"relay"`.
+Stop the task → after 180 s the pearl reverts to the simulator (safe rollback).

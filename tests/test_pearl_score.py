@@ -233,9 +233,24 @@ class TestScoreAsset:
         assert score is None
         assert status == "offline"
 
-    def test_unknown_type_returns_none(self):
-        a = _mk_asset("X-01", "router", "good", [])
-        # router with no data falls back to "alive but unmeasured" = 70
+    def test_no_vitals_scores_gray_not_fallback(self):
+        """Task #195 fix: a device with ZERO telemetry must score gray
+        (None/offline), NOT a confident fallback number. Painting a green
+        70/80/100 on a silent device is the 'looks fine but is lying'
+        failure an RF engineer catches instantly."""
+        # router, switch, rtu, edge all have fallback branches — none may
+        # fire when there are no vitals at all
+        for atype in ("router", "switch", "rtu", "edge"):
+            a = _mk_asset("X-01", atype, "good", [])
+            score, status = score_asset(a)
+            assert score is None, f"{atype} with no vitals should be gray, got {score}"
+            assert status == "offline", f"{atype} with no vitals should be offline-gray"
+
+    def test_partial_vitals_still_fallback(self):
+        """A reachable router with SOME telemetry (but not CPU) can still
+        use the 'alive but unmeasured' fallback — the fix only suppresses
+        the fallback when there is NO signal at all."""
+        a = _mk_asset("RTR-01", "router", "good", [("UPTIME", 99.9, "%")])
         score, status = score_asset(a)
         assert score == 70
         assert status == "good"

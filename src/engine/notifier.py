@@ -234,9 +234,7 @@ class NotificationEngine:
             "<table style='font-family:sans-serif;font-size:13px;border-collapse:collapse'>"
             "<tr style='background:#f5f5f5'><th style='padding:4px 10px;text-align:left'>Asset</th>"
             "<th style='padding:4px 10px;text-align:left'>Condition</th>"
-            "<th style='padding:4px 10px;text-align:right'>Count</th></tr>"
-            + "".join(rows_html)
-            + "</table>"
+            "<th style='padding:4px 10px;text-align:right'>Count</th></tr>" + "".join(rows_html) + "</table>"
             "<hr><p style='color:#888;font-size:12px'>WARNING-level conditions are "
             "batched per ISA-18.2 to prevent alarm flooding. CRITICAL alerts are sent "
             "individually in real time.<br>Aevus SCADA Intelligence | Intrepid Logic LLC</p>"

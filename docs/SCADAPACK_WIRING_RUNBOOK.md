@@ -1,10 +1,11 @@
 # SCADAPack 470 — Edge Modbus Wiring Runbook (Task #198 / #134)
 
-**Status:** ✅ WIRED (2026-06-01) — SHOP-01 relay path shipped. The
-"UPDATE 2026-06-01" section at the BOTTOM supersedes the Pi-direct steps below.
-**Device:** Schneider Electric SCADAPack 470, found at **172.16.1.200**
-(NOT the original `.88.21` plan — it lives on a different lab subnet, and
-`.88.21` turned out to be a phantom ARP reply, not this device).
+**Status:** ✅ LIVE (2026-06-01) — re-IP'd to `192.168.88.21`, polled by the
+edge Pi over Modbus, on the production EFM/RTU pearl. See "UPDATE 2 — 2026-06-01
+EVENING" at the bottom (the authoritative as-built); earlier sections are
+historical.
+**Device:** Schneider Electric SCADAPack 470, now at **`192.168.88.21`**
+(re-IP'd from its out-of-box `172.16.1.200` via full RemoteConnect).
 
 ---
 
@@ -156,3 +157,31 @@ Verify it surfaced: the EFM/RTU pearl on `/telecom` flips to the SCADAPack
 (`asset_id=RTU-01`, label "SCADAPack 470") with `source=relay`, and `/assets/RTU-01`
 shows `MODBUS LINK/LATENCY/COMM SUCCESS` vitals with `"source":"relay"`.
 Stop the task → after 180 s the pearl reverts to the simulator (safe rollback).
+
+---
+
+## UPDATE 2 — 2026-06-01 EVENING — LIVE via edge-Pi relay (AS-BUILT)
+
+The re-IP path won. Final as-built:
+
+1. **Re-IP** (full RemoteConnect, not the Maintenance Tool — the Maintenance
+   Tool can't build logic): created a fresh project from Catalog (CommDTM →
+   SCADAPack x70), opened the Logic Editor, **Build → Rebuild All Project** on
+   the empty default MAST program (`0 errors` → STA/APX/SIG generated), set
+   Ethernet 1 = `192.168.88.21`, went Online to `172.16.1.200`, **Write**.
+   Device rebooted onto `192.168.88.21`.
+2. **Poll path:** edge Pi (`admin@100.93.143.71`) runs
+   `scripts/edge/scadapack_ingest_relay.py` as user-systemd service
+   `scadapack-relay.service` (linger on, survives reboot). Polls
+   `192.168.88.21:502` every 30 s, POSTs comms-health to `/api/v1/ingest`.
+3. **Surfacing:** the deployed `relay_overlay` flips the EFM/RTU pearl to
+   RTU-01 "SCADAPack 470", `source=relay`, score 100, and writes to InfluxDB.
+
+Verified live: `/assets/RTU-01` → MODBUS LINK/LATENCY/COMM SUCCESS (source
+relay); `/pearls/killdeer` efm_rtu → RTU-01 SCADAPack 470, 100, good.
+
+**Follow-ups:** (a) map x70 system points (supply V / battery / board temp)
+into the Modbus table in RemoteConnect → extend `poll()` to decode → real
+voltages on the pearl; (b) move the SCADAPack cable Catalyst Fa0/2 → RAD-02
+Ethernet for the over-the-RF topology (same subnet, transparent bridge — keeps
+working). See `scripts/edge/README.md`.

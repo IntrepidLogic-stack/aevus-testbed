@@ -1,0 +1,13 @@
+[Unit]
+Description=Aevus SCADAPack 470 Modbus->ingest relay (Task #134/#198)
+After=network-online.target
+
+[Service]
+ExecStart=/home/admin/aevus-testbed/.venv/bin/python /home/admin/scadapack_ingest_relay.py
+Restart=always
+RestartSec=15
+StandardOutput=append:/home/admin/scadapack_relay.log
+StandardError=append:/home/admin/scadapack_relay.log
+
+[Install]
+WantedBy=default.target

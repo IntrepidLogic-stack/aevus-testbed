@@ -25,6 +25,8 @@ DASHBOARD_FILES="\
   dashboard/login.html \
   dashboard/rad-hover-live.js \
   dashboard/aevus-3dpad-map.js \
+  dashboard/three.min.js \
+  dashboard/aevus-killdeer-3d.js \
   dashboard/award-map.html \
   dashboard/award-client.js \
   dashboard/favicon.svg \

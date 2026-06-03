@@ -24,6 +24,7 @@ DASHBOARD_FILES="\
   dashboard/api-client.js \
   dashboard/login.html \
   dashboard/rad-hover-live.js \
+  dashboard/aevus-3dpad-map.js \
   dashboard/favicon.svg \
   dashboard/manifest.json \
   dashboard/leaflet.min.js \

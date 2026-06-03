@@ -3212,28 +3212,39 @@
     var h = (location.hash || "").toLowerCase();
     return h.indexOf("map") > -1;
   }
-  function _takeover() {
-    if (!_onMap()) return;
-    // give the host build a moment to mount its map section, then override
+  var _mounted = false, _busy = false;
+  function _forceMapSize() {
+    var page = document.querySelector('section[data-page="map"]');
+    if (page) { page.style.height = "calc(100vh - 56px)"; page.style.minHeight = "640px"; page.style.padding = "0"; page.style.overflow = "hidden"; page.style.position = "relative"; }
+    var md = document.getElementById("aevus-map");
+    if (md) { md.style.width = "100%"; md.style.height = "100%"; md.style.minHeight = "640px"; md.style.position = "relative"; }
+    var mainEl = document.querySelector(".main");
+    if (mainEl) { mainEl.style.padding = "0"; mainEl.style.overflow = "hidden"; }
+  }
+  function _mountIfNeeded() {
+    if (!_onMap()) { _mounted = false; return; }   // left map -> allow remount on return
+    if (_mounted || _busy) return;
+    _busy = true;
     setTimeout(function () {
       try {
         var page = document.querySelector('section[data-page="map"]');
-        if (!page) return;
-        // tear down whatever the host build rendered
+        if (!page) { _busy = false; return; }
         window._aevusMapLoaded = false;
         if (window._aevusMapInstance) { try { window._aevusMapInstance.remove(); } catch (e) {} window._aevusMapInstance = null; }
         window.__awardRenderMapPage();
+        _mounted = true;
+        // height/resize fallbacks in case the host DOM collapsed the container (black-map guard)
+        setTimeout(function () {
+          _forceMapSize();
+          if (window._aevusMapInstance) { try { window._aevusMapInstance.resize(); } catch (e) {} }
+        }, 600);
         console.log("[3dpad] award 3D-pad map mounted");
-      } catch (e) { console.warn("[3dpad] takeover failed", e); }
-    }, 450);
+      } catch (e) { console.warn("[3dpad] mount failed", e); }
+      _busy = false;
+    }, 500);
   }
-  window.addEventListener("hashchange", _takeover);
-  // catch SPA nav where the map section becomes visible without a hash change
-  var _mo = new MutationObserver(function () {
-    var p = document.querySelector('section[data-page="map"]');
-    if (p && p.offsetParent !== null && _onMap() && !window._aevusMapInstance) _takeover();
-  });
-  try { _mo.observe(document.body, { attributes: true, childList: true, subtree: true }); } catch (e) {}
-  if (document.readyState !== "loading") _takeover();
-  else document.addEventListener("DOMContentLoaded", _takeover);
+  window.addEventListener("hashchange", _mountIfNeeded);
+  setInterval(_mountIfNeeded, 900);   // light poll for SPA nav; guarded by _mounted/_busy (no feedback loop)
+  if (document.readyState !== "loading") _mountIfNeeded();
+  else document.addEventListener("DOMContentLoaded", _mountIfNeeded);
 })();

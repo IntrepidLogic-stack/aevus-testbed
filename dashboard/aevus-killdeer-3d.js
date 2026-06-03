@@ -30,6 +30,8 @@
   // ── CONFIG ────────────────────────────────────────────────────────────────
   var ORIGIN = [-95.8685, 29.3396];            // award pad center (lng,lat)
   var LAYER_ID = "killdeer-3d";
+  // Camera framing that centers the equipment cluster (origin is the SW corner).
+  var FRAME = { center: [-95.86775, 29.33965], zoom: 18.6, pitch: 55, bearing: -20 };
 
   var PRODUCT = {
     oil:      0x10D478,
@@ -498,10 +500,25 @@
     try {
       map.addLayer(makeLayer(map));
       console.log("[killdeer3d] facility layer attached");
+      frameFacility(map);
     } catch (e3) {
       console.warn("[killdeer3d] addLayer failed", e3);
       _attachedMap = null;
     }
+  }
+
+  // Auto-frame the equipment cluster when the map page is entered, so the
+  // facility is centered without manual navigation. Runs once per attach.
+  function frameFacility(map) {
+    setTimeout(function () {
+      try {
+        if (!onMapPage()) { return; }
+        map.flyTo({
+          center: FRAME.center, zoom: FRAME.zoom,
+          pitch: FRAME.pitch, bearing: FRAME.bearing, duration: 1400
+        });
+      } catch (e) {}
+    }, 700);
   }
 
   function tick() {
@@ -539,8 +556,14 @@
       return false;
     },
     remount: function () { _attachedMap = null; tick(); },
-    _segments: segments
+    frame: function () { if (_attachedMap) { frameFacility(_attachedMap); } },
+    debug: function () {
+      return { attached: !!_attachedMap, segments: segments.length,
+               equip: Object.keys(equipMeshes).length, hasRenderer: !!renderer };
+    }
   };
+  // live segment registry (getter — `segments` is reassigned on each attach)
+  try { Object.defineProperty(window.AevusKilldeer3D, "_segments", { get: function () { return segments; } }); } catch (e) {}
 
   console.log("[killdeer3d] module loaded — awaiting map");
 })();

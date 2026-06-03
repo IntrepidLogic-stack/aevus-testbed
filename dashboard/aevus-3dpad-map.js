@@ -3213,6 +3213,26 @@
     return h.indexOf("map") > -1;
   }
   var _mounted = false, _busy = false;
+  function _patchMaplibre() {
+    // The host build's MapLibre throws on removeLayer/removeSource of a missing
+    // id; the award build's MapLibre tolerated it. Make them no-ops when absent
+    // so _drawGeofences/_drawDispatchRoute cleanup can't abort the render.
+    if (window.__mlPatched || typeof maplibregl === "undefined" || !maplibregl.Map) return;
+    window.__mlPatched = true;
+    var MP = maplibregl.Map.prototype;
+    ["removeLayer", "removeSource"].forEach(function (fn) {
+      var orig = MP[fn];
+      if (typeof orig !== "function") return;
+      MP[fn] = function (id) {
+        try {
+          var has = fn === "removeLayer" ? (this.getLayer && this.getLayer(id)) : (this.getSource && this.getSource(id));
+          if (has) return orig.call(this, id);
+        } catch (e) {}
+        return this;
+      };
+    });
+    console.log("[3dpad] maplibre removeLayer/removeSource hardened");
+  }
   function _forceMapSize() {
     var page = document.querySelector('section[data-page="map"]');
     if (page) { page.style.height = "calc(100vh - 56px)"; page.style.minHeight = "640px"; page.style.padding = "0"; page.style.overflow = "hidden"; page.style.position = "relative"; }
@@ -3229,6 +3249,7 @@
       try {
         var page = document.querySelector('section[data-page="map"]');
         if (!page) { _busy = false; return; }
+        _patchMaplibre();
         window._aevusMapLoaded = false;
         if (window._aevusMapInstance) { try { window._aevusMapInstance.remove(); } catch (e) {} window._aevusMapInstance = null; }
         window.__awardRenderMapPage();

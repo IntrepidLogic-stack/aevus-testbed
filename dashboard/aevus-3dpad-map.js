@@ -7,7 +7,7 @@
  * via shims that poll /api/v1/assets + /api/v1/alerts.
  * Source: award-recovery/award-api-client.src.js lines 10915-14077 (verbatim).
  * ==========================================================================*/
-(function () {
+;(function () {
   "use strict";
   if (window.__aevus3dPadInstalled) return;
   window.__aevus3dPadInstalled = true;
@@ -1059,7 +1059,7 @@
       // ══════════════════════════════════════════════════════════════
       // ── PIPE LEGEND (fluid color key) ──
       // ══════════════════════════════════════════════════════════════
-      (function(){
+      ;(function(){
         var pl = document.createElement('div');
         pl.id = 'pipe-legend';
         pl.style.cssText = 'position:absolute;bottom:80px;left:170px;background:#0B1120DD;border:1px solid #10D47833;border-radius:6px;padding:6px 10px;font-family:Inter,sans-serif;z-index:5;pointer-events:none;display:flex;gap:12px;';
@@ -1617,7 +1617,7 @@
 
       // Animate tank surface shimmer (subtle opacity pulse)
       var _tankShimmer = 0;
-      (function _shimmerTanks() {
+      ;(function _shimmerTanks() {
         _tankShimmer += 0.03;
         var op = 0.55 + 0.1 * Math.sin(_tankShimmer);
         try { map.setPaintProperty('tank-liquid-surface', 'fill-extrusion-opacity', op); } catch(e) {}
@@ -1755,7 +1755,7 @@
       map.on('mouseleave','well-3d-extrusion',function(){map.getCanvas().style.cursor='';});
 
       // ── GLOW LEGEND ──
-      (function(){
+      ;(function(){
         var lg = document.createElement('div');
         lg.id = 'map-3d-legend';
         lg.style.cssText = 'position:absolute;bottom:80px;right:12px;background:#0B1120DD;border:1px solid #1E90FF33;border-radius:6px;padding:8px 12px;font-family:Inter,sans-serif;z-index:5;pointer-events:none;';
@@ -2500,7 +2500,7 @@
         if (panel) { panel.style.right = '-380px'; }
     }
     // U1c: Auto-open panel when popup appears (MutationObserver approach)
-    (function() {
+    ;(function() {
         var _mapEl = document.getElementById('aevus-map');
         if (!_mapEl || window._popupObsInstalled) return;
         window._popupObsInstalled = true;
@@ -2511,7 +2511,7 @@
                     var node = added[j];
                     if (node.nodeType !== 1) continue;
                     if (node.classList && node.classList.contains('maplibregl-popup')) {
-                        (function(popNode) {
+                        ;(function(popNode) {
                             setTimeout(function() {
                                 var content = popNode.querySelector('.maplibregl-popup-content');
                                 if (!content) return;

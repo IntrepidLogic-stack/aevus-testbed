@@ -212,6 +212,7 @@
   var blinkMeshes = [];         // tower beacon
   var _windsock = null;         // {pivot, droop} — oriented to live wind each frame
   var _flares = [];             // [{yaw, lean, layers, light}] — flame flickers + leans downwind
+  var _FLAME_WARN = null, _FLAME_SOOT = null;  // status tint colors (lazy-init in animate)
   var WINDSOCK_LL = [-95.86755, 29.33944];  // a clear spot near the met/RTU area
   var transform = null;
   var _attachedMap = null;
@@ -350,13 +351,19 @@
       var sad = new THREEref.Mesh(new THREEref.BoxGeometry(0.35, 0.5, 1.3), skidMat());
       sad.position.set(sx, 0.45, 0); g.add(sad);
     });
-    // supply line: drum -> base of stack
-    var supply = new THREEref.Mesh(new THREEref.CylinderGeometry(0.16, 0.16, 1.6, 10), metal(COL.steelDark));
-    supply.rotation.z = Math.PI / 2; supply.position.set(0.8, koY, 0); g.add(supply);
-    var elbow = new THREEref.Mesh(new THREEref.SphereGeometry(0.18, 10, 8), metal(COL.steelDark));
-    elbow.position.set(0, koY, 0); g.add(elbow);
-    var riser = new THREEref.Mesh(new THREEref.CylinderGeometry(0.16, 0.16, koY, 10), metal(COL.steelDark));
-    riser.position.set(0, koY / 2, 0); g.add(riser);
+    // clean intake piping: one smooth routed run — drum outlet -> elbow -> riser
+    // into the base of the stack (replaces the old 3 disjoint cylinders).
+    var pPts = [
+      new THREEref.Vector3(koCx - koLen / 2 - 0.05, koY, 0),  // drum outlet
+      new THREEref.Vector3(0.30, koY, 0),                     // run toward the stack
+      new THREEref.Vector3(0.30, 1.0, 0),                     // elbow down
+      new THREEref.Vector3(0.05, 0.8, 0)                      // into the stack base
+    ];
+    var pCurve = new THREEref.CatmullRomCurve3(pPts, false, "catmullrom", 0.25);
+    var pipe = new THREEref.Mesh(new THREEref.TubeGeometry(pCurve, 44, 0.13, 12, false), metal(COL.steelDark));
+    g.add(pipe);
+    var flg = new THREEref.Mesh(new THREEref.CylinderGeometry(0.2, 0.2, 0.1, 14), metal(COL.steel));
+    flg.rotation.z = Math.PI / 2; flg.position.set(koCx - koLen / 2 - 0.05, koY, 0); g.add(flg);
 
     // ── flare stack + flange rings ──
     var mastG = new THREEref.CylinderGeometry(0.3, 0.42, H, 16);
@@ -407,15 +414,18 @@
       });
     }
     var layers = [];
-    function addLayer(r, hgt, color, op, j) {
-      var cone = new THREEref.Mesh(new THREEref.ConeGeometry(r, hgt, 16, 1, true), flameMat(color));
+    // Each layer ramps cool (low intake) -> hot (high intake); status tints are
+    // applied per-frame (warn=amber, bad=sooty). See animate().
+    function addLayer(r, hgt, coolHex, hotHex, op, j) {
+      var cone = new THREEref.Mesh(new THREEref.ConeGeometry(r, hgt, 16, 1, true), flameMat(hotHex));
       cone.position.y = hgt * 0.5; lean.add(cone);
-      layers.push({ mesh: cone, baseOp: op, phase: j * 1.7 });
+      layers.push({ mesh: cone, baseOp: op, phase: j * 1.7,
+                    cool: new THREEref.Color(coolHex), hot: new THREEref.Color(hotHex) });
     }
-    addLayer(1.15, 5.4, 0xFF4A14, 0.26, 0);  // outer deep orange
-    addLayer(0.80, 4.1, 0xFF8A2C, 0.46, 1);  // mid orange
-    addLayer(0.46, 2.7, 0xFFE08A, 0.82, 2);  // bright core
-    addLayer(0.18, 3.6, 0xFFF4CC, 0.7, 3);   // flicker tongue
+    addLayer(1.15, 5.4, 0x5A1206, 0xFF6A22, 0.26, 0);  // outer: sooty red -> hot orange
+    addLayer(0.80, 4.1, 0xC23A0A, 0xFFA63C, 0.46, 1);  // mid:   ember     -> amber
+    addLayer(0.46, 2.7, 0xFF8A3C, 0xFFF3C8, 0.82, 2);  // core:  orange    -> near white-hot
+    addLayer(0.18, 3.6, 0xFFD27A, 0xFFFFFF, 0.70, 3);  // tongue
     var pl = new THREEref.PointLight(0xFF7A2C, 1.6, 42); pl.position.y = flameY + 1.4; g.add(pl);
 
     _flares.push({ yaw: yaw, lean: lean, layers: layers, light: pl });
@@ -736,7 +746,18 @@
     for (i = 0; i < blinkMeshes.length; i++) {
       blinkMeshes[i].material.opacity = (Math.sin(ts * 3) > 0.4) ? 0.95 : 0.12;
     }
-    // flare — layered flame flickers + leans DOWNWIND with the live wind
+    // flare — flame COLOR + SIZE reflect the live INTAKE (gas flow into the stack,
+    // segment P6) + its status; the plume flickers + leans DOWNWIND with the wind.
+    if (_flares.length && !_FLAME_WARN) {
+      _FLAME_WARN = new THREEref.Color(0xFBBF24); _FLAME_SOOT = new THREEref.Color(0x6B2A12);
+    }
+    var _intake = null;
+    for (k = 0; k < segments.length; k++) {
+      if (segments[k].id === "P6" || segments[k].to === "FLR") { _intake = segments[k]; break; }
+    }
+    var intakeFlow = (_intake && typeof _intake.flow === "number") ? _intake.flow : 0.7;
+    var intakeStatus = (_intake && _intake.status) ? _intake.status : "good";
+    var hot = Math.max(0, Math.min(1, intakeFlow));   // 0 (no intake) .. 1 (full)
     for (i = 0; i < _flares.length; i++) {
       var fr = _flares[i];
       var fw = (window.AevusWindsock && window.AevusWindsock.wind) ? window.AevusWindsock.wind() : null;
@@ -744,13 +765,20 @@
       var fmph = (fw && typeof fw.mph === "number") ? fw.mph : 8;
       fr.yaw.rotation.y = Math.PI - ftoward * Math.PI / 180;
       fr.lean.rotation.x = Math.min(0.9, fmph * 0.04) + Math.sin(ts * 2.4) * 0.05;
+      // intake flow scales the whole plume (small/dim when starved, tall/bright when full)
+      fr.lean.scale.setScalar(0.42 + hot * 0.95);
+      var dim = (intakeStatus === "bad") ? 0.6 : 1;
       for (k = 0; k < fr.layers.length; k++) {
         var L = fr.layers[k];
+        // temperature colour by intake: cool (low flow) -> hot (high flow)
+        L.mesh.material.color.copy(L.cool).lerp(L.hot, hot);
+        if (intakeStatus === "warn") { L.mesh.material.color.lerp(_FLAME_WARN, 0.45); }
+        else if (intakeStatus === "bad") { L.mesh.material.color.lerp(_FLAME_SOOT, 0.55); }
         var fl2 = 0.86 + Math.sin(ts * (7 + k * 2) + L.phase) * 0.16 + Math.sin(ts * 19) * 0.05;
         L.mesh.scale.set(1 + Math.sin(ts * 5 + k) * 0.06, fl2, 1 + Math.cos(ts * 4 + k) * 0.06);
-        L.mesh.material.opacity = L.baseOp * (0.8 + Math.sin(ts * (6 + k) + L.phase) * 0.2);
+        L.mesh.material.opacity = L.baseOp * (0.78 + Math.sin(ts * (6 + k) + L.phase) * 0.2) * (0.35 + hot * 0.65) * dim;
       }
-      if (fr.light) { fr.light.intensity = 1.4 + Math.sin(ts * 8) * 0.4; }
+      if (fr.light) { fr.light.intensity = (0.4 + hot * 1.5) + Math.sin(ts * 8) * 0.35; }
     }
     // windsock — stream DOWNWIND in the real geographic direction (local frame:
     // x=east, z=south => rotation.y = PI/2 - toward), with flutter + wind-driven droop
@@ -832,6 +860,7 @@
       flow = Math.max(0, Math.min(1, seg.flow || 0));
       dir = (seg.dir < 0) ? -1 : 1;
       s.flow = flow;
+      s.status = seg.status || "good";   // exposed for the flare flame (intake-driven)
       s.speed = flow * 0.22 * dir;  // flow drives packet speed + direction
       if (s.mesh && s.mesh.material) {
         s.mesh.material.emissiveIntensity = 0.18 + flow * 0.55;

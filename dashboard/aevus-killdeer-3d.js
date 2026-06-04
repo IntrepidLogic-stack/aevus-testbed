@@ -187,6 +187,9 @@
   var _attachedMap = null;
   var _frameIv = null;          // single persistent auto-frame enforcement loop
   var _frameMove = null;        // per-frame 'move' snap handler (kills load flicker)
+  var _fit = null;              // computed fit-to-bounds camera {center, zoom, padding}
+  var _frameResize = null;      // re-fit handler on viewport resize
+  var _fitting = false;         // true while computeFit() is probing the camera
   var _clock0 = (window.performance && performance.now) ? performance.now() : 0;
 
   // ── MATERIAL FACTORIES ────────────────────────────────────────────────────
@@ -719,17 +722,85 @@
   // far from the pad — until the operator manually moves the map. Programmatic moves
   // (ours + the native fit) have no originalEvent; only real gestures set userMoved,
   // so we seize the camera from the native fit without ever fighting the operator.
+  // ── FIT-TO-BOUNDS (bulletproof framing) ──────────────────────────────────────
+  // Instead of a hardcoded zoom (which clips on small windows / over-zooms on big
+  // ones), compute the camera from the facility's GEOGRAPHIC bounds so it always
+  // fits, on any viewport. cameraForBounds is pitch-unaware, so after the 2D fit
+  // we iterate the zoom DOWN until every node actually projects inside the padded
+  // viewport at the real 55° pitch — with extra top room for the tall Radio Tower
+  // mast (whose 3D height extends above its lng/lat anchor). Recomputed on resize.
+  function _padFor(map) {
+    var cv, W = 1200, H = 800;
+    try { cv = map.getCanvas(); W = cv.clientWidth || W; H = cv.clientHeight || H; } catch (e) {}
+    return {
+      top: Math.max(60, Math.round(H * 0.13)),     // tower mast + zoom ctrl headroom
+      bottom: Math.max(110, Math.round(H * 0.20)),  // Sim/Ask/weather UI
+      left: Math.max(40, Math.round(W * 0.05)),
+      right: Math.max(40, Math.round(W * 0.05))
+    };
+  }
+  function _allNodesFit(map, pad) {
+    try {
+      var cv = map.getCanvas(), W = cv.clientWidth, H = cv.clientHeight, i, e, p, topReq;
+      for (i = 0; i < EQUIP.length; i++) {
+        e = EQUIP[i];
+        p = map.project([e.lng, e.lat]);
+        // tower's tall mast needs extra top clearance above its base anchor
+        topReq = pad.top + (e.type === "tower" ? Math.round(H * 0.16) : 0);
+        if (p.x < pad.left || p.x > W - pad.right || p.y < topReq || p.y > H - pad.bottom) {
+          return false;
+        }
+      }
+      return true;
+    } catch (e2) { return true; }  // can't verify => don't loop forever
+  }
+  function computeFit(map) {
+    if (typeof maplibregl === "undefined" || !EQUIP.length) { return null; }
+    var b;
+    try {
+      b = new maplibregl.LngLatBounds();
+      EQUIP.forEach(function (e) { b.extend([e.lng, e.lat]); });
+    } catch (e) { return null; }
+    var pad = _padFor(map);
+    var cam;
+    try { cam = map.cameraForBounds(b, { bearing: FRAME.bearing, padding: pad, maxZoom: 21 }); }
+    catch (e3) { cam = null; }
+    if (!cam || !cam.center) { return null; }
+    var center = [cam.center.lng, cam.center.lat];
+    var zoom = cam.zoom;
+    // Pitch + 3D-height headroom: drop zoom until everything (tower included) fits.
+    // Guard so the move-snap handler ignores our probing jumpTo()s.
+    _fitting = true;
+    for (var i = 0; i < 8 && zoom > 16; i++) {
+      try { map.jumpTo({ center: center, zoom: zoom, pitch: FRAME.pitch, bearing: FRAME.bearing, padding: pad }); } catch (ej) {}
+      if (_allNodesFit(map, pad)) { break; }
+      zoom -= 0.18;
+    }
+    _fitting = false;
+    return { center: center, zoom: zoom, padding: pad };
+  }
+
   function frameFacility(map) {
     if (_frameIv) { clearInterval(_frameIv); _frameIv = null; }
     if (_frameMove) { try { map.off("move", _frameMove); } catch (e) {} _frameMove = null; }
+    if (_frameResize) { try { map.off("resize", _frameResize); } catch (e) {} _frameResize = null; }
     var done = false, snapping = false;
 
+    // Compute the adaptive fit now (falls back to the FRAME constant if maplibre
+    // / topology aren't ready or cameraForBounds fails).
+    _fit = computeFit(map);
+    function target() {
+      if (_fit) { return _fit; }
+      var h = 0; try { h = map.getCanvas().clientHeight || 0; } catch (e) {}
+      return { center: FRAME.center, zoom: FRAME.zoom,
+               padding: { top: 0, right: 0, bottom: h ? Math.max(120, Math.round(h * 0.34)) : 300, left: 0 } };
+    }
     function framedNow() {
       try {
-        var c = map.getCenter();
-        return Math.abs(c.lng - FRAME.center[0]) < 0.0015 &&
-               Math.abs(c.lat - FRAME.center[1]) < 0.0015 &&
-               Math.abs(map.getZoom() - (FRAME.zoom || 20.1)) < 0.35 &&
+        var t = target(), c = map.getCenter();
+        return Math.abs(c.lng - t.center[0]) < 0.0015 &&
+               Math.abs(c.lat - t.center[1]) < 0.0015 &&
+               Math.abs(map.getZoom() - t.zoom) < 0.4 &&
                Math.abs(map.getPitch() - (FRAME.pitch || 55)) < 6;
       } catch (e) { return false; }
     }
@@ -738,27 +809,15 @@
       snapping = true;
       try {
         map.stop();  // cancel any native flyTo
-        // Lift the facility into vertical center. Without bottom padding the
-        // jumpTo centers the *geographic* point at screen-middle, but the 55°
-        // pitch projects the facility geometry mostly BELOW that point — so it
-        // renders low with empty sky on top and the flare/EFM clipped at the
-        // bottom (the "shifted down" report, 2026-06-04). Bottom padding moves
-        // the projected center up; ~38% of viewport height centers it cleanly.
-        // Responsive so it holds across window sizes / Wall mode. framedNow()
-        // checks center/zoom/pitch only, so padding doesn't disturb the lock.
-        var h = 0;
-        try { h = map.getCanvas().clientHeight || 0; } catch (eh) {}
-        var padBottom = h ? Math.max(120, Math.min(480, Math.round(h * 0.34))) : 300;
-        map.jumpTo({
-          center: FRAME.center, zoom: FRAME.zoom, pitch: FRAME.pitch, bearing: FRAME.bearing,
-          padding: { top: 0, right: 0, bottom: padBottom, left: 0 }
-        });
+        var t = target();
+        map.jumpTo({ center: t.center, zoom: t.zoom, pitch: FRAME.pitch, bearing: FRAME.bearing, padding: t.padding });
       } catch (e) {}
       snapping = false;
     }
     function cleanup() {
       if (_frameIv) { clearInterval(_frameIv); _frameIv = null; }
       if (_frameMove) { try { map.off("move", _frameMove); } catch (e) {} _frameMove = null; }
+      if (_frameResize) { try { map.off("resize", _frameResize); } catch (e) {} _frameResize = null; }
       try { map.off("dragstart", onUser); map.off("zoomstart", onUser); map.off("rotatestart", onUser); } catch (e) {}
     }
     function onUser(e) {
@@ -772,13 +831,17 @@
     function onMove() {
       // Snap back THIS frame whenever the native "fit all assets" camera pulls us
       // off the pad — so there is no visible zoom-out/zoom-in flicker on load.
-      if (done || snapping) { return; }
+      if (done || snapping || _fitting) { return; }
       if (!onMapPage()) { return; }
       if (!framedNow()) { snap(); }
     }
     try { map.on("dragstart", onUser); map.on("zoomstart", onUser); map.on("rotatestart", onUser); } catch (e0) {}
     _frameMove = onMove;
     try { map.on("move", onMove); } catch (e1) {}
+    // Re-fit on viewport resize (window resize, Wall mode, sidebar toggle) so the
+    // framing stays bulletproof across any size — never a stale hardcoded zoom.
+    _frameResize = function () { _fit = computeFit(map); if (!done) { snap(); } };
+    try { map.on("resize", _frameResize); } catch (e2) {}
     snap();  // instant initial frame — jumpTo, never an animated flyTo
     // Backup poll in case 'move' isn't firing while the map sits idle.
     _frameIv = setInterval(function () {

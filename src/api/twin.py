@@ -102,7 +102,7 @@ _TOPOLOGY = TwinTopology(
     facility_id=_FACILITY_ID,
     name="Killdeer Field — BlueJay Unit #1",
     origin=(-95.8685, 29.3396),
-    frame={"center": [-95.86769, 29.33956], "zoom": 20.35, "pitch": 55, "bearing": -20},
+    frame={"center": [-95.86769, 29.33956], "zoom": 20.12, "pitch": 55, "bearing": -20},
     nodes=[
         TwinNode(
             id="WH",

@@ -31,19 +31,19 @@ pytest tests/ -x -q -m "not integration and not slow" --tb=short 2>&1 | tail -10
   exit 1
 }
 
-# Restart service
-echo "→ Restarting $SERVICE..."
-sudo systemctl restart "$SERVICE"
-sleep 4
-
-# Health check
-echo "→ Health check..."
-if curl -sf "$HEALTH_URL" > /dev/null; then
-  echo "✓ Deploy successful"
-  echo "  Commit: $(git rev-parse --short HEAD)"
-  echo "  Time:   $(date -u +%Y-%m-%dT%H:%M:%SZ)"
-else
-  echo "✗ Health check FAILED"
-  sudo journalctl -u "$SERVICE" --no-pager -n 20
-  exit 1
-fi
+# Restart service — DETACHED.
+#
+# This script is launched by the webhook handler (POST /api/v1/deploy/trigger),
+# which runs INSIDE aevus.service's cgroup. A plain `systemctl restart aevus`
+# therefore stops the cgroup — killing THIS script — before the restart job
+# completes, so the service kept running STALE code (the 2026-06-04 twin-ask 404
+# + frame-20.1 staleness; Task #179). `--no-block` enqueues the restart job in
+# systemd (PID 1), which completes independently of us being killed. ubuntu has
+# NOPASSWD sudo, so this just works.
+echo "→ Restarting $SERVICE (detached --no-block)..."
+sudo systemctl restart --no-block "$SERVICE"
+echo "✓ Restart queued (detached). Commit: $(git rev-parse --short HEAD)"
+echo "  Time: $(date -u +%Y-%m-%dT%H:%M:%SZ)"
+# NOTE: no post-restart health check here — systemd stops our cgroup mid-script
+# once it processes the queued restart, so anything after this line may not run.
+# Verify health externally: curl https://aevus.intrepidlogic.io/api/v1/health/ping

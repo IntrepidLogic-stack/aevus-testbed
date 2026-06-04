@@ -2,8 +2,10 @@
  * Aevus — Map Windsock (live wind-direction instrument)
  *
  * A HUD windsock pinned to the Map page, wired TRUE to the wind:
- *   • reads the live wind (dir + speed) from the on-map Weather widget, so the
- *     sock and the widget always agree;
+ *   • DATA SOURCE: the backend /api/v1/weather endpoint — REAL Open-Meteo wind
+ *     speed + direction for the site coordinates (not the random map widget). It
+ *     also corrects the map's random Weather widget to the real values so the
+ *     widget, topbar, and windsock all agree;
  *   • points the real geographic DOWNWIND direction — a real sock streams away
  *     from where the wind comes from (FROM-NW wind => sock streams to SE);
  *   • stays geographically correct relative to the map: it rotates by
@@ -15,9 +17,15 @@
 (function () {
   "use strict";
 
-  var POLL_MS = 2000;
+  var WEATHER_MS = 60000;   // real weather changes slowly (backend caches ~10 min)
   // Compass FROM-direction (meteorological) -> degrees clockwise from North.
   var DIR_DEG = { N: 0, NE: 45, E: 90, SE: 135, S: 180, SW: 225, W: 270, NW: 315 };
+  // 16-point compass (the /weather endpoint reports e.g. "SSE")
+  var COMPASS16 = {
+    N: 0, NNE: 22.5, NE: 45, ENE: 67.5, E: 90, ESE: 112.5, SE: 135, SSE: 157.5,
+    S: 180, SSW: 202.5, SW: 225, WSW: 247.5, W: 270, WNW: 292.5, NW: 315, NNW: 337.5
+  };
+  var DEMO = (typeof window !== "undefined" && window.AEVUS_DEMO) || /demo=true/.test(location.search);
   var TEAL = "#06B6D4", PURPLE = "#6366F1";
 
   var _el = null;        // root (mounted on <body>, fixed)
@@ -27,7 +35,7 @@
   var _label = null;
   var _mounted = false;
   var _pollTimer = null;
-  var _wind = { fromDeg: 0, mph: 0, dir: "N" };
+  var _wind = { fromDeg: 0, mph: 0, dir: "N", gust: 0, real: false };
   var _boundMap = null;
 
   function onMapPage() {
@@ -103,8 +111,30 @@
     return el;
   }
 
-  // Parse the on-map Weather widget: "<n> mph <DIR>".
-  function readWind() {
+  // REAL data source: the backend /api/v1/weather endpoint (Open-Meteo for the
+  // site coordinates) — temp_f, wind_mph, wind_gust_mph, wind_dir (16-pt compass).
+  function fetchWeather() {
+    var h = { Accept: "application/json" };
+    if (DEMO) { h["X-Aevus-Demo"] = "true"; }
+    return fetch("/api/v1/weather", { credentials: "same-origin", headers: h })
+      .then(function (r) { if (!r.ok) { throw new Error("HTTP " + r.status); } return r.json(); })
+      .then(function (d) {
+        if (d && typeof d.wind_mph === "number") {
+          _wind.mph = d.wind_mph;
+          _wind.gust = d.wind_gust_mph || 0;
+          _wind.dir = d.wind_dir || "";
+          var deg = COMPASS16[_wind.dir];
+          if (deg != null) { _wind.fromDeg = deg; }
+          _wind.real = true;
+          syncWidget(d);
+          update();
+        }
+      })
+      .catch(function () { if (!_wind.real) { readWidget(); update(); } });
+  }
+
+  // Fallback only: parse the on-map Weather widget if the endpoint is unreachable.
+  function readWidget() {
     try {
       var w = document.querySelector(".map-weather-legend");
       if (!w) { return; }
@@ -113,6 +143,24 @@
         _wind.mph = parseFloat(m[1]) || 0;
         _wind.dir = m[2].toUpperCase();
         _wind.fromDeg = DIR_DEG[_wind.dir] != null ? DIR_DEG[_wind.dir] : 0;
+      }
+    } catch (e) {}
+  }
+
+  // Correct the map's bottom-left Weather widget (its temp/wind are client-random)
+  // to the REAL values, so the widget, the topbar, and the windsock all agree.
+  function syncWidget(d) {
+    try {
+      var w = document.querySelector(".map-weather-legend");
+      if (!w) { return; }
+      var rows = w.querySelectorAll(".wx-row");
+      for (var i = 0; i < rows.length; i++) {
+        var t = rows[i].textContent || "";
+        if (/mph/i.test(t)) {
+          rows[i].lastChild.textContent = " " + Math.round(d.wind_mph) + " mph " + (d.wind_dir || "");
+        } else if (/°F/.test(t) && typeof d.temp_f === "number") {
+          rows[i].lastChild.textContent = " " + Math.round(d.temp_f) + "°F";
+        }
       }
     } catch (e) {}
   }
@@ -181,7 +229,7 @@
     if (onMapPage()) {
       if (ensureMounted()) {
         setVisible(true);
-        if (!_pollTimer) { readWind(); update(); _pollTimer = setInterval(function () { readWind(); update(); }, POLL_MS); }
+        if (!_pollTimer) { fetchWeather(); _pollTimer = setInterval(fetchWeather, WEATHER_MS); }
       }
     } else {
       setVisible(false);
@@ -195,7 +243,7 @@
 
   window.AevusWindsock = {
     wind: function () { return { dir: _wind.dir, mph: _wind.mph, fromDeg: _wind.fromDeg, towardDeg: (_wind.fromDeg + 180) % 360, mapBearing: bearing() }; },
-    refresh: function () { readWind(); update(); },
+    refresh: function () { fetchWeather(); },
     // manual override for testing/demo: set wind FROM compass + speed
     set: function (dir, mph) { if (DIR_DEG[dir] != null) { _wind.dir = dir; _wind.fromDeg = DIR_DEG[dir]; } if (mph != null) { _wind.mph = mph; } update(); }
   };

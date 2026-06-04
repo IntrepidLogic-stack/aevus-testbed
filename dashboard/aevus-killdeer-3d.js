@@ -31,7 +31,7 @@
   var ORIGIN = [-95.8685, 29.3396];            // award pad center (lng,lat)
   var LAYER_ID = "killdeer-3d";
   // Camera framing that centers the equipment cluster (origin is the SW corner).
-  var FRAME = { center: [-95.86769, 29.33956], zoom: 20.1, pitch: 55, bearing: -20 };
+  var FRAME = { center: [-95.86769, 29.33956], zoom: 20.35, pitch: 55, bearing: -20 };
 
   var PRODUCT = {
     oil:      0x10D478,
@@ -87,33 +87,74 @@
   // Load the facility graph from /api/v1/twin/.../topology and replace the
   // hardcoded EQUIP/PIPES. Geometry binds to the graph by id; if the endpoint is
   // unavailable we fall back to the bundled arrays so the twin still renders.
+  // ── TOPOLOGY (B1) with stale-while-revalidate cache ──────────────────────────
+  // First-ever visit: fetch from the API. Every visit after: hydrate the graph
+  // from localStorage INSTANTLY (zero network wait before the twin builds), then
+  // revalidate in the background and rebuild ONLY if the server graph actually
+  // changed. Cache key is versioned so a shipped topology/frame change cleanly
+  // invalidates stale client caches.
+  var _TOPO_CACHE_KEY = "aevus_twin_topo_v2_" + TWIN_FACILITY;
+  function _applyTopology(t) {
+    if (Array.isArray(t.origin) && t.origin.length === 2) { ORIGIN = t.origin; }
+    if (t.frame && t.frame.center) {
+      FRAME = { center: t.frame.center, zoom: t.frame.zoom, pitch: t.frame.pitch, bearing: t.frame.bearing };
+    }
+    EQUIP = t.nodes.map(function (n) {
+      return { id: n.id, lng: n.lnglat[0], lat: n.lnglat[1], type: n.type, name: n.name, asset_id: n.asset_id };
+    });
+    PIPES = t.edges.map(function (e) {
+      return { id: e.id, from: e.from, to: e.to, product: e.product,
+               rackH: e.rack_h_m || 2.2, speed: _BASE_SPEED[e.product] || 0.1 };
+    });
+  }
   function loadTopology() {
     var finish = function () { _topoReady = true; };
-    var safety = setTimeout(finish, 5000);  // never block forever on a hung fetch
+    var cachedRaw = null, hydrated = false;
+    // 1) Hydrate instantly from the last-good cache (stale-while-revalidate).
+    try {
+      cachedRaw = window.localStorage ? localStorage.getItem(_TOPO_CACHE_KEY) : null;
+      if (cachedRaw) {
+        var ct = JSON.parse(cachedRaw);
+        if (ct && ct.nodes && ct.edges) {
+          _applyTopology(ct); hydrated = true; _topoReady = true;
+          console.log("[killdeer3d] topology from cache (instant build); revalidating…");
+        }
+      }
+    } catch (e) { cachedRaw = null; }
+    // 2) Revalidate from the API in the background. Only the COLD path gets gated
+    //    by the safety timeout; a warm (cached) load is already _topoReady.
+    var safety = hydrated ? null : setTimeout(finish, 5000);
     try {
       fetch("/api/v1/twin/facility/" + TWIN_FACILITY + "/topology", { credentials: "same-origin" })
-        .then(function (r) { return r.ok ? r.json() : null; })
-        .then(function (t) {
+        .then(function (r) { return r.ok ? r.text() : null; })
+        .then(function (txt) {
+          var t = null;
+          if (txt) { try { t = JSON.parse(txt); } catch (e) { t = null; } }
           if (t && t.nodes && t.edges) {
-            if (Array.isArray(t.origin) && t.origin.length === 2) { ORIGIN = t.origin; }
-            if (t.frame && t.frame.center) {
-              FRAME = { center: t.frame.center, zoom: t.frame.zoom, pitch: t.frame.pitch, bearing: t.frame.bearing };
+            var changed = txt !== cachedRaw;
+            try { if (window.localStorage) { localStorage.setItem(_TOPO_CACHE_KEY, txt); } } catch (e) {}
+            if (!hydrated) {
+              _applyTopology(t);
+              console.log("[killdeer3d] topology from API:", EQUIP.length, "nodes,", PIPES.length, "edges");
+            } else if (changed) {
+              _applyTopology(t);
+              console.log("[killdeer3d] topology changed on server — rebuilding twin");
+              _attachedMap = null;  // force tick() to re-attach + rebuild from the fresh graph
+            } else {
+              console.log("[killdeer3d] topology revalidated (unchanged)");
             }
-            EQUIP = t.nodes.map(function (n) {
-              return { id: n.id, lng: n.lnglat[0], lat: n.lnglat[1], type: n.type, name: n.name, asset_id: n.asset_id };
-            });
-            PIPES = t.edges.map(function (e) {
-              return { id: e.id, from: e.from, to: e.to, product: e.product,
-                       rackH: e.rack_h_m || 2.2, speed: _BASE_SPEED[e.product] || 0.1 };
-            });
-            console.log("[killdeer3d] topology from API:", EQUIP.length, "nodes,", PIPES.length, "edges");
-          } else {
+          } else if (!hydrated) {
             console.warn("[killdeer3d] topology API empty — using fallback geometry");
           }
-          clearTimeout(safety); finish();
+          if (safety) { clearTimeout(safety); }
+          finish();
         })
-        .catch(function () { console.warn("[killdeer3d] topology fetch failed — using fallback"); clearTimeout(safety); finish(); });
-    } catch (e) { clearTimeout(safety); finish(); }
+        .catch(function () {
+          console.warn("[killdeer3d] topology revalidate failed — using " + (hydrated ? "cache" : "fallback"));
+          if (safety) { clearTimeout(safety); }
+          finish();
+        });
+    } catch (e) { if (safety) { clearTimeout(safety); } finish(); }
   }
 
   // ── GEO HELPERS ─────────────────────────────────────────────────────────────
@@ -629,6 +670,7 @@
   function onFirstPaint() {
     if (_painted) { return; }
     _painted = true;
+    try { document.body.classList.add("kd-twin-painted"); } catch (e) {}  // reveals .kd-co callouts
     hideTwinLoader();
     try { window.dispatchEvent(new CustomEvent("aevus:twin-ready")); } catch (e) {}
   }
@@ -817,7 +859,7 @@
       if (!c || c.querySelector("#kd-sim-ui")) { return; }
       var box = document.createElement("div");
       box.id = "kd-sim-ui";
-      box.style.cssText = "position:absolute;bottom:140px;left:50%;transform:translateX(-50%);z-index:6;" +
+      box.style.cssText = "position:absolute;bottom:156px;left:50%;transform:translateX(-50%);z-index:6;" +
         "display:flex;gap:8px;font-family:Manrope,-apple-system,sans-serif;";
       var btn = "padding:7px 14px;border-radius:8px;font-size:12px;font-weight:600;cursor:pointer;";
       box.innerHTML =
@@ -837,7 +879,7 @@
       if (!c || c.querySelector("#kd-ask-ui")) { return; }
       var box = document.createElement("div");
       box.id = "kd-ask-ui";
-      box.style.cssText = "position:absolute;bottom:84px;left:50%;transform:translateX(-50%);z-index:6;" +
+      box.style.cssText = "position:absolute;bottom:100px;left:50%;transform:translateX(-50%);z-index:6;" +
         "width:560px;max-width:82%;font-family:Manrope,-apple-system,sans-serif;";
       box.innerHTML =
         '<div id="kd-ask-answer" style="display:none;background:rgba(11,17,32,0.93);border:1px solid rgba(6,182,212,0.4);' +

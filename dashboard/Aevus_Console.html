@@ -3393,11 +3393,20 @@ section[data-page="historian"] select option {
 .map-mini-faceplate .fp-bar { height: 3px; border-radius: 2px; background: rgba(148,163,184,0.1); margin-top: 2px; }
 .map-mini-faceplate .fp-bar-fill { height: 100%; border-radius: 2px; transition: width 0.3s; }
 
+/* Kill the pre-build flash on the Map page (2026-06-04): the native scattered
+   demo asset markers must NEVER show (the Killdeer twin replaces them), and our
+   equipment callouts stay hidden until the 3D twin has actually painted
+   (killdeer-3d.js sets body.kd-twin-painted on the first render). Static so it
+   applies on first paint, before any JS runs — no green-dots flash. */
+.map-asset-marker { display: none !important; }
+body:not(.kd-twin-painted) .kd-co { opacity: 0 !important; }
+
 .map-measure-btn {
-  /* Moved from top-right to directly under the Layers box (top-left), per
-     2026-06-04 punch-list. The Layers box (.map-layer-toggle) is top:12px and
-     ~175px tall, so 196px clears it with a small gap. */
-  position: absolute; top: 196px; left: 12px; right: auto; z-index: 10;
+  /* Directly under the Layers box (top-left), per 2026-06-04 punch-list. The
+     Layers box (.map-layer-toggle) is top:12px and ~204px tall (measured live),
+     ending at ~216px; 234px clears it with an ~18px gap. (196px overlapped the
+     box bottom — that was the bug.) */
+  position: absolute; top: 234px; left: 12px; right: auto; z-index: 10;
   background: rgba(11,16,32,0.92); border: 1px solid rgba(148,163,184,0.15);
   border-radius: 6px; padding: 6px 12px; font-size: 10px; color: #B4BCD0;
   cursor: pointer; font-family: var(--font-body); backdrop-filter: blur(8px);
@@ -3406,7 +3415,7 @@ section[data-page="historian"] select option {
 .map-measure-btn.active { background: rgba(14,165,233,0.15); border-color: var(--accent); color: var(--accent); }
 .map-measure-result {
   /* Follow the button to the top-left (sits just below it). */
-  position: absolute; top: 232px; left: 12px; right: auto; z-index: 10;
+  position: absolute; top: 276px; left: 12px; right: auto; z-index: 10;
   background: rgba(11,16,32,0.92); border: 1px solid var(--accent);
   border-radius: 6px; padding: 6px 12px; font-size: 11px; color: #fff;
   font-family: var(--font-mono); backdrop-filter: blur(8px); display: none;
@@ -5944,7 +5953,7 @@ html { scroll-behavior:smooth; }
      initAevusMap on the native map. The native map (api-client.js) owns window._aevusMapInstance,
      and aevus-killdeer-3d.js attaches the 3D facility directly to it. -->
 <script src="/dashboard/three.min.js"></script>
-<script src="/dashboard/aevus-killdeer-3d.js?v=17"></script>
+<script src="/dashboard/aevus-killdeer-3d.js?v=18"></script>
 
 <script>
 (function() {

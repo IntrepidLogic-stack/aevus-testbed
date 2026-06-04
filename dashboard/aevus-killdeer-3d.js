@@ -501,9 +501,14 @@
       s.speed = flow * 0.22 * dir;  // flow drives packet speed + direction
       if (s.mesh && s.mesh.material) {
         s.mesh.material.emissiveIntensity = 0.18 + flow * 0.55;
-        // bad status -> red-shift the pipe glow so failures read on the twin
-        if (seg.status === "bad") { s.mesh.material.emissive.setHex(COL.bad); }
-        else { s.mesh.material.emissive.setHex(PRODUCT[s.product] || COL.steel); }
+        // bad status -> turn the pipe fully red (base colour + glow) so failures
+        // read unmistakably on the twin; otherwise hold the product colour.
+        if (seg.status === "bad") {
+          s.mesh.material.color.setHex(COL.bad); s.mesh.material.emissive.setHex(COL.bad);
+        } else {
+          s.mesh.material.color.setHex(PRODUCT[s.product] || COL.steel);
+          s.mesh.material.emissive.setHex(PRODUCT[s.product] || COL.steel);
+        }
       }
       for (j = 0; j < s.packets.length; j++) {
         s.packets[j].mesh.visible = flow > 0.02;
@@ -677,7 +682,8 @@
       s.speed = flow * 0.22;
       if (s.mesh && s.mesh.material) {
         s.mesh.material.emissiveIntensity = 0.16 + flow * 0.55;
-        s.mesh.material.emissive.setHex(status === "bad" ? COL.bad : (PRODUCT[s.product] || COL.steel));
+        var hex = status === "bad" ? COL.bad : (PRODUCT[s.product] || COL.steel);
+        s.mesh.material.color.setHex(hex); s.mesh.material.emissive.setHex(hex);
       }
       for (j = 0; j < s.packets.length; j++) { s.packets[j].mesh.visible = flow > 0.02; }
       return;

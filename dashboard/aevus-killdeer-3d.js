@@ -596,6 +596,7 @@
       console.log("[killdeer3d] facility layer attached");
       frameFacility(map);
       injectSimUI(map);
+      injectAskUI(map);
     } catch (e3) {
       console.warn("[killdeer3d] addLayer failed", e3);
       _attachedMap = null;
@@ -742,6 +743,60 @@
       c.appendChild(box);
       box.querySelector("#kd-sim-trip").addEventListener("click", function () { simulateScenario("compressor-trip"); });
       box.querySelector("#kd-sim-reset").addEventListener("click", function () { clearSim(); });
+    } catch (e) {}
+  }
+
+  // "Ask the twin" — natural-language Q&A grounded in the live twin state,
+  // answered by the platform's AI layer (/api/v1/ai/twin-ask). Read-only.
+  function injectAskUI(map) {
+    try {
+      var c = map.getContainer && map.getContainer();
+      if (!c || c.querySelector("#kd-ask-ui")) { return; }
+      var box = document.createElement("div");
+      box.id = "kd-ask-ui";
+      box.style.cssText = "position:absolute;bottom:58px;left:50%;transform:translateX(-50%);z-index:6;" +
+        "width:560px;max-width:82%;font-family:Manrope,-apple-system,sans-serif;";
+      box.innerHTML =
+        '<div id="kd-ask-answer" style="display:none;background:rgba(11,17,32,0.93);border:1px solid rgba(6,182,212,0.4);' +
+        'border-radius:10px;padding:12px 14px;margin-bottom:8px;color:#E2E8F0;font-size:13px;line-height:1.5;' +
+        'max-height:210px;overflow:auto;backdrop-filter:blur(6px);white-space:pre-wrap;"></div>' +
+        '<div style="display:flex;gap:8px;">' +
+        '<input id="kd-ask-input" autocomplete="off" placeholder="Ask the twin…  e.g. is gas reaching the flare?" ' +
+        'style="flex:1;background:rgba(11,17,32,0.92);border:1px solid rgba(6,182,212,0.45);border-radius:8px;' +
+        'padding:9px 12px;color:#E2E8F0;font-size:13px;font-family:inherit;outline:none;" />' +
+        '<button id="kd-ask-send" style="background:#06B6D4;border:none;border-radius:8px;padding:9px 18px;' +
+        'color:#04121A;font-size:13px;font-weight:700;cursor:pointer;">Ask</button>' +
+        '</div>';
+      c.appendChild(box);
+      var input = box.querySelector("#kd-ask-input");
+      var ans = box.querySelector("#kd-ask-answer");
+      var send = box.querySelector("#kd-ask-send");
+      function ask() {
+        var q = (input.value || "").trim();
+        if (!q) { return; }
+        ans.style.display = "block"; ans.textContent = "Thinking…"; send.disabled = true;
+        fetch("/api/v1/ai/twin-ask", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          credentials: "same-origin",
+          body: JSON.stringify({ question: q, facility_id: TWIN_FACILITY })
+        }).then(function (r) {
+          if (r.ok) { return r.json(); }
+          return r.json().then(function (e) { throw new Error((e && e.detail) || ("HTTP " + r.status)); });
+        }).then(function (d) {
+          ans.textContent = (d && d.reply) || "(no answer)";
+          send.disabled = false;
+        }).catch(function (e) {
+          ans.textContent = "Couldn't reach the twin assistant: " + e.message;
+          send.disabled = false;
+        });
+      }
+      send.addEventListener("click", ask);
+      input.addEventListener("keydown", function (e) { if (e.key === "Enter") { ask(); } });
+      // keep map gestures from stealing the input's focus/clicks
+      ["mousedown", "dblclick", "wheel"].forEach(function (ev) {
+        box.addEventListener(ev, function (e) { e.stopPropagation(); });
+      });
     } catch (e) {}
   }
 

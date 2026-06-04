@@ -398,6 +398,99 @@ async def ai_ask(req: AIRequest):
         raise HTTPException(502, f"AI inference failed: {str(e)[:100]}") from e
 
 
+# --- Ask the Twin: natural-language Q&A grounded in the live digital-twin state ---
+class TwinAskRequest(BaseModel):
+    question: str
+    facility_id: str = "killdeer"
+
+
+TWIN_SYSTEM_PROMPT = (
+    "You are the Aevus digital-twin assistant for a midstream gas facility. Answer the "
+    "operator's question using ONLY the live twin state provided (equipment, normalized "
+    "process flow 0-1, device status, alarms). Be concise and specific — name the affected "
+    "equipment and pipe segments. If flow is low/stopped or a device is bad, explain the "
+    "likely operational impact and what a human operator should check. "
+    "IL-9000: you are advisory only — never instruct anyone to remotely change a setpoint or "
+    "write to a PLC/RTU; recommend on-site human action. If the answer isn't in the provided "
+    "state, say so rather than guessing."
+)
+
+
+def _build_twin_context(facility_id: str) -> str:
+    """Assemble a grounded, trade-secret-safe twin snapshot for the model.
+
+    Uses only NORMALIZED flow (0-1) + coarse status — never raw process values or
+    scoring internals (those stay server-side per IL trade-secret policy)."""
+    from src.api import twin as twin_mod
+
+    try:
+        topo = twin_mod._resolve_facility(facility_id)
+    except Exception:
+        return ""
+    parts = [f"Facility: {topo.name}"]
+    parts.append("Equipment: " + ", ".join(n.name for n in topo.nodes))
+    try:
+        segs = twin_mod._derive_flow(topo)
+        node_by_id = {n.id: n for n in topo.nodes}
+        parts.append("Process flow (normalized 0-1 by pipe segment):")
+        for s, e in zip(segs, topo.edges, strict=False):
+            frm = node_by_id.get(e.src)
+            dst = node_by_id.get(e.to)
+            parts.append(
+                f"  {e.product}: {frm.name if frm else e.src} -> {dst.name if dst else e.to} "
+                f"| flow {s.flow} | {s.status}"
+            )
+    except Exception:
+        pass
+    try:
+        from src.main import app_state
+
+        assets = {a.id: a for a in app_state.db.list_assets()}
+        bound = sorted({n.asset_id for n in topo.nodes if n.asset_id} | {e.asset_id for e in topo.edges if e.asset_id})
+        if bound:
+            parts.append("Bound device status:")
+            for aid in bound:
+                a = assets.get(aid)
+                if a:
+                    parts.append(
+                        f"  {aid} {getattr(a, 'name', '')}: {getattr(a, 'status', 'unknown')}, health {getattr(a, 'health', None)}"
+                    )
+    except Exception:
+        pass
+    return "\n".join(parts)
+
+
+@router.post("/ai/twin-ask", response_model=AIResponse)
+async def twin_ask(req: TwinAskRequest):
+    """Ask the digital twin a question in natural language; the model is grounded
+    on the live facility state (topology + flow + device status). Read-only."""
+    try:
+        client = _get_client()
+    except Exception:
+        raise HTTPException(502, "AI service unavailable") from None
+
+    t0 = time.time()
+    ctx_text = _sanitize_context(_build_twin_context(req.facility_id))
+    if not ctx_text:
+        raise HTTPException(404, f"Unknown facility '{req.facility_id}'")
+    user_msg = f"Live digital-twin state:\n{ctx_text}\n\nOperator question: {req.question}"
+
+    model_key, reason = _route_model(_classify_query(client, req.question))
+    try:
+        reply = _invoke_model(client, model_key, TWIN_SYSTEM_PROMPT, user_msg, 500)
+        latency = int((time.time() - t0) * 1000)
+        return AIResponse(
+            reply=reply,
+            model=MODELS[model_key]["label"],
+            tier=MODELS[model_key]["tier"],
+            latency_ms=latency,
+            routed_reason="twin-ask: " + reason,
+        )
+    except Exception as e:
+        logger.error("twin_ask_error", error=str(e))
+        raise HTTPException(502, f"AI inference failed: {str(e)[:100]}") from e
+
+
 # --- #3: Alarm similarity search (Cohere Embed v4 + Rerank) ---
 @router.post("/ai/similar", response_model=SimilarityResponse)
 async def alarm_similarity(req: SimilarityRequest):

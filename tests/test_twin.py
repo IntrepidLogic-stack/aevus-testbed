@@ -59,3 +59,28 @@ class TestTwinFlow:
         allowed = {"id", "product", "flow", "dir", "status"}
         for s in body["segments"]:
             assert set(s.keys()) <= allowed
+
+
+class TestAskTwinContext:
+    """The 'Ask the Twin' grounding snapshot (no Bedrock needed to test it)."""
+
+    def test_context_is_grounded(self, client):
+        from src.api.ai import _build_twin_context
+
+        ctx = _build_twin_context("killdeer")
+        assert "BlueJay" in ctx or "Killdeer" in ctx
+        assert "flow" in ctx.lower()
+        assert "Separator" in ctx  # equipment names present
+
+    def test_context_has_no_raw_process_units(self, client):
+        """Only normalized flow (0-1) may reach the model — never raw PSI/MCFD/VDC."""
+        from src.api.ai import _build_twin_context
+
+        ctx = _build_twin_context("killdeer")
+        for unit in ("PSI", "MCFD", "VDC", "mm/s"):
+            assert unit not in ctx
+
+    def test_context_unknown_facility_empty(self, client):
+        from src.api.ai import _build_twin_context
+
+        assert _build_twin_context("nope") == ""

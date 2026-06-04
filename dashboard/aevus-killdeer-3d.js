@@ -641,7 +641,21 @@
       snapping = true;
       try {
         map.stop();  // cancel any native flyTo
-        map.jumpTo({ center: FRAME.center, zoom: FRAME.zoom, pitch: FRAME.pitch, bearing: FRAME.bearing });
+        // Lift the facility into vertical center. Without bottom padding the
+        // jumpTo centers the *geographic* point at screen-middle, but the 55°
+        // pitch projects the facility geometry mostly BELOW that point — so it
+        // renders low with empty sky on top and the flare/EFM clipped at the
+        // bottom (the "shifted down" report, 2026-06-04). Bottom padding moves
+        // the projected center up; ~38% of viewport height centers it cleanly.
+        // Responsive so it holds across window sizes / Wall mode. framedNow()
+        // checks center/zoom/pitch only, so padding doesn't disturb the lock.
+        var h = 0;
+        try { h = map.getCanvas().clientHeight || 0; } catch (eh) {}
+        var padBottom = h ? Math.max(140, Math.min(520, Math.round(h * 0.38))) : 320;
+        map.jumpTo({
+          center: FRAME.center, zoom: FRAME.zoom, pitch: FRAME.pitch, bearing: FRAME.bearing,
+          padding: { top: 0, right: 0, bottom: padBottom, left: 0 }
+        });
       } catch (e) {}
       snapping = false;
     }

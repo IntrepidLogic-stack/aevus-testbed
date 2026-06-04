@@ -93,7 +93,7 @@
   // revalidate in the background and rebuild ONLY if the server graph actually
   // changed. Cache key is versioned so a shipped topology/frame change cleanly
   // invalidates stale client caches.
-  var _TOPO_CACHE_KEY = "aevus_twin_topo_v3_" + TWIN_FACILITY;
+  var _TOPO_CACHE_KEY = "aevus_twin_topo_v4_" + TWIN_FACILITY;
   function _applyTopology(t) {
     if (Array.isArray(t.origin) && t.origin.length === 2) { ORIGIN = t.origin; }
     if (t.frame && t.frame.center) {

@@ -64,7 +64,7 @@
       // Pinned to the VIEWPORT bottom (not the map container, which can be taller
       // than the viewport and would push the strip below the fold). left/width are
       // set in JS from the map container rect so it stays aligned to the map area.
-      "#aevus-proc-strip{position:fixed;bottom:14px;left:12px;right:12px;z-index:9;" +
+      "#aevus-proc-strip{position:fixed;bottom:14px;left:12px;right:12px;z-index:30;" +
       "display:flex;align-items:stretch;gap:0;overflow-x:auto;overflow-y:hidden;" +
       "padding:8px 10px;border-radius:14px;font-family:Manrope,-apple-system,sans-serif;" +
       "background:linear-gradient(180deg,rgba(11,16,32,0.82),rgba(11,16,32,0.92));" +
@@ -185,7 +185,12 @@
       var container = map.getContainer();
       if (!container) { return false; }
       if (!_strip) { _strip = build(); }
-      if (_strip.parentNode !== container) { container.appendChild(_strip); }
+      // Append to <body>, NOT the map container: MapLibre puts a CSS transform on
+      // the map's ancestor chain, and a transformed ancestor makes position:fixed
+      // resolve against THAT element instead of the viewport (strip landed below
+      // the fold + shifted right). In <body> the fixed positioning is true to the
+      // viewport; reposition() then aligns left/width to the map's viewport rect.
+      if (_strip.parentNode !== document.body) { document.body.appendChild(_strip); }
       _mounted = true;
       if (_lastData) { render(_lastData); }
       return true;

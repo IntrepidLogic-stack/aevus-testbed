@@ -881,18 +881,13 @@
     try {
       var c = map.getContainer();
       if (!c) { return; }
-      var all = c.querySelectorAll("div");
-      var k, t;
-      for (k = 0; k < all.length; k++) {
-        t = (all[k].textContent || "");
-        // Weather widget: small panel whose heading is WEATHER — raise it.
-        if (/^\s*WEATHER/.test(t) && t.length < 140 && all[k].children.length <= 8) {
-          var w = all[k];
-          while (w && w !== c && getComputedStyle(w).position !== "absolute") { w = w.parentElement; }
-          if (w && w !== c) { w.style.bottom = "84px"; }
-          break;
-        }
-      }
+      var k;
+      // NOTE: the old "raise the WEATHER widget" pass is intentionally REMOVED.
+      // It matched a div by text "WEATHER", walked up to the first absolutely-
+      // positioned ANCESTOR, and set bottom:84px on it. That ancestor was a large
+      // wrapper, so the whole map content shifted hugely downward on load
+      // (reported 2026-06-04). Net: leave the native weather widget where MapLibre
+      // puts it rather than risk moving an unintended parent.
       // Measure control: move under the Layers box (top-left).
       var btns = c.querySelectorAll("button, div, a");
       for (k = 0; k < btns.length; k++) {

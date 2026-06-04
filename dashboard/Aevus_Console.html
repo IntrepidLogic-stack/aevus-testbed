@@ -946,10 +946,13 @@ body {
 }
 .wx-hourly-bar {
   grid-column: 1 / -1;
-  display: flex; align-items: center; gap: 8px;
+  display: flex; align-items: stretch; gap: 8px;
   background: var(--bg-card); border: 1px solid var(--border);
   border-radius: 8px; padding: 6px 10px;
-  overflow: hidden; min-height: 80px; max-height: 100px;
+  /* Was max-height:100px + align:center + overflow:hidden, which clipped the
+     top time row of each ~104px hour card (2026-06-04). Tall enough to show
+     the full card; horizontal scroll lives on the inner strip. */
+  overflow: hidden; min-height: 120px; max-height: 140px;
 }
 .wx-map-wrap {
   flex: 1; position: relative; border-radius: 8px; overflow: hidden;
@@ -5929,13 +5932,13 @@ html { scroll-behavior:smooth; }
     }, true);  // capture phase — fires before the default error handler
   })();
 </script>
-<script src="/dashboard/api-client.js?v=129"></script>
+<script src="/dashboard/api-client.js?v=130"></script>
 <script src="/dashboard/rad-hover-live.js?v=28"></script>
 <!-- aevus-3dpad-map.js (award overlay) removed 2026-06-03: it threw an ASI TypeError in
      initAevusMap on the native map. The native map (api-client.js) owns window._aevusMapInstance,
      and aevus-killdeer-3d.js attaches the 3D facility directly to it. -->
 <script src="/dashboard/three.min.js"></script>
-<script src="/dashboard/aevus-killdeer-3d.js?v=13"></script>
+<script src="/dashboard/aevus-killdeer-3d.js?v=14"></script>
 
 <script>
 (function() {

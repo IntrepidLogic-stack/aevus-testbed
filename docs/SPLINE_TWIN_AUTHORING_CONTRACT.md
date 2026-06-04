@@ -34,6 +34,8 @@ Name the top-level object/group for each asset **exactly** one of these IDs
 | `RTU` | RTU / PLC Shelter | RTU / PLC SHELTER *(new node)* |
 | `TWR` | Radio Tower | RADIO TOWER |
 | `PWR` | Power System (solar+battery) | POWER SYSTEM *(new node)* |
+| `SOL` | Solar Array | SOLAR ARRAY *(new node)* |
+| `COM` | Communications (VSAT/comms) | COMMUNICATIONS *(new node)* |
 
 *(HTR / RTU / PWR will be added to the topology graph to match the render — confirm
 the IDs above are fine and we'll register them.)*

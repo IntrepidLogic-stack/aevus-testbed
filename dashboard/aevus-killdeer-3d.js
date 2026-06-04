@@ -88,7 +88,9 @@
     { id: "TWR", lng: -95.86735, lat: 29.33992, type: "tower",     name: "Radio Tower" },
     { id: "HTR", lng: -95.86808, lat: 29.33958, type: "heater",    name: "Line Heater / Scrubber" },
     { id: "RTU", lng: -95.86772, lat: 29.33948, type: "shelter",   name: "PLC Shelter" },
-    { id: "PWR", lng: -95.86756, lat: 29.33980, type: "power",     name: "Power System" }
+    { id: "PWR", lng: -95.86756, lat: 29.33980, type: "power",     name: "Power System" },
+    { id: "SOL", lng: -95.86748, lat: 29.33940, type: "solararray", name: "Solar Array" },
+    { id: "COM", lng: -95.86748, lat: 29.33988, type: "comms",     name: "Communications" }
   ];
 
   // Process pipe network — product-colored, flow-ready. rackH staggers heights
@@ -118,7 +120,7 @@
   // revalidate in the background and rebuild ONLY if the server graph actually
   // changed. Cache key is versioned so a shipped topology/frame change cleanly
   // invalidates stale client caches.
-  var _TOPO_CACHE_KEY = "aevus_twin_topo_v6_" + TWIN_FACILITY;  // v6: +HTR/RTU/PWR nodes
+  var _TOPO_CACHE_KEY = "aevus_twin_topo_v7_" + TWIN_FACILITY;  // v7: +SOL/COM nodes
   function _applyTopology(t) {
     if (Array.isArray(t.origin) && t.origin.length === 2) { ORIGIN = t.origin; }
     if (t.frame && t.frame.center) {
@@ -452,6 +454,53 @@
     return g;
   }
 
+  // Solar array — a ground-mount row of tilted PV panels on a support frame.
+  function buildSolar() {
+    var g = new THREEref.Group();
+    var panelMat = new THREEref.MeshStandardMaterial({
+      color: 0x16335A, metalness: 0.3, roughness: 0.3, emissive: 0x0A2A4A, emissiveIntensity: 0.25
+    });
+    var rows = 4, i, px;
+    for (i = 0; i < rows; i++) {
+      px = (i - (rows - 1) / 2) * 1.7;
+      var pg = new THREEref.BoxGeometry(1.5, 0.08, 1.7);
+      var panel = new THREEref.Mesh(pg, panelMat);
+      panel.position.set(px, 1.5, 0); panel.rotation.x = -0.55; g.add(panel);
+      addEdges(g, pg, panel, 0x3B82F6, 0.4);
+      var legF = new THREEref.Mesh(new THREEref.CylinderGeometry(0.05, 0.05, 1.0, 6), metal(COL.skid));
+      legF.position.set(px, 0.5, 0.55); g.add(legF);
+      var legB = new THREEref.Mesh(new THREEref.CylinderGeometry(0.05, 0.05, 1.7, 6), metal(COL.skid));
+      legB.position.set(px, 0.85, -0.55); g.add(legB);
+    }
+    return g;
+  }
+
+  // Communications — VSAT dish + comms cabinet + whip antenna (blinking tip).
+  function buildComms() {
+    var g = new THREEref.Group();
+    var base = new THREEref.Mesh(new THREEref.BoxGeometry(1.3, 0.3, 1.0), skidMat());
+    base.position.y = 0.15; g.add(base);
+    var cabG = new THREEref.BoxGeometry(1.0, 1.4, 0.7);
+    var cab = new THREEref.Mesh(cabG, metal(COL.steelDark));
+    cab.position.set(0, 0.9, 0); g.add(cab);
+    addEdges(g, cabG, cab, COL.accent, 0.3);
+    // VSAT dish (a shallow spherical cap) on a mast
+    var mast = new THREEref.Mesh(new THREEref.CylinderGeometry(0.08, 0.08, 1.8, 8), metal(COL.skid));
+    mast.position.set(1.2, 0.9, 0); g.add(mast);
+    var dishMat = new THREEref.MeshStandardMaterial({ color: COL.steel, metalness: 0.4, roughness: 0.4, side: THREEref.DoubleSide });
+    var dish = new THREEref.Mesh(new THREEref.SphereGeometry(0.9, 18, 10, 0, Math.PI * 2, 0, Math.PI * 0.33), dishMat);
+    dish.position.set(1.2, 1.85, 0); dish.rotation.z = -0.7; dish.rotation.x = 0.35; g.add(dish);
+    var feed = new THREEref.Mesh(new THREEref.CylinderGeometry(0.03, 0.03, 0.7, 6), metal(COL.steelDark));
+    feed.position.set(1.6, 2.05, 0); feed.rotation.z = -0.9; g.add(feed);
+    // whip antenna with a blinking tip
+    var whip = new THREEref.Mesh(new THREEref.CylinderGeometry(0.02, 0.035, 2.4, 6), metal(COL.steelDark));
+    whip.position.set(-0.45, 2.05, 0); g.add(whip);
+    var tip = new THREEref.Mesh(new THREEref.SphereGeometry(0.1, 8, 6), glowMat(COL.blink, 0.9));
+    tip.position.set(-0.45, 3.25, 0); g.add(tip);
+    blinkMeshes.push(tip);
+    return g;
+  }
+
   function buildEquip(type) {
     if (type === "wellhead")   { return buildWellhead(); }
     if (type === "chemtote")   { return buildChemTote(); }
@@ -465,6 +514,8 @@
     if (type === "heater" || type === "scrubber") { return buildHeater(); }
     if (type === "shelter" || type === "rtu")     { return buildShelter(); }
     if (type === "power"   || type === "solar")   { return buildPower(); }
+    if (type === "solararray")                    { return buildSolar(); }
+    if (type === "comms"   || type === "vsat")    { return buildComms(); }
     return new THREEref.Group();
   }
 

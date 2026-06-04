@@ -203,6 +203,22 @@ _TOPOLOGY = TwinTopology(
             asset_id="RTU-01",
             model=TwinModelRef(ref="power"),
         ),
+        TwinNode(
+            id="SOL",
+            type="solararray",
+            name="Solar Array",
+            lnglat=(-95.86748, 29.33940),
+            asset_id="RTU-01",
+            model=TwinModelRef(ref="solararray"),
+        ),
+        TwinNode(
+            id="COM",
+            type="comms",
+            name="Communications",
+            lnglat=(-95.86748, 29.33988),
+            asset_id="RAD-01",
+            model=TwinModelRef(ref="comms"),
+        ),
     ],
     edges=[
         TwinEdge(id="P1", src="WH", to="SEP", product="gas", diameter_in=3, rack_h_m=2.4, asset_id="RTU-01"),

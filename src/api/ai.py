@@ -440,8 +440,8 @@ def _build_twin_context(facility_id: str) -> str:
                 f"  {e.product}: {frm.name if frm else e.src} -> {dst.name if dst else e.to} "
                 f"| flow {s.flow} | {s.status}"
             )
-    except Exception:
-        pass
+    except Exception as exc:
+        logger.debug("twin_context_flow_skip", error=str(exc))
     try:
         from src.main import app_state
 
@@ -455,8 +455,8 @@ def _build_twin_context(facility_id: str) -> str:
                     parts.append(
                         f"  {aid} {getattr(a, 'name', '')}: {getattr(a, 'status', 'unknown')}, health {getattr(a, 'health', None)}"
                     )
-    except Exception:
-        pass
+    except Exception as exc:
+        logger.debug("twin_context_assets_skip", error=str(exc))
     return "\n".join(parts)
 
 

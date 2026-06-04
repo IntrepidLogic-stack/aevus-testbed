@@ -3362,7 +3362,9 @@ section[data-page="historian"] select option {
 .map-layer-title { font-weight: 700; font-size: 10px; text-transform: uppercase; letter-spacing: 0.5px; color: var(--text-faint); margin-bottom: 6px; }
 
 .map-weather-legend {
-  position: absolute; bottom: 40px; left: 12px; z-index: 5;
+  /* Was bottom:40px — sat right at the map's bottom edge and read as cut off
+     (2026-06-04). Raise it clear of the bottom. */
+  position: absolute; bottom: 100px; left: 12px; z-index: 5;
   background: rgba(11,16,32,0.92); border: 1px solid rgba(148,163,184,0.15);
   border-radius: 8px; padding: 10px 14px; font-size: 10px; color: #B4BCD0;
   font-family: var(--font-mono); backdrop-filter: blur(8px);
@@ -3392,7 +3394,10 @@ section[data-page="historian"] select option {
 .map-mini-faceplate .fp-bar-fill { height: 100%; border-radius: 2px; transition: width 0.3s; }
 
 .map-measure-btn {
-  position: absolute; top: 12px; right: 60px; z-index: 10;
+  /* Moved from top-right to directly under the Layers box (top-left), per
+     2026-06-04 punch-list. The Layers box (.map-layer-toggle) is top:12px and
+     ~175px tall, so 196px clears it with a small gap. */
+  position: absolute; top: 196px; left: 12px; right: auto; z-index: 10;
   background: rgba(11,16,32,0.92); border: 1px solid rgba(148,163,184,0.15);
   border-radius: 6px; padding: 6px 12px; font-size: 10px; color: #B4BCD0;
   cursor: pointer; font-family: var(--font-body); backdrop-filter: blur(8px);
@@ -3400,7 +3405,8 @@ section[data-page="historian"] select option {
 .map-measure-btn:hover { border-color: var(--accent); color: #fff; }
 .map-measure-btn.active { background: rgba(14,165,233,0.15); border-color: var(--accent); color: var(--accent); }
 .map-measure-result {
-  position: absolute; top: 44px; right: 60px; z-index: 10;
+  /* Follow the button to the top-left (sits just below it). */
+  position: absolute; top: 232px; left: 12px; right: auto; z-index: 10;
   background: rgba(11,16,32,0.92); border: 1px solid var(--accent);
   border-radius: 6px; padding: 6px 12px; font-size: 11px; color: #fff;
   font-family: var(--font-mono); backdrop-filter: blur(8px); display: none;
@@ -5938,7 +5944,7 @@ html { scroll-behavior:smooth; }
      initAevusMap on the native map. The native map (api-client.js) owns window._aevusMapInstance,
      and aevus-killdeer-3d.js attaches the 3D facility directly to it. -->
 <script src="/dashboard/three.min.js"></script>
-<script src="/dashboard/aevus-killdeer-3d.js?v=15"></script>
+<script src="/dashboard/aevus-killdeer-3d.js?v=16"></script>
 
 <script>
 (function() {

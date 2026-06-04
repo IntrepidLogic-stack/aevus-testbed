@@ -895,25 +895,13 @@
     try {
       var c = map.getContainer();
       if (!c) { return; }
-      var k;
-      // NOTE: the old "raise the WEATHER widget" pass is intentionally REMOVED.
-      // It matched a div by text "WEATHER", walked up to the first absolutely-
-      // positioned ANCESTOR, and set bottom:84px on it. That ancestor was a large
-      // wrapper, so the whole map content shifted hugely downward on load
-      // (reported 2026-06-04). Net: leave the native weather widget where MapLibre
-      // puts it rather than risk moving an unintended parent.
-      // Measure control: move under the Layers box (top-left).
-      var btns = c.querySelectorAll("button, div, a");
-      for (k = 0; k < btns.length; k++) {
-        if ((btns[k].textContent || "").trim() === "Measure") {
-          var m = btns[k];
-          var box = m.closest("[style*='position']") || m;
-          box.style.position = "absolute";
-          box.style.top = "300px"; box.style.left = "18px";
-          box.style.right = "auto"; box.style.bottom = "auto"; box.style.zIndex = "5";
-          break;
-        }
-      }
+      // The map-overlay layout — the weather-widget position AND the Measure
+      // button location — is now controlled entirely by CSS in Aevus_Console.html
+      // (.map-weather-legend raised off the bottom; .map-measure-btn moved under
+      // the Layers box). The old DOM-walk here grabbed wrong elements: the weather
+      // pass shoved the whole map down (2026-06-04) and the Measure pass never
+      // matched (button text wasn't exactly "Measure"). Both removed.
+      void c;
     } catch (e) {}
   }
 

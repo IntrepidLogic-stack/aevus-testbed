@@ -84,3 +84,33 @@ class TestAskTwinContext:
         from src.api.ai import _build_twin_context
 
         assert _build_twin_context("nope") == ""
+
+
+class TestTwinProcess:
+    """The Maps-page process strip snapshot (simulated, demo-only, coherent)."""
+
+    def test_process_shape_and_stages(self, client):
+        resp = client.get("/api/v1/twin/facility/killdeer/process")
+        assert resp.status_code == 200
+        body = resp.json()
+        assert body["facility_id"] == "killdeer-bluejay-1"
+        ids = [s["id"] for s in body["stages"]]
+        assert ids == ["wellhead", "separator", "compressor", "tankfarm", "metering"]
+        # sales summary carries the *oil* rate (not gas mislabeled as BOPD)
+        assert set(body["sales"]) >= {"oil_bopd", "gas_mcfd", "water_bwpd"}
+
+    def test_process_values_physically_consistent(self, client):
+        body = client.get("/api/v1/twin/facility/killdeer/process").json()
+        rd = {s["id"]: {r["label"]: r["value"] for r in s["readings"]} for s in body["stages"]}
+        # casing pressure exceeds tubing; discharge exceeds suction
+        assert rd["wellhead"]["CSG"] > rd["wellhead"]["TBG"]
+        assert rd["compressor"]["DISCH"] > rd["compressor"]["SUCT"]
+        # oil rate is realistic for a well (tens of BOPD), NOT the gas MCFD (~4)
+        assert 20.0 <= body["sales"]["oil_bopd"] <= 120.0
+        assert 1.0 <= body["sales"]["gas_mcfd"] <= 12.0
+        assert body["sales"]["oil_bopd"] != body["sales"]["gas_mcfd"]
+        # water rate ties to oil rate via water cut (mass balance, > 0)
+        assert body["sales"]["water_bwpd"] > 0
+
+    def test_process_unknown_facility_404(self, client):
+        assert client.get("/api/v1/twin/facility/nope/process").status_code == 404

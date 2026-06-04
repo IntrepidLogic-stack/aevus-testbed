@@ -22,6 +22,8 @@ Endpoints (registered under /api/v1 by main.py):
 
 from __future__ import annotations
 
+import math
+import time
 from typing import Literal
 
 import structlog
@@ -245,3 +247,149 @@ async def get_flow(facility_id: str) -> FlowFrame:
     asset state. Poll this (or, later, subscribe via WS) to drive pipe color/speed."""
     topo = _resolve_facility(facility_id)
     return FlowFrame(facility_id=topo.facility_id, segments=_derive_flow(topo))
+
+
+# ── Process snapshot (demo facility process strip) ───────────────────────────
+#
+# Drives the live process-flow strip on the Maps page: per-stage engineering
+# readings (TBG/CSG, separator P/level, compressor SUCT/DISCH/RPM, tank levels,
+# custody meter rate/total) plus the sales summary (oil BOPD, gas MCFD).
+#
+# ⚠️ SIMULATED DEMO DATA ONLY. This endpoint serves a physically-consistent
+# model of the *public Killdeer demo* facility — it is gated to the demo
+# facility aliases and must never be wired to real customer process telemetry.
+# Real raw process values + pearl_score internals stay server-side (IL
+# trade-secret guard); the /flow endpoint (normalized 0..1) remains the path
+# for any non-demo facility.
+#
+# The numbers are internally coherent (oil/water cut tie to BOPD/BWPD, custody
+# total is monotonic, gathering pressures are low-pressure realistic) and drift
+# on a slow load cycle so each poll shows gentle live movement.
+
+
+class ProcessReading(BaseModel):
+    """One engineering reading within a stage."""
+
+    label: str
+    value: float
+    unit: str
+    status: Literal["good", "warn", "bad", "unknown"] = "good"
+
+
+class ProcessStage(BaseModel):
+    """One process stage (wellhead, separator, …) with its readings."""
+
+    id: str
+    name: str
+    status: Literal["good", "warn", "bad", "unknown"] = "good"
+    readings: list[ProcessReading]
+
+
+class ProcessSnapshot(BaseModel):
+    facility_id: str
+    ts: int
+    stages: list[ProcessStage]
+    sales: dict
+
+
+# Fixed reference epoch (2024-05-29) so the custody total is monotonic and the
+# load-cycle phase is stable across restarts.
+_PROC_EPOCH = 1_716_940_800
+
+
+def _proc_drift(t: float) -> float:
+    """Smooth -1..1 load oscillation (≈6 min primary + ≈2.3 min secondary)."""
+    primary = math.sin((t / 360.0) * 2 * math.pi)
+    secondary = math.sin((t / 137.0 + 0.3) * 2 * math.pi)
+    return max(-1.0, min(1.0, 0.7 * primary + 0.3 * secondary))
+
+
+def _process_snapshot(topo: TwinTopology) -> ProcessSnapshot:
+    """Physically-consistent simulated wellsite process snapshot (demo only)."""
+    t = time.time()
+    d = _proc_drift(t)
+
+    def v(base: float, amp: float) -> float:
+        return base + amp * d
+
+    # ── coherent gas-lift wellsite state ──────────────────────────────────
+    tubing = v(285.0, 12.0)
+    casing = v(325.0, 14.0)
+    choke = v(65.0, 3.0)
+    sep_p = v(125.0, 6.0)
+    sep_l = v(55.0, 5.0)
+    sep_dp = v(4.5, 0.8)
+    suction = v(28.0, 3.0)
+    discharge = v(89.0, 6.0)
+    rpm = v(1180.0, 22.0)
+    gas_t = v(140.0, 7.0)
+    vib = v(2.8, 0.5)
+    oil_lvl = v(72.0, 6.0)
+    wat_lvl = v(48.0, 5.0)
+    mcfd = v(3.9, 0.35)
+    dp = v(53.7, 4.0)
+    static_p = v(497.0, 8.0)
+    oil_bopd = v(45.0, 4.0)
+    wcut = v(36.0, 2.0)  # water cut %
+    # custody total creeps up monotonically with the gas rate
+    accum = 125944.0 + max(0.0, (t - _PROC_EPOCH)) / 86400.0 * 3.9
+    # water rate ties to oil rate via the water cut (mass balance)
+    bwpd = oil_bopd * wcut / max(1.0, (100.0 - wcut))
+
+    def rd(label: str, val: float, unit: str, status: str = "good") -> ProcessReading:
+        return ProcessReading(label=label, value=round(val, 1), unit=unit, status=status)
+
+    stages = [
+        ProcessStage(
+            id="wellhead",
+            name="Wellhead",
+            readings=[rd("TBG", tubing, "PSI"), rd("CSG", casing, "PSI"), rd("CHOKE", choke, "%")],
+        ),
+        ProcessStage(
+            id="separator",
+            name="Separator",
+            readings=[rd("PRESS", sep_p, "PSI"), rd("LEVEL", sep_l, "%"), rd("ΔP", sep_dp, "PSI")],
+        ),
+        ProcessStage(
+            id="compressor",
+            name="Compressor",
+            readings=[
+                rd("SUCT", suction, "PSI"),
+                rd("DISCH", discharge, "PSI"),
+                rd("RPM", rpm, ""),
+                rd("GAS", gas_t, "°F"),
+                rd("VIB", vib, "mm/s"),
+            ],
+        ),
+        ProcessStage(
+            id="tankfarm",
+            name="Tank Farm",
+            readings=[rd("OIL", oil_lvl, "in"), rd("WATER", wat_lvl, "in"), rd("W.CUT", wcut, "%")],
+        ),
+        ProcessStage(
+            id="metering",
+            name="Metering",
+            readings=[
+                rd("RATE", mcfd, "MCFD"),
+                rd("TOTAL", accum, "MCF"),
+                rd("DP", dp, "inH₂O"),
+                rd("STATIC", static_p, "PSIG"),
+            ],
+        ),
+    ]
+    sales = {
+        "oil_bopd": round(oil_bopd, 1),
+        "gas_mcfd": round(mcfd, 1),
+        "water_bwpd": round(bwpd, 1),
+    }
+    return ProcessSnapshot(facility_id=topo.facility_id, ts=int(t), stages=stages, sales=sales)
+
+
+@router.get("/facility/{facility_id}/process", response_model=ProcessSnapshot)
+async def get_process(facility_id: str) -> ProcessSnapshot:
+    """Live process-strip snapshot for the demo facility (SIMULATED, demo-only).
+
+    Poll this from the Maps page to drive the per-stage engineering readings.
+    Facility-gated to the Killdeer demo; never serves real customer telemetry."""
+    topo = _resolve_facility(facility_id)
+    return _process_snapshot(topo)

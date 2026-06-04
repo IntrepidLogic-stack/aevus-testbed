@@ -36,6 +36,7 @@ DASHBOARD_FILES="\
   dashboard/aevus-3dpad-map.js \
   dashboard/three.min.js \
   dashboard/aevus-killdeer-3d.js \
+  dashboard/aevus-process-strip.js \
   dashboard/award-map.html \
   dashboard/award-client.js \
   dashboard/favicon.svg \

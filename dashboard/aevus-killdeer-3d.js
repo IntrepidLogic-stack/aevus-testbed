@@ -210,6 +210,8 @@
   var _callouts = {};           // id -> {marker, dot, name, node} HTML callouts at equipment
   var flameMeshes = [];         // flicker
   var blinkMeshes = [];         // tower beacon
+  var _windsock = null;         // {pivot, droop} — oriented to live wind each frame
+  var WINDSOCK_LL = [-95.86755, 29.33944];  // a clear spot near the met/RTU area
   var transform = null;
   var _attachedMap = null;
   var _frameIv = null;          // single persistent auto-frame enforcement loop
@@ -501,6 +503,39 @@
     return g;
   }
 
+  // Windsock — a met instrument on a pole; the striped sock streams DOWNWIND.
+  // NOT a topology asset (no health ring) — it's a real windsock, oriented from
+  // the live wind every frame (see animate()). Brand teal + purple bands.
+  function buildWindsock() {
+    var g = new THREEref.Group();
+    var pole = new THREEref.Mesh(new THREEref.CylinderGeometry(0.12, 0.16, 6.2, 12), metal(COL.steelDark));
+    pole.position.y = 3.1; g.add(pole);
+    var base = new THREEref.Mesh(new THREEref.BoxGeometry(0.9, 0.3, 0.9), skidMat());
+    base.position.y = 0.15; g.add(base);
+    // pivot at the top — rotated to the wind-toward bearing each frame
+    var pivot = new THREEref.Group(); pivot.position.set(0, 5.9, 0); g.add(pivot);
+    var collar = new THREEref.Mesh(new THREEref.CylinderGeometry(0.11, 0.11, 0.5, 10), metal(COL.steel));
+    collar.rotation.z = Math.PI / 2; collar.position.x = 0.06; pivot.add(collar);
+    // droop group — sock hangs in light wind, near-horizontal when windy, + billow
+    var droop = new THREEref.Group(); pivot.add(droop);
+    var bands = 5, i, x0, xc, rB, rS, col;
+    for (i = 0; i < bands; i++) {
+      rB = 0.5 - i * 0.072; rS = 0.5 - (i + 1) * 0.072;
+      x0 = 0.25 + i * 0.66; xc = x0 + 0.33;
+      col = (i % 2 === 0) ? 0x06B6D4 : 0x6366F1;
+      var bg = new THREEref.CylinderGeometry(rS, rB, 0.66, 16, 1, true);
+      var bm = new THREEref.Mesh(bg, new THREEref.MeshStandardMaterial({
+        color: col, metalness: 0.1, roughness: 0.7, side: THREEref.DoubleSide,
+        emissive: col, emissiveIntensity: 0.14
+      }));
+      bm.rotation.z = -Math.PI / 2; bm.position.x = xc; droop.add(bm);
+    }
+    var ring = new THREEref.Mesh(new THREEref.TorusGeometry(0.5, 0.05, 8, 20), metal(COL.steel));
+    ring.rotation.y = Math.PI / 2; ring.position.x = 0.25; droop.add(ring);
+    g.userData = { id: "WSK", type: "windsock", pivot: pivot, droop: droop };
+    return g;
+  }
+
   function buildEquip(type) {
     if (type === "wellhead")   { return buildWellhead(); }
     if (type === "chemtote")   { return buildChemTote(); }
@@ -569,6 +604,16 @@
       equipMeshes[e.id] = m;
     }
 
+    // Windsock — a real met instrument on the field (no health ring). Placed
+    // directly (not via the topology) and oriented to live wind in animate().
+    try {
+      var wsk = buildWindsock();
+      var wp = toLocal(WINDSOCK_LL[0], WINDSOCK_LL[1]);
+      wsk.position.set(wp.x, 0, wp.z);
+      facility.add(wsk);
+      _windsock = wsk.userData;
+    } catch (eWsk) { _windsock = null; }
+
     // pipes (added straight to facility inside buildPipe)
     var j;
     for (j = 0; j < PIPES.length; j++) {
@@ -617,6 +662,20 @@
     // tower beacon blink
     for (i = 0; i < blinkMeshes.length; i++) {
       blinkMeshes[i].material.opacity = (Math.sin(ts * 3) > 0.4) ? 0.95 : 0.12;
+    }
+    // windsock — stream DOWNWIND in the real geographic direction (local frame:
+    // x=east, z=south => rotation.y = PI/2 - toward), with flutter + wind-driven droop
+    if (_windsock && _windsock.pivot) {
+      var wd = (window.AevusWindsock && window.AevusWindsock.wind) ? window.AevusWindsock.wind() : null;
+      var towardDeg = (wd && typeof wd.towardDeg === "number") ? wd.towardDeg : 135;
+      var mph = (wd && typeof wd.mph === "number") ? wd.mph : 8;
+      var towardRad = towardDeg * Math.PI / 180;
+      _windsock.pivot.rotation.y = (Math.PI / 2 - towardRad) + Math.sin(ts * 1.6) * 0.12;
+      if (_windsock.droop) {
+        var ext = Math.max(0, Math.min(1, mph / 18));   // 0 calm .. 1 fully extended
+        _windsock.droop.rotation.z = -(1 - ext) * 0.95 + Math.sin(ts * 3.2) * 0.08 * (0.4 + ext);
+        _windsock.droop.rotation.y = Math.sin(ts * 2.3) * 0.06;
+      }
     }
   }
 
@@ -861,7 +920,7 @@
     }, 9000);
     // reset per-mount state (new map instance => rebuild scene in onAdd)
     scene = null; renderer = null; facility = null;
-    segments = []; equipMeshes = {}; flameMeshes = []; blinkMeshes = []; _callouts = {};
+    segments = []; equipMeshes = {}; flameMeshes = []; blinkMeshes = []; _windsock = null; _callouts = {};
     try {
       if (map.getLayer(LAYER_ID)) { map.removeLayer(LAYER_ID); }
     } catch (e) {}

@@ -628,9 +628,18 @@
         try { map.off("dragstart", onUser); map.off("zoomstart", onUser); map.off("rotatestart", onUser); } catch (e1) {}
         return;
       }
-      // Snap to the facility frame whenever the camera isn't already there (native
-      // fit pulled it away) or during the first couple of ticks to seize the camera.
-      if (tries <= 2 || !_nearFacility(map)) {
+      // Snap to the facility frame unless the camera is ALREADY framed on center
+      // AND zoom AND pitch (a center-only check let the native fit park us at the
+      // right spot but the wrong, too-close zoom).
+      var ok = false;
+      try {
+        var c = map.getCenter();
+        ok = Math.abs(c.lng - FRAME.center[0]) < 0.0015 &&
+             Math.abs(c.lat - FRAME.center[1]) < 0.0015 &&
+             Math.abs(map.getZoom() - (FRAME.zoom || 18.6)) < 0.4 &&
+             Math.abs(map.getPitch() - (FRAME.pitch || 55)) < 6;
+      } catch (eo) { ok = false; }
+      if (!ok) {
         try {
           map.stop();  // cancel the native flyTo
           map.jumpTo({ center: FRAME.center, zoom: FRAME.zoom, pitch: FRAME.pitch, bearing: FRAME.bearing });

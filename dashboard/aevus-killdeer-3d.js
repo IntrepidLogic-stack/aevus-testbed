@@ -1033,11 +1033,24 @@
         st.id = "kd-layout-css";
         st.textContent =
           ".map-asset-marker{display:none !important;}" +
-          ".kd-co{display:flex;align-items:center;gap:5px;font-family:Manrope,-apple-system,sans-serif;" +
+          ".kd-co{display:flex;align-items:center;gap:7px;font-family:Manrope,-apple-system,sans-serif;" +
           "white-space:nowrap;pointer-events:none;transform:translateY(-6px);}" +
-          ".kd-co-dot{width:16px;height:16px;border-radius:50%;display:flex;align-items:center;justify-content:center;" +
-          "font-size:8px;font-weight:800;color:#04121A;box-shadow:0 0 8px rgba(0,0,0,0.6);border:1.5px solid rgba(255,255,255,0.85);}" +
-          ".kd-co-name{font-size:10px;font-weight:600;color:#E2E8F0;text-shadow:0 1px 3px #000,0 0 4px #000;letter-spacing:0.2px;}";
+          // colored score ring — conic-gradient donut, fill % = health score, status-colored
+          ".kd-co-ring{position:relative;width:30px;height:30px;border-radius:50%;flex:0 0 auto;" +
+          "display:flex;align-items:center;justify-content:center;" +
+          "background:conic-gradient(#10D478 0,rgba(255,255,255,0.14) 0);" +
+          "box-shadow:0 0 0 1.5px rgba(255,255,255,0.20),0 2px 7px rgba(0,0,0,0.55);}" +
+          ".kd-co-ring::before{content:'';position:absolute;inset:3.5px;border-radius:50%;" +
+          "background:#0B1020;box-shadow:inset 0 0 5px rgba(0,0,0,0.7);}" +
+          ".kd-co-num{position:relative;z-index:1;font-family:'JetBrains Mono',ui-monospace,monospace;" +
+          "font-size:11px;font-weight:800;color:#fff;line-height:1;letter-spacing:-0.5px;}" +
+          // label stack — name on top, ID · STATUS sub-line (status-colored), on a soft chip
+          ".kd-co-label{display:flex;flex-direction:column;gap:1px;line-height:1.12;" +
+          "background:rgba(8,12,24,0.58);padding:2px 8px;border-radius:7px;" +
+          "border:1px solid rgba(255,255,255,0.08);}" +
+          ".kd-co-name{font-size:10.5px;font-weight:700;color:#F1F5F9;letter-spacing:0.1px;" +
+          "text-shadow:0 1px 2px rgba(0,0,0,0.85);}" +
+          ".kd-co-sub{font-size:8px;font-weight:800;letter-spacing:0.6px;text-transform:uppercase;color:#94A3B8;}";
         document.head.appendChild(st);
       }
     } catch (e) {}
@@ -1062,23 +1075,37 @@
 
   function addEquipmentCallouts(map) {
     if (typeof maplibregl === "undefined") { return; }
-    var i, e, el, dot, name;
+    var i, e, el, ring, num, label, name, sub;
     for (i = 0; i < EQUIP.length; i++) {
       e = EQUIP[i];
       if (_callouts[e.id]) { continue; }
       el = document.createElement("div");
       el.className = "kd-co";
-      dot = document.createElement("div");
-      dot.className = "kd-co-dot";
-      dot.style.background = COL_HEX(COL.good);
+
+      // colored score ring (conic donut) with the health number in the center
+      ring = document.createElement("div");
+      ring.className = "kd-co-ring";
+      num = document.createElement("div");
+      num.className = "kd-co-num";
+      num.textContent = "–";
+      ring.appendChild(num);
+
+      // label stack: asset name + "ID · STATUS" sub-line
+      label = document.createElement("div");
+      label.className = "kd-co-label";
       name = document.createElement("div");
       name.className = "kd-co-name";
       name.textContent = e.name;
-      el.appendChild(dot); el.appendChild(name);
+      sub = document.createElement("div");
+      sub.className = "kd-co-sub";
+      sub.textContent = e.id + " · —";
+      label.appendChild(name); label.appendChild(sub);
+
+      el.appendChild(ring); el.appendChild(label);
       try {
-        var mk = new maplibregl.Marker({ element: el, anchor: "left", offset: [10, 0] })
+        var mk = new maplibregl.Marker({ element: el, anchor: "left", offset: [12, 0] })
           .setLngLat([e.lng, e.lat]).addTo(map);
-        _callouts[e.id] = { marker: mk, dot: dot, name: name, node: e };
+        _callouts[e.id] = { marker: mk, ring: ring, num: num, sub: sub, name: name, node: e };
       } catch (ex) {}
     }
   }
@@ -1098,19 +1125,32 @@
     } catch (e) {}
   }
 
+  var _STATUS_WORD = { good: "Healthy", warn: "Warning", bad: "Critical" };
   function updateCallouts(byId) {
-    var id, co, a, hex, txt;
+    var id, co, a, hex, score, word;
     for (id in _callouts) {
       if (!_callouts.hasOwnProperty(id)) { continue; }
       co = _callouts[id];
       a = (co.node.asset_id && byId[co.node.asset_id]) || null;
       if (a) {
         hex = (a.status === "bad") ? COL.bad : (a.status === "warn") ? COL.warn : COL.good;
-        txt = (typeof a.health === "number") ? String(a.health) : "";
+        score = (typeof a.health === "number") ? a.health : null;
+        word = _STATUS_WORD[a.status] || (a.status || "").toString();
       } else {
-        hex = COL.accent; txt = "";  // unbound equipment — neutral accent, no fake number
+        hex = COL.accent; score = null; word = "—";  // unbound equipment — neutral, no fake score
       }
-      try { co.dot.style.background = COL_HEX(hex); co.dot.textContent = txt; } catch (e) {}
+      try {
+        var hexS = COL_HEX(hex);
+        // ring: fill arc proportional to the score, in the status color; track = faint white
+        var pct = (score === null) ? 0 : Math.max(0, Math.min(100, score));
+        co.ring.style.background = (score === null)
+          ? "conic-gradient(rgba(255,255,255,0.16) 0 100%)"
+          : "conic-gradient(" + hexS + " 0 " + pct + "%,rgba(255,255,255,0.14) " + pct + "% 100%)";
+        co.num.textContent = (score === null) ? "–" : String(Math.round(score));
+        co.num.style.color = (score === null) ? "#94A3B8" : "#fff";
+        // sub-line: "ID · STATUS" with the status word in the status color
+        co.sub.innerHTML = co.node.id + " · <span style=\"color:" + hexS + "\">" + word + "</span>";
+      } catch (e) {}
     }
   }
 

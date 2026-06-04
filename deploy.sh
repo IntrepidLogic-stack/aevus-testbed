@@ -38,6 +38,7 @@ DASHBOARD_FILES="\
   dashboard/aevus-killdeer-3d.js \
   dashboard/aevus-process-strip.js \
   dashboard/aevus-spline-twin.js \
+  dashboard/aevus-windsock.js \
   dashboard/award-map.html \
   dashboard/award-client.js \
   dashboard/favicon.svg \

@@ -116,52 +116,34 @@ else
     exit 2
 fi
 
-# 5. Backend deploy: ALWAYS sync src/ from origin/main, then restart the service
-# iff the on-disk Python ACTUALLY changed (or the service is down).
+# 5. Backend deploy: ALWAYS sync src/ from origin/main and ALWAYS restart.
 #
-# The old gate compared git refs (`git diff HEAD origin/main -- src/`), which
-# proved unreliable: on 2026-06-04 a backend deploy (the twin-ask endpoint)
-# passed CI but the ref-diff didn't fire, so the FastAPI process kept running
-# STALE code and /ai/twin-ask 404'd until a manual SSM restart. Hashing the
-# actual files before/after the checkout is authoritative — it measures exactly
-# what the FastAPI process will load on restart, not a git pointer that can drift.
-# (Task #179.)
-log "[5/6] Syncing backend (src/) + deciding on restart..."
-_backend_sha() {
-    {
-        find "$REPO/src" -name '*.py' -type f -exec sha256sum {} + 2>/dev/null
-        sha256sum "$REPO/pyproject.toml" "$REPO/requirements.txt" 2>/dev/null
-    } | sort | sha256sum | cut -d' ' -f1
-}
-PRE_BACKEND_SHA=$(_backend_sha)
+# History of this gate's bugs (Task #179):
+#   - v1 compared git refs (`git diff HEAD origin/main -- src/`) — unreliable;
+#     a backend change could pass CI yet never restart, running STALE code.
+#   - v2 hashed files before/after the checkout — but the `find|sort|sha256sum`
+#     pipeline could return non-zero and, under `set -euo pipefail`, killed the
+#     whole script BEFORE the restart (the 2026-06-04 twin-ask stale-code 404).
+#
+# Lesson: clever gating here is not worth it. A backend restart is ~5s; running
+# stale code costs hours of confusion. So: just always restart. The only "cost"
+# is a brief WebSocket reconnect on dashboard-only deploys, which is fine.
+# Every command below is guarded so it can never trip `set -e` before the restart.
+log "[5/6] Syncing backend (src/) and restarting aevus.service (always)..."
 sudo -u ubuntu git checkout origin/main -- src/ 2>/dev/null || true
 sudo -u ubuntu git checkout origin/main -- pyproject.toml 2>/dev/null || true
 sudo -u ubuntu git checkout origin/main -- requirements.txt 2>/dev/null || true
-POST_BACKEND_SHA=$(_backend_sha)
-
-RESTART_REASON=""
-if [ "$PRE_BACKEND_SHA" != "$POST_BACKEND_SHA" ]; then
-    RESTART_REASON="backend files changed on disk"
-elif [ "$(systemctl is-active aevus.service 2>/dev/null || true)" != "active" ]; then
-    RESTART_REASON="service not active (self-heal)"
+sudo systemctl restart aevus.service || true
+sleep 5
+SERVICE_STATE=$(systemctl is-active aevus.service 2>/dev/null || true)
+log "    service status: $SERVICE_STATE"
+if [ "$SERVICE_STATE" != "active" ]; then
+    log "    ERROR: aevus.service failed to start. Check: journalctl -u aevus.service -n 50"
+    exit 3
 fi
-
-if [ -z "$RESTART_REASON" ]; then
-    log "    no backend file changes + service active — aevus.service untouched"
-else
-    log "    restarting aevus.service ($RESTART_REASON)..."
-    sudo systemctl restart aevus.service
-    sleep 5
-    SERVICE_STATE=$(systemctl is-active aevus.service 2>&1 || true)
-    log "    service status: $SERVICE_STATE"
-    if [ "$SERVICE_STATE" != "active" ]; then
-        log "    ERROR: aevus.service failed to start. Check: journalctl -u aevus.service -n 50"
-        exit 3
-    fi
-    # Liveness probe — the service might be active but failing
-    HEALTH_CODE=$(curl -sf -o /dev/null -w "%{http_code}" http://127.0.0.1:8000/api/v1/health/ping 2>&1 || echo "fail")
-    log "    /api/v1/health/ping: $HEALTH_CODE"
-fi
+# Liveness probe — the service might be active but failing
+HEALTH_CODE=$(curl -sf -o /dev/null -w "%{http_code}" http://127.0.0.1:8000/api/v1/health/ping 2>/dev/null || echo "fail")
+log "    /api/v1/health/ping: $HEALTH_CODE"
 
 # 6. Record deploy.
 DEPLOY_SHA=$(sudo -u ubuntu git rev-parse --short origin/main)

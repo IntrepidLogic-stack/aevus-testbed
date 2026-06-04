@@ -143,6 +143,7 @@
   var blinkMeshes = [];         // tower beacon
   var transform = null;
   var _attachedMap = null;
+  var _frameIv = null;          // single persistent auto-frame enforcement loop
   var _clock0 = (window.performance && performance.now) ? performance.now() : 0;
 
   // ── MATERIAL FACTORIES ────────────────────────────────────────────────────
@@ -602,50 +603,47 @@
   // flyTo, then snap-backs ONLY if the camera got dragged away from the pad
   // (i.e. the native fit won). If the user has panned to the facility we leave
   // them alone.
-  function _nearFacility(map) {
-    try {
-      var c = map.getCenter();
-      return Math.abs(c.lng - FRAME.center[0]) < 0.004 && Math.abs(c.lat - FRAME.center[1]) < 0.004;
-    } catch (e) { return false; }
-  }
+  // The native map periodically re-fits its camera to ALL demo assets (zoom ~14,
+  // regional), which fights us not just on load but on every refit. So we enforce
+  // the facility frame INDEFINITELY — snapping back whenever the camera gets pulled
+  // far from the pad — until the operator manually moves the map. Programmatic moves
+  // (ours + the native fit) have no originalEvent; only real gestures set userMoved,
+  // so we seize the camera from the native fit without ever fighting the operator.
   function frameFacility(map) {
-    // The native map runs its own "fit all assets" flyTo on map-page entry, which
-    // can fire at unpredictable times and parks the camera at the regional view.
-    // Continuously enforce the facility frame (cancelling any native camera anim)
-    // until it's locked — OR until the USER manually moves the map. Programmatic
-    // moves have no originalEvent; only real gestures set userMoved, so we never
-    // fight the operator.
-    var userMoved = false;
-    function onUser(e) { if (e && e.originalEvent) { userMoved = true; } }
-    try {
-      map.on("dragstart", onUser); map.on("zoomstart", onUser); map.on("rotatestart", onUser);
-    } catch (e0) {}
-    var tries = 0;
-    var iv = setInterval(function () {
-      tries++;
-      if (userMoved || !onMapPage() || tries > 26) {   // ~10.5s cap, or user took over
-        clearInterval(iv);
+    if (_frameIv) { clearInterval(_frameIv); _frameIv = null; }
+    var done = false;
+    function onUser(e) {
+      if (e && e.originalEvent && !done) {
+        done = true;
+        if (_frameIv) { clearInterval(_frameIv); _frameIv = null; }
         try { map.off("dragstart", onUser); map.off("zoomstart", onUser); map.off("rotatestart", onUser); } catch (e1) {}
-        return;
       }
-      // Snap to the facility frame unless the camera is ALREADY framed on center
-      // AND zoom AND pitch (a center-only check let the native fit park us at the
-      // right spot but the wrong, too-close zoom).
-      var ok = false;
+    }
+    try { map.on("dragstart", onUser); map.on("zoomstart", onUser); map.on("rotatestart", onUser); } catch (e0) {}
+    var first = true;
+    _frameIv = setInterval(function () {
+      if (done) { return; }
+      if (!onMapPage()) { return; }  // idle while another page is showing
+      var far = true, framed = false;
       try {
         var c = map.getCenter();
-        ok = Math.abs(c.lng - FRAME.center[0]) < 0.0015 &&
-             Math.abs(c.lat - FRAME.center[1]) < 0.0015 &&
-             Math.abs(map.getZoom() - (FRAME.zoom || 18.6)) < 0.4 &&
-             Math.abs(map.getPitch() - (FRAME.pitch || 55)) < 6;
-      } catch (eo) { ok = false; }
-      if (!ok) {
+        var dLng = Math.abs(c.lng - FRAME.center[0]);
+        var dLat = Math.abs(c.lat - FRAME.center[1]);
+        far = dLng > 0.003 || dLat > 0.003;  // native fit pulled us to the region
+        framed = dLng < 0.0015 && dLat < 0.0015 &&
+                 Math.abs(map.getZoom() - (FRAME.zoom || 18.6)) < 0.4 &&
+                 Math.abs(map.getPitch() - (FRAME.pitch || 55)) < 6;
+      } catch (eo) { return; }
+      // Snap on first lock-in, whenever pulled away to the region, or if not fully
+      // framed (e.g. native parked us at the right center but too-close zoom).
+      if (first || far || !framed) {
         try {
-          map.stop();  // cancel the native flyTo
+          map.stop();
           map.jumpTo({ center: FRAME.center, zoom: FRAME.zoom, pitch: FRAME.pitch, bearing: FRAME.bearing });
         } catch (e2) {}
+        first = false;
       }
-    }, 400);
+    }, 500);
   }
 
   function tick() {

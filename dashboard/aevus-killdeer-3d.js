@@ -31,7 +31,7 @@
   var ORIGIN = [-95.8685, 29.3396];            // award pad center (lng,lat)
   var LAYER_ID = "killdeer-3d";
   // Camera framing that centers the equipment cluster (origin is the SW corner).
-  var FRAME = { center: [-95.86775, 29.33965], zoom: 18.6, pitch: 55, bearing: -20 };
+  var FRAME = { center: [-95.86769, 29.33956], zoom: 20.1, pitch: 55, bearing: -20 };
 
   var PRODUCT = {
     oil:      0x10D478,
@@ -139,11 +139,13 @@
   var facility = null;
   var segments = [];            // {id, mesh, curve, packets[], product, baseSpeed, speed}
   var equipMeshes = {};         // id -> THREE.Object3D (for status tint)
+  var _callouts = {};           // id -> {marker, dot, name, node} HTML callouts at equipment
   var flameMeshes = [];         // flicker
   var blinkMeshes = [];         // tower beacon
   var transform = null;
   var _attachedMap = null;
   var _frameIv = null;          // single persistent auto-frame enforcement loop
+  var _frameMove = null;        // per-frame 'move' snap handler (kills load flicker)
   var _clock0 = (window.performance && performance.now) ? performance.now() : 0;
 
   // ── MATERIAL FACTORIES ────────────────────────────────────────────────────
@@ -535,6 +537,10 @@
     // best-effort name match; tint emissive of matched equipment
     var list = Array.isArray(data) ? data : (data && data.assets ? data.assets : []);
     var i, j, a, name, key, mesh, col;
+    // update the equipment callouts (health badge) by bound asset_id
+    var byId = {};
+    for (i = 0; i < list.length; i++) { if (list[i] && list[i].id) { byId[list[i].id] = list[i]; } }
+    updateCallouts(byId);
     for (i = 0; i < list.length; i++) {
       a = list[i];
       name = (a && (a.name || a.id) || "").toString().toLowerCase();
@@ -586,7 +592,7 @@
     _attachedMap = map;
     // reset per-mount state (new map instance => rebuild scene in onAdd)
     scene = null; renderer = null; facility = null;
-    segments = []; equipMeshes = {}; flameMeshes = []; blinkMeshes = [];
+    segments = []; equipMeshes = {}; flameMeshes = []; blinkMeshes = []; _callouts = {};
     try {
       if (map.getLayer(LAYER_ID)) { map.removeLayer(LAYER_ID); }
     } catch (e) {}
@@ -597,6 +603,7 @@
       frameFacility(map);
       injectSimUI(map);
       injectAskUI(map);
+      injectLayoutFixes(map);
     } catch (e3) {
       console.warn("[killdeer3d] addLayer failed", e3);
       _attachedMap = null;
@@ -617,49 +624,56 @@
   // so we seize the camera from the native fit without ever fighting the operator.
   function frameFacility(map) {
     if (_frameIv) { clearInterval(_frameIv); _frameIv = null; }
-    var done = false;
-    function onUser(e) {
-      if (!e || !e.originalEvent || done) { return; }
-      // Only honor a gesture as "operator took over" if it happens while ALREADY
-      // framed on the pad — otherwise spurious events during the load / native-fit
-      // churn kill the lock before it ever engages (the bug that kept reverting us
-      // to the regional view on fresh loads).
-      var framedNow = false;
+    if (_frameMove) { try { map.off("move", _frameMove); } catch (e) {} _frameMove = null; }
+    var done = false, snapping = false;
+
+    function framedNow() {
       try {
         var c = map.getCenter();
-        framedNow = Math.abs(c.lng - FRAME.center[0]) < 0.003 &&
-                    Math.abs(c.lat - FRAME.center[1]) < 0.003 && map.getZoom() > 16;
-      } catch (ee) { framedNow = false; }
-      if (!framedNow) { return; }
-      done = true;
+        return Math.abs(c.lng - FRAME.center[0]) < 0.0015 &&
+               Math.abs(c.lat - FRAME.center[1]) < 0.0015 &&
+               Math.abs(map.getZoom() - (FRAME.zoom || 20.1)) < 0.35 &&
+               Math.abs(map.getPitch() - (FRAME.pitch || 55)) < 6;
+      } catch (e) { return false; }
+    }
+    function snap() {
+      if (snapping) { return; }
+      snapping = true;
+      try {
+        map.stop();  // cancel any native flyTo
+        map.jumpTo({ center: FRAME.center, zoom: FRAME.zoom, pitch: FRAME.pitch, bearing: FRAME.bearing });
+      } catch (e) {}
+      snapping = false;
+    }
+    function cleanup() {
       if (_frameIv) { clearInterval(_frameIv); _frameIv = null; }
-      try { map.off("dragstart", onUser); map.off("zoomstart", onUser); map.off("rotatestart", onUser); } catch (e1) {}
+      if (_frameMove) { try { map.off("move", _frameMove); } catch (e) {} _frameMove = null; }
+      try { map.off("dragstart", onUser); map.off("zoomstart", onUser); map.off("rotatestart", onUser); } catch (e) {}
+    }
+    function onUser(e) {
+      // Honor a gesture as "operator took over" ONLY while already framed, so the
+      // load-phase / native-fit churn can't kill the lock before it engages.
+      if (!e || !e.originalEvent || done) { return; }
+      if (!framedNow()) { return; }
+      done = true;
+      cleanup();
+    }
+    function onMove() {
+      // Snap back THIS frame whenever the native "fit all assets" camera pulls us
+      // off the pad — so there is no visible zoom-out/zoom-in flicker on load.
+      if (done || snapping) { return; }
+      if (!onMapPage()) { return; }
+      if (!framedNow()) { snap(); }
     }
     try { map.on("dragstart", onUser); map.on("zoomstart", onUser); map.on("rotatestart", onUser); } catch (e0) {}
-    var first = true;
+    _frameMove = onMove;
+    try { map.on("move", onMove); } catch (e1) {}
+    snap();  // instant initial frame — jumpTo, never an animated flyTo
+    // Backup poll in case 'move' isn't firing while the map sits idle.
     _frameIv = setInterval(function () {
-      if (done) { return; }
-      if (!onMapPage()) { return; }  // idle while another page is showing
-      var far = true, framed = false;
-      try {
-        var c = map.getCenter();
-        var dLng = Math.abs(c.lng - FRAME.center[0]);
-        var dLat = Math.abs(c.lat - FRAME.center[1]);
-        far = dLng > 0.003 || dLat > 0.003;  // native fit pulled us to the region
-        framed = dLng < 0.0015 && dLat < 0.0015 &&
-                 Math.abs(map.getZoom() - (FRAME.zoom || 18.6)) < 0.4 &&
-                 Math.abs(map.getPitch() - (FRAME.pitch || 55)) < 6;
-      } catch (eo) { return; }
-      // Snap on first lock-in, whenever pulled away to the region, or if not fully
-      // framed (e.g. native parked us at the right center but too-close zoom).
-      if (first || far || !framed) {
-        try {
-          map.stop();
-          map.jumpTo({ center: FRAME.center, zoom: FRAME.zoom, pitch: FRAME.pitch, bearing: FRAME.bearing });
-        } catch (e2) {}
-        first = false;
-      }
-    }, 500);
+      if (done || !onMapPage()) { return; }
+      if (!framedNow()) { snap(); }
+    }, 600);
   }
 
   function tick() {
@@ -734,7 +748,7 @@
       if (!c || c.querySelector("#kd-sim-ui")) { return; }
       var box = document.createElement("div");
       box.id = "kd-sim-ui";
-      box.style.cssText = "position:absolute;bottom:18px;left:50%;transform:translateX(-50%);z-index:6;" +
+      box.style.cssText = "position:absolute;bottom:140px;left:50%;transform:translateX(-50%);z-index:6;" +
         "display:flex;gap:8px;font-family:Manrope,-apple-system,sans-serif;";
       var btn = "padding:7px 14px;border-radius:8px;font-size:12px;font-weight:600;cursor:pointer;";
       box.innerHTML =
@@ -754,7 +768,7 @@
       if (!c || c.querySelector("#kd-ask-ui")) { return; }
       var box = document.createElement("div");
       box.id = "kd-ask-ui";
-      box.style.cssText = "position:absolute;bottom:58px;left:50%;transform:translateX(-50%);z-index:6;" +
+      box.style.cssText = "position:absolute;bottom:84px;left:50%;transform:translateX(-50%);z-index:6;" +
         "width:560px;max-width:82%;font-family:Manrope,-apple-system,sans-serif;";
       box.innerHTML =
         '<div id="kd-ask-answer" style="display:none;background:rgba(11,17,32,0.93);border:1px solid rgba(6,182,212,0.4);' +
@@ -798,6 +812,116 @@
         box.addEventListener(ev, function (e) { e.stopPropagation(); });
       });
     } catch (e) {}
+  }
+
+  // ── LAYOUT FIXES + EQUIPMENT CALLOUTS ────────────────────────────────────────
+  // (1) Hide the native, scattered demo-fleet asset markers + regional geofence
+  //     (they render far NW of the pad and read as broken).
+  // (2) Place clean, labeled callouts AT the twin equipment, health-tinted.
+  // (3) Nudge the native Weather widget up + move the Measure control under Layers.
+  function injectLayoutFixes(map) {
+    try {
+      if (!document.getElementById("kd-layout-css")) {
+        var st = document.createElement("style");
+        st.id = "kd-layout-css";
+        st.textContent =
+          ".map-asset-marker{display:none !important;}" +
+          ".kd-co{display:flex;align-items:center;gap:5px;font-family:Manrope,-apple-system,sans-serif;" +
+          "white-space:nowrap;pointer-events:none;transform:translateY(-6px);}" +
+          ".kd-co-dot{width:16px;height:16px;border-radius:50%;display:flex;align-items:center;justify-content:center;" +
+          "font-size:8px;font-weight:800;color:#04121A;box-shadow:0 0 8px rgba(0,0,0,0.6);border:1.5px solid rgba(255,255,255,0.85);}" +
+          ".kd-co-name{font-size:10px;font-weight:600;color:#E2E8F0;text-shadow:0 1px 3px #000,0 0 4px #000;letter-spacing:0.2px;}";
+        document.head.appendChild(st);
+      }
+    } catch (e) {}
+    hideRegionalGeofence(map);
+    addEquipmentCallouts(map);
+    // native widgets render a touch late + can re-render; re-apply a few times.
+    repositionNative(map);
+    setTimeout(function () { repositionNative(map); }, 800);
+    setTimeout(function () { repositionNative(map); }, 2500);
+  }
+
+  function hideRegionalGeofence(map) {
+    try {
+      var layers = map.getStyle().layers || [];
+      layers.forEach(function (l) {
+        if (/geofence|zone|perimeter|control|sl3|tracker|dispatch/i.test(l.id)) {
+          try { map.setLayoutProperty(l.id, "visibility", "none"); } catch (e) {}
+        }
+      });
+    } catch (e2) {}
+  }
+
+  function addEquipmentCallouts(map) {
+    if (typeof maplibregl === "undefined") { return; }
+    var i, e, el, dot, name;
+    for (i = 0; i < EQUIP.length; i++) {
+      e = EQUIP[i];
+      if (_callouts[e.id]) { continue; }
+      el = document.createElement("div");
+      el.className = "kd-co";
+      dot = document.createElement("div");
+      dot.className = "kd-co-dot";
+      dot.style.background = COL_HEX(COL.good);
+      name = document.createElement("div");
+      name.className = "kd-co-name";
+      name.textContent = e.name;
+      el.appendChild(dot); el.appendChild(name);
+      try {
+        var mk = new maplibregl.Marker({ element: el, anchor: "left", offset: [10, 0] })
+          .setLngLat([e.lng, e.lat]).addTo(map);
+        _callouts[e.id] = { marker: mk, dot: dot, name: name, node: e };
+      } catch (ex) {}
+    }
+  }
+  function COL_HEX(n) { return "#" + ("000000" + n.toString(16)).slice(-6); }
+
+  function repositionNative(map) {
+    try {
+      var c = map.getContainer();
+      if (!c) { return; }
+      var all = c.querySelectorAll("div");
+      var k, t;
+      for (k = 0; k < all.length; k++) {
+        t = (all[k].textContent || "");
+        // Weather widget: small panel whose heading is WEATHER — raise it.
+        if (/^\s*WEATHER/.test(t) && t.length < 140 && all[k].children.length <= 8) {
+          var w = all[k];
+          while (w && w !== c && getComputedStyle(w).position !== "absolute") { w = w.parentElement; }
+          if (w && w !== c) { w.style.bottom = "84px"; }
+          break;
+        }
+      }
+      // Measure control: move under the Layers box (top-left).
+      var btns = c.querySelectorAll("button, div, a");
+      for (k = 0; k < btns.length; k++) {
+        if ((btns[k].textContent || "").trim() === "Measure") {
+          var m = btns[k];
+          var box = m.closest("[style*='position']") || m;
+          box.style.position = "absolute";
+          box.style.top = "300px"; box.style.left = "18px";
+          box.style.right = "auto"; box.style.bottom = "auto"; box.style.zIndex = "5";
+          break;
+        }
+      }
+    } catch (e) {}
+  }
+
+  function updateCallouts(byId) {
+    var id, co, a, hex, txt;
+    for (id in _callouts) {
+      if (!_callouts.hasOwnProperty(id)) { continue; }
+      co = _callouts[id];
+      a = (co.node.asset_id && byId[co.node.asset_id]) || null;
+      if (a) {
+        hex = (a.status === "bad") ? COL.bad : (a.status === "warn") ? COL.warn : COL.good;
+        txt = (typeof a.health === "number") ? String(a.health) : "";
+      } else {
+        hex = COL.accent; txt = "";  // unbound equipment — neutral accent, no fake number
+      }
+      try { co.dot.style.background = COL_HEX(hex); co.dot.textContent = txt; } catch (e) {}
+    }
   }
 
   window.AevusKilldeer3D = {

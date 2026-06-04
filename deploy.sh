@@ -116,34 +116,34 @@ else
     exit 2
 fi
 
-# 5. Backend deploy: ALWAYS sync src/ from origin/main and ALWAYS restart.
+# 5. Backend deploy: ALWAYS sync src/ from origin/main, then restart aevus.service
+#    via a DETACHED transient unit.
 #
-# History of this gate's bugs (Task #179):
-#   - v1 compared git refs (`git diff HEAD origin/main -- src/`) — unreliable;
-#     a backend change could pass CI yet never restart, running STALE code.
-#   - v2 hashed files before/after the checkout — but the `find|sort|sha256sum`
-#     pipeline could return non-zero and, under `set -euo pipefail`, killed the
-#     whole script BEFORE the restart (the 2026-06-04 twin-ask stale-code 404).
+# THE ROOT CAUSE (Task #179, finally): deploys are triggered by a webhook
+# (POST /api/v1/deploy/trigger) handled BY aevus.service, so deploy.sh runs as a
+# CHILD of aevus.service. A direct `systemctl restart aevus.service` therefore
+# kills deploy.sh's own parent (and deploy.sh) mid-restart, before the restart
+# completes — so the service kept running STALE code (the 2026-06-04 twin-ask 404,
+# and the frame-20.1 staleness). Earlier "gating" theories were red herrings.
 #
-# Lesson: clever gating here is not worth it. A backend restart is ~5s; running
-# stale code costs hours of confusion. So: just always restart. The only "cost"
-# is a brief WebSocket reconnect on dashboard-only deploys, which is fine.
-# Every command below is guarded so it can never trip `set -e` before the restart.
-log "[5/6] Syncing backend (src/) and restarting aevus.service (always)..."
+# Fix: dispatch the restart in a SEPARATE cgroup via `systemd-run` (with a 1s timer
+# so this script finishes cleanly first). That transient unit survives aevus.service
+# stopping, so the restart always completes. Fallbacks for hosts without systemd-run.
+log "[5/6] Syncing backend (src/) and dispatching DETACHED restart..."
 sudo -u ubuntu git checkout origin/main -- src/ 2>/dev/null || true
 sudo -u ubuntu git checkout origin/main -- pyproject.toml 2>/dev/null || true
 sudo -u ubuntu git checkout origin/main -- requirements.txt 2>/dev/null || true
-sudo systemctl restart aevus.service || true
-sleep 5
-SERVICE_STATE=$(systemctl is-active aevus.service 2>/dev/null || true)
-log "    service status: $SERVICE_STATE"
-if [ "$SERVICE_STATE" != "active" ]; then
-    log "    ERROR: aevus.service failed to start. Check: journalctl -u aevus.service -n 50"
-    exit 3
+if sudo systemctl restart --no-block aevus.service 2>/dev/null; then
+    # --no-block enqueues the restart job in systemd (PID 1) and returns immediately,
+    # so it completes even after this child of aevus.service is killed. Plain systemctl,
+    # so it matches the existing sudoers grant.
+    log "    restart queued via systemctl --no-block (detached) — survives our own exit"
+elif sudo systemd-run --collect --on-active=1 systemctl restart aevus.service 2>/dev/null; then
+    log "    restart scheduled via systemd-run (+1s, detached)"
+else
+    sudo systemctl restart aevus.service || true
+    log "    restart issued directly (fallback)"
 fi
-# Liveness probe — the service might be active but failing
-HEALTH_CODE=$(curl -sf -o /dev/null -w "%{http_code}" http://127.0.0.1:8000/api/v1/health/ping 2>/dev/null || echo "fail")
-log "    /api/v1/health/ping: $HEALTH_CODE"
 
 # 6. Record deploy.
 DEPLOY_SHA=$(sudo -u ubuntu git rev-parse --short origin/main)

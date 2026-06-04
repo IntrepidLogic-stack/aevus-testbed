@@ -31,7 +31,7 @@
   var ORIGIN = [-95.8685, 29.3396];            // award pad center (lng,lat)
   var LAYER_ID = "killdeer-3d";
   // Camera framing that centers the equipment cluster (origin is the SW corner).
-  var FRAME = { center: [-95.86769, 29.33956], zoom: 20.12, pitch: 55, bearing: -20 };
+  var FRAME = { center: [-95.86769, 29.33956], zoom: 20.0, pitch: 55, bearing: -20 };
 
   var PRODUCT = {
     oil:      0x10D478,
@@ -93,7 +93,7 @@
   // revalidate in the background and rebuild ONLY if the server graph actually
   // changed. Cache key is versioned so a shipped topology/frame change cleanly
   // invalidates stale client caches.
-  var _TOPO_CACHE_KEY = "aevus_twin_topo_v4_" + TWIN_FACILITY;
+  var _TOPO_CACHE_KEY = "aevus_twin_topo_v5_" + TWIN_FACILITY;
   function _applyTopology(t) {
     if (Array.isArray(t.origin) && t.origin.length === 2) { ORIGIN = t.origin; }
     if (t.frame && t.frame.center) {

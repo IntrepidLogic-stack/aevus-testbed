@@ -609,22 +609,34 @@
     } catch (e) { return false; }
   }
   function frameFacility(map) {
-    var delays = [900, 2600, 4200];
-    delays.forEach(function (d, i) {
-      setTimeout(function () {
+    // The native map runs its own "fit all assets" flyTo on map-page entry, which
+    // can fire at unpredictable times and parks the camera at the regional view.
+    // Continuously enforce the facility frame (cancelling any native camera anim)
+    // until it's locked — OR until the USER manually moves the map. Programmatic
+    // moves have no originalEvent; only real gestures set userMoved, so we never
+    // fight the operator.
+    var userMoved = false;
+    function onUser(e) { if (e && e.originalEvent) { userMoved = true; } }
+    try {
+      map.on("dragstart", onUser); map.on("zoomstart", onUser); map.on("rotatestart", onUser);
+    } catch (e0) {}
+    var tries = 0;
+    var iv = setInterval(function () {
+      tries++;
+      if (userMoved || !onMapPage() || tries > 26) {   // ~10.5s cap, or user took over
+        clearInterval(iv);
+        try { map.off("dragstart", onUser); map.off("zoomstart", onUser); map.off("rotatestart", onUser); } catch (e1) {}
+        return;
+      }
+      // Snap to the facility frame whenever the camera isn't already there (native
+      // fit pulled it away) or during the first couple of ticks to seize the camera.
+      if (tries <= 2 || !_nearFacility(map)) {
         try {
-          if (!onMapPage()) { return; }
-          if (i > 0 && _nearFacility(map)) { return; }  // already framed — don't yank
-          if (i === 0) {
-            map.flyTo({ center: FRAME.center, zoom: FRAME.zoom,
-                        pitch: FRAME.pitch, bearing: FRAME.bearing, duration: 1600 });
-          } else {
-            map.jumpTo({ center: FRAME.center, zoom: FRAME.zoom,
-                         pitch: FRAME.pitch, bearing: FRAME.bearing });
-          }
-        } catch (e) {}
-      }, d);
-    });
+          map.stop();  // cancel the native flyTo
+          map.jumpTo({ center: FRAME.center, zoom: FRAME.zoom, pitch: FRAME.pitch, bearing: FRAME.bearing });
+        } catch (e2) {}
+      }
+    }, 400);
   }
 
   function tick() {

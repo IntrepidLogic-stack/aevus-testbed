@@ -638,6 +638,7 @@
   // leave an infinite spinner. State: building -> ready, or building -> degraded.
   var _painted = false;
   var _loaderTimeout = null;
+  var _loaderAt = 0;            // ms timestamp the loader appeared (for min-duration)
   function _twinLoaderEl() { return document.getElementById("kd-twin-loader"); }
   function showTwinLoader(map) {
     try {
@@ -660,6 +661,7 @@
       el.id = "kd-twin-loader";
       el.innerHTML = '<div class="kd-ring"></div><div class="kd-msg">Building digital twin…</div>';
       c.appendChild(el);
+      if (!_loaderAt) { _loaderAt = Date.now(); }
     } catch (e) {}
   }
   function hideTwinLoader() {
@@ -681,9 +683,18 @@
     var map = _attachedMap;
     if (!map) { hideTwinLoader(); return; }
     var settled = false, hideT = null;
-    var cap = setTimeout(reveal, 5000);
+    var cap = setTimeout(forceReveal, 6000);
+    function forceReveal() { settled = false; doReveal(); }
     function onCh() { if (hideT) { clearTimeout(hideT); } hideT = setTimeout(reveal, 900); }
     function reveal() {
+      if (settled) { return; }
+      // Stay up at least 3.8s so the loader spans the ~3s settle shift, then
+      // require 900ms of quiet on top — whichever is later.
+      var elapsed = Date.now() - (_loaderAt || Date.now());
+      if (elapsed < 3800) { if (hideT) { clearTimeout(hideT); } hideT = setTimeout(reveal, 3800 - elapsed); return; }
+      doReveal();
+    }
+    function doReveal() {
       if (settled) { return; }
       settled = true;
       if (hideT) { clearTimeout(hideT); }
@@ -692,7 +703,7 @@
       hideTwinLoader();
     }
     try { map.on("move", onCh); map.on("resize", onCh); } catch (e) {}
-    onCh();  // start the 900ms quiet-period countdown
+    onCh();  // start the quiet-period countdown
   }
 
   function attach(map) {
@@ -850,6 +861,25 @@
   }
 
   loadTopology();  // fetch the facility graph (B1) before the first attach
+
+  // Cover the base map ASAP so the operator never sees the raw regional basemap
+  // flash before the twin builds. Poll fast for the map instance the moment the
+  // Map page is active, and drop the "Building twin" overlay over it — well
+  // before attach() would. Stops once shown, the twin paints, or it gives up.
+  (function earlyLoader() {
+    var tries = 0;
+    var iv = setInterval(function () {
+      tries++;
+      if (_painted || _twinLoaderEl() || tries > 60) { clearInterval(iv); return; }
+      try {
+        if (onMapPage() && window._aevusMapInstance) {
+          showTwinLoader(window._aevusMapInstance);
+          clearInterval(iv);
+        }
+      } catch (e) {}
+    }, 80);
+  })();
+
   setInterval(tick, 1000);
   window.addEventListener("hashchange", function () { setTimeout(tick, 300); });
 

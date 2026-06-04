@@ -724,6 +724,26 @@
     if (_frameMove) { try { map.off("move", _frameMove); } catch (e) {} _frameMove = null; }
     var done = false, snapping = false;
 
+    // Neutralize the base map's automatic camera moves while the twin owns the
+    // frame. The base map calls fitBounds/flyTo to "fit all demo assets" once
+    // they finish loading (~5s after load), which yanks the camera to the
+    // regional view; the snap-back then returns it — that round-trip is the
+    // post-load jump/flicker. While framed on the Map page these become no-ops;
+    // off the Map page, or after the operator takes over (a gesture sets
+    // __twinFramed=false via cleanup), they pass through unchanged. Our own snap
+    // uses jumpTo (not patched), so framing still works.
+    if (!map.__camPatched) {
+      map.__camPatched = true;
+      ["flyTo", "fitBounds", "easeTo"].forEach(function (fn) {
+        var orig = map[fn];
+        map[fn] = function () {
+          if (map.__twinFramed && onMapPage()) { return map; }
+          return orig.apply(map, arguments);
+        };
+      });
+    }
+    map.__twinFramed = true;
+
     function framedNow() {
       try {
         var c = map.getCenter();
@@ -760,6 +780,7 @@
       if (_frameIv) { clearInterval(_frameIv); _frameIv = null; }
       if (_frameMove) { try { map.off("move", _frameMove); } catch (e) {} _frameMove = null; }
       try { map.off("dragstart", onUser); map.off("zoomstart", onUser); map.off("rotatestart", onUser); } catch (e) {}
+      try { map.__twinFramed = false; } catch (e) {}  // operator took over => let native camera moves through
     }
     function onUser(e) {
       // Honor a gesture as "operator took over" ONLY while already framed, so the

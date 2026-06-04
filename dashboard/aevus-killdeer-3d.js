@@ -33,6 +33,28 @@
   // Camera framing that centers the equipment cluster (origin is the SW corner).
   var FRAME = { center: [-95.86769, 29.33956], zoom: 20.0, pitch: 55, bearing: -20 };
 
+  // Bottom framing padding (~12%) that lifts the facility to vertical center under
+  // the 55° pitch. CACHED PER WINDOW SIZE — and that's the whole point: the live
+  // canvas clientHeight fluctuates while the loader hides + panels settle + api-
+  // client fires its ~3s map.resize(), and recomputing the pad from it on every
+  // re-snap re-projected the facility => the "loads then shifts down ~3s later"
+  // report (2026-06-04). window.innerHeight is stable from first paint, so the
+  // same window size always yields the SAME pad => re-snaps are visual no-ops =>
+  // zero shift. A genuine window resize changes innerHeight => recompute => reframe.
+  var _padCache = { winH: -1, pad: 110 };
+  function framePad() {
+    var wh = (typeof window !== "undefined" && window.innerHeight) || 0;
+    if (wh && wh === _padCache.winH) { return _padCache.pad; }
+    var ch = 0;
+    try { ch = (window._aevusMapInstance && window._aevusMapInstance.getCanvas().clientHeight) || 0; } catch (e) {}
+    // Prefer a settled canvas height; before it settles use the (stable) window
+    // height minus the app top chrome so the value is right from frame 1.
+    var basis = (ch && ch > 240) ? ch : Math.max(240, wh - 120);
+    var pad = Math.max(40, Math.min(240, Math.round(basis * 0.12)));
+    if (wh) { _padCache.winH = wh; _padCache.pad = pad; }
+    return pad;
+  }
+
   var PRODUCT = {
     oil:      0x10D478,
     gas:      0xF59E0B,
@@ -798,9 +820,7 @@
         // the projected center up; ~38% of viewport height centers it cleanly.
         // Responsive so it holds across window sizes / Wall mode. framedNow()
         // checks center/zoom/pitch only, so padding doesn't disturb the lock.
-        var h = 0;
-        try { h = map.getCanvas().clientHeight || 0; } catch (eh) {}
-        var padBottom = h ? Math.max(40, Math.min(240, Math.round(h * 0.12))) : 110;
+        var padBottom = framePad();
         map.jumpTo({
           center: FRAME.center, zoom: FRAME.zoom, pitch: FRAME.pitch, bearing: FRAME.bearing,
           padding: { top: 0, right: 0, bottom: padBottom, left: 0 }
@@ -890,8 +910,7 @@
           });
         }
         m.__twinFramed = true;
-        var h = 0; try { h = m.getCanvas().clientHeight || 0; } catch (e2) {}
-        var pad = h ? Math.max(40, Math.min(240, Math.round(h * 0.12))) : 110;
+        var pad = framePad();
         m.jumpTo({ center: FRAME.center, zoom: FRAME.zoom, pitch: FRAME.pitch, bearing: FRAME.bearing,
                    padding: { top: 0, right: 0, bottom: pad, left: 0 } });
       } catch (e) {}

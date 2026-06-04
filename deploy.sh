@@ -14,6 +14,14 @@
 # Invoked by:
 #   • .github/workflows/ci-cd.yml via SSM Run Command (as ubuntu)
 #   • Manually: bash /home/ubuntu/aevus-testbed/deploy.sh [version]
+#
+# ⚠️ CONTRACT — GIT IS THE ONLY SOURCE OF TRUTH FOR dashboard/ AND src/.
+#   Every deploy runs `git checkout origin/main -- <whitelisted files>`, which
+#   OVERWRITES those files on the box. Any change made by hand on EC2 to a
+#   tracked dashboard/ or src/ file WILL BE SILENTLY WIPED on the next deploy.
+#   => Never hand-edit tracked files on the server. Commit to main instead.
+#   => Codify any out-of-band server config (radio IPs, firmware patches, etc.)
+#      in IaC / committed scripts, not as live edits.
 # ============================================================
 
 set -euo pipefail

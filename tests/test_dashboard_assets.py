@@ -57,6 +57,13 @@ def _referenced_local_assets() -> set[str]:
     return local
 
 
+def _raw_local_refs() -> list[str]:
+    """Raw (un-normalized) script/link refs to local dashboard assets, as written."""
+    src = HTML.read_text()
+    refs = re.findall(r'<(?:script|link)[^>]*?\s(?:src|href)=["\']([^"\']+)["\']', src)
+    return [ref for ref in refs if not any(ref.startswith(p) for p in EXTERNAL_PREFIXES)]
+
+
 def _deploy_whitelist() -> tuple[set[str], set[str]]:
     """Parse DASHBOARD_FILES and DASHBOARD_DIRS from deploy.sh.
 
@@ -96,6 +103,28 @@ def test_every_referenced_asset_exists_in_repo():
         "Aevus_Console.html references dashboard assets that don't exist in the repo:\n"
         + "\n".join(f"  - dashboard/{a}" for a in missing)
         + "\n\nFix: commit the missing file, or correct the path in the HTML."
+    )
+
+
+def test_local_assets_use_absolute_dashboard_path():
+    """Local dashboard assets must be loaded via absolute '/dashboard/...' paths.
+
+    Caught: the 2026-06-03 blank-map outage. Aevus_Console.html is served at root
+    ('/'), but MapLibre + Leaflet were loaded via RELATIVE paths
+    (e.g. `src="maplibre-gl.min.js"`), which the browser resolves to
+    `/maplibre-gl.min.js` -> 404. `maplibregl` was then undefined, the map never
+    built, and the whole Map page (and the Killdeer 3D twin on top of it) went blank.
+
+    The earlier whitelist tests didn't catch it because they normalize '/dashboard/X'
+    and bare 'X' to the same asset and only check existence + whitelist — never that
+    the path is absolute. This test closes that gap.
+    """
+    bad = [r for r in _raw_local_refs() if not r.split("?")[0].split("#")[0].startswith("/dashboard/")]
+    assert not bad, (
+        "Aevus_Console.html loads dashboard assets via non-absolute paths "
+        "(these 404 because the page is served at '/'):\n"
+        + "\n".join(f"  - {b}" for b in bad)
+        + "\n\nFix: use absolute '/dashboard/<file>' paths for every local script/link."
     )
 
 

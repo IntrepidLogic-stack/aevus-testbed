@@ -507,18 +507,35 @@
     }
   }
 
-  // Auto-frame the equipment cluster when the map page is entered, so the
-  // facility is centered without manual navigation. Runs once per attach.
+  // Auto-frame the equipment cluster when the map page is entered. The native
+  // map runs its own "fit all assets" camera shortly after load, which can
+  // override us — so we re-assert at staggered delays: an initial animated
+  // flyTo, then snap-backs ONLY if the camera got dragged away from the pad
+  // (i.e. the native fit won). If the user has panned to the facility we leave
+  // them alone.
+  function _nearFacility(map) {
+    try {
+      var c = map.getCenter();
+      return Math.abs(c.lng - FRAME.center[0]) < 0.004 && Math.abs(c.lat - FRAME.center[1]) < 0.004;
+    } catch (e) { return false; }
+  }
   function frameFacility(map) {
-    setTimeout(function () {
-      try {
-        if (!onMapPage()) { return; }
-        map.flyTo({
-          center: FRAME.center, zoom: FRAME.zoom,
-          pitch: FRAME.pitch, bearing: FRAME.bearing, duration: 1400
-        });
-      } catch (e) {}
-    }, 700);
+    var delays = [900, 2600, 4200];
+    delays.forEach(function (d, i) {
+      setTimeout(function () {
+        try {
+          if (!onMapPage()) { return; }
+          if (i > 0 && _nearFacility(map)) { return; }  // already framed — don't yank
+          if (i === 0) {
+            map.flyTo({ center: FRAME.center, zoom: FRAME.zoom,
+                        pitch: FRAME.pitch, bearing: FRAME.bearing, duration: 1600 });
+          } else {
+            map.jumpTo({ center: FRAME.center, zoom: FRAME.zoom,
+                         pitch: FRAME.pitch, bearing: FRAME.bearing });
+          }
+        } catch (e) {}
+      }, d);
+    });
   }
 
   function tick() {

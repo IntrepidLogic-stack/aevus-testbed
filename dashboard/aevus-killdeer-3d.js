@@ -860,6 +860,35 @@
     attach(map);
   }
 
+  // TEMP diagnostic: load with ?camdebug=1 to show a live camera trajectory in
+  // the top-right. Every time zoom/center/pitch changes it logs a line — so a
+  // shift is captured with its timestamp + exactly which value moved. Hidden
+  // unless the query param is present.
+  if (/camdebug/.test(location.search || "")) {
+    try {
+      var _dbg = document.createElement("div");
+      _dbg.id = "kd-camdbg";
+      _dbg.style.cssText = "position:fixed;right:8px;top:64px;z-index:99999;background:rgba(0,0,0,0.85);" +
+        "color:#34d399;font:10px/1.4 monospace;padding:8px 10px;max-height:80vh;overflow:auto;width:340px;" +
+        "border:1px solid #34d399;border-radius:6px;white-space:pre;";
+      _dbg.textContent = "twin camera log (t since load)\n";
+      var _addDbg = function () { if (document.body) { document.body.appendChild(_dbg); } else { setTimeout(_addDbg, 200); } };
+      _addDbg();
+      var _t0 = Date.now(), _last = "";
+      setInterval(function () {
+        var m = window._aevusMapInstance; if (!m || !m.getCenter) { return; }
+        var c = m.getCenter();
+        var sig = "z=" + m.getZoom().toFixed(2) + " p=" + m.getPitch().toFixed(0) +
+                  " c=" + c.lng.toFixed(5) + "," + c.lat.toFixed(5);
+        if (sig !== _last) {
+          _last = sig;
+          _dbg.textContent += ((Date.now() - _t0) / 1000).toFixed(1) + "s  " + sig + "\n";
+          _dbg.scrollTop = _dbg.scrollHeight;
+        }
+      }, 120);
+    } catch (e) {}
+  }
+
   loadTopology();  // fetch the facility graph (B1) before the first attach
 
   // Cover the base map ASAP so the operator never sees the raw regional basemap

@@ -135,16 +135,22 @@ log "[5/6] Syncing backend (src/) and dispatching DETACHED restart..."
 sudo -u ubuntu git checkout origin/main -- src/ 2>/dev/null || true
 sudo -u ubuntu git checkout origin/main -- pyproject.toml 2>/dev/null || true
 sudo -u ubuntu git checkout origin/main -- requirements.txt 2>/dev/null || true
-if sudo systemctl restart --no-block aevus.service 2>/dev/null; then
-    # --no-block enqueues the restart job in systemd (PID 1) and returns immediately,
-    # so it completes even after this child of aevus.service is killed. Plain systemctl,
-    # so it matches the existing sudoers grant.
-    log "    restart queued via systemctl --no-block (detached) — survives our own exit"
-elif sudo systemd-run --collect --on-active=1 systemctl restart aevus.service 2>/dev/null; then
-    log "    restart scheduled via systemd-run (+1s, detached)"
+# ORDER MATTERS (Task #179, take 2). The deploy is triggered by the
+# /deploy/trigger webhook, so deploy.sh runs INSIDE aevus.service's cgroup.
+# `systemctl restart --no-block` enqueues the job and returns 0, but when
+# systemd stops aevus.service it tears down the whole cgroup — and the not-yet-
+# started restart job gets cancelled with it. Result: the OLD process keeps
+# serving stale code (the 2026-06-04 /process 404). So restart from a SEPARATE
+# cgroup FIRST: `systemd-run` spawns a transient unit owned by PID 1 (outside our
+# cgroup) on a short timer, so it survives our teardown and always completes.
+# Fall back to --no-block, then a direct restart, for hosts without systemd-run.
+if sudo systemd-run --collect --on-active=3 systemctl restart aevus.service 2>/dev/null; then
+    log "    restart scheduled via systemd-run (+3s, separate cgroup) — survives our own teardown"
+elif sudo systemctl restart --no-block aevus.service 2>/dev/null; then
+    log "    restart queued via systemctl --no-block (fallback)"
 else
     sudo systemctl restart aevus.service || true
-    log "    restart issued directly (fallback)"
+    log "    restart issued directly (last-resort)"
 fi
 
 # 6. Record deploy.

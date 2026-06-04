@@ -475,7 +475,10 @@ async def twin_ask(req: TwinAskRequest):
         raise HTTPException(404, f"Unknown facility '{req.facility_id}'")
     user_msg = f"Live digital-twin state:\n{ctx_text}\n\nOperator question: {req.question}"
 
-    model_key, reason = _route_model(_classify_query(client, req.question))
+    # Force Haiku for snappy, interactive twin Q&A — skip the classify+Sonnet path
+    # (which ran ~50s). Haiku 4.5 is sub-second and plenty rich for this grounded,
+    # bounded context. (Use /api/v1/ai/ask for deep Sonnet/Opus analysis.)
+    model_key, reason = "haiku", "twin-ask → Haiku 4.5 (fast)"
     try:
         reply = _invoke_model(client, model_key, TWIN_SYSTEM_PROMPT, user_msg, 500)
         latency = int((time.time() - t0) * 1000)

@@ -116,23 +116,40 @@ else
     exit 2
 fi
 
-# 5. Backend deploy: pull src/ + restart aevus.service if Python changed.
-# Historically deploy.sh only touched dashboard/ ("Preserves local Python
-# edits"). That created a permanent drift: every backend change (router,
-# engine module, collector) sat in GitHub but never reached the running
-# FastAPI process. The Rickerson Scale pearls 404 (Task #179) exposed
-# this. Restart is gated on actual src/ diff so dashboard-only deploys
-# don't bounce live connections.
-log "[5/6] Checking for backend (src/) changes..."
-if sudo -u ubuntu git diff --quiet HEAD origin/main -- src/ pyproject.toml requirements.txt 2>/dev/null; then
-    log "    no backend changes — aevus.service untouched"
+# 5. Backend deploy: ALWAYS sync src/ from origin/main, then restart the service
+# iff the on-disk Python ACTUALLY changed (or the service is down).
+#
+# The old gate compared git refs (`git diff HEAD origin/main -- src/`), which
+# proved unreliable: on 2026-06-04 a backend deploy (the twin-ask endpoint)
+# passed CI but the ref-diff didn't fire, so the FastAPI process kept running
+# STALE code and /ai/twin-ask 404'd until a manual SSM restart. Hashing the
+# actual files before/after the checkout is authoritative — it measures exactly
+# what the FastAPI process will load on restart, not a git pointer that can drift.
+# (Task #179.)
+log "[5/6] Syncing backend (src/) + deciding on restart..."
+_backend_sha() {
+    {
+        find "$REPO/src" -name '*.py' -type f -exec sha256sum {} + 2>/dev/null
+        sha256sum "$REPO/pyproject.toml" "$REPO/requirements.txt" 2>/dev/null
+    } | sort | sha256sum | cut -d' ' -f1
+}
+PRE_BACKEND_SHA=$(_backend_sha)
+sudo -u ubuntu git checkout origin/main -- src/ 2>/dev/null || true
+sudo -u ubuntu git checkout origin/main -- pyproject.toml 2>/dev/null || true
+sudo -u ubuntu git checkout origin/main -- requirements.txt 2>/dev/null || true
+POST_BACKEND_SHA=$(_backend_sha)
+
+RESTART_REASON=""
+if [ "$PRE_BACKEND_SHA" != "$POST_BACKEND_SHA" ]; then
+    RESTART_REASON="backend files changed on disk"
+elif [ "$(systemctl is-active aevus.service 2>/dev/null || true)" != "active" ]; then
+    RESTART_REASON="service not active (self-heal)"
+fi
+
+if [ -z "$RESTART_REASON" ]; then
+    log "    no backend file changes + service active — aevus.service untouched"
 else
-    log "    backend changes detected:"
-    sudo -u ubuntu git diff --name-only HEAD origin/main -- src/ pyproject.toml requirements.txt | sed 's/^/        /'
-    sudo -u ubuntu git checkout origin/main -- src/ 2>/dev/null || true
-    sudo -u ubuntu git checkout origin/main -- pyproject.toml 2>/dev/null || true
-    sudo -u ubuntu git checkout origin/main -- requirements.txt 2>/dev/null || true
-    log "    restarting aevus.service..."
+    log "    restarting aevus.service ($RESTART_REASON)..."
     sudo systemctl restart aevus.service
     sleep 5
     SERVICE_STATE=$(systemctl is-active aevus.service 2>&1 || true)
@@ -141,7 +158,7 @@ else
         log "    ERROR: aevus.service failed to start. Check: journalctl -u aevus.service -n 50"
         exit 3
     fi
-    # Quick liveness probe — the service might be active but failing
+    # Liveness probe — the service might be active but failing
     HEALTH_CODE=$(curl -sf -o /dev/null -w "%{http_code}" http://127.0.0.1:8000/api/v1/health/ping 2>&1 || echo "fail")
     log "    /api/v1/health/ping: $HEALTH_CODE"
 fi

@@ -672,8 +672,27 @@
     if (_painted) { return; }
     _painted = true;
     try { document.body.classList.add("kd-twin-painted"); } catch (e) {}  // reveals .kd-co callouts
-    hideTwinLoader();
     try { window.dispatchEvent(new CustomEvent("aevus:twin-ready")); } catch (e) {}
+    // Reveal only once the layout has STOPPED moving. The base map resizes as the
+    // side panels settle (at load + ~3s), panning the framing left then down; the
+    // snap-back corrects it but a frame leaks through. Keep the loader up until
+    // there's been no camera/resize change for 900ms (hard cap 5s), so the
+    // operator sees ONE stable reveal instead of the settle shifts.
+    var map = _attachedMap;
+    if (!map) { hideTwinLoader(); return; }
+    var settled = false, hideT = null;
+    var cap = setTimeout(reveal, 5000);
+    function onCh() { if (hideT) { clearTimeout(hideT); } hideT = setTimeout(reveal, 900); }
+    function reveal() {
+      if (settled) { return; }
+      settled = true;
+      if (hideT) { clearTimeout(hideT); }
+      if (cap) { clearTimeout(cap); }
+      try { map.off("move", onCh); map.off("resize", onCh); } catch (e) {}
+      hideTwinLoader();
+    }
+    try { map.on("move", onCh); map.on("resize", onCh); } catch (e) {}
+    onCh();  // start the 900ms quiet-period countdown
   }
 
   function attach(map) {

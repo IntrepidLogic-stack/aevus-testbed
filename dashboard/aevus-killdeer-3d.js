@@ -748,7 +748,7 @@
         // checks center/zoom/pitch only, so padding doesn't disturb the lock.
         var h = 0;
         try { h = map.getCanvas().clientHeight || 0; } catch (eh) {}
-        var padBottom = h ? Math.max(120, Math.min(480, Math.round(h * 0.34))) : 300;
+        var padBottom = h ? Math.max(70, Math.min(360, Math.round(h * 0.20))) : 180;
         map.jumpTo({
           center: FRAME.center, zoom: FRAME.zoom, pitch: FRAME.pitch, bearing: FRAME.bearing,
           padding: { top: 0, right: 0, bottom: padBottom, left: 0 }

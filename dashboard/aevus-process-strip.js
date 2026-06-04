@@ -88,7 +88,16 @@
       ".aps-sales-lab{font-size:8px;font-weight:800;letter-spacing:1px;color:var(--accent,#22D3EE);text-transform:uppercase;}" +
       ".aps-sales-oil{font-family:'JetBrains Mono',ui-monospace,monospace;font-size:18px;font-weight:800;color:#F8FAFC;letter-spacing:-0.5px;}" +
       ".aps-sales-sub{font-size:9px;font-weight:600;color:#94A3B8;font-family:'JetBrains Mono',ui-monospace,monospace;}" +
-      "@media(max-width:640px){.aps-stage{min-width:104px;}.aps-name{font-size:8px;}.aps-val{font-size:12px;}}";
+      "@media(max-width:640px){.aps-stage{min-width:104px;}.aps-name{font-size:8px;}.aps-val{font-size:12px;}}" +
+      // When the strip is on the Maps page, lift the map's other bottom-anchored
+      // controls above it so they don't collide. The map container overflows the
+      // viewport by a constant ~57px, so these fixed offsets are viewport-stable.
+      // (sim/ask use translateX(-50%) to center, so they MUST be lifted via bottom,
+      //  not transform.) Deltas preserve the sim-above-ask spacing.
+      "body.aps-strip-on #kd-ask-ui{bottom:180px !important;}" +
+      "body.aps-strip-on #kd-sim-ui{bottom:236px !important;}" +
+      "body.aps-strip-on .map-weather-legend{bottom:180px !important;}" +
+      "body.aps-strip-on #ai-fab{bottom:120px !important;}";
     document.head.appendChild(st);
   }
 
@@ -199,6 +208,9 @@
 
   function setVisible(on) {
     if (_strip) { _strip.style.display = on ? "flex" : "none"; }
+    // Toggle the body class that lifts the map's other bottom controls clear of
+    // the strip (weather legend, Sim/Ask box, AI fab). Off-map -> removed.
+    try { document.body.classList.toggle("aps-strip-on", !!on); } catch (e) {}
   }
 
   function poll() {

@@ -85,7 +85,10 @@
     { id: "PWT", lng: -95.86742, lat: 29.33965, type: "watertank", name: "Produced Water Tank" },
     { id: "EFM", lng: -95.86735, lat: 29.33948, type: "efm",       name: "EFM / Custody Meter" },
     { id: "FLR", lng: -95.86790, lat: 29.33932, type: "flare",     name: "Flare Stack" },
-    { id: "TWR", lng: -95.86735, lat: 29.33992, type: "tower",     name: "Radio Tower" }
+    { id: "TWR", lng: -95.86735, lat: 29.33992, type: "tower",     name: "Radio Tower" },
+    { id: "HTR", lng: -95.86808, lat: 29.33958, type: "heater",    name: "Line Heater / Scrubber" },
+    { id: "RTU", lng: -95.86772, lat: 29.33948, type: "shelter",   name: "PLC Shelter" },
+    { id: "PWR", lng: -95.86756, lat: 29.33980, type: "power",     name: "Power System" }
   ];
 
   // Process pipe network — product-colored, flow-ready. rackH staggers heights
@@ -115,7 +118,7 @@
   // revalidate in the background and rebuild ONLY if the server graph actually
   // changed. Cache key is versioned so a shipped topology/frame change cleanly
   // invalidates stale client caches.
-  var _TOPO_CACHE_KEY = "aevus_twin_topo_v5_" + TWIN_FACILITY;
+  var _TOPO_CACHE_KEY = "aevus_twin_topo_v6_" + TWIN_FACILITY;  // v6: +HTR/RTU/PWR nodes
   function _applyTopology(t) {
     if (Array.isArray(t.origin) && t.origin.length === 2) { ORIGIN = t.origin; }
     if (t.frame && t.frame.center) {
@@ -387,6 +390,68 @@
     return g;
   }
 
+  // Line heater / scrubber — horizontal vessel on a firebox skid with a burner stack.
+  function buildHeater() {
+    var g = new THREEref.Group();
+    var len = 4.2, r = 1.0;
+    var bodyG = new THREEref.CylinderGeometry(r, r, len, 20);
+    var body = new THREEref.Mesh(bodyG, metal(COL.steel));
+    body.rotation.z = Math.PI / 2; body.position.y = r + 0.7; g.add(body);
+    addEdges(g, bodyG, body, COL.accent, 0.32);
+    var capA = new THREEref.Mesh(new THREEref.SphereGeometry(r, 14, 10), metal(COL.steel));
+    capA.position.set(-len / 2, r + 0.7, 0); g.add(capA);
+    var capB = new THREEref.Mesh(new THREEref.SphereGeometry(r, 14, 10), metal(COL.steel));
+    capB.position.set(len / 2, r + 0.7, 0); g.add(capB);
+    var skid = new THREEref.Mesh(new THREEref.BoxGeometry(len * 0.7, 0.6, r * 2.2), skidMat());
+    skid.position.y = 0.3; g.add(skid);
+    var stack = new THREEref.Mesh(new THREEref.CylinderGeometry(0.18, 0.22, 2.4, 12), metal(COL.steelDark));
+    stack.position.set(-len * 0.28, r + 0.7 + r + 1.0, 0); g.add(stack);
+    var noz = new THREEref.Mesh(new THREEref.CylinderGeometry(0.12, 0.12, 0.9, 10), metal(COL.steelDark));
+    noz.position.set(len * 0.22, r + 0.7 + r + 0.4, 0); g.add(noz);
+    return g;
+  }
+
+  // PLC shelter — small metal control building on a skid with a door + AC unit.
+  function buildShelter() {
+    var g = new THREEref.Group();
+    var w = 2.6, h = 2.4, d = 2.2;
+    var base = new THREEref.Mesh(new THREEref.BoxGeometry(w + 0.3, 0.5, d + 0.3), skidMat());
+    base.position.y = 0.25; g.add(base);
+    var box = new THREEref.Mesh(new THREEref.BoxGeometry(w, h, d), metal(COL.steel));
+    box.position.y = h / 2 + 0.5; g.add(box);
+    addEdges(g, new THREEref.BoxGeometry(w, h, d), box, COL.accent, 0.3);
+    var roof = new THREEref.Mesh(new THREEref.BoxGeometry(w + 0.2, 0.2, d + 0.2), metal(COL.steelDark));
+    roof.position.y = h + 0.5 + 0.1; g.add(roof);
+    var door = new THREEref.Mesh(new THREEref.BoxGeometry(0.9, 1.7, 0.06), metal(COL.steelDark));
+    door.position.set(0, 1.35, d / 2 + 0.03); g.add(door);
+    var ac = new THREEref.Mesh(new THREEref.BoxGeometry(0.7, 0.5, 0.4), metal(COL.skid));
+    ac.position.set(w / 2 - 0.45, 1.7, -d / 2 - 0.22); g.add(ac);
+    return g;
+  }
+
+  // Power system — solar array on poles + a battery cabinet on a skid.
+  function buildPower() {
+    var g = new THREEref.Group();
+    var base = new THREEref.Mesh(new THREEref.BoxGeometry(1.7, 0.4, 1.2), skidMat());
+    base.position.set(-1.4, 0.2, 0); g.add(base);
+    var cabG = new THREEref.BoxGeometry(1.4, 1.6, 0.9);
+    var cab = new THREEref.Mesh(cabG, metal(COL.steelDark));
+    cab.position.set(-1.4, 1.2, 0); g.add(cab);
+    addEdges(g, cabG, cab, COL.accent, 0.3);
+    var panelMat = new THREEref.MeshStandardMaterial({
+      color: 0x16335A, metalness: 0.3, roughness: 0.3, emissive: 0x0A2A4A, emissiveIntensity: 0.25
+    });
+    var i, px;
+    for (i = 0; i < 2; i++) {
+      px = 0.7 + i * 1.7;
+      var panel = new THREEref.Mesh(new THREEref.BoxGeometry(1.5, 0.06, 1.0), panelMat);
+      panel.position.set(px, 1.9, 0); panel.rotation.x = -0.5; g.add(panel);
+      var pole = new THREEref.Mesh(new THREEref.CylinderGeometry(0.06, 0.06, 1.8, 8), metal(COL.skid));
+      pole.position.set(px, 1.0, 0.12); g.add(pole);
+    }
+    return g;
+  }
+
   function buildEquip(type) {
     if (type === "wellhead")   { return buildWellhead(); }
     if (type === "chemtote")   { return buildChemTote(); }
@@ -397,6 +462,9 @@
     if (type === "efm")        { return buildEFM(); }
     if (type === "flare")      { return buildFlare(); }
     if (type === "tower")      { return buildTower(); }
+    if (type === "heater" || type === "scrubber") { return buildHeater(); }
+    if (type === "shelter" || type === "rtu")     { return buildShelter(); }
+    if (type === "power"   || type === "solar")   { return buildPower(); }
     return new THREEref.Group();
   }
 

@@ -176,6 +176,33 @@ _TOPOLOGY = TwinTopology(
             asset_id="RAD-01",
             model=TwinModelRef(ref="tower"),
         ),
+        # ── New process/support assets (registered 2026-06-04). Positions are
+        # PROVISIONAL on the procedural twin and will be reconciled with the
+        # Spline scene layout when it lands. Bound to RTU-01 for live status.
+        TwinNode(
+            id="HTR",
+            type="heater",
+            name="Line Heater / Scrubber",
+            lnglat=(-95.86808, 29.33958),
+            asset_id="RTU-01",
+            model=TwinModelRef(ref="heater"),
+        ),
+        TwinNode(
+            id="RTU",
+            type="shelter",
+            name="PLC Shelter",
+            lnglat=(-95.86772, 29.33948),
+            asset_id="RTU-01",
+            model=TwinModelRef(ref="shelter"),
+        ),
+        TwinNode(
+            id="PWR",
+            type="power",
+            name="Power System",
+            lnglat=(-95.86756, 29.33980),
+            asset_id="RTU-01",
+            model=TwinModelRef(ref="power"),
+        ),
     ],
     edges=[
         TwinEdge(id="P1", src="WH", to="SEP", product="gas", diameter_in=3, rack_h_m=2.4, asset_id="RTU-01"),

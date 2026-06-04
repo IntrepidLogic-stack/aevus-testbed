@@ -23,8 +23,11 @@ class TestTwinTopology:
         assert resp.status_code == 200
         body = resp.json()
         assert body["facility_id"] == "killdeer-bluejay-1"
-        assert len(body["nodes"]) == 10
+        assert len(body["nodes"]) == 13  # 10 process + HTR/RTU/PWR (added 2026-06-04)
         assert len(body["edges"]) == 7
+        # the 3 new support/process assets are present
+        ids = {n["id"] for n in body["nodes"]}
+        assert {"HTR", "RTU", "PWR"} <= ids
         # edge wire-contract uses {from, to}, not the internal field name
         e = body["edges"][0]
         assert "from" in e and "to" in e and "src" not in e

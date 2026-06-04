@@ -78,6 +78,44 @@
     { id: "P7", from: "CMP", to: "EFM", product: "gas",      rackH: 2.5, speed: 0.11 }
   ];
 
+  // The EQUIP/PIPES above are the OFFLINE FALLBACK. The live geometry comes from
+  // the twin topology endpoint (B1 binding contract) — backend owns the graph.
+  var TWIN_FACILITY = "killdeer";
+  var _topoReady = false;
+  var _BASE_SPEED = { gas: 0.13, oil: 0.08, water: 0.08, chemical: 0.06 };
+
+  // Load the facility graph from /api/v1/twin/.../topology and replace the
+  // hardcoded EQUIP/PIPES. Geometry binds to the graph by id; if the endpoint is
+  // unavailable we fall back to the bundled arrays so the twin still renders.
+  function loadTopology() {
+    var finish = function () { _topoReady = true; };
+    var safety = setTimeout(finish, 5000);  // never block forever on a hung fetch
+    try {
+      fetch("/api/v1/twin/facility/" + TWIN_FACILITY + "/topology", { credentials: "same-origin" })
+        .then(function (r) { return r.ok ? r.json() : null; })
+        .then(function (t) {
+          if (t && t.nodes && t.edges) {
+            if (Array.isArray(t.origin) && t.origin.length === 2) { ORIGIN = t.origin; }
+            if (t.frame && t.frame.center) {
+              FRAME = { center: t.frame.center, zoom: t.frame.zoom, pitch: t.frame.pitch, bearing: t.frame.bearing };
+            }
+            EQUIP = t.nodes.map(function (n) {
+              return { id: n.id, lng: n.lnglat[0], lat: n.lnglat[1], type: n.type, name: n.name, asset_id: n.asset_id };
+            });
+            PIPES = t.edges.map(function (e) {
+              return { id: e.id, from: e.from, to: e.to, product: e.product,
+                       rackH: e.rack_h_m || 2.2, speed: _BASE_SPEED[e.product] || 0.1 };
+            });
+            console.log("[killdeer3d] topology from API:", EQUIP.length, "nodes,", PIPES.length, "edges");
+          } else {
+            console.warn("[killdeer3d] topology API empty — using fallback geometry");
+          }
+          clearTimeout(safety); finish();
+        })
+        .catch(function () { console.warn("[killdeer3d] topology fetch failed — using fallback"); clearTimeout(safety); finish(); });
+    } catch (e) { clearTimeout(safety); finish(); }
+  }
+
   // ── GEO HELPERS ─────────────────────────────────────────────────────────────
   // Local meter frame: x = east, y = up, z = south (so north is -z).
   // Matches the custom-layer transform below (rotationX(+90°), scale y negative).
@@ -404,6 +442,7 @@
         renderer.autoClear = false;
         computeTransform();
         startStatusPoll();
+        startFlowPoll();
       },
       render: function (gl, matrix) {
         if (!renderer) { return; }
@@ -420,6 +459,47 @@
         map.triggerRepaint();
       }
     };
+  }
+
+  // ── LIVE FLOW POLL (B1: drive pipe flow from the twin /flow endpoint) ────────
+  // Each segment's normalized flow (0..1) + direction + status drives packet
+  // speed, emissive intensity, and a bad-status red glow. This is the heartbeat
+  // layer: the pipes now reflect live plant state, not hardcoded constants.
+  var _flowTimer = null;
+  function startFlowPoll() {
+    if (_flowTimer) { return; }
+    pollFlow();
+    _flowTimer = setInterval(pollFlow, 4000);
+  }
+  function pollFlow() {
+    try {
+      fetch("/api/v1/twin/facility/" + TWIN_FACILITY + "/flow", { credentials: "same-origin" })
+        .then(function (r) { return r.ok ? r.json() : null; })
+        .then(function (d) { if (d && d.segments) { applyFlow(d.segments); } })
+        .catch(function () {});
+    } catch (e) {}
+  }
+  function applyFlow(list) {
+    var byId = {}, i, j, s, seg, flow, dir;
+    for (i = 0; i < segments.length; i++) { byId[segments[i].id] = segments[i]; }
+    for (i = 0; i < list.length; i++) {
+      seg = list[i];
+      s = byId[seg.id];
+      if (!s) { continue; }
+      flow = Math.max(0, Math.min(1, seg.flow || 0));
+      dir = (seg.dir < 0) ? -1 : 1;
+      s.flow = flow;
+      s.speed = flow * 0.22 * dir;  // flow drives packet speed + direction
+      if (s.mesh && s.mesh.material) {
+        s.mesh.material.emissiveIntensity = 0.18 + flow * 0.55;
+        // bad status -> red-shift the pipe glow so failures read on the twin
+        if (seg.status === "bad") { s.mesh.material.emissive.setHex(COL.bad); }
+        else { s.mesh.material.emissive.setHex(PRODUCT[s.product] || COL.steel); }
+      }
+      for (j = 0; j < s.packets.length; j++) {
+        s.packets[j].mesh.visible = flow > 0.02;
+      }
+    }
   }
 
   // ── LIVE STATUS POLL (Phase-1: tint equipment by asset status) ───────────────
@@ -540,6 +620,7 @@
 
   function tick() {
     if (!onMapPage()) { return; }
+    if (!_topoReady) { return; }  // wait for topology (or its fallback) before building
     var map = window._aevusMapInstance || null;
     if (!map) { return; }
     if (map === _attachedMap) {
@@ -551,6 +632,7 @@
     attach(map);
   }
 
+  loadTopology();  // fetch the facility graph (B1) before the first attach
   setInterval(tick, 1000);
   window.addEventListener("hashchange", function () { setTimeout(tick, 300); });
 

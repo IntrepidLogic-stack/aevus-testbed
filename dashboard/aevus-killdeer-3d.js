@@ -405,15 +405,21 @@
     var t = ((window.performance && performance.now) ? performance.now() : 0) - _clock0;
     var ts = t * 0.001;
     var i, s, k, pk, u, pos;
-    // flow packets
+    // flow packets — size + tube glow scale with live flow so it reads on camera
     for (i = 0; i < segments.length; i++) {
       s = segments[i];
+      var fl = (typeof s.flow === "number") ? s.flow : 0.5;
+      if (s.mesh && s.mesh.material) {
+        s.mesh.material.emissiveIntensity = 0.16 + fl * 0.55 + Math.sin(ts * 4 + i) * 0.12 * fl;
+      }
+      var sc = 0.55 + fl * 1.1;
       for (k = 0; k < s.packets.length; k++) {
         pk = s.packets[k];
         u = (ts * s.speed + pk.offset) % 1;
         if (u < 0) { u += 1; }
         pos = s.curve.getPointAt(u);
         pk.mesh.position.set(pos.x, pos.y, pos.z);
+        pk.mesh.scale.set(sc, sc, sc);
       }
     }
     // flare flicker
@@ -466,6 +472,7 @@
   // speed, emissive intensity, and a bad-status red glow. This is the heartbeat
   // layer: the pipes now reflect live plant state, not hardcoded constants.
   var _flowTimer = null;
+  var _sim = {};  // segId -> true while a what-if override holds (poll must not clobber it)
   function startFlowPoll() {
     if (_flowTimer) { return; }
     pollFlow();
@@ -486,6 +493,7 @@
       seg = list[i];
       s = byId[seg.id];
       if (!s) { continue; }
+      if (_sim[seg.id]) { continue; }  // a what-if override holds this segment
       flow = Math.max(0, Math.min(1, seg.flow || 0));
       dir = (seg.dir < 0) ? -1 : 1;
       s.flow = flow;
@@ -581,6 +589,7 @@
       map.addLayer(makeLayer(map));
       console.log("[killdeer3d] facility layer attached");
       frameFacility(map);
+      injectSimUI(map);
     } catch (e3) {
       console.warn("[killdeer3d] addLayer failed", e3);
       _attachedMap = null;
@@ -637,7 +646,73 @@
   window.addEventListener("hashchange", function () { setTimeout(tick, 300); });
 
   // ── PUBLIC API ────────────────────────────────────────────────────────────────
+  // ── WHAT-IF SIMULATION (L4: inject a fault, watch the twin react) ────────────
+  // Display-only — IL-9000: this overrides the TWIN's visualization, never a real
+  // device. It shows how a failure propagates so operators can rehearse response.
+  function _applySeg(segId, flow, status) {
+    var i, j, s;
+    for (i = 0; i < segments.length; i++) {
+      s = segments[i];
+      if (s.id !== segId) { continue; }
+      s.flow = flow;
+      s.speed = flow * 0.22;
+      if (s.mesh && s.mesh.material) {
+        s.mesh.material.emissiveIntensity = 0.16 + flow * 0.55;
+        s.mesh.material.emissive.setHex(status === "bad" ? COL.bad : (PRODUCT[s.product] || COL.steel));
+      }
+      for (j = 0; j < s.packets.length; j++) { s.packets[j].mesh.visible = flow > 0.02; }
+      return;
+    }
+  }
+  function _tintEquip(id, hex, intensity) {
+    var m = equipMeshes[id];
+    if (!m) { return; }
+    m.traverse(function (o) {
+      if (o.isMesh && o.material && o.material.emissive && o.material.metalness !== undefined) {
+        o.material.emissive.setHex(hex); o.material.emissiveIntensity = intensity;
+      }
+    });
+  }
+  var SCENARIOS = {
+    "compressor-trip": { segs: ["P3", "P6", "P7"], equip: ["CMP"], label: "Compressor Trip" }
+  };
+  function simulateScenario(name) {
+    var sc = SCENARIOS[name];
+    if (!sc) { return false; }
+    var i;
+    for (i = 0; i < sc.segs.length; i++) { _sim[sc.segs[i]] = true; _applySeg(sc.segs[i], 0, "bad"); }
+    for (i = 0; i < sc.equip.length; i++) { _tintEquip(sc.equip[i], COL.bad, 0.4); }
+    console.log("[killdeer3d] what-if: " + (sc.label || name) + " injected");
+    return true;
+  }
+  function clearSim() {
+    _sim = {};
+    pollStatus(); pollFlow();  // restore equipment + pipes from live data
+    console.log("[killdeer3d] what-if cleared — back to live");
+  }
+
+  // Small brand-compliant control (text only — no emoji per IL UI rule).
+  function injectSimUI(map) {
+    try {
+      var c = map.getContainer && map.getContainer();
+      if (!c || c.querySelector("#kd-sim-ui")) { return; }
+      var box = document.createElement("div");
+      box.id = "kd-sim-ui";
+      box.style.cssText = "position:absolute;bottom:18px;left:50%;transform:translateX(-50%);z-index:6;" +
+        "display:flex;gap:8px;font-family:Manrope,-apple-system,sans-serif;";
+      var btn = "padding:7px 14px;border-radius:8px;font-size:12px;font-weight:600;cursor:pointer;";
+      box.innerHTML =
+        '<button id="kd-sim-trip" style="' + btn + 'background:rgba(239,68,68,0.16);border:1px solid #EF4444;color:#FCA5A5;">Simulate: Compressor Trip</button>' +
+        '<button id="kd-sim-reset" style="' + btn + 'background:rgba(6,182,212,0.16);border:1px solid #06B6D4;color:#67E8F9;">Reset to Live</button>';
+      c.appendChild(box);
+      box.querySelector("#kd-sim-trip").addEventListener("click", function () { simulateScenario("compressor-trip"); });
+      box.querySelector("#kd-sim-reset").addEventListener("click", function () { clearSim(); });
+    } catch (e) {}
+  }
+
   window.AevusKilldeer3D = {
+    simulate: function (name) { return simulateScenario(name || "compressor-trip"); },
+    clearSim: function () { clearSim(); },
     setFlow: function (segId, opts) {
       var i, s;
       opts = opts || {};

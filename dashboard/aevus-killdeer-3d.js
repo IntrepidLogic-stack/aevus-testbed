@@ -899,12 +899,30 @@
     var tries = 0;
     var iv = setInterval(function () {
       tries++;
-      if (_painted || _twinLoaderEl() || tries > 60) { clearInterval(iv); return; }
+      if (_painted || tries > 60) { clearInterval(iv); return; }
+      var m = window._aevusMapInstance;
+      if (!onMapPage() || !m || !m.getCanvas) { return; }
+      clearInterval(iv);
       try {
-        if (onMapPage() && window._aevusMapInstance) {
-          showTwinLoader(window._aevusMapInstance);
-          clearInterval(iv);
+        showTwinLoader(m);
+        // Pre-frame the camera to the FINAL twin frame right now — before the
+        // 3D geometry builds — and block the base map's regional auto-fit from
+        // this instant. Without this the camera churns 15 -> 16 (native fit,
+        // ~1s) -> 20/55 (twin snap, ~2.4s): the two shifts (camera log). Jumping
+        // straight to the frame here, behind the loader, means ONE silent move
+        // and zero visible shifts; the geometry just fills in already-framed.
+        if (!m.__camPatched) {
+          m.__camPatched = true;
+          ["flyTo", "fitBounds", "easeTo"].forEach(function (fn) {
+            var orig = m[fn];
+            m[fn] = function () { if (m.__twinFramed && onMapPage()) { return m; } return orig.apply(m, arguments); };
+          });
         }
+        m.__twinFramed = true;
+        var h = 0; try { h = m.getCanvas().clientHeight || 0; } catch (e2) {}
+        var pad = h ? Math.max(40, Math.min(240, Math.round(h * 0.12))) : 110;
+        m.jumpTo({ center: FRAME.center, zoom: FRAME.zoom, pitch: FRAME.pitch, bearing: FRAME.bearing,
+                   padding: { top: 0, right: 0, bottom: pad, left: 0 } });
       } catch (e) {}
     }, 80);
   })();

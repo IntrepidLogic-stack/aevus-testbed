@@ -211,6 +211,7 @@
   var flameMeshes = [];         // flicker
   var blinkMeshes = [];         // tower beacon
   var _windsock = null;         // {pivot, droop} — oriented to live wind each frame
+  var _flares = [];             // [{yaw, lean, layers, light}] — flame flickers + leans downwind
   var WINDSOCK_LL = [-95.86755, 29.33944];  // a clear spot near the met/RTU area
   var transform = null;
   var _attachedMap = null;
@@ -330,22 +331,94 @@
 
   function buildFlare() {
     var g = new THREEref.Group();
-    var h = 12.0;
-    var mast = new THREEref.Mesh(new THREEref.CylinderGeometry(0.32, 0.45, h, 14), metal(COL.steelDark));
-    mast.position.y = h / 2; g.add(mast);
-    // guy-wire suggestion: 3 thin struts
-    var a, i;
-    for (i = 0; i < 3; i++) {
-      a = (i / 3) * Math.PI * 2;
-      var strut = new THREEref.Mesh(new THREEref.CylinderGeometry(0.04, 0.04, h * 0.7, 6), metal(COL.skid));
-      strut.position.set(Math.cos(a) * 1.6, h * 0.42, Math.sin(a) * 1.6);
-      strut.rotation.z = Math.cos(a) * 0.28; strut.rotation.x = -Math.sin(a) * 0.28;
-      g.add(strut);
+    var H = 13.0;   // stack height
+    var i, k;
+
+    // ── base skid + knockout drum (separates liquids before the flare) ──
+    var skid = new THREEref.Mesh(new THREEref.BoxGeometry(3.6, 0.4, 2.0), skidMat());
+    skid.position.set(1.5, 0.2, 0); g.add(skid);
+    var koLen = 2.4, koR = 0.6, koCx = 1.7, koY = koR + 0.5;
+    var koG = new THREEref.CylinderGeometry(koR, koR, koLen, 18);
+    var ko = new THREEref.Mesh(koG, metal(COL.steel));
+    ko.rotation.z = Math.PI / 2; ko.position.set(koCx, koY, 0); g.add(ko);
+    addEdges(g, koG, ko, COL.accent, 0.3);
+    var koA = new THREEref.Mesh(new THREEref.SphereGeometry(koR, 12, 8), metal(COL.steel));
+    koA.position.set(koCx - koLen / 2, koY, 0); g.add(koA);
+    var koB = new THREEref.Mesh(new THREEref.SphereGeometry(koR, 12, 8), metal(COL.steel));
+    koB.position.set(koCx + koLen / 2, koY, 0); g.add(koB);
+    [koCx - 0.7, koCx + 0.7].forEach(function (sx) {
+      var sad = new THREEref.Mesh(new THREEref.BoxGeometry(0.35, 0.5, 1.3), skidMat());
+      sad.position.set(sx, 0.45, 0); g.add(sad);
+    });
+    // supply line: drum -> base of stack
+    var supply = new THREEref.Mesh(new THREEref.CylinderGeometry(0.16, 0.16, 1.6, 10), metal(COL.steelDark));
+    supply.rotation.z = Math.PI / 2; supply.position.set(0.8, koY, 0); g.add(supply);
+    var elbow = new THREEref.Mesh(new THREEref.SphereGeometry(0.18, 10, 8), metal(COL.steelDark));
+    elbow.position.set(0, koY, 0); g.add(elbow);
+    var riser = new THREEref.Mesh(new THREEref.CylinderGeometry(0.16, 0.16, koY, 10), metal(COL.steelDark));
+    riser.position.set(0, koY / 2, 0); g.add(riser);
+
+    // ── flare stack + flange rings ──
+    var mastG = new THREEref.CylinderGeometry(0.3, 0.42, H, 16);
+    var mast = new THREEref.Mesh(mastG, metal(COL.steelDark));
+    mast.position.y = H / 2; g.add(mast);
+    for (i = 1; i <= 3; i++) {
+      var ring = new THREEref.Mesh(new THREEref.TorusGeometry(0.35, 0.05, 6, 16), metal(COL.steel));
+      ring.position.y = (H / 4) * i; ring.rotation.x = Math.PI / 2; g.add(ring);
     }
-    var flame = new THREEref.Mesh(new THREEref.ConeGeometry(0.95, 2.6, 14), glowMat(COL.flame, 0.85));
-    flame.position.y = h + 1.3; g.add(flame);
-    flameMeshes.push(flame);
-    var pl = new THREEref.PointLight(0xFF7A2C, 1.3, 34); pl.position.set(0, h + 1.3, 0); g.add(pl);
+
+    // ── guy cables: collar at 0.75H -> 3 ground anchors ──
+    var collarY = H * 0.75;
+    var collar = new THREEref.Mesh(new THREEref.TorusGeometry(0.45, 0.05, 6, 16), metal(COL.steel));
+    collar.position.y = collarY; collar.rotation.x = Math.PI / 2; g.add(collar);
+    var cableMat = new THREEref.MeshStandardMaterial({ color: 0x8895A5, metalness: 0.6, roughness: 0.5 });
+    for (i = 0; i < 3; i++) {
+      var ca = (i / 3) * Math.PI * 2 + 0.5;
+      var ax = Math.cos(ca) * 4.5, az = Math.sin(ca) * 4.5;
+      var len = Math.sqrt(ax * ax + az * az + collarY * collarY);
+      var cable = new THREEref.Mesh(new THREEref.CylinderGeometry(0.025, 0.025, len, 5), cableMat);
+      cable.position.set(ax / 2, collarY / 2, az / 2);
+      var dir = new THREEref.Vector3(ax, -collarY, az).normalize();
+      cable.quaternion.setFromUnitVectors(new THREEref.Vector3(0, 1, 0), dir);
+      g.add(cable);
+      var anc = new THREEref.Mesh(new THREEref.BoxGeometry(0.3, 0.3, 0.3), skidMat());
+      anc.position.set(ax, 0.15, az); g.add(anc);
+    }
+
+    // ── flare tip / burner head + windshield crown + pilot ──
+    var tipG = new THREEref.CylinderGeometry(0.55, 0.42, 1.4, 16);
+    var tip = new THREEref.Mesh(tipG, metal(COL.steel));
+    tip.position.y = H + 0.7; g.add(tip);
+    addEdges(g, tipG, tip, COL.accent, 0.35);
+    var crown = new THREEref.Mesh(new THREEref.CylinderGeometry(0.64, 0.55, 0.45, 16, 1, true),
+      new THREEref.MeshStandardMaterial({ color: COL.steelDark, metalness: 0.6, roughness: 0.5, side: THREEref.DoubleSide }));
+    crown.position.y = H + 1.5; g.add(crown);
+    var pilot = new THREEref.Mesh(new THREEref.SphereGeometry(0.12, 8, 6), glowMat(0xFFD27A, 0.95));
+    pilot.position.set(0.46, H + 1.6, 0); g.add(pilot);
+
+    // ── FLAME: layered additive plume that flickers + leans DOWNWIND ──
+    var flameY = H + 1.7;   // burner mouth
+    var yaw = new THREEref.Group(); yaw.position.y = flameY; g.add(yaw);
+    var lean = new THREEref.Group(); yaw.add(lean);
+    function flameMat(color) {
+      return new THREEref.MeshBasicMaterial({
+        color: color, transparent: true, opacity: 0.5,
+        blending: THREEref.AdditiveBlending, depthWrite: false
+      });
+    }
+    var layers = [];
+    function addLayer(r, hgt, color, op, j) {
+      var cone = new THREEref.Mesh(new THREEref.ConeGeometry(r, hgt, 16, 1, true), flameMat(color));
+      cone.position.y = hgt * 0.5; lean.add(cone);
+      layers.push({ mesh: cone, baseOp: op, phase: j * 1.7 });
+    }
+    addLayer(1.15, 5.4, 0xFF4A14, 0.26, 0);  // outer deep orange
+    addLayer(0.80, 4.1, 0xFF8A2C, 0.46, 1);  // mid orange
+    addLayer(0.46, 2.7, 0xFFE08A, 0.82, 2);  // bright core
+    addLayer(0.18, 3.6, 0xFFF4CC, 0.7, 3);   // flicker tongue
+    var pl = new THREEref.PointLight(0xFF7A2C, 1.6, 42); pl.position.y = flameY + 1.4; g.add(pl);
+
+    _flares.push({ yaw: yaw, lean: lean, layers: layers, light: pl });
     return g;
   }
 
@@ -663,6 +736,22 @@
     for (i = 0; i < blinkMeshes.length; i++) {
       blinkMeshes[i].material.opacity = (Math.sin(ts * 3) > 0.4) ? 0.95 : 0.12;
     }
+    // flare — layered flame flickers + leans DOWNWIND with the live wind
+    for (i = 0; i < _flares.length; i++) {
+      var fr = _flares[i];
+      var fw = (window.AevusWindsock && window.AevusWindsock.wind) ? window.AevusWindsock.wind() : null;
+      var ftoward = (fw && typeof fw.towardDeg === "number") ? fw.towardDeg : 135;
+      var fmph = (fw && typeof fw.mph === "number") ? fw.mph : 8;
+      fr.yaw.rotation.y = Math.PI - ftoward * Math.PI / 180;
+      fr.lean.rotation.x = Math.min(0.9, fmph * 0.04) + Math.sin(ts * 2.4) * 0.05;
+      for (k = 0; k < fr.layers.length; k++) {
+        var L = fr.layers[k];
+        var fl2 = 0.86 + Math.sin(ts * (7 + k * 2) + L.phase) * 0.16 + Math.sin(ts * 19) * 0.05;
+        L.mesh.scale.set(1 + Math.sin(ts * 5 + k) * 0.06, fl2, 1 + Math.cos(ts * 4 + k) * 0.06);
+        L.mesh.material.opacity = L.baseOp * (0.8 + Math.sin(ts * (6 + k) + L.phase) * 0.2);
+      }
+      if (fr.light) { fr.light.intensity = 1.4 + Math.sin(ts * 8) * 0.4; }
+    }
     // windsock — stream DOWNWIND in the real geographic direction (local frame:
     // x=east, z=south => rotation.y = PI/2 - toward), with flutter + wind-driven droop
     if (_windsock && _windsock.pivot) {
@@ -920,7 +1009,7 @@
     }, 9000);
     // reset per-mount state (new map instance => rebuild scene in onAdd)
     scene = null; renderer = null; facility = null;
-    segments = []; equipMeshes = {}; flameMeshes = []; blinkMeshes = []; _windsock = null; _callouts = {};
+    segments = []; equipMeshes = {}; flameMeshes = []; blinkMeshes = []; _windsock = null; _flares = []; _callouts = {};
     try {
       if (map.getLayer(LAYER_ID)) { map.removeLayer(LAYER_ID); }
     } catch (e) {}

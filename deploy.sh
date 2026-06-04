@@ -31,6 +31,7 @@ DASHBOARD_FILES="\
   dashboard/Aevus_Console.html \
   dashboard/api-client.js \
   dashboard/login.html \
+  dashboard/twin-showcase.html \
   dashboard/rad-hover-live.js \
   dashboard/aevus-3dpad-map.js \
   dashboard/three.min.js \

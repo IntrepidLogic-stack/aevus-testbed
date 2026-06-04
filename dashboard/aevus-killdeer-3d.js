@@ -187,6 +187,7 @@
   var _attachedMap = null;
   var _frameIv = null;          // single persistent auto-frame enforcement loop
   var _frameMove = null;        // per-frame 'move' snap handler (kills load flicker)
+  var _frameResize = null;      // re-snap on map resize (padding is px-based)
   var _clock0 = (window.performance && performance.now) ? performance.now() : 0;
 
   // ── MATERIAL FACTORIES ────────────────────────────────────────────────────
@@ -722,6 +723,7 @@
   function frameFacility(map) {
     if (_frameIv) { clearInterval(_frameIv); _frameIv = null; }
     if (_frameMove) { try { map.off("move", _frameMove); } catch (e) {} _frameMove = null; }
+    if (_frameResize) { try { map.off("resize", _frameResize); } catch (e) {} _frameResize = null; }
     var done = false, snapping = false;
 
     // Neutralize the base map's automatic camera moves while the twin owns the
@@ -780,6 +782,7 @@
       if (_frameIv) { clearInterval(_frameIv); _frameIv = null; }
       if (_frameMove) { try { map.off("move", _frameMove); } catch (e) {} _frameMove = null; }
       try { map.off("dragstart", onUser); map.off("zoomstart", onUser); map.off("rotatestart", onUser); } catch (e) {}
+      if (_frameResize) { try { map.off("resize", _frameResize); } catch (e) {} _frameResize = null; }
       try { map.__twinFramed = false; } catch (e) {}  // operator took over => let native camera moves through
     }
     function onUser(e) {
@@ -800,6 +803,11 @@
     try { map.on("dragstart", onUser); map.on("zoomstart", onUser); map.on("rotatestart", onUser); } catch (e0) {}
     _frameMove = onMove;
     try { map.on("move", onMove); } catch (e1) {}
+    // Re-snap immediately on map resize. The framing padding is px-based, so a
+    // resize (panels settling at load + ~3s in -> map.resize()) shifts the framed
+    // position until the next snap. Catch it on the resize event, not 600ms later.
+    _frameResize = function () { if (!done && onMapPage()) { snap(); } };
+    try { map.on("resize", _frameResize); } catch (e2) {}
     snap();  // instant initial frame — jumpTo, never an animated flyTo
     // Backup poll in case 'move' isn't firing while the map sits idle.
     _frameIv = setInterval(function () {

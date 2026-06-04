@@ -52,6 +52,7 @@ from src.api.pearls import router as pearls_router  # noqa: E402
 from src.api.ping_diag import router as ping_diag_router  # noqa: E402
 from src.api.predictions import router as predictions_router  # noqa: E402
 from src.api.reports import router as reports_router  # noqa: E402
+from src.api.twin import router as twin_router  # noqa: E402
 from src.api.weather import router as weather_router  # noqa: E402
 from src.api.ws import router as ws_router  # noqa: E402
 from src.api.ws import ws_manager  # noqa: E402 — module-level singleton
@@ -535,6 +536,7 @@ for r in (
     ping_diag_router,
     predictions_router,
     reports_router,
+    twin_router,
     weather_router,
     ws_router,
 ):

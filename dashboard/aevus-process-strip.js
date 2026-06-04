@@ -61,7 +61,10 @@
     var st = document.createElement("style");
     st.id = "aps-css";
     st.textContent =
-      "#aevus-proc-strip{position:absolute;left:12px;right:12px;bottom:12px;z-index:9;" +
+      // Pinned to the VIEWPORT bottom (not the map container, which can be taller
+      // than the viewport and would push the strip below the fold). left/width are
+      // set in JS from the map container rect so it stays aligned to the map area.
+      "#aevus-proc-strip{position:fixed;bottom:14px;left:12px;right:12px;z-index:9;" +
       "display:flex;align-items:stretch;gap:0;overflow-x:auto;overflow-y:hidden;" +
       "padding:8px 10px;border-radius:14px;font-family:Manrope,-apple-system,sans-serif;" +
       "background:linear-gradient(180deg,rgba(11,16,32,0.82),rgba(11,16,32,0.92));" +
@@ -108,6 +111,20 @@
     el.setAttribute("role", "group");
     el.setAttribute("aria-label", "Live process flow");
     return el;
+  }
+
+  // Keep the (viewport-pinned) strip horizontally aligned to the map area — match
+  // the map container's left edge + width so it clears the left nav / panels.
+  function reposition() {
+    if (!_strip) { return; }
+    var map = window._aevusMapInstance;
+    var c = map && typeof map.getContainer === "function" ? map.getContainer() : null;
+    if (!c) { return; }
+    var r = c.getBoundingClientRect();
+    if (r.width < 40) { return; }
+    _strip.style.left = Math.round(r.left + 12) + "px";
+    _strip.style.right = "auto";
+    _strip.style.width = Math.round(r.width - 24) + "px";
   }
 
   function readingsFor(stage) {
@@ -157,6 +174,7 @@
       "</div>";
 
     _strip.innerHTML = html;
+    reposition();
   }
 
   function ensureMounted() {
@@ -207,6 +225,7 @@
     if (onMapPage()) {
       if (ensureMounted()) {
         setVisible(true);
+        reposition();
         startPolling();
       }
     } else {
@@ -216,6 +235,7 @@
   }
 
   setInterval(tick, 1000);
+  window.addEventListener("resize", reposition);
   window.addEventListener("hashchange", tick);
   document.addEventListener("visibilitychange", function () { if (!document.hidden) { poll(); } });
 

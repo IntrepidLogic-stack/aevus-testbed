@@ -618,11 +618,21 @@
     if (_frameIv) { clearInterval(_frameIv); _frameIv = null; }
     var done = false;
     function onUser(e) {
-      if (e && e.originalEvent && !done) {
-        done = true;
-        if (_frameIv) { clearInterval(_frameIv); _frameIv = null; }
-        try { map.off("dragstart", onUser); map.off("zoomstart", onUser); map.off("rotatestart", onUser); } catch (e1) {}
-      }
+      if (!e || !e.originalEvent || done) { return; }
+      // Only honor a gesture as "operator took over" if it happens while ALREADY
+      // framed on the pad — otherwise spurious events during the load / native-fit
+      // churn kill the lock before it ever engages (the bug that kept reverting us
+      // to the regional view on fresh loads).
+      var framedNow = false;
+      try {
+        var c = map.getCenter();
+        framedNow = Math.abs(c.lng - FRAME.center[0]) < 0.003 &&
+                    Math.abs(c.lat - FRAME.center[1]) < 0.003 && map.getZoom() > 16;
+      } catch (ee) { framedNow = false; }
+      if (!framedNow) { return; }
+      done = true;
+      if (_frameIv) { clearInterval(_frameIv); _frameIv = null; }
+      try { map.off("dragstart", onUser); map.off("zoomstart", onUser); map.off("rotatestart", onUser); } catch (e1) {}
     }
     try { map.on("dragstart", onUser); map.on("zoomstart", onUser); map.on("rotatestart", onUser); } catch (e0) {}
     var first = true;

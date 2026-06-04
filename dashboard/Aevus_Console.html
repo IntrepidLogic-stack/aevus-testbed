@@ -108,13 +108,16 @@
 /* Light theme overrides consolidated into body.light-theme block */
 
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-html { background: #0B1020; }
+html { background: #0B1020; overflow-x: hidden; }
 body {
   font-family: var(--font-body);
   background: var(--bg-primary);
   color: var(--text-primary);
   min-height: 100vh;
-  overflow-x: hidden;
+  /* overflow-x:hidden moved to <html> (2026-06-04). On <body> it forces
+     overflow-y:auto, which makes the body a scroll container and can break
+     page scrolling on some browser/OS combos. The horizontal clip belongs on
+     the root scroller (html). */
   /* radial gradients removed v108 for solid dark background */
 }
 

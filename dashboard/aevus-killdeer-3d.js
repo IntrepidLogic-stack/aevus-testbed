@@ -465,6 +465,7 @@
         animate(map);
         renderer.resetState();
         renderer.render(scene, camera);
+        if (!_painted) { onFirstPaint(); }  // first frame on screen => drop the loader
         map.triggerRepaint();
       }
     };
@@ -587,9 +588,63 @@
     return !!(sec && sec.offsetParent !== null);
   }
 
+  // ── Twin load lifecycle ──────────────────────────────────────────────────
+  // The "Building digital twin" placeholder is driven by the FIRST actual
+  // render() of the scene — an event, NOT a setTimeout — so it is correct on any
+  // device/network (fast desktop or cold-cache phone). The only timer is a
+  // SAFETY NET for the failure path (topology 500 / WebGL blocked) so we never
+  // leave an infinite spinner. State: building -> ready, or building -> degraded.
+  var _painted = false;
+  var _loaderTimeout = null;
+  function _twinLoaderEl() { return document.getElementById("kd-twin-loader"); }
+  function showTwinLoader(map) {
+    try {
+      var c = map.getContainer(); if (!c || _twinLoaderEl()) { return; }
+      if (!document.getElementById("kd-twin-loader-css")) {
+        var st = document.createElement("style");
+        st.id = "kd-twin-loader-css";
+        st.textContent =
+          "#kd-twin-loader{position:absolute;inset:0;z-index:12;display:flex;flex-direction:column;" +
+          "align-items:center;justify-content:center;gap:14px;background:rgba(11,16,32,0.92);" +
+          "transition:opacity .45s ease;font-family:Manrope,-apple-system,sans-serif;pointer-events:none;}" +
+          "#kd-twin-loader.kd-hide{opacity:0;}" +
+          "#kd-twin-loader .kd-ring{width:34px;height:34px;border-radius:50%;" +
+          "border:2.5px solid rgba(6,182,212,0.22);border-top-color:#06B6D4;animation:kdspin .8s linear infinite;}" +
+          "#kd-twin-loader .kd-msg{font-size:12px;letter-spacing:1.6px;text-transform:uppercase;" +
+          "color:#9FB3C8;font-weight:600;}@keyframes kdspin{to{transform:rotate(360deg);}}";
+        document.head.appendChild(st);
+      }
+      var el = document.createElement("div");
+      el.id = "kd-twin-loader";
+      el.innerHTML = '<div class="kd-ring"></div><div class="kd-msg">Building digital twin…</div>';
+      c.appendChild(el);
+    } catch (e) {}
+  }
+  function hideTwinLoader() {
+    if (_loaderTimeout) { clearTimeout(_loaderTimeout); _loaderTimeout = null; }
+    var el = _twinLoaderEl(); if (!el) { return; }
+    el.classList.add("kd-hide");
+    setTimeout(function () { try { if (el.parentNode) { el.parentNode.removeChild(el); } } catch (e) {} }, 500);
+  }
+  function onFirstPaint() {
+    if (_painted) { return; }
+    _painted = true;
+    hideTwinLoader();
+    try { window.dispatchEvent(new CustomEvent("aevus:twin-ready")); } catch (e) {}
+  }
+
   function attach(map) {
     if (!window.THREE) { return; }     // THREE not loaded yet
     _attachedMap = map;
+    _painted = false;
+    showTwinLoader(map);               // cleared by the first render() (below)
+    if (_loaderTimeout) { clearTimeout(_loaderTimeout); }
+    _loaderTimeout = setTimeout(function () {
+      // Safety net only — never the happy path. If the twin hasn't painted in
+      // 9s the build/topology/WebGL failed; drop the overlay so the operator
+      // still gets the map instead of a frozen spinner.
+      if (!_painted) { console.warn("[killdeer3d] twin not painted in 9s — removing loader (degraded)"); hideTwinLoader(); }
+    }, 9000);
     // reset per-mount state (new map instance => rebuild scene in onAdd)
     scene = null; renderer = null; facility = null;
     segments = []; equipMeshes = {}; flameMeshes = []; blinkMeshes = []; _callouts = {};

@@ -1477,8 +1477,15 @@
 
       el.appendChild(ring); el.appendChild(label);
       try {
-        var mk = new maplibregl.Marker({ element: el, anchor: "left", offset: [12, 0] })
-          .setLngLat([e.lng, e.lat]).addTo(map);
+        // Tall masts (flare stack, radio tower) rise UP the screen, so anchor the
+        // label+ring UNDERNEATH the base (centered, hanging below) instead of to
+        // the side — otherwise the callout collides with the stack/flame.
+        var tall = (e.type === "flare" || e.type === "tower");
+        var opts = tall
+          ? { element: el, anchor: "top", offset: [0, 16] }
+          : { element: el, anchor: "left", offset: [12, 0] };
+        if (tall) { el.style.flexDirection = "column"; el.style.alignItems = "center"; el.style.gap = "3px"; el.style.transform = "none"; }
+        var mk = new maplibregl.Marker(opts).setLngLat([e.lng, e.lat]).addTo(map);
         _callouts[e.id] = { marker: mk, ring: ring, num: num, sub: sub, name: name, node: e };
       } catch (ex) {}
     }

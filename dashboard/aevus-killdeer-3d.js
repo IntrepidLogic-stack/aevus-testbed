@@ -413,19 +413,33 @@
         blending: THREEref.AdditiveBlending, depthWrite: false
       });
     }
+    // Torch-flame silhouette: a lathe (revolved) teardrop — narrow neck, a bulge,
+    // then a long taper to a point. Layered additive shells read like a real
+    // flame, far better than plain cones. One geometry, scaled per layer.
+    var FLAME_PROFILE = [
+      new THREEref.Vector2(0.03, 0.0),
+      new THREEref.Vector2(0.26, 0.45),
+      new THREEref.Vector2(0.50, 1.05),
+      new THREEref.Vector2(0.47, 1.75),
+      new THREEref.Vector2(0.34, 2.55),
+      new THREEref.Vector2(0.18, 3.25),
+      new THREEref.Vector2(0.06, 3.75),
+      new THREEref.Vector2(0.0, 4.05)
+    ];
+    var flameGeo = new THREEref.LatheGeometry(FLAME_PROFILE, 20);
     var layers = [];
     // Each layer ramps cool (low intake) -> hot (high intake); status tints are
     // applied per-frame (warn=amber, bad=sooty). See animate().
-    function addLayer(r, hgt, coolHex, hotHex, op, j) {
-      var cone = new THREEref.Mesh(new THREEref.ConeGeometry(r, hgt, 16, 1, true), flameMat(hotHex));
-      cone.position.y = hgt * 0.5; lean.add(cone);
-      layers.push({ mesh: cone, baseOp: op, phase: j * 1.7,
+    function addLayer(sc, coolHex, hotHex, op, j) {
+      var m = new THREEref.Mesh(flameGeo, flameMat(hotHex));
+      m.scale.setScalar(sc); lean.add(m);
+      layers.push({ mesh: m, baseOp: op, phase: j * 1.7, base: sc,
                     cool: new THREEref.Color(coolHex), hot: new THREEref.Color(hotHex) });
     }
-    addLayer(1.15, 5.4, 0x5A1206, 0xFF6A22, 0.26, 0);  // outer: sooty red -> hot orange
-    addLayer(0.80, 4.1, 0xC23A0A, 0xFFA63C, 0.46, 1);  // mid:   ember     -> amber
-    addLayer(0.46, 2.7, 0xFF8A3C, 0xFFF3C8, 0.82, 2);  // core:  orange    -> near white-hot
-    addLayer(0.18, 3.6, 0xFFD27A, 0xFFFFFF, 0.70, 3);  // tongue
+    addLayer(1.0,  0x5A1206, 0xFF6A22, 0.30, 0);  // outer envelope: sooty red -> hot orange
+    addLayer(0.74, 0xC23A0A, 0xFFA63C, 0.5, 1);   // mid:   ember -> amber
+    addLayer(0.50, 0xFF8A3C, 0xFFF3C8, 0.85, 2);  // core:  orange -> near white-hot
+    addLayer(0.28, 0xFFD27A, 0xFFFFFF, 0.85, 3);  // inner white-hot tip
     var pl = new THREEref.PointLight(0xFF7A2C, 1.6, 42); pl.position.y = flameY + 1.4; g.add(pl);
 
     _flares.push({ yaw: yaw, lean: lean, layers: layers, light: pl });
@@ -774,8 +788,12 @@
         L.mesh.material.color.copy(L.cool).lerp(L.hot, hot);
         if (intakeStatus === "warn") { L.mesh.material.color.lerp(_FLAME_WARN, 0.45); }
         else if (intakeStatus === "bad") { L.mesh.material.color.lerp(_FLAME_SOOT, 0.55); }
-        var fl2 = 0.86 + Math.sin(ts * (7 + k * 2) + L.phase) * 0.16 + Math.sin(ts * 19) * 0.05;
-        L.mesh.scale.set(1 + Math.sin(ts * 5 + k) * 0.06, fl2, 1 + Math.cos(ts * 4 + k) * 0.06);
+        // flicker: pulse height, wobble width, sway organically — like a torch
+        var puls = 1 + Math.sin(ts * (8 + k * 2) + L.phase) * 0.16 + Math.sin(ts * 23 + k) * 0.05;
+        var wob = 1 + Math.sin(ts * (11 + k) + L.phase) * 0.07;
+        L.mesh.scale.set(L.base * wob, L.base * puls, L.base * wob);
+        L.mesh.rotation.z = Math.sin(ts * (3 + k) + L.phase) * 0.06;
+        L.mesh.rotation.x = Math.cos(ts * (2.6 + k)) * 0.045;
         L.mesh.material.opacity = L.baseOp * (0.78 + Math.sin(ts * (6 + k) + L.phase) * 0.2) * (0.35 + hot * 0.65) * dim;
       }
       if (fr.light) { fr.light.intensity = (0.4 + hot * 1.5) + Math.sin(ts * 8) * 0.35; }

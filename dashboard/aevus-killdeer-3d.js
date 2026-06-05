@@ -1256,32 +1256,36 @@
     }
     // gas detector (SE of the compressor)
     var cmp = equipLocal("CMP"), gx = cmp.x + 2.0, gz = cmp.z + 3.0;
-    var gpole = new THREEref.Mesh(new THREEref.CylinderGeometry(0.05, 0.06, 1.6, 8), metal(COL.steelDark));
-    gpole.position.set(gx, 0.8, gz); facility.add(gpole);
-    var ghead = new THREEref.Mesh(new THREEref.CylinderGeometry(0.14, 0.14, 0.3, 12), metal(0xE0B020));
-    ghead.position.set(gx, 1.65, gz); facility.add(ghead);
-    var gcone = new THREEref.Mesh(new THREEref.ConeGeometry(0.14, 0.18, 12), metal(COL.steel));
-    gcone.position.set(gx, 1.85, gz); facility.add(gcone);
+    var gpole = new THREEref.Mesh(new THREEref.CylinderGeometry(0.06, 0.07, 1.9, 8), metal(COL.steelDark));
+    gpole.position.set(gx, 0.95, gz); facility.add(gpole);
+    var ghead = new THREEref.Mesh(new THREEref.CylinderGeometry(0.22, 0.22, 0.42, 14), metal(0xE0B020));
+    ghead.position.set(gx, 2.05, gz); facility.add(ghead);
+    var gcone = new THREEref.Mesh(new THREEref.ConeGeometry(0.22, 0.26, 14), metal(COL.steel));
+    gcone.position.set(gx, 2.38, gz); facility.add(gcone);
     ioLink(gx, gz);
     // pressure transmitter (S of the separator)
     var sep = equipLocal("SEP"), px = sep.x + 1.0, pz = sep.z + 2.6;
-    var pstand = new THREEref.Mesh(new THREEref.CylinderGeometry(0.04, 0.05, 1.0, 6), metal(COL.steelDark));
-    pstand.position.set(px, 0.5, pz); facility.add(pstand);
-    var pbody = new THREEref.Mesh(new THREEref.BoxGeometry(0.3, 0.3, 0.2), metal(COL.steel));
-    pbody.position.set(px, 1.05, pz); facility.add(pbody);
-    var pgauge = new THREEref.Mesh(new THREEref.CylinderGeometry(0.12, 0.12, 0.06, 14), metal(0xBFD8E6));
-    pgauge.rotation.x = Math.PI / 2; pgauge.position.set(px, 1.05, pz + 0.13); facility.add(pgauge);
+    var pstand = new THREEref.Mesh(new THREEref.CylinderGeometry(0.05, 0.06, 1.3, 6), metal(COL.steelDark));
+    pstand.position.set(px, 0.65, pz); facility.add(pstand);
+    var pbody = new THREEref.Mesh(new THREEref.BoxGeometry(0.42, 0.42, 0.28), metal(COL.steel));
+    pbody.position.set(px, 1.35, pz); facility.add(pbody);
+    var pgauge = new THREEref.Mesh(new THREEref.CylinderGeometry(0.19, 0.19, 0.09, 16), metal(0xBFD8E6));
+    pgauge.rotation.x = Math.PI / 2; pgauge.position.set(px, 1.35, pz + 0.18); facility.add(pgauge);
     ioLink(px, pz);
-    // pan-tilt IP camera on a tall pole overlooking the pad (SE corner)
-    var efm = equipLocal("EFM"), cx = efm.x + 3.0, cz = efm.z + 3.5;
-    var cpole = new THREEref.Mesh(new THREEref.CylinderGeometry(0.07, 0.09, 5.0, 10), metal(COL.steelDark));
-    cpole.position.set(cx, 2.5, cz); facility.add(cpole);
-    var carm = new THREEref.Mesh(new THREEref.BoxGeometry(0.6, 0.08, 0.08), metal(COL.steelDark));
-    carm.position.set(cx - 0.3, 5.0, cz); facility.add(carm);
-    var cbody = new THREEref.Mesh(new THREEref.BoxGeometry(0.4, 0.22, 0.22), metal(0x2A2F3A));
-    cbody.position.set(cx - 0.6, 4.95, cz); cbody.rotation.y = -0.5; facility.add(cbody);
-    var clens = new THREEref.Mesh(new THREEref.CylinderGeometry(0.08, 0.08, 0.1, 12), metal(0x111418));
-    clens.rotation.z = Math.PI / 2; clens.position.set(cx - 0.82, 4.95, cz - 0.1); facility.add(clens);
+    // pan-tilt IP camera on a tall pole at the SW corner, overlooking the whole pad
+    var wh = equipLocal("WH"), cx = wh.x - 1.5, cz = wh.z + 5.0;
+    var cpole = new THREEref.Mesh(new THREEref.CylinderGeometry(0.1, 0.13, 5.8, 12), metal(COL.steelDark));
+    cpole.position.set(cx, 2.9, cz); facility.add(cpole);
+    var carm = new THREEref.Mesh(new THREEref.BoxGeometry(0.9, 0.11, 0.11), metal(COL.steelDark));
+    carm.position.set(cx + 0.45, 5.7, cz); facility.add(carm);
+    var cbody = new THREEref.Mesh(new THREEref.BoxGeometry(0.7, 0.38, 0.38), metal(0x2A2F3A));
+    cbody.position.set(cx + 0.95, 5.62, cz); cbody.rotation.y = -0.7; facility.add(cbody);
+    var cshield = new THREEref.Mesh(new THREEref.BoxGeometry(0.78, 0.07, 0.46), metal(0x3A4150));
+    cshield.position.set(cx + 0.95, 5.86, cz); cshield.rotation.y = -0.7; facility.add(cshield);
+    var clens = new THREEref.Mesh(new THREEref.CylinderGeometry(0.13, 0.13, 0.2, 14), metal(0x0C0F14));
+    clens.rotation.z = Math.PI / 2; clens.rotation.y = -0.7; clens.position.set(cx + 1.28, 5.58, cz - 0.18); facility.add(clens);
+    var cled = new THREEref.Mesh(new THREEref.SphereGeometry(0.05, 8, 6), glowMat(0xFF3B3B, 0.9));   // recording LED
+    cled.position.set(cx + 1.2, 5.78, cz - 0.12); facility.add(cled);
     ioLink(cx, cz);
   }
   function buildFacility() {

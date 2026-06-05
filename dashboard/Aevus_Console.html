@@ -3060,6 +3060,18 @@ body.light-theme .wall-btn.active {
   border-color: #0EA5E9 !important;
   color: #0EA5E9 !important;
 }
+/* The Wall button lives in the shared topbar; size it to match the neighboring
+   status pills (Live · N assets = 24px) instead of inheriting the 44px mobile
+   touch-target min-height. Site-wide via the single shared topbar. */
+.topbar-right .module-btn {
+  min-height: 0 !important;
+  height: 24px !important;
+  padding: 0 10px !important;
+  border-radius: 6px !important;
+  box-sizing: border-box !important;
+  align-self: center !important;
+}
+.topbar-right .module-btn svg { width: 13px !important; height: 13px !important; }
 /* PR#12: light-theme alert-toast + mobile-nav + alerts panel */
 /* Light theme — Alert toast popups (CRITICAL ALERT floating cards).
    Children are built in JS with inline dark styles; need !important. */

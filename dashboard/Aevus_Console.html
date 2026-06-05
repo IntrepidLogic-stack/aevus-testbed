@@ -2784,7 +2784,7 @@ body.wall-mode #stale-data-banner { left: 0 !important; top: 0 !important; }
 
 /* ── Wave 4: Standing Alarm Indicator ── */
 .standing-alarm {
-  display: inline-flex; align-items: center; gap: 4px;
+  display: inline-flex; align-items: center; gap: 4px; margin-left: 10px; vertical-align: middle;
   padding: 2px 8px; border-radius: 4px; font-size: 9px; font-weight: 600;
   background: rgba(239,68,68,0.1); border: 1px solid rgba(239,68,68,0.2);
   color: #EF4444; animation: standingPulse 3s ease-in-out infinite;
@@ -5970,7 +5970,7 @@ html { scroll-behavior:smooth; }
     }, true);  // capture phase — fires before the default error handler
   })();
 </script>
-<script src="/dashboard/api-client.js?v=130"></script>
+<script src="/dashboard/api-client.js?v=131"></script>
 <script src="/dashboard/rad-hover-live.js?v=28"></script>
 <!-- aevus-3dpad-map.js (award overlay) removed 2026-06-03: it threw an ASI TypeError in
      initAevusMap on the native map. The native map (api-client.js) owns window._aevusMapInstance,
@@ -6992,6 +6992,9 @@ html { scroll-behavior:smooth; }
       // Check if duration column has a value suggesting long-standing
       cells.forEach(function(td) {
         var text = td.textContent.trim();
+        // Skip "Last Seen" cells (e.g. "6d ago") — a stale last-seen is NOT a
+        // standing alarm; only real duration cells should earn the badge.
+        if (/ago/i.test(text)) return;
         if (text.match(/\d+h/) || text.match(/\d+d/)) {
           var badge = document.createElement('span');
           badge.className = 'standing-alarm';
@@ -7002,6 +7005,22 @@ html { scroll-behavior:smooth; }
     });
   }
   setInterval(addStandingIndicators, 5000);
+
+  // ─── Asset drawer: close on navigation + overlay click (was X-only) ───
+  (function(){
+    function closeAssetDrawer(){
+      var ov = document.getElementById('drawer-overlay');
+      var dr = document.getElementById('asset-drawer');
+      if (ov) ov.classList.remove('open');
+      if (dr) dr.classList.remove('open');
+    }
+    window.addEventListener('hashchange', closeAssetDrawer);
+    document.addEventListener('click', function(e){
+      var t = e.target;
+      if (t && t.closest && t.closest('.nav-item')) closeAssetDrawer();      // any sidebar nav, even same page
+      else if (t && t.id === 'drawer-overlay') closeAssetDrawer();           // click the backdrop
+    }, true);
+  })();
 
   // ─── Chattering Alarm Detection ───
   var alarmOccurrences = {};

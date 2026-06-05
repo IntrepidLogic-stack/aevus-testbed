@@ -33,26 +33,29 @@
   // Camera framing that centers the equipment cluster (origin is the SW corner).
   var FRAME = { center: [-95.86769, 29.33956], zoom: 20.0, pitch: 55, bearing: -20 };
 
-  // Bottom framing padding (~12%) that lifts the facility to vertical center under
-  // the 55° pitch. CACHED PER WINDOW SIZE — and that's the whole point: the live
-  // canvas clientHeight fluctuates while the loader hides + panels settle + api-
-  // client fires its ~3s map.resize(), and recomputing the pad from it on every
-  // re-snap re-projected the facility => the "loads then shifts down ~3s later"
-  // report (2026-06-04). window.innerHeight is stable from first paint, so the
-  // same window size always yields the SAME pad => re-snaps are visual no-ops =>
-  // zero shift. A genuine window resize changes innerHeight => recompute => reframe.
-  var _padCache = { winH: -1, pad: 110 };
+  // Bottom framing padding (~12% of the MAP CANVAS height) that lifts the facility
+  // to vertical center under the 55° pitch. The pad is fraction-of-canvas so the
+  // facility holds the SAME RELATIVE screen position at any canvas size — that's
+  // what keeps it put when the canvas makes a real, lasting resize (the loader
+  // overlay clearing / panels settling / api-client's ~3s map.resize()).
+  //
+  // The trap to avoid: the canvas clientHeight briefly reads 0/tiny during early
+  // load — recomputing the pad from those transient values jumped the facility
+  // (the original "shifts down" flicker). So we track the LAST GOOD (>200px)
+  // canvas height and quantize to 8px buckets: transient jitter is ignored, but
+  // a genuine resize updates the pad proportionally => the facility stays put,
+  // no early flicker AND no ~3s slide.
+  var _padCache = { ch: -1, pad: 110 }, _lastGoodCH = 0;
   function framePad() {
-    var wh = (typeof window !== "undefined" && window.innerHeight) || 0;
-    if (wh && wh === _padCache.winH) { return _padCache.pad; }
     var ch = 0;
     try { ch = (window._aevusMapInstance && window._aevusMapInstance.getCanvas().clientHeight) || 0; } catch (e) {}
-    // Prefer a settled canvas height; before it settles use the (stable) window
-    // height minus the app top chrome so the value is right from frame 1.
-    var basis = (ch && ch > 240) ? ch : Math.max(240, wh - 120);
-    var pad = Math.max(40, Math.min(240, Math.round(basis * 0.12)));
-    if (wh) { _padCache.winH = wh; _padCache.pad = pad; }
-    return pad;
+    if (ch > 200) { _lastGoodCH = ch; }
+    var basis = _lastGoodCH > 200 ? _lastGoodCH : Math.max(240, ((window.innerHeight || 800) - 120));
+    var q = Math.round(basis / 8) * 8;          // quantize so 1px jitters don't re-pad
+    if (q === _padCache.ch) { return _padCache.pad; }
+    _padCache.ch = q;
+    _padCache.pad = Math.max(40, Math.min(240, Math.round(basis * 0.12)));
+    return _padCache.pad;
   }
 
   var PRODUCT = {

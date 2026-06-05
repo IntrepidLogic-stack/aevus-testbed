@@ -1075,10 +1075,17 @@
       var sN = _noz(fT, spec.product, true), dN = _noz(tT, spec.product, false);
       var sTie = new THREEref.Vector3(a.x + sN.x, sN.y, a.z + sN.z);                // exact source nozzle
       var dTie = new THREEref.Vector3(b.x + dN.x, dN.y, b.z + dN.z);                // exact dest nozzle
-      var hdx = dTie.x - sTie.x, hdz = dTie.z - sTie.z, hL = Math.sqrt(hdx * hdx + hdz * hdz) || 1, ux = hdx / hL, uz = hdz / hL, runH = 1.2;
-      var sRun = new THREEref.Vector3(sTie.x + ux * 0.6, runH, sTie.z + uz * 0.6); // elbow: leave nozzle -> low run
-      var dRun = new THREEref.Vector3(dTie.x - ux * 0.6, runH, dTie.z - uz * 0.6); // elbow: low run -> dest nozzle
-      pts = [sTie, sRun, dRun, dTie];
+      var runH = 1.2;
+      // MANHATTAN / orthogonal route — vertical drop off the source nozzle, run on
+      // X, run on Z, vertical rise into the dest nozzle. Every segment is axis-
+      // aligned, so the only bends are true 90° elbows (no curved pipe — like the field).
+      pts = [
+        sTie,
+        new THREEref.Vector3(sTie.x, runH, sTie.z),                                 // drop/rise to the sleeper run
+        new THREEref.Vector3(dTie.x, runH, sTie.z),                                 // run along X
+        new THREEref.Vector3(dTie.x, runH, dTie.z),                                 // run along Z
+        dTie                                                                         // rise/drop into the dest nozzle
+      ];
     } else {
       pts = [
         new THREEref.Vector3(a.x, nozzle, a.z),
@@ -1088,7 +1095,16 @@
         new THREEref.Vector3(b.x, nozzle, b.z)
       ];
     }
-    var curve = new THREEref.CatmullRomCurve3(pts, false, "catmullrom", 0.35);
+    var curve;
+    if (spec.detailed) {
+      // sharp-cornered polyline — straight runs joined by true 90° elbows, nothing rounded
+      curve = new THREEref.CurvePath();
+      for (var _ci = 0; _ci < pts.length - 1; _ci++) {
+        if (pts[_ci].distanceTo(pts[_ci + 1]) > 1e-4) { curve.add(new THREEref.LineCurve3(pts[_ci], pts[_ci + 1])); }
+      }
+    } else {
+      curve = new THREEref.CatmullRomCurve3(pts, false, "catmullrom", 0.35);
+    }
     var dia = spec.diameter || 3;
     var radius = 0.13 + dia * 0.03;                 // 3" -> 0.22, 4" -> 0.25
     var detailed = !!spec.detailed;
@@ -1183,7 +1199,11 @@
     flangePair(0.0, detailed);
     flangePair(1.0, detailed);
     if (detailed) {
-      elbow(0.15); elbow(0.85);          // 90° elbows: nozzle drop + rise to dest
+      // elbow fittings at the true 90° corners of the orthogonal route
+      for (var _ei = 1; _ei < pts.length - 1; _ei++) {
+        var _es = new THREEref.Mesh(new THREEref.SphereGeometry(radius + 0.09, 14, 10), metal(COL.steel));
+        _es.position.copy(pts[_ei]); facility.add(_es);
+      }
       // sleeper supports spaced along the run (~every 3.5 m) so long lines don't sag
       var _runLen = curve.getLength();
       var _nSup = Math.max(2, Math.min(9, Math.round(_runLen / 3.5)));

@@ -2058,7 +2058,7 @@
         // skid) rise UP the screen, so anchor the label+ring UNDERNEATH the base
         // (centered, hanging below) instead of to the side — otherwise the callout
         // collides with the unit.
-        var tall = (e.type === "flare" || e.type === "tower" || e.type === "compressor");
+        var tall = (e.type === "flare" || e.type === "tower" || e.type === "compressor" || e.type === "shelter" || e.type === "power");
         // Storage tanks are tall verticals — float the label+ring ABOVE the tank
         // top (anchor the callout's bottom edge ~132px above the base point).
         var tank = (e.type === "oiltank" || e.type === "watertank");

@@ -28,22 +28,26 @@
   // the snapshot for the faceplate/L2 views). Labels match the backend.
   var PRIMARY = {
     wellhead: ["TBG", "CSG"],
-    separator: ["PRESS", "LEVEL"],
+    heater: ["BATH", "GAS"],
+    separator: ["PRESS", "OIL"],
     compressor: ["DISCH", "RPM"],
-    tankfarm: ["OIL", "WATER"],
+    dehydrator: ["DEWPT", "GLYCOL"],
+    tankfarm: ["COND", "WATER"],
     metering: ["RATE", "TOTAL"]
   };
 
   // Thin-line SVG glyphs (strokeWidth 1.8, no fill) per stage.
   var ICON = {
     wellhead: '<path d="M12 21V9M8 9h8M9 6h6M12 6V3M6.5 13.5l-2 2M17.5 13.5l2 2"/>',
+    heater: '<path d="M12 3c2 2.5 3.5 4 3.5 6.5a3.5 3.5 0 0 1-7 0C8.5 7 10 5.5 12 3M5 20h14"/>',
+    dehydrator: '<rect x="9" y="3" width="6" height="15" rx="2"/><path d="M5 20h14M12 7h3M12 11h3M12 15h3"/>',
     separator: '<rect x="3" y="8" width="18" height="8" rx="4"/><path d="M12 4v4M9 16v3M15 16v3"/>',
     compressor: '<rect x="4" y="6" width="11" height="12" rx="2"/><circle cx="9.5" cy="12" r="2.6"/><path d="M15 9h4M15 15h4M19 7v10"/>',
     tankfarm: '<path d="M5 20V9a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2v11M13 20v-8a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2v8M5 11h6M13 13h6"/>',
     metering: '<circle cx="12" cy="12" r="8"/><path d="M12 12l4-3M12 6v1M18 12h-1M12 18v-1M6 12h1"/>'
   };
 
-  var STAGE_ORDER = ["wellhead", "separator", "compressor", "tankfarm", "metering"];
+  var STAGE_ORDER = ["wellhead", "heater", "separator", "compressor", "dehydrator", "tankfarm", "metering"];
 
   var _strip = null;       // root DOM node
   var _mounted = false;
@@ -178,8 +182,8 @@
     var sales = data.sales || {};
     html += '<div class="aps-sales">' +
       '<span class="aps-sales-lab">→ Sales</span>' +
-      '<span class="aps-sales-oil">' + fmt(sales.oil_bopd) + ' <span style="font-size:10px;color:#94A3B8;">BOPD</span></span>' +
-      '<span class="aps-sales-sub">' + fmt(sales.gas_mcfd) + " MCFD · " + fmt(sales.water_bwpd) + " BWPD</span>" +
+      '<span class="aps-sales-oil">' + fmt(sales.gas_mcfd) + ' <span style="font-size:10px;color:#94A3B8;">MCFD</span></span>' +
+      '<span class="aps-sales-sub">' + fmt(sales.condensate_bcpd) + " BCPD · " + fmt(sales.water_bwpd) + " BWPD</span>" +
       "</div>";
 
     _strip.innerHTML = html;

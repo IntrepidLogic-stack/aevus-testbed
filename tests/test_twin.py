@@ -98,22 +98,24 @@ class TestTwinProcess:
         body = resp.json()
         assert body["facility_id"] == "killdeer-bluejay-1"
         ids = [s["id"] for s in body["stages"]]
-        assert ids == ["wellhead", "separator", "compressor", "tankfarm", "metering"]
-        # sales summary carries the *oil* rate (not gas mislabeled as BOPD)
-        assert set(body["sales"]) >= {"oil_bopd", "gas_mcfd", "water_bwpd"}
+        # full gas-train order incl. line heater + TEG dehydrator (audit build)
+        assert ids == ["wellhead", "heater", "separator", "compressor", "dehydrator", "tankfarm", "metering"]
+        # sales summary leads with GAS; condensate + produced water as byproducts
+        assert set(body["sales"]) >= {"gas_mcfd", "condensate_bcpd", "water_bwpd"}
 
     def test_process_values_physically_consistent(self, client):
         body = client.get("/api/v1/twin/facility/killdeer/process").json()
         rd = {s["id"]: {r["label"]: r["value"] for r in s["readings"]} for s in body["stages"]}
-        # casing pressure exceeds tubing; discharge exceeds suction
+        # casing pressure exceeds tubing; compressor discharge exceeds suction (boost)
         assert rd["wellhead"]["CSG"] > rd["wellhead"]["TBG"]
         assert rd["compressor"]["DISCH"] > rd["compressor"]["SUCT"]
-        # oil rate is realistic for a well (tens of BOPD), NOT the gas MCFD (~4)
-        assert 20.0 <= body["sales"]["oil_bopd"] <= 120.0
-        assert 1.0 <= body["sales"]["gas_mcfd"] <= 12.0
-        assert body["sales"]["oil_bopd"] != body["sales"]["gas_mcfd"]
-        # water rate ties to oil rate via water cut (mass balance, > 0)
+        # GAS-well units: sales leads with gas at a realistic magnitude (hundreds–thousands MCFD)
+        assert 200.0 <= body["sales"]["gas_mcfd"] <= 5000.0
+        # condensate is a modest gas-well yield (tens of bbl/day); water > 0
+        assert 5.0 <= body["sales"]["condensate_bcpd"] <= 200.0
         assert body["sales"]["water_bwpd"] > 0
+        # no oil-well units on a gas wellsite
+        assert "oil_bopd" not in body["sales"]
 
     def test_process_unknown_facility_404(self, client):
         assert client.get("/api/v1/twin/facility/nope/process").status_code == 404

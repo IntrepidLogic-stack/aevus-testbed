@@ -123,7 +123,7 @@
   // revalidate in the background and rebuild ONLY if the server graph actually
   // changed. Cache key is versioned so a shipped topology/frame change cleanly
   // invalidates stale client caches.
-  var _TOPO_CACHE_KEY = "aevus_twin_topo_v14_" + TWIN_FACILITY;  // v13: condensate relabel + BPR/flare-valve inline devices + meter run
+  var _TOPO_CACHE_KEY = "aevus_twin_topo_v15_" + TWIN_FACILITY;  // v13: condensate relabel + BPR/flare-valve inline devices + meter run
   function _applyTopology(t) {
     if (Array.isArray(t.origin) && t.origin.length === 2) { ORIGIN = t.origin; }
     if (t.frame && t.frame.center) {
@@ -414,15 +414,27 @@
     }
 
     // ── INTERNALS (visible through the glass top) ──
-    var poolY = yC - 0.30;             // liquid interface level
-    var poolBot = yC - r + 0.08;
-    var poolH = poolY - poolBot;
-    var liquid = new THREEref.Mesh(new THREEref.BoxGeometry(len * 0.9, poolH, 2.05),
-      new THREEref.MeshStandardMaterial({ color: PRODUCT.oil, transparent: true, opacity: 0.5,
-        metalness: 0.1, roughness: 0.3, emissive: PRODUCT.oil, emissiveIntensity: 0.15 }));
-    liquid.position.set(0, poolBot + poolH / 2, 0); g.add(liquid);
+    // ── 3-PHASE inventory: water (bottom) + condensate (top) with an interface,
+    // a WEIR PLATE near the outlet end, and an oil bucket downstream of the weir ──
+    var poolY = yC - 0.30;                 // condensate surface
+    var poolBot = yC - r + 0.08;           // vessel bottom (water)
+    var wInt = yC - 0.62;                  // oil/water interface
+    var oilMat = new THREEref.MeshStandardMaterial({ color: PRODUCT.oil, transparent: true, opacity: 0.5,
+      metalness: 0.1, roughness: 0.3, emissive: PRODUCT.oil, emissiveIntensity: 0.15 });
+    var watMat = new THREEref.MeshStandardMaterial({ color: PRODUCT.water, transparent: true, opacity: 0.5,
+      metalness: 0.1, roughness: 0.3, emissive: 0x1E5FA8, emissiveIntensity: 0.12 });
+    var water = new THREEref.Mesh(new THREEref.BoxGeometry(len * 0.9, wInt - poolBot, 2.05), watMat);
+    water.position.set(0, (poolBot + wInt) / 2, 0); g.add(water);                       // water layer (full length)
+    var oilW = new THREEref.Mesh(new THREEref.BoxGeometry(len * 0.9 * 0.62, poolY - wInt, 2.05), oilMat);
+    oilW.position.set(-len * 0.14, (wInt + poolY) / 2, 0); g.add(oilW);                 // condensate on the water, upstream of weir
+    var oilB = new THREEref.Mesh(new THREEref.BoxGeometry(len * 0.18, poolY - poolBot, 2.05), oilMat);
+    oilB.position.set(len * 0.36, (poolBot + poolY) / 2, 0); g.add(oilB);               // condensate bucket downstream of weir
+    var weir = new THREEref.Mesh(new THREEref.BoxGeometry(0.08, r * 1.3, 1.9), metal(0xAEB8C4));
+    weir.position.set(len * 0.28, yC - 0.45, 0); g.add(weir);                           // weir plate
+    var iface = new THREEref.Mesh(new THREEref.BoxGeometry(len * 0.9, 0.04, 2.05), glowMat(0x38BDF8, 0.55));
+    iface.position.set(0, wInt, 0); g.add(iface);                                       // oil/water interface
     var level = new THREEref.Mesh(new THREEref.BoxGeometry(len * 0.9, 0.04, 2.05), glowMat(0x34D399, 0.6));
-    level.position.set(0, poolY, 0); g.add(level);
+    level.position.set(0, poolY, 0); g.add(level);                                      // condensate surface
 
     // inlet nozzle + diverter plate (gas/liquid enters, hits the diverter)
     var inNoz = new THREEref.Mesh(new THREEref.CylinderGeometry(0.18, 0.18, 1.0, 12), metal(COL.steelDark));
@@ -433,11 +445,13 @@
     var mist = new THREEref.Mesh(new THREEref.BoxGeometry(0.18, 1.0, 1.7),
       new THREEref.MeshStandardMaterial({ color: 0xC7D0DA, transparent: true, opacity: 0.5, metalness: 0.3, roughness: 0.7 }));
     mist.position.set(len * 0.34, yC + 0.45, 0); g.add(mist);
-    // gas outlet (top) + liquid outlet (bottom) nozzles
+    // 3-phase nozzles: gas (top), condensate (off the bucket, mid), water (bottom)
     var gOut = new THREEref.Mesh(new THREEref.CylinderGeometry(0.16, 0.16, 1.0, 10), metal(COL.steelDark));
     gOut.position.set(len * 0.42, yC + r + 0.3, 0); g.add(gOut);
-    var lOut = new THREEref.Mesh(new THREEref.CylinderGeometry(0.14, 0.14, 0.9, 10), metal(COL.steelDark));
-    lOut.position.set(len * 0.42, yC - r - 0.25, 0); g.add(lOut);
+    var oOut = new THREEref.Mesh(new THREEref.CylinderGeometry(0.14, 0.14, 0.9, 10), metal(COL.steelDark));
+    oOut.rotation.z = Math.PI / 2; oOut.position.set(len / 2 + 0.35, poolY, 0.5); g.add(oOut);   // condensate outlet (E head, mid)
+    var wOut = new THREEref.Mesh(new THREEref.CylinderGeometry(0.13, 0.13, 0.9, 10), metal(COL.steelDark));
+    wOut.position.set(len * 0.42, yC - r - 0.25, -0.5); g.add(wOut);                              // water outlet (bottom)
 
     // ── animated material: gas flows along the top, droplets fall off the diverter ──
     var gasY = yC + 0.55, x0 = -len * 0.34, x1 = len * 0.30, gas = [], drops = [], i;
@@ -1050,7 +1064,8 @@
     if (t === "heater" || t === "scrubber") return isSource ? { x: 0.95, y: 3.1, z: 0 } : { x: -2.1, y: 1.7, z: 0 }; // gas outlet TOP (via mist extractor) · inlet on the END head
     if (t === "separator") {
       if (p === "gas") return isSource ? { x: 2.94, y: 4.0, z: 0 } : { x: -2.8, y: 4.0, z: 0 };            // gas outlet E-top · inlet W-top
-      return { x: 2.94, y: 0.7, z: 0 };                                                                    // liquid dump E-bottom
+      if (p === "water") return { x: 2.94, y: 0.6, z: -0.5 };                                              // water outlet (bottom)
+      return { x: 3.2, y: 2.0, z: 0.5 };                                                                   // condensate over the weir (E head, mid)
     }
     if (t === "compressor") return isSource ? { x: 2.6, y: 1.2, z: 0 } : { x: -2.0, y: 2.0, z: 0 };        // discharge header (E) · suction on the SEP-facing (W) side
     if (t === "flare") return { x: 2.4, y: 2.3, z: -0.9 };                                                 // relief into the KO drum on the compressor-facing (N) side

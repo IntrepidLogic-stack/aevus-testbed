@@ -6,7 +6,15 @@ from unittest.mock import AsyncMock, patch
 
 import pytest
 
-from src.collectors.snmp_switch import CISCO_OIDS, SNMPSwitchCollector
+from src.collectors.snmp_switch import CISCO_OIDS, SYSTEM_OIDS, SNMPSwitchCollector
+
+# Real Catalyst 2960 sysDescr banner captured from the lab switch.
+CATALYST_SYS_DESCR = (
+    "Cisco IOS Software, C2960 Software (C2960-LANBASEK9-M), Version 15.0(2)SE11, "
+    "RELEASE SOFTWARE (fc3) Technical Support: http://www.cisco.com/techsupport "
+    "Copyright (c) 1986-2017 by Cisco Systems, Inc. Compiled Sat 19-Aug-17 09:34 "
+    "by prod_rel_team"
+)
 
 
 @pytest.fixture
@@ -90,3 +98,43 @@ async def test_poll_handles_missing_data(collector):
     ):
         readings = await collector.poll()
     assert readings == []
+
+
+def test_parse_firmware_version_cisco_banner(collector):
+    """The full Cisco sysDescr banner is reduced to just the IOS version token."""
+    assert collector._parse_firmware_version(CATALYST_SYS_DESCR) == "15.0(2)SE11"
+
+
+def test_parse_firmware_version_strips_snmp_prefix(collector):
+    """A 'STRING: ...' SNMP type prefix is stripped before parsing."""
+    assert collector._parse_firmware_version(f"STRING: {CATALYST_SYS_DESCR}") == "15.0(2)SE11"
+
+
+def test_parse_firmware_version_fallback_to_raw(collector):
+    """Without a 'Version <x>' token, the cleaned raw value is returned (e.g. MikroTik)."""
+    mikrotik = "RouterOS RB750Gr3"
+    assert collector._parse_firmware_version(mikrotik) == "RouterOS RB750Gr3"
+
+
+def test_parse_firmware_version_none(collector):
+    """Empty / missing sysDescr yields None."""
+    assert collector._parse_firmware_version(None) is None
+    assert collector._parse_firmware_version("") is None
+
+
+@pytest.mark.asyncio
+async def test_poll_sets_clean_firmware(collector):
+    """poll() captures sysDescr and stores only the clean version on firmware_version."""
+
+    async def mock_get(oid):
+        if oid == SYSTEM_OIDS["sys_descr"]:
+            return CATALYST_SYS_DESCR
+        return None
+
+    with (
+        patch.object(collector, "_snmp_get", side_effect=mock_get),
+        patch.object(collector, "_poll_interfaces", new_callable=AsyncMock, return_value=[]),
+    ):
+        await collector.poll()
+
+    assert collector.firmware_version == "15.0(2)SE11"

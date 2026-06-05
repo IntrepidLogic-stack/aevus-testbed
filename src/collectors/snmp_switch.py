@@ -71,6 +71,13 @@ class SNMPSwitchCollector(BaseCollector):
         """Poll Cisco-specific CPU, memory, temperature, and interface stats."""
         readings: list[RawTelemetry] = []
 
+        # Capture firmware/IOS version from sysDescr for FirmwareTracker and the
+        # Asset.firmware field. Parse out just the version token ("15.0(2)SE11")
+        # rather than persisting the full Cisco banner blob.
+        sys_descr = await self._snmp_get(SYSTEM_OIDS["sys_descr"])
+        if sys_descr:
+            self.firmware_version = self._parse_firmware_version(sys_descr)
+
         # CPU utilization (5-minute average — most useful for alerting)
         cpu_5min = await self._snmp_get(CISCO_OIDS["cpu_5min"])
         if cpu_5min is not None:

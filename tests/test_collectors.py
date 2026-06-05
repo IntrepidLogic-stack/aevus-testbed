@@ -1,9 +1,21 @@
 """Tests for the simulator collector."""
 
+from unittest.mock import AsyncMock, patch
+
 import pytest
 
 from src.collectors.simulator import SimulatorCollector
+from src.collectors.snmp_router import SYSTEM_OIDS, SNMPNetworkCollector
 from src.models.telemetry import RawTelemetry
+
+# Real Catalyst 2960 sysDescr banner — the live SW-01 polling path runs through
+# SNMPNetworkCollector(device_type="switch"), so firmware parsing is verified here too.
+CATALYST_SYS_DESCR = (
+    "Cisco IOS Software, C2960 Software (C2960-LANBASEK9-M), Version 15.0(2)SE11, "
+    "RELEASE SOFTWARE (fc3) Technical Support: http://www.cisco.com/techsupport "
+    "Copyright (c) 1986-2017 by Cisco Systems, Inc. Compiled Sat 19-Aug-17 09:34 "
+    "by prod_rel_team"
+)
 
 
 class TestSimulatorCollector:
@@ -61,3 +73,47 @@ class TestSimulatorCollector:
         collector = SimulatorCollector("RAD-01", device_type="radio")
         collector.poll_interval = 10
         assert collector.poll_interval == 10
+
+
+class TestSNMPNetworkCollectorFirmware:
+    """Firmware parsing for the live SW-01 path (SNMPNetworkCollector switch mode)."""
+
+    @pytest.mark.asyncio
+    async def test_switch_firmware_is_clean_version(self):
+        """SW-01 should report the IOS version token, not the full sysDescr banner."""
+        collector = SNMPNetworkCollector("SW-01", "192.168.88.2", device_type="switch")
+
+        async def mock_get(oid):
+            if oid == SYSTEM_OIDS["sys_descr"]:
+                return CATALYST_SYS_DESCR
+            return None
+
+        with (
+            patch.object(collector, "_snmp_get", side_effect=mock_get),
+            patch.object(collector, "_poll_interfaces", new_callable=AsyncMock, return_value=[]),
+        ):
+            await collector.poll()
+
+        assert collector.firmware_version == "15.0(2)SE11"
+
+    @pytest.mark.asyncio
+    async def test_router_firmware_falls_back_to_raw(self):
+        """MikroTik sysDescr has no Version token, so the cleaned raw value is kept."""
+        collector = SNMPNetworkCollector("RTR-01", "192.168.88.1", device_type="router")
+        descr = "RouterOS RB750Gr3"
+
+        async def mock_get(oid):
+            if oid == SYSTEM_OIDS["sys_descr"]:
+                return descr
+            return None
+
+        with (
+            patch.object(collector, "_snmp_get", side_effect=mock_get),
+            patch.object(collector, "_poll_interfaces", new_callable=AsyncMock, return_value=[]),
+            patch.object(collector, "_poll_cdp_neighbors", new_callable=AsyncMock, return_value=[]),
+            patch.object(collector, "_poll_port_health", new_callable=AsyncMock, return_value=[]),
+            patch.object(collector, "_poll_mikrotik_hardware", new_callable=AsyncMock, return_value=[]),
+        ):
+            await collector.poll()
+
+        assert collector.firmware_version == "RouterOS RB750Gr3"

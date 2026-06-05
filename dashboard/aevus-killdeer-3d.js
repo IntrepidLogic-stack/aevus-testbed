@@ -981,15 +981,31 @@
   // Tie-in nozzle height + reach-to-edge for each vessel, so a header connects to
   // the real nozzle (wellhead WING valve, heater inlet/outlet ends, separator
   // inlet end) instead of the vessel centre.
-  function _nozH(t) {
-    return t === "wellhead" ? 2.3 : (t === "heater" || t === "scrubber") ? 2.75 : t === "separator" ? 3.1
-      : t === "compressor" ? 1.6 : (t === "oiltank" || t === "watertank") ? 1.5 : t === "efm" ? 1.1
-      : t === "flare" ? 2.0 : t === "chemtote" ? 1.0 : 1.4;
+  // Tie-in HEIGHT for a pipe at this equipment — depends on which physical nozzle
+  // the product actually uses, so gas leaves the TOP and liquid the BOTTOM, etc.
+  // (Matches the modeled nozzles in buildSeparator/buildCompressor/buildFlare.)
+  function _nozH(t, p, isSource) {
+    if (t === "separator") return p === "gas" ? 3.9 : 0.7;        // gas top outlet/inlet vs liquid bottom dump
+    if (t === "compressor") return isSource ? 1.5 : 2.4;          // discharge header (out) vs suction scrubber (in)
+    if (t === "heater" || t === "scrubber") return 2.75;
+    if (t === "wellhead") return 2.3;
+    if (t === "flare") return 2.0;                                // relief gas into the KO-drum inlet
+    if (t === "oiltank" || t === "watertank") return 1.9;        // gravity dump enters the upper shell
+    if (t === "efm") return 1.1;
+    if (t === "chemtote") return 1.0;
+    return 1.4;
   }
-  function _nozR(t) {
-    return t === "wellhead" ? 0.55 : (t === "heater" || t === "scrubber") ? 1.9 : t === "separator" ? 2.9
-      : t === "compressor" ? 1.9 : (t === "oiltank" || t === "watertank") ? 2.75 : t === "efm" ? 0.8
-      : t === "flare" ? 2.2 : t === "chemtote" ? 0.7 : 0.8;
+  // Tie-in REACH from the equipment center (clears the footprint to the real nozzle).
+  function _nozR(t, p) {
+    if (t === "separator") return 3.0;                            // outlets sit near the vessel ends (±2.94)
+    if (t === "compressor") return 2.4;
+    if (t === "heater" || t === "scrubber") return 1.9;
+    if (t === "wellhead") return 0.55;
+    if (t === "oiltank" || t === "watertank") return 2.95;       // clear the 2.8 m tank radius
+    if (t === "flare") return 2.2;
+    if (t === "efm") return 0.8;
+    if (t === "chemtote") return 0.7;
+    return 0.8;
   }
   function buildPipe(spec) {
     if (!_UP) { _UP = new THREEref.Vector3(0, 1, 0); _ZAXIS = new THREEref.Vector3(0, 0, 1); }
@@ -1003,7 +1019,7 @@
       // short, low, nozzle-to-nozzle, not up-and-over a tall pipe rack.
       var fT = _nodeType(spec.from), tT = _nodeType(spec.to);
       var dx = b.x - a.x, dz = b.z - a.z, L = Math.sqrt(dx * dx + dz * dz) || 1, ux = dx / L, uz = dz / L;
-      var sR = _nozR(fT), dR = _nozR(tT), sH = _nozH(fT), dH = _nozH(tT), runH = 1.2;
+      var sR = _nozR(fT, spec.product), dR = _nozR(tT, spec.product), sH = _nozH(fT, spec.product, true), dH = _nozH(tT, spec.product, false), runH = 1.2;
       var sTie = new THREEref.Vector3(a.x + ux * sR, sH, a.z + uz * sR);          // source nozzle (faces dest)
       var dTie = new THREEref.Vector3(b.x - ux * dR, dH, b.z - uz * dR);          // dest nozzle (faces source)
       var sRun = new THREEref.Vector3(sTie.x + ux * 0.5, runH, sTie.z + uz * 0.5); // elbow: drop to run height

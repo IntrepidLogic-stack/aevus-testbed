@@ -104,11 +104,14 @@ class SNMPNetworkCollector(BaseCollector):
         """Poll system info, CPU, memory, and interface stats."""
         readings: list[RawTelemetry] = []
 
-        # Capture sys_descr (firmware/OS version string) for FirmwareTracker.
-        # Strip the "STRING: " SNMP type prefix if present.
+        # Capture sys_descr and parse out just the firmware/OS version token
+        # for FirmwareTracker and the Asset.firmware field. Cisco IOS sysDescr
+        # is a long banner ("..., Version 15.0(2)SE11, RELEASE SOFTWARE ...");
+        # we keep only "15.0(2)SE11". MikroTik has no Version token, so the
+        # parser falls back to the cleaned raw string.
         sys_descr = await self._snmp_get(SYSTEM_OIDS["sys_descr"])
         if sys_descr:
-            self.firmware_version = sys_descr.replace("STRING: ", "").strip().strip('"')
+            self.firmware_version = self._parse_firmware_version(sys_descr)
 
         # CPU load + memory usage — vendor-specific OIDs
         if self.device_type == "switch":

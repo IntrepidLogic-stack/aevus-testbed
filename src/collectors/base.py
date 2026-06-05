@@ -4,6 +4,7 @@ All equipment collectors inherit from this.
 """
 
 import abc
+import re
 import time
 from datetime import UTC, datetime
 
@@ -12,6 +13,12 @@ import structlog
 from src.models.telemetry import RawTelemetry
 
 logger = structlog.get_logger()
+
+# Matches the "Version <token>" field in a device sysDescr banner, capturing
+# up to the next comma. Cisco IOS sysDescr looks like:
+#   "Cisco IOS Software, C2960 Software (...), Version 15.0(2)SE11, RELEASE ..."
+# so the captured group is "15.0(2)SE11".
+_FIRMWARE_VERSION_RE = re.compile(r"Version ([^,]+)")
 
 
 class BaseCollector(abc.ABC):
@@ -48,6 +55,26 @@ class BaseCollector(abc.ABC):
     def _now(self) -> datetime:
         """Return current UTC timestamp."""
         return datetime.now(UTC)
+
+    @staticmethod
+    def _parse_firmware_version(sys_descr: str | None) -> str | None:
+        """Extract a clean firmware/OS version token from a device sysDescr.
+
+        Cisco IOS reports its version as a long banner ending in
+        "..., Version 15.0(2)SE11, RELEASE SOFTWARE ... Copyright (c) ...".
+        We want just the version token ("15.0(2)SE11"), not the whole blob.
+
+        Falls back to the stripped raw value when no "Version <x>" token is
+        present (e.g. MikroTik RouterOS sysDescr, which carries no such field).
+        Returns None for empty input.
+        """
+        if not sys_descr:
+            return None
+        cleaned = sys_descr.replace("STRING: ", "").strip().strip('"')
+        match = _FIRMWARE_VERSION_RE.search(cleaned)
+        if match:
+            return match.group(1).strip()
+        return cleaned or None
 
     def _make_reading(
         self,

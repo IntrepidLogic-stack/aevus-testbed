@@ -86,6 +86,12 @@ jobs:
     needs: gate
     if: github.ref == 'refs/heads/main' && github.event_name == 'push'
     runs-on: ubuntu-latest
+    # Serialize deploys so rapid pushes don't fire overlapping webhooks. The box
+    # also holds a flock (deploy/deploy.sh) as the authoritative serializer; this
+    # is defense-in-depth at the CI layer. Queue (don't cancel) so each completes.
+    concurrency:
+      group: aevus-deploy
+      cancel-in-progress: false
     steps:
       - name: Trigger deploy webhook
         env:

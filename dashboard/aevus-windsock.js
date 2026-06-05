@@ -33,10 +33,10 @@
   var _compass = null;   // <g> N marker (rotates to true north)
   var _sock = null;      // sock group (flutter + speed-scale)
   var _label = null;
-  var _wxTemp = null, _wxGust = null, _wxCond = null, _wxUpd = null;  // merged weather rows
+  var _wxTemp = null, _wxGust = null, _wxRH = null, _wxCond = null, _wxUpd = null;  // merged weather rows
   var _mounted = false;
   var _pollTimer = null;
-  var _wind = { fromDeg: 0, mph: 0, dir: "N", gust: 0, temp: null, cond: "", real: false };
+  var _wind = { fromDeg: 0, mph: 0, dir: "N", gust: 0, temp: null, rh: null, cond: "", real: false };
   var _boundMap = null;
 
   function onMapPage() {
@@ -94,6 +94,7 @@
     var iTemp = '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#EF4444" stroke-width="1.8"><path d="M10 13.5V5a2 2 0 0 1 4 0v8.5a3.5 3.5 0 1 1-4 0z"/></svg>';
     var iGust = '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#0EA5E9" stroke-width="1.8" stroke-linecap="round"><path d="M3 8h11a2.5 2.5 0 1 0-2.5-2.5M3 14h15a2.5 2.5 0 1 1-2.5 2.5M3 11h8"/></svg>';
     var iCond = '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#94A3B8" stroke-width="1.8"><path d="M6 17h11a4 4 0 0 0 0-8 5 5 0 0 0-9.6-1.3A3.5 3.5 0 0 0 6 17z"/></svg>';
+    var iRH = '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#60A5FA" stroke-width="1.8"><path d="M12 3c3 4 5 6.5 5 9.5A5 5 0 0 1 7 12.5C7 9.5 9 7 12 3z"/></svg>';
     el.innerHTML =
       '<div class="ws-wrap">' +
       '<svg class="ws-dial" viewBox="0 0 100 100">' +
@@ -116,6 +117,7 @@
       '<div class="ws-wx">' +
         '<div class="ws-wx-row">' + iTemp + '<span class="ws-temp">--°F</span></div>' +
         '<div class="ws-wx-row">' + iGust + '<span class="ws-gust">steady</span></div>' +
+        '<div class="ws-wx-row">' + iRH + '<span class="ws-rh">--% RH</span></div>' +
         '<div class="ws-wx-row">' + iCond + '<span class="ws-cond">—</span></div>' +
         '<div class="ws-wx-row ws-wx-alert"><span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:#10D478;margin-right:1px;"></span>No active NWS alerts</div>' +
         '<div class="ws-wx-upd">Updated —</div>' +
@@ -127,6 +129,7 @@
     _label = el.querySelector(".ws-label");
     _wxTemp = el.querySelector(".ws-temp");
     _wxGust = el.querySelector(".ws-gust");
+    _wxRH = el.querySelector(".ws-rh");
     _wxCond = el.querySelector(".ws-cond");
     _wxUpd = el.querySelector(".ws-wx-upd");
     return el;
@@ -145,6 +148,7 @@
           _wind.gust = d.wind_gust_mph || 0;
           _wind.dir = d.wind_dir || "";
           _wind.temp = (typeof d.temp_f === "number") ? d.temp_f : null;
+          _wind.rh = (typeof d.humidity === "number") ? d.humidity : null;
           _wind.cond = d.condition || "";
           var deg = COMPASS16[_wind.dir];
           if (deg != null) { _wind.fromDeg = deg; }
@@ -193,6 +197,7 @@
   function renderWx() {
     if (_wxTemp) { _wxTemp.textContent = (_wind.temp != null ? Math.round(_wind.temp) : "--") + "°F"; }
     if (_wxGust) { _wxGust.textContent = (_wind.gust > _wind.mph + 1) ? ("gusts " + Math.round(_wind.gust) + " mph") : "steady"; }
+    if (_wxRH) { _wxRH.textContent = (_wind.rh != null ? Math.round(_wind.rh) : "--") + "% RH"; }
     if (_wxCond) { _wxCond.textContent = _wind.cond ? (_wind.cond.charAt(0).toUpperCase() + _wind.cond.slice(1)) : "—"; }
     if (_wxUpd) { _wxUpd.textContent = "Updated " + new Date().toLocaleTimeString(); }
   }

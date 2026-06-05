@@ -108,7 +108,12 @@
 /* Light theme overrides consolidated into body.light-theme block */
 
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-html { background: #0B1020; overflow-x: hidden; }
+/* overflow-x:CLIP (not hidden): `overflow-x:hidden` promotes overflow-y from
+   visible to AUTO (CSS spec), turning <html> into an auto-height scroll container
+   that can't scroll — that's why Process Overview / Health / Radio (tall pages)
+   couldn't scroll. `clip` clips horizontal overflow WITHOUT promoting the Y axis,
+   so the viewport scrolls normally. (2026-06-05) */
+html { background: #0B1020; overflow-x: clip; }
 body {
   font-family: var(--font-body);
   background: var(--bg-primary);
@@ -5973,7 +5978,7 @@ html { scroll-behavior:smooth; }
 <script src="/dashboard/three.min.js"></script>
 <script src="/dashboard/aevus-killdeer-3d.js?v=57"></script>
 <script src="/dashboard/aevus-process-strip.js?v=4"></script>
-<script src="/dashboard/aevus-windsock.js?v=3"></script>
+<script src="/dashboard/aevus-windsock.js?v=4"></script>
 
 <script>
 (function() {

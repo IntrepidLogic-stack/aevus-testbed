@@ -130,6 +130,7 @@ class WeatherEngine:
                     is_daylight=d.get("is_daylight", True),
                     solar_production_factor=d.get("solar_production_factor", 0),
                     cloud_cover=d.get("cloud_cover", 50),
+                    humidity=d.get("humidity", 0),
                     ghi=d.get("ghi", 0.0),
                     dni=d.get("dni", 0.0),
                     wind_dir=d.get("wind_dir", ""),
@@ -179,7 +180,7 @@ class WeatherEngine:
         url = (
             f"https://api.open-meteo.com/v1/forecast?"
             f"latitude={lat}&longitude={lon}"
-            f"&current=temperature_2m,wind_speed_10m,wind_gusts_10m,"
+            f"&current=temperature_2m,relative_humidity_2m,wind_speed_10m,wind_gusts_10m,"
             f"wind_direction_10m,cloud_cover,precipitation,weather_code,shortwave_radiation,direct_radiation"
         )
 
@@ -209,6 +210,7 @@ class WeatherEngine:
             precip_in = precip_mm / 25.4
             weather_code = current.get("weather_code", 0)
             cloud_cover = current.get("cloud_cover", 50)
+            humidity = current.get("relative_humidity_2m", 0)
             wind_dir_deg = current.get("wind_direction_10m", 0)
             wind_dir = COMPASS_DIRS[int((wind_dir_deg + 11.25) / 22.5) % 16]
             condition = WMO_CODES.get(weather_code, "unknown")
@@ -227,6 +229,7 @@ class WeatherEngine:
             gust_mph = 0.0
             precip_in = 0.0
             cloud_cover = 50
+            humidity = 0
             wind_dir = ""
             ghi = 0.0
             dni = 0.0
@@ -251,6 +254,7 @@ class WeatherEngine:
             is_daylight=is_daylight,
             solar_production_factor=solar_production_factor,
             cloud_cover=cloud_cover,
+            humidity=round(humidity),
             wind_dir=wind_dir,
             ghi=round(ghi, 1),
             dni=round(dni, 1),

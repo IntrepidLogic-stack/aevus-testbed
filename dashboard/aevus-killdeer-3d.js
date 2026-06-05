@@ -31,7 +31,7 @@
   var ORIGIN = [-95.8685, 29.3396];            // award pad center (lng,lat)
   var LAYER_ID = "killdeer-3d";
   // Camera framing that centers the equipment cluster (origin is the SW corner).
-  var FRAME = { center: [-95.86769, 29.33956], zoom: 20.0, pitch: 55, bearing: -20 };
+  var FRAME = { center: [-95.867718, 29.339562], zoom: 20.143, pitch: 59.5, bearing: 32 };
 
   // Bottom framing padding (~12% of the MAP CANVAS height) that lifts the facility
   // to vertical center under the 55° pitch. The pad is fraction-of-canvas so the
@@ -123,7 +123,7 @@
   // revalidate in the background and rebuild ONLY if the server graph actually
   // changed. Cache key is versioned so a shipped topology/frame change cleanly
   // invalidates stale client caches.
-  var _TOPO_CACHE_KEY = "aevus_twin_topo_v8_" + TWIN_FACILITY;  // v7: +SOL/COM nodes
+  var _TOPO_CACHE_KEY = "aevus_twin_topo_v9_" + TWIN_FACILITY;  // v9: new default frame (zoom/pitch/bearing)
   function _applyTopology(t) {
     if (Array.isArray(t.origin) && t.origin.length === 2) { ORIGIN = t.origin; }
     if (t.frame && t.frame.center) {

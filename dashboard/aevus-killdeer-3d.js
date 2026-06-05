@@ -79,21 +79,21 @@
   // Equipment registry — coords lifted from the award map so the 3D models land
   // exactly where the pad already sits.  id, lng, lat, type, name.
   var EQUIP = [
-    { id: "WH",  lng: -95.86790, lat: 29.33982, type: "wellhead",  name: "Wellhead — BlueJay #1" },
-    { id: "CHE", lng: -95.86800, lat: 29.33978, type: "chemtote",  name: "Chemical Injection" },
-    { id: "SEP", lng: -95.86790, lat: 29.33965, type: "separator", name: "2-Phase Separator" },
-    { id: "CMP", lng: -95.86815, lat: 29.33968, type: "compressor",name: "Gas-Lift Compressor" },
-    { id: "OT1", lng: -95.86755, lat: 29.33967, type: "oiltank",   name: "Stock Tank #1" },
-    { id: "OT2", lng: -95.86755, lat: 29.33960, type: "oiltank",   name: "Stock Tank #2" },
-    { id: "PWT", lng: -95.86742, lat: 29.33965, type: "watertank", name: "Produced Water Tank" },
-    { id: "EFM", lng: -95.86735, lat: 29.33948, type: "efm",       name: "EFM / Custody Meter" },
-    { id: "FLR", lng: -95.86790, lat: 29.33932, type: "flare",     name: "Flare Stack" },
-    { id: "TWR", lng: -95.86735, lat: 29.33992, type: "tower",     name: "Radio Tower" },
-    { id: "HTR", lng: -95.86808, lat: 29.33958, type: "heater",    name: "Line Heater / Scrubber" },
-    { id: "RTU", lng: -95.86772, lat: 29.33948, type: "shelter",   name: "PLC Shelter" },
-    { id: "PWR", lng: -95.86756, lat: 29.33980, type: "power",     name: "Power System" },
-    { id: "SOL", lng: -95.86748, lat: 29.33940, type: "solararray", name: "Solar Array" },
-    { id: "COM", lng: -95.86748, lat: 29.33988, type: "comms",     name: "Communications" }
+    { id: "WH",  lng: -95.86804, lat: 29.33961, type: "wellhead",  name: "Wellhead — BlueJay #1" },
+    { id: "CHE", lng: -95.86808, lat: 29.33965, type: "chemtote",  name: "Chemical Injection" },
+    { id: "SEP", lng: -95.86780, lat: 29.33957, type: "separator", name: "2-Phase Separator" },
+    { id: "CMP", lng: -95.86783, lat: 29.33945, type: "compressor",name: "Gas-Lift Compressor" },
+    { id: "OT1", lng: -95.86748, lat: 29.33963, type: "oiltank",   name: "Stock Tank #1" },
+    { id: "OT2", lng: -95.86739, lat: 29.33963, type: "oiltank",   name: "Stock Tank #2" },
+    { id: "PWT", lng: -95.86744, lat: 29.33956, type: "watertank", name: "Produced Water Tank" },
+    { id: "EFM", lng: -95.86728, lat: 29.33951, type: "efm",       name: "EFM / Custody Meter" },
+    { id: "FLR", lng: -95.86762, lat: 29.33932, type: "flare",     name: "Flare Stack" },
+    { id: "TWR", lng: -95.86761, lat: 29.33980, type: "tower",     name: "Radio Tower" },
+    { id: "HTR", lng: -95.86792, lat: 29.33960, type: "heater",    name: "Line Heater / Scrubber" },
+    { id: "RTU", lng: -95.86774, lat: 29.33972, type: "shelter",   name: "PLC Shelter" },
+    { id: "PWR", lng: -95.86781, lat: 29.33976, type: "power",     name: "Power System" },
+    { id: "SOL", lng: -95.86790, lat: 29.33978, type: "solararray", name: "Solar Array" },
+    { id: "COM", lng: -95.86767, lat: 29.33976, type: "comms",     name: "Communications" }
   ];
 
   // Process pipe network — product-colored, flow-ready. rackH staggers heights
@@ -123,7 +123,7 @@
   // revalidate in the background and rebuild ONLY if the server graph actually
   // changed. Cache key is versioned so a shipped topology/frame change cleanly
   // invalidates stale client caches.
-  var _TOPO_CACHE_KEY = "aevus_twin_topo_v7_" + TWIN_FACILITY;  // v7: +SOL/COM nodes
+  var _TOPO_CACHE_KEY = "aevus_twin_topo_v8_" + TWIN_FACILITY;  // v7: +SOL/COM nodes
   function _applyTopology(t) {
     if (Array.isArray(t.origin) && t.origin.length === 2) { ORIGIN = t.origin; }
     if (t.frame && t.frame.center) {
@@ -216,7 +216,7 @@
   var _windsock = null;         // {pivot, droop} — oriented to live wind each frame
   var _flares = [];             // [{yaw, lean, layers, light}] — flame flickers + leans downwind
   var _FLAME_WARN = null, _FLAME_SOOT = null;  // status tint colors (lazy-init in animate)
-  var WINDSOCK_LL = [-95.86755, 29.33944];  // a clear spot near the met/RTU area
+  var WINDSOCK_LL = [-95.86753, 29.33970];  // met area near control cluster  // a clear spot near the met/RTU area
   var transform = null;
   var _attachedMap = null;
   var _frameIv = null;          // single persistent auto-frame enforcement loop

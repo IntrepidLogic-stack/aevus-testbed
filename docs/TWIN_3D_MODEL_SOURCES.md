@@ -43,3 +43,36 @@ Spline, or hand them to me for an r3f scene.
    react-three-fiber scene, bound to the same live-data layer.
 
 Whatever route, **the data binding is identical** — name/ID is the join key.
+
+---
+
+## Purchase links — curated buy-list (2026-06-05)
+
+Killdeer is a **land gas-lift wellsite** (Christmas-tree wellhead → separator →
+compressor → tank battery → flare → custody meter). **Skip offshore/subsea
+platform kits and giant refinery scenes** — pick individual land assets + one
+vessel/refinery *collection* for the bulk.
+
+### 🎯 Best "buy a bundle" picks (cover the most in one purchase)
+- **TurboSquid Refinery collection** (~$51–75) — vessels, pipe racks, tanks, towers → https://www.turbosquid.com/3d-model/collection/refinery
+- **TurboSquid Petroleum Refinery** (200+ models, FBX, filterable) → https://www.turbosquid.com/3d-model/petroleum-refinery
+- **CGTrader "Oil tanks and flare stacks"** (tank battery + flare in one) → https://www.cgtrader.com/3d-models/industrial/industrial-machine/oil-tanks-and-flare-stacks
+
+### 🔧 Per-asset (by asset ID)
+| Asset | Link |
+|---|---|
+| **WH** Wellhead (Christmas tree) | https://www.turbosquid.com/3d-models/3d-oil-gas-wellhead-model-2045481 — or pumpjack look: https://www.cgtrader.com/3d-models/industrial/machine/oil-field-pump-jack |
+| **SEP** separator + **HTR** line heater (horizontal vessels) | ⭐ exports **GLTF**: https://www.cgtrader.com/3d-models/industrial/industrial-machine/oil-field-separator-pbr-textures-cinematic-realistic-aaa-asset · free: https://www.cgtrader.com/free-3d-models/industrial/other/separator-oil-and-gas |
+| **CMP** gas-lift compressor skid | https://www.cgtrader.com/3d-models/compressor · https://www.cgtrader.com/3d-models/industrial/industrial-part/pump-skid |
+| **OT1/OT2/PWT** tank battery | https://www.cgtrader.com/3d-models/oil-tank · https://www.cgtrader.com/3d-models/industrial/other/petroleum-refinery-storage-tanks |
+| **FLR** flare stack | in the Oil-tanks+flare model above |
+| **EFM** custody meter / piping / manifolds | https://www.turbosquid.com/3d-models/3d-oil-natural-gas-pipelines-1162938 |
+| **RTU / PWR / SOL / COM / TWR** | don't buy — grab CC0 free from Sketchfab / Kenney / Quaternius (see above) |
+
+### ⚠️ 4 rules before you buy
+1. **License:** confirm **Royalty-Free** (TurboSquid) / **Royalty-Free License** (CGTrader). **Avoid "Editorial Use Only."**
+2. **Format:** prefer **glTF/GLB**; FBX/OBJ fine (Blender → export `.glb`). The CGTrader separator offers GLTF directly.
+3. **Poly count:** filter **low-poly / game-ready / VR**; run heavy models through `gltf-transform`/Draco or the browser twin will choke.
+4. **Match the gear:** horizontal vessels for SEP/HTR, vertical cylinders for tanks, recip/screw skid for CMP, Christmas-tree (not pumpjack) for a *gas* well.
+
+**Recommended buy:** one refinery/vessel collection + the CGTrader separator (GLTF) + a wellhead + a compressor skid (~$100–200 total); leave the utility assets as free CC0.

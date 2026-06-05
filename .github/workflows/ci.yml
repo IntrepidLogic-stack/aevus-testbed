@@ -45,7 +45,7 @@ jobs:
           API_KEY: test-key-ci
       - name: Upload test results
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: test-results
           path: test-results.xml
@@ -66,7 +66,7 @@ jobs:
         run: pip install -r requirements.txt && safety check --output json > safety-report.json || true
       - name: Upload security reports
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: security-reports
           path: |

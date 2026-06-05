@@ -1777,10 +1777,11 @@
 
       el.appendChild(ring); el.appendChild(label);
       try {
-        // Tall masts (flare stack, radio tower) rise UP the screen, so anchor the
-        // label+ring UNDERNEATH the base (centered, hanging below) instead of to
-        // the side — otherwise the callout collides with the stack/flame.
-        var tall = (e.type === "flare" || e.type === "tower");
+        // Tall/built-up units (flare stack, radio tower, the gas-lift compressor
+        // skid) rise UP the screen, so anchor the label+ring UNDERNEATH the base
+        // (centered, hanging below) instead of to the side — otherwise the callout
+        // collides with the unit.
+        var tall = (e.type === "flare" || e.type === "tower" || e.type === "compressor");
         var opts = tall
           ? { element: el, anchor: "top", offset: [0, 16] }
           : { element: el, anchor: "left", offset: [12, 0] };

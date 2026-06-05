@@ -804,7 +804,23 @@
     var stack = new THREEref.Mesh(new THREEref.CylinderGeometry(0.18, 0.22, 2.4, 12), metal(COL.steelDark));
     stack.position.set(-len * 0.28, yC + r + 1.0, 0); g.add(stack);
     var noz = new THREEref.Mesh(new THREEref.CylinderGeometry(0.12, 0.12, 0.9, 10), metal(COL.steelDark));
-    noz.position.set(len * 0.22, yC + r + 0.4, 0); g.add(noz);
+    noz.position.set(len * 0.22, yC + r + 0.4, 0); g.add(noz);   // TOP gas-outlet nozzle (to the separator)
+    // proper inlet-scrubber connections (per the horizontal-vessel reference):
+    // END inlet -> inlet diverter -> mist extractor -> TOP gas outlet, liquid drains
+    // out the BOTTOM. Inlet enters the end head (from the wellhead), not the top.
+    var inNoz = new THREEref.Mesh(new THREEref.CylinderGeometry(0.13, 0.13, 0.8, 10), metal(COL.steelDark));
+    inNoz.rotation.z = Math.PI / 2; inNoz.position.set(-len / 2 - 0.3, yC, 0); g.add(inNoz);          // inlet on the end head
+    var inFl = new THREEref.Mesh(new THREEref.CylinderGeometry(0.22, 0.22, 0.08, 14), metal(COL.steelDark));
+    inFl.rotation.z = Math.PI / 2; inFl.position.set(-len / 2 - 0.62, yC, 0); g.add(inFl);            // inlet flange face
+    var diverter = new THREEref.Mesh(new THREEref.BoxGeometry(0.08, 0.85, 1.2), metal(0xAEB8C4));
+    diverter.position.set(-len * 0.36, yC + 0.15, 0); diverter.rotation.z = 0.3; g.add(diverter);     // inlet diverter plate
+    var mist = new THREEref.Mesh(new THREEref.BoxGeometry(0.16, 0.8, 1.4),
+      new THREEref.MeshStandardMaterial({ color: 0xC7D0DA, transparent: true, opacity: 0.5, metalness: 0.3, roughness: 0.7 }));
+    mist.position.set(len * 0.22, yC + 0.55, 0); g.add(mist);                                          // mist extractor before the gas outlet
+    var drain = new THREEref.Mesh(new THREEref.CylinderGeometry(0.09, 0.09, 0.5, 8), metal(COL.steelDark));
+    drain.position.set(len * 0.3, yC - r - 0.2, 0); g.add(drain);                                      // bottom liquid-knockout drain
+    var drainV = new THREEref.Mesh(new THREEref.TorusGeometry(0.12, 0.03, 6, 12), metal(0xCC4444));
+    drainV.position.set(len * 0.3, yC - r - 0.45, 0); drainV.rotation.x = Math.PI / 2; g.add(drainV);  // drain valve
 
     // ── INTERNALS (visible through the glass top) ──
     var bathY = yC + 0.15;                 // water-bath level (~65% full)
@@ -1031,7 +1047,7 @@
   // buildWellhead/buildHeater/buildSeparator/buildCompressor/buildFlare/buildTank.
   function _noz(t, p, isSource) {
     if (t === "wellhead") return isSource ? { x: 0.95, y: 2.55, z: 0 } : { x: -0.55, y: 2.0, z: 0 };       // flowline wing/choke out · chem-injection in
-    if (t === "heater" || t === "scrubber") return isSource ? { x: 1.5, y: 2.9, z: 0 } : { x: -1.5, y: 2.9, z: 0 }; // process out E · in W (top)
+    if (t === "heater" || t === "scrubber") return isSource ? { x: 0.95, y: 3.1, z: 0 } : { x: -2.1, y: 1.7, z: 0 }; // gas outlet TOP (via mist extractor) · inlet on the END head
     if (t === "separator") {
       if (p === "gas") return isSource ? { x: 2.94, y: 4.0, z: 0 } : { x: -2.8, y: 4.0, z: 0 };            // gas outlet E-top · inlet W-top
       return { x: 2.94, y: 0.7, z: 0 };                                                                    // liquid dump E-bottom

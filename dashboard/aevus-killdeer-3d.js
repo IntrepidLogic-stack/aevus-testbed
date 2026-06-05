@@ -335,35 +335,66 @@
     var H = 13.0;   // stack height
     var i, k;
 
-    // ── base skid + knockout drum (separates liquids before the flare) ──
-    var skid = new THREEref.Mesh(new THREEref.BoxGeometry(3.6, 0.4, 2.0), skidMat());
-    skid.position.set(1.5, 0.2, 0); g.add(skid);
-    var koLen = 2.4, koR = 0.6, koCx = 1.7, koY = koR + 0.5;
-    var koG = new THREEref.CylinderGeometry(koR, koR, koLen, 18);
+    // ── KNOCKOUT DRUM + accurate flare piping ──────────────────────────────
+    // Real flare path: process/relief gas -> KO drum (entrained liquids drop out
+    // the boot/drain) -> dry gas rises out the drum top -> riser into the stack
+    // -> tip. Pilot-gas lines run up the stack to the tip pilots.
+    var skid = new THREEref.Mesh(new THREEref.BoxGeometry(4.6, 0.4, 2.2), skidMat());
+    skid.position.set(1.7, 0.2, 0); g.add(skid);
+    var koLen = 3.0, koR = 0.7, koCx = 2.4, koY = koR + 0.7;
+    var koG = new THREEref.CylinderGeometry(koR, koR, koLen, 20);
     var ko = new THREEref.Mesh(koG, metal(COL.steel));
     ko.rotation.z = Math.PI / 2; ko.position.set(koCx, koY, 0); g.add(ko);
-    addEdges(g, koG, ko, COL.accent, 0.3);
-    var koA = new THREEref.Mesh(new THREEref.SphereGeometry(koR, 12, 8), metal(COL.steel));
+    addEdges(g, koG, ko, COL.accent, 0.28);
+    var koA = new THREEref.Mesh(new THREEref.SphereGeometry(koR, 14, 10), metal(COL.steel));
     koA.position.set(koCx - koLen / 2, koY, 0); g.add(koA);
-    var koB = new THREEref.Mesh(new THREEref.SphereGeometry(koR, 12, 8), metal(COL.steel));
+    var koB = new THREEref.Mesh(new THREEref.SphereGeometry(koR, 14, 10), metal(COL.steel));
     koB.position.set(koCx + koLen / 2, koY, 0); g.add(koB);
-    [koCx - 0.7, koCx + 0.7].forEach(function (sx) {
-      var sad = new THREEref.Mesh(new THREEref.BoxGeometry(0.35, 0.5, 1.3), skidMat());
-      sad.position.set(sx, 0.45, 0); g.add(sad);
+    [koCx - 0.9, koCx + 0.9].forEach(function (sx) {
+      var sad = new THREEref.Mesh(new THREEref.BoxGeometry(0.4, 0.6, 1.5), skidMat());
+      sad.position.set(sx, 0.5, 0); g.add(sad);
     });
-    // clean intake piping: one smooth routed run — drum outlet -> elbow -> riser
-    // into the base of the stack (replaces the old 3 disjoint cylinders).
-    var pPts = [
-      new THREEref.Vector3(koCx - koLen / 2 - 0.05, koY, 0),  // drum outlet
-      new THREEref.Vector3(0.30, koY, 0),                     // run toward the stack
-      new THREEref.Vector3(0.30, 1.0, 0),                     // elbow down
-      new THREEref.Vector3(0.05, 0.8, 0)                      // into the stack base
+
+    // liquid boot (sump) under the drum + drain line to a small sump box
+    var bootBot = koY - koR - 0.9;
+    var boot = new THREEref.Mesh(new THREEref.CylinderGeometry(0.32, 0.32, 0.95, 12), metal(COL.steel));
+    boot.position.set(koCx + 0.5, koY - koR - 0.3, 0); g.add(boot);
+    var bootCap = new THREEref.Mesh(new THREEref.SphereGeometry(0.32, 12, 8), metal(COL.steel));
+    bootCap.position.set(koCx + 0.5, bootBot + 0.15, 0); g.add(bootCap);
+    var drainPts = [
+      new THREEref.Vector3(koCx + 0.5, bootBot + 0.1, 0),
+      new THREEref.Vector3(koCx + 0.5, 0.25, 0),
+      new THREEref.Vector3(koCx + 1.5, 0.25, 0)
     ];
-    var pCurve = new THREEref.CatmullRomCurve3(pPts, false, "catmullrom", 0.25);
-    var pipe = new THREEref.Mesh(new THREEref.TubeGeometry(pCurve, 44, 0.13, 12, false), metal(COL.steelDark));
-    g.add(pipe);
-    var flg = new THREEref.Mesh(new THREEref.CylinderGeometry(0.2, 0.2, 0.1, 14), metal(COL.steel));
-    flg.rotation.z = Math.PI / 2; flg.position.set(koCx - koLen / 2 - 0.05, koY, 0); g.add(flg);
+    var drain = new THREEref.Mesh(new THREEref.TubeGeometry(
+      new THREEref.CatmullRomCurve3(drainPts, false, "catmullrom", 0.2), 26, 0.07, 8, false), metal(COL.steelDark));
+    g.add(drain);
+    var sump = new THREEref.Mesh(new THREEref.BoxGeometry(0.7, 0.5, 0.7), skidMat());
+    sump.position.set(koCx + 1.7, 0.25, 0); g.add(sump);
+
+    // INLET header — process/relief gas enters the drum top at the far end.
+    var inNozX = koCx + koLen / 2 - 0.35;
+    var inNoz = new THREEref.Mesh(new THREEref.CylinderGeometry(0.2, 0.2, 0.6, 12), metal(COL.steelDark));
+    inNoz.position.set(inNozX, koY + koR + 0.25, 0); g.add(inNoz);
+    var header = new THREEref.Mesh(new THREEref.TubeGeometry(new THREEref.CatmullRomCurve3([
+      new THREEref.Vector3(-0.2, 1.5, 0),                 // arrives from the process side (P6 lands here)
+      new THREEref.Vector3(inNozX, 1.5, 0),
+      new THREEref.Vector3(inNozX, koY + koR + 0.55, 0)   // down into the inlet nozzle
+    ], false, "catmullrom", 0.2), 44, 0.18, 12, false), metal(COL.steelDark));
+    g.add(header);
+    var hdrFlg = new THREEref.Mesh(new THREEref.CylinderGeometry(0.27, 0.27, 0.1, 14), metal(COL.steel));
+    hdrFlg.rotation.z = Math.PI / 2; hdrFlg.position.set(-0.2, 1.5, 0); g.add(hdrFlg);
+
+    // GAS OUTLET riser — dry gas leaves the drum top (stack end) into the stack base.
+    var outNozX = koCx - koLen / 2 + 0.35;
+    var outNoz = new THREEref.Mesh(new THREEref.CylinderGeometry(0.18, 0.18, 0.6, 12), metal(COL.steelDark));
+    outNoz.position.set(outNozX, koY + koR + 0.25, 0); g.add(outNoz);
+    var riser = new THREEref.Mesh(new THREEref.TubeGeometry(new THREEref.CatmullRomCurve3([
+      new THREEref.Vector3(outNozX, koY + koR + 0.5, 0),
+      new THREEref.Vector3(outNozX, 2.7, 0),
+      new THREEref.Vector3(0.0, 2.4, 0)                   // into the stack
+    ], false, "catmullrom", 0.25), 44, 0.16, 12, false), metal(COL.steelDark));
+    g.add(riser);
 
     // ── flare stack + flange rings ──
     var mastG = new THREEref.CylinderGeometry(0.3, 0.42, H, 16);
@@ -372,6 +403,16 @@
     for (i = 1; i <= 3; i++) {
       var ring = new THREEref.Mesh(new THREEref.TorusGeometry(0.35, 0.05, 6, 16), metal(COL.steel));
       ring.position.y = (H / 4) * i; ring.rotation.x = Math.PI / 2; g.add(ring);
+    }
+    // pilot-gas + ignition lines running up the stack to the tip pilots
+    var pilotMat = metal(0xAEB8C4);
+    for (i = 0; i < 2; i++) {
+      var pwire = new THREEref.Mesh(new THREEref.CylinderGeometry(0.035, 0.035, H + 1.2, 6), pilotMat);
+      pwire.position.set(0.5, (H + 1.2) / 2, i === 0 ? 0.18 : -0.18); g.add(pwire);
+    }
+    for (i = 1; i <= 3; i++) {
+      var standoff = new THREEref.Mesh(new THREEref.BoxGeometry(0.25, 0.05, 0.5), metal(COL.skid));
+      standoff.position.set(0.42, (H / 4) * i, 0); g.add(standoff);
     }
 
     // ── guy cables: collar at 0.75H -> 3 ground anchors ──

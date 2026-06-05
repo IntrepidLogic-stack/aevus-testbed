@@ -4,12 +4,9 @@ Aevus — Operator Commands API Router
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
-
 from fastapi import APIRouter
 
-if TYPE_CHECKING:
-    from src.models.command import CommandRequest
+from src.models.command import CommandRequest  # runtime: request-body type, needed for OpenAPI schema (#210)
 
 router = APIRouter(tags=["commands"])
 

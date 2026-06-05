@@ -71,6 +71,21 @@ ignore = [
     "SIM105", # contextlib.suppress preference is style-only
 ]
 
+[tool.ruff.lint.flake8-type-checking]
+# THE #210 ROOT CAUSE: the TCH rules' autofix moved Pydantic field types (e.g.
+# `datetime`) and FastAPI request/response types into `if TYPE_CHECKING:` blocks.
+# With `from __future__ import annotations`, Pydantic/FastAPI then can't resolve
+# them at schema-build time -> /openapi.json 500 + blank /docs. These settings tell
+# ruff those annotations ARE evaluated at runtime, so it leaves the imports alone.
+runtime-evaluated-base-classes = ["pydantic.BaseModel"]
+runtime-evaluated-decorators = [
+    "fastapi.APIRouter.get",
+    "fastapi.APIRouter.post",
+    "fastapi.APIRouter.put",
+    "fastapi.APIRouter.delete",
+    "fastapi.APIRouter.patch",
+]
+
 [tool.ruff.lint.flake8-bugbear]
 # FastAPI dependency-injection markers are designed to be called in arg
 # defaults — they are immutable, so B008 ("call in default arg") is a false

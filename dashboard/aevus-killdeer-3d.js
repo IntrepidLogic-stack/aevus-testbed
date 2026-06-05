@@ -138,25 +138,6 @@
                detailed: (e.from === "HTR" || e.to === "HTR"),  // the wellhead↔heater↔separator headers
                rackH: e.rack_h_m || 2.2, speed: _BASE_SPEED[e.product] || 0.1 };
     });
-    // Resilience shim: a real wellsite routes production through the line heater
-    // (hydrate prevention) BEFORE the separator. If the backend still serves the
-    // legacy WH->SEP bypass (heater not in the flow path), reroute it client-side
-    // to WH->HTR->SEP so the twin always shows the correct configuration —
-    // independent of backend deploy state. No-op once the backend serves HTR edges.
-    var touchesHTR = PIPES.some(function (p) { return p.from === "HTR" || p.to === "HTR"; });
-    if (!touchesHTR && EQUIP.some(function (n) { return n.id === "HTR"; })) {
-      for (var pi = 0; pi < PIPES.length; pi++) {
-        var p = PIPES[pi];
-        if (p.from === "WH" && p.to === "SEP") {
-          var lineIn = { id: p.id, from: "WH", to: "HTR", product: p.product, diameter: p.diameter || 3,
-                         detailed: true, rackH: p.rackH, speed: p.speed };
-          var lineOut = { id: p.id + "b", from: "HTR", to: "SEP", product: p.product, diameter: 4,
-                          detailed: true, rackH: p.rackH, speed: p.speed };
-          PIPES.splice(pi, 1, lineIn, lineOut);
-          break;
-        }
-      }
-    }
   }
   function loadTopology() {
     var finish = function () { _topoReady = true; };

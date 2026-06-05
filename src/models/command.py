@@ -4,12 +4,9 @@ Aevus — Command Data Models
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
+from datetime import datetime  # runtime: Pydantic field type, needed for OpenAPI schema (#210)
 
 from pydantic import BaseModel
-
-if TYPE_CHECKING:
-    from datetime import datetime
 
 
 class CommandRequest(BaseModel):

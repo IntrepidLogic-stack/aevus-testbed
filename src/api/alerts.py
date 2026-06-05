@@ -4,15 +4,14 @@ Aevus Testbed --- Alert API Routes
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
+# `datetime` is a RUNTIME import (not TYPE_CHECKING): Pydantic resolves
+# ShelveResponse.expires_at at OpenAPI schema-build time (#210).
+from datetime import datetime
 
 from fastapi import APIRouter, HTTPException, Query
 from pydantic import BaseModel, Field
 
 from src.models.alert import Alert
-
-if TYPE_CHECKING:
-    from datetime import datetime
 
 router = APIRouter(prefix="/alerts", tags=["alerts"])
 

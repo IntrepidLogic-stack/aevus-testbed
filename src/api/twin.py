@@ -140,21 +140,21 @@ _TOPOLOGY = TwinTopology(
             id="OT1",
             type="oiltank",
             name="Stock Tank #1",
-            lnglat=(-95.86748, 29.33963),
+            lnglat=(-95.86755, 29.33962),  # tank battery: clean E-W row, ~10m centers
             model=TwinModelRef(ref="oiltank"),
         ),
         TwinNode(
             id="OT2",
             type="oiltank",
             name="Stock Tank #2",
-            lnglat=(-95.86739, 29.33963),
+            lnglat=(-95.86745, 29.33962),  # tank battery row (middle)
             model=TwinModelRef(ref="oiltank"),
         ),
         TwinNode(
             id="PWT",
             type="watertank",
             name="Produced Water Tank",
-            lnglat=(-95.86744, 29.33956),
+            lnglat=(-95.86735, 29.33962),  # tank battery row (east end)
             model=TwinModelRef(ref="watertank"),
         ),
         TwinNode(

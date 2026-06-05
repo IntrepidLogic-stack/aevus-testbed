@@ -83,9 +83,9 @@
     { id: "CHE", lng: -95.86808, lat: 29.33965, type: "chemtote",  name: "Chemical Injection" },
     { id: "SEP", lng: -95.86780, lat: 29.33957, type: "separator", name: "2-Phase Separator" },
     { id: "CMP", lng: -95.86783, lat: 29.33945, type: "compressor",name: "Gas-Lift Compressor" },
-    { id: "OT1", lng: -95.86748, lat: 29.33963, type: "oiltank",   name: "Stock Tank #1" },
-    { id: "OT2", lng: -95.86739, lat: 29.33963, type: "oiltank",   name: "Stock Tank #2" },
-    { id: "PWT", lng: -95.86744, lat: 29.33956, type: "watertank", name: "Produced Water Tank" },
+    { id: "OT1", lng: -95.86755, lat: 29.33962, type: "oiltank",   name: "Stock Tank #1" },
+    { id: "OT2", lng: -95.86745, lat: 29.33962, type: "oiltank",   name: "Stock Tank #2" },
+    { id: "PWT", lng: -95.86735, lat: 29.33962, type: "watertank", name: "Produced Water Tank" },
     { id: "EFM", lng: -95.86728, lat: 29.33951, type: "efm",       name: "EFM / Custody Meter" },
     { id: "FLR", lng: -95.86762, lat: 29.33932, type: "flare",     name: "Flare Stack" },
     { id: "TWR", lng: -95.86761, lat: 29.33980, type: "tower",     name: "Radio Tower" },
@@ -123,7 +123,7 @@
   // revalidate in the background and rebuild ONLY if the server graph actually
   // changed. Cache key is versioned so a shipped topology/frame change cleanly
   // invalidates stale client caches.
-  var _TOPO_CACHE_KEY = "aevus_twin_topo_v10_" + TWIN_FACILITY;  // v10: WH->HTR->SEP reroute + engineered piping
+  var _TOPO_CACHE_KEY = "aevus_twin_topo_v11_" + TWIN_FACILITY;  // v11: tank-battery row relayout
   function _applyTopology(t) {
     if (Array.isArray(t.origin) && t.origin.length === 2) { ORIGIN = t.origin; }
     if (t.frame && t.frame.center) {
@@ -1976,10 +1976,15 @@
         // (centered, hanging below) instead of to the side — otherwise the callout
         // collides with the unit.
         var tall = (e.type === "flare" || e.type === "tower" || e.type === "compressor");
-        var opts = tall
-          ? { element: el, anchor: "top", offset: [0, 16] }
-          : { element: el, anchor: "left", offset: [12, 0] };
-        if (tall) { el.style.flexDirection = "column"; el.style.alignItems = "center"; el.style.gap = "3px"; el.style.transform = "none"; }
+        // Storage tanks are tall verticals — float the label+ring ABOVE the tank
+        // top (anchor the callout's bottom edge ~132px above the base point).
+        var tank = (e.type === "oiltank" || e.type === "watertank");
+        var opts = tank
+          ? { element: el, anchor: "bottom", offset: [0, -132] }
+          : tall
+            ? { element: el, anchor: "top", offset: [0, 16] }
+            : { element: el, anchor: "left", offset: [12, 0] };
+        if (tall || tank) { el.style.flexDirection = "column"; el.style.alignItems = "center"; el.style.gap = "3px"; el.style.transform = "none"; }
         var mk = new maplibregl.Marker(opts).setLngLat([e.lng, e.lat]).addTo(map);
         _callouts[e.id] = { marker: mk, ring: ring, num: num, sub: sub, name: name, node: e };
       } catch (ex) {}

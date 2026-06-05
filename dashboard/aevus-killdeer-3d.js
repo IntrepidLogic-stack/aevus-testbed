@@ -871,18 +871,40 @@
   // gate valve + insulation cladding on the process headers, and the digital-twin
   // signature — glowing "data-pulse" rings that travel the pipe along its path.
   var _UP = null, _ZAXIS = null;
+  function _nodeType(id) { for (var i = 0; i < EQUIP.length; i++) { if (EQUIP[i].id === id) { return EQUIP[i].type; } } return ""; }
+  // Tie-in nozzle height + reach-to-edge for each vessel, so a header connects to
+  // the real nozzle (wellhead WING valve, heater inlet/outlet ends, separator
+  // inlet end) instead of the vessel centre.
+  function _nozH(t) { return t === "wellhead" ? 2.3 : (t === "heater" || t === "scrubber") ? 2.75 : t === "separator" ? 3.1 : 1.4; }
+  function _nozR(t) { return t === "wellhead" ? 0.55 : (t === "heater" || t === "scrubber") ? 1.9 : t === "separator" ? 2.9 : 0.6; }
   function buildPipe(spec) {
     if (!_UP) { _UP = new THREEref.Vector3(0, 1, 0); _ZAXIS = new THREEref.Vector3(0, 0, 1); }
     var a = equipLocal(spec.from), b = equipLocal(spec.to);
-    var nozzle = 1.4, rackH = spec.rackH;
-    var pts = [
-      new THREEref.Vector3(a.x, nozzle, a.z),
-      new THREEref.Vector3(a.x, rackH, a.z),
-      new THREEref.Vector3((a.x + b.x) / 2, rackH, (a.z + b.z) / 2),
-      new THREEref.Vector3(b.x, rackH, b.z),
-      new THREEref.Vector3(b.x, nozzle, b.z)
-    ];
-    var curve = new THREEref.CatmullRomCurve3(pts, false, "catmullrom", 0.4);
+    var nozzle = 1.4, rackH = spec.rackH, pts;
+    if (spec.detailed) {
+      // ENGINEERED PRODUCTION HEADER (wellhead -> line heater -> separator):
+      // come off the source nozzle facing the destination, drop to a LOW run on
+      // sleepers (~1.2 m), run straight across, then rise into the dest nozzle —
+      // with 90° elbows at the corners. This is how a real wellsite is piped:
+      // short, low, nozzle-to-nozzle, not up-and-over a tall pipe rack.
+      var fT = _nodeType(spec.from), tT = _nodeType(spec.to);
+      var dx = b.x - a.x, dz = b.z - a.z, L = Math.sqrt(dx * dx + dz * dz) || 1, ux = dx / L, uz = dz / L;
+      var sR = _nozR(fT), dR = _nozR(tT), sH = _nozH(fT), dH = _nozH(tT), runH = 1.2;
+      var sTie = new THREEref.Vector3(a.x + ux * sR, sH, a.z + uz * sR);          // source nozzle (faces dest)
+      var dTie = new THREEref.Vector3(b.x - ux * dR, dH, b.z - uz * dR);          // dest nozzle (faces source)
+      var sRun = new THREEref.Vector3(sTie.x + ux * 0.5, runH, sTie.z + uz * 0.5); // elbow: drop to run height
+      var dRun = new THREEref.Vector3(dTie.x - ux * 0.5, runH, dTie.z - uz * 0.5); // elbow: rise to dest nozzle
+      pts = [sTie, sRun, dRun, dTie];
+    } else {
+      pts = [
+        new THREEref.Vector3(a.x, nozzle, a.z),
+        new THREEref.Vector3(a.x, rackH, a.z),
+        new THREEref.Vector3((a.x + b.x) / 2, rackH, (a.z + b.z) / 2),
+        new THREEref.Vector3(b.x, rackH, b.z),
+        new THREEref.Vector3(b.x, nozzle, b.z)
+      ];
+    }
+    var curve = new THREEref.CatmullRomCurve3(pts, false, "catmullrom", 0.35);
     var dia = spec.diameter || 3;
     var radius = 0.13 + dia * 0.03;                 // 3" -> 0.22, 4" -> 0.25
     var detailed = !!spec.detailed;
@@ -953,10 +975,9 @@
     flangePair(0.0, detailed);
     flangePair(1.0, detailed);
     if (detailed) {
-      elbow(0.12); elbow(0.88);          // 90° elbows where risers meet the rack
-      support(0.34); support(0.5); support(0.66);
-      gateValve(0.44);                   // isolation valve on the header
-      flangePair(0.12, false); flangePair(0.88, false);
+      elbow(0.2); elbow(0.8);            // 90° elbows: nozzle drop + rise to dest
+      support(0.4); support(0.6);        // sleeper supports along the low run
+      gateValve(0.5);                    // isolation valve mid-header
     } else {
       support(0.5);
     }

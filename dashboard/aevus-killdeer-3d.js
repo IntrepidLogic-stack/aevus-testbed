@@ -1217,6 +1217,30 @@
   }
 
   // ── FACILITY ASSEMBLY ───────────────────────────────────────────────────────
+  // ── COMMS / OT-NETWORK OVERLAY (the industrial-network layer) ───────────────
+  // Thin medium-colored cabling modeled on a midstream monitoring architecture:
+  // the RTU/PLC shelter is the field comms hub — Ethernet to comms, Fiber to the
+  // radio backhaul, Serial/Modbus to the metered instruments, I/O to power/solar.
+  // Run low (cable-tray height) so it reads UNDER the process piping.
+  // Legend: Fiber=orange, Ethernet=blue, Serial=red, I/O=purple.
+  function buildCommsNet() {
+    var MED = { fiber: 0xF28C28, ethernet: 0x1D5FE0, serial: 0xE03B3B, io: 0xA06CD4 };
+    var links = [
+      ["RTU", "COM", "ethernet"], ["COM", "TWR", "fiber"],
+      ["RTU", "PWR", "io"], ["RTU", "SOL", "io"],
+      ["RTU", "SEP", "serial"], ["RTU", "CMP", "serial"], ["RTU", "EFM", "serial"]
+    ];
+    links.forEach(function (lk) {
+      var a = equipLocal(lk[0]), b = equipLocal(lk[1]), col = MED[lk[2]] || MED.ethernet, trayH = 0.28;
+      var crv = new THREEref.CatmullRomCurve3([
+        new THREEref.Vector3(a.x, 0.15, a.z), new THREEref.Vector3(a.x, trayH, a.z),
+        new THREEref.Vector3(b.x, trayH, b.z), new THREEref.Vector3(b.x, 0.15, b.z)
+      ], false, "catmullrom", 0.2);
+      var mat = new THREEref.MeshStandardMaterial({ color: col, emissive: col, emissiveIntensity: 0.4,
+        metalness: 0.2, roughness: 0.6, transparent: true, opacity: 0.85 });
+      facility.add(new THREEref.Mesh(new THREEref.TubeGeometry(crv, 40, 0.045, 8, false), mat));
+    });
+  }
   function buildFacility() {
     facility = new THREEref.Group();
 
@@ -1252,6 +1276,7 @@
     for (j = 0; j < PIPES.length; j++) {
       segments.push(buildPipe(PIPES[j]));
     }
+    buildCommsNet();   // OT-network overlay (Phase 4 of the pipeline-architecture roadmap)
 
     scene.add(facility);
   }

@@ -80,20 +80,20 @@
   // exactly where the pad already sits.  id, lng, lat, type, name.
   var EQUIP = [
     { id: "WH",  lng: -95.86804, lat: 29.33961, type: "wellhead",  name: "Wellhead — BlueJay #1" },
-    { id: "CHE", lng: -95.86808, lat: 29.33965, type: "chemtote",  name: "Chemical Injection" },
-    { id: "SEP", lng: -95.86780, lat: 29.33957, type: "separator", name: "2-Phase Separator" },
-    { id: "CMP", lng: -95.86783, lat: 29.33945, type: "compressor",name: "Gas-Lift Compressor" },
-    { id: "OT1", lng: -95.86755, lat: 29.33962, type: "oiltank",   name: "Stock Tank #1" },
-    { id: "OT2", lng: -95.86745, lat: 29.33962, type: "oiltank",   name: "Stock Tank #2" },
-    { id: "PWT", lng: -95.86735, lat: 29.33962, type: "watertank", name: "Produced Water Tank" },
-    { id: "EFM", lng: -95.86728, lat: 29.33951, type: "efm",       name: "EFM / Custody Meter" },
-    { id: "FLR", lng: -95.86762, lat: 29.33932, type: "flare",     name: "Flare Stack" },
-    { id: "TWR", lng: -95.86761, lat: 29.33980, type: "tower",     name: "Radio Tower" },
-    { id: "HTR", lng: -95.86792, lat: 29.33960, type: "heater",    name: "Line Heater / Scrubber" },
-    { id: "RTU", lng: -95.86774, lat: 29.33972, type: "shelter",   name: "PLC Shelter" },
-    { id: "PWR", lng: -95.86781, lat: 29.33976, type: "power",     name: "Power System" },
-    { id: "SOL", lng: -95.86790, lat: 29.33978, type: "solararray", name: "Solar Array" },
-    { id: "COM", lng: -95.86767, lat: 29.33976, type: "comms",     name: "Communications" }
+    { id: "CHE", lng: -95.86808, lat: 29.33957, type: "chemtote",  name: "Chemical Injection" },
+    { id: "SEP", lng: -95.86772, lat: 29.33957, type: "separator", name: "2-Phase Separator" },
+    { id: "CMP", lng: -95.8676, lat: 29.33957, type: "compressor",name: "Gas-Lift Compressor" },
+    { id: "OT1", lng: -95.86772, lat: 29.33968, type: "oiltank",   name: "Stock Tank #1" },
+    { id: "OT2", lng: -95.8676, lat: 29.33968, type: "oiltank",   name: "Stock Tank #2" },
+    { id: "PWT", lng: -95.86748, lat: 29.33968, type: "watertank", name: "Produced Water Tank" },
+    { id: "EFM", lng: -95.86748, lat: 29.33957, type: "efm",       name: "EFM / Custody Meter" },
+    { id: "FLR", lng: -95.8676, lat: 29.33935, type: "flare",     name: "Flare Stack" },
+    { id: "TWR", lng: -95.86748, lat: 29.33976, type: "tower",     name: "Radio Tower" },
+    { id: "HTR", lng: -95.86784, lat: 29.33957, type: "heater",    name: "Line Heater / Scrubber" },
+    { id: "RTU", lng: -95.86796, lat: 29.33976, type: "shelter",   name: "PLC Shelter" },
+    { id: "PWR", lng: -95.86784, lat: 29.33976, type: "power",     name: "Power System" },
+    { id: "SOL", lng: -95.8676, lat: 29.33976, type: "solararray", name: "Solar Array" },
+    { id: "COM", lng: -95.86772, lat: 29.33976, type: "comms",     name: "Communications" }
   ];
 
   // Process pipe network — product-colored, flow-ready. rackH staggers heights
@@ -123,7 +123,7 @@
   // revalidate in the background and rebuild ONLY if the server graph actually
   // changed. Cache key is versioned so a shipped topology/frame change cleanly
   // invalidates stale client caches.
-  var _TOPO_CACHE_KEY = "aevus_twin_topo_v11_" + TWIN_FACILITY;  // v11: tank-battery row relayout
+  var _TOPO_CACHE_KEY = "aevus_twin_topo_v12_" + TWIN_FACILITY;  // v11: tank-battery row relayout
   function _applyTopology(t) {
     if (Array.isArray(t.origin) && t.origin.length === 2) { ORIGIN = t.origin; }
     if (t.frame && t.frame.center) {

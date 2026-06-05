@@ -216,7 +216,7 @@
   var _windsock = null;         // {pivot, droop} — oriented to live wind each frame
   var _flares = [];             // [{yaw, lean, layers, light}] — flame flickers + leans downwind
   var _FLAME_WARN = null, _FLAME_SOOT = null;  // status tint colors (lazy-init in animate)
-  var WINDSOCK_LL = [-95.86753, 29.33970];  // met area near control cluster  // a clear spot near the met/RTU area
+  var WINDSOCK_LL = [-95.86771, 29.33947];  // clear open foreground (S of process train), unoccluded
   var transform = null;
   var _attachedMap = null;
   var _frameIv = null;          // single persistent auto-frame enforcement loop

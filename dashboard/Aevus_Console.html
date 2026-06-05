@@ -3112,9 +3112,10 @@ body.light-theme .module-subtitle { color: #64748B !important; }
 body.light-theme .breadcrumb { color: #475569 !important; }
 body.light-theme #breadcrumb-bar { background: #F0F4F8 !important; border-bottom-color: #E2E8F0 !important; }
 body.light-theme .breadcrumb a { color: #0891B2 !important; }
-/* Demo banner — hidden per request (the top purple "DEMO MODE" bar). Demo/
-   read-only mode itself is unaffected (driven by ?demo=true + backend auth). */
-.demo-banner { display: none !important; }
+/* Demo banner — hidden per request (the top purple "DEMO MODE" bar). The element
+   is id="demo-banner" (api-client builds it with an inline style), so target the
+   ID with !important. Demo/read-only mode itself is unaffected. */
+#demo-banner, .demo-banner { display: none !important; }
 body.light-theme .demo-banner { background: linear-gradient(90deg,#EDE9FE,#E0E7FF) !important; color: #4338CA !important; }
 /* Light theme — Notification toasts */
 body.light-theme .toast-container .toast { background: #FFFFFF !important; border: 1px solid #E2E8F0 !important; box-shadow: 0 4px 16px rgba(0,0,0,0.1) !important; }
@@ -5958,7 +5959,7 @@ html { scroll-behavior:smooth; }
      initAevusMap on the native map. The native map (api-client.js) owns window._aevusMapInstance,
      and aevus-killdeer-3d.js attaches the 3D facility directly to it. -->
 <script src="/dashboard/three.min.js"></script>
-<script src="/dashboard/aevus-killdeer-3d.js?v=44"></script>
+<script src="/dashboard/aevus-killdeer-3d.js?v=45"></script>
 <script src="/dashboard/aevus-process-strip.js?v=4"></script>
 <script src="/dashboard/aevus-windsock.js?v=2"></script>
 

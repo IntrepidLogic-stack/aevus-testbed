@@ -135,7 +135,7 @@
     PIPES = t.edges.map(function (e) {
       return { id: e.id, from: e.from, to: e.to, product: e.product,
                diameter: e.diameter_in || 3,
-               detailed: (e.from === "HTR" || e.to === "HTR"),  // the wellhead↔heater↔separator headers
+               detailed: true,  // engineer EVERY process line nozzle-to-nozzle — consistent across the whole pad
                rackH: e.rack_h_m || 2.2, speed: _BASE_SPEED[e.product] || 0.1 };
     });
   }
@@ -980,8 +980,16 @@
   // Tie-in nozzle height + reach-to-edge for each vessel, so a header connects to
   // the real nozzle (wellhead WING valve, heater inlet/outlet ends, separator
   // inlet end) instead of the vessel centre.
-  function _nozH(t) { return t === "wellhead" ? 2.3 : (t === "heater" || t === "scrubber") ? 2.75 : t === "separator" ? 3.1 : 1.4; }
-  function _nozR(t) { return t === "wellhead" ? 0.55 : (t === "heater" || t === "scrubber") ? 1.9 : t === "separator" ? 2.9 : 0.6; }
+  function _nozH(t) {
+    return t === "wellhead" ? 2.3 : (t === "heater" || t === "scrubber") ? 2.75 : t === "separator" ? 3.1
+      : t === "compressor" ? 1.6 : (t === "oiltank" || t === "watertank") ? 1.5 : t === "efm" ? 1.1
+      : t === "flare" ? 2.0 : t === "chemtote" ? 1.0 : 1.4;
+  }
+  function _nozR(t) {
+    return t === "wellhead" ? 0.55 : (t === "heater" || t === "scrubber") ? 1.9 : t === "separator" ? 2.9
+      : t === "compressor" ? 1.9 : (t === "oiltank" || t === "watertank") ? 2.75 : t === "efm" ? 0.8
+      : t === "flare" ? 2.2 : t === "chemtote" ? 0.7 : 0.8;
+  }
   function buildPipe(spec) {
     if (!_UP) { _UP = new THREEref.Vector3(0, 1, 0); _ZAXIS = new THREEref.Vector3(0, 0, 1); }
     var a = equipLocal(spec.from), b = equipLocal(spec.to);
@@ -1080,9 +1088,12 @@
     flangePair(0.0, detailed);
     flangePair(1.0, detailed);
     if (detailed) {
-      elbow(0.2); elbow(0.8);            // 90° elbows: nozzle drop + rise to dest
-      support(0.4); support(0.6);        // sleeper supports along the low run
-      gateValve(0.5);                    // isolation valve mid-header
+      elbow(0.15); elbow(0.85);          // 90° elbows: nozzle drop + rise to dest
+      // sleeper supports spaced along the run (~every 3.5 m) so long lines don't sag
+      var _runLen = curve.getLength();
+      var _nSup = Math.max(2, Math.min(9, Math.round(_runLen / 3.5)));
+      for (var _si = 1; _si <= _nSup; _si++) { support(0.15 + (_si / (_nSup + 1)) * 0.7); }
+      gateValve(0.5);                    // isolation valve on every line
     } else {
       support(0.5);
     }

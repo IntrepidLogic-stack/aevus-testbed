@@ -239,6 +239,10 @@
   var _separator = null;        // cutaway internals: gas particles, droplets, liquid level
   var _heater = null;           // cutaway internals: fire-tube glow, bath bubbles, coil flow
   var _wellhead = null;         // cutaway internals: bore riser flow + wing-outlet flow
+  var _tanks = [];              // storage-tank cutaways: level shimmer + fill droplets
+  var _chemtote = null;         // chem tote cutaway: level + injection droplets
+  var _compressor = null;       // compressor cutaway: reciprocating piston
+  var _koDrum = null;           // flare KO-drum cutaway: knockout liquid pool
   var _FLAME_WARN = null, _FLAME_SOOT = null;  // status tint colors (lazy-init in animate)
   var WINDSOCK_LL = [-95.86771, 29.33947];  // clear open foreground (S of process train), unoccluded
   var transform = null;
@@ -324,13 +328,54 @@
     return g;
   }
 
+  // Chemical injection — CUTAWAY caged IBC tote: transparent shell showing the
+  // chemical level inside, a steel cage, and an injection pump metering chemical
+  // up the injection line (animated droplets) to the wellhead.
   function buildChemTote() {
     var g = new THREEref.Group();
-    var tank = new THREEref.Mesh(new THREEref.BoxGeometry(1.2, 1.2, 1.2), glowMat(PRODUCT.chemical, 0.55));
-    tank.position.y = 0.9; g.add(tank);
-    addEdges(g, new THREEref.BoxGeometry(1.25, 1.25, 1.25), tank, 0xCBD5E1, 0.6);
-    var base = new THREEref.Mesh(new THREEref.BoxGeometry(1.35, 0.3, 1.35), skidMat());
+    var W = 1.2, glassMat = new THREEref.MeshStandardMaterial({
+      color: 0xCBD5E1, metalness: 0.1, roughness: 0.08, transparent: true, opacity: 0.14,
+      side: THREEref.DoubleSide, depthWrite: false });
+    var base = new THREEref.Mesh(new THREEref.BoxGeometry(W + 0.15, 0.3, W + 0.15), skidMat());
     base.position.y = 0.15; g.add(base);
+    // transparent tote + steel cage edges
+    var tote = new THREEref.Mesh(new THREEref.BoxGeometry(W, W, W), glassMat);
+    tote.position.y = 0.9; g.add(tote);
+    addEdges(g, new THREEref.BoxGeometry(W, W, W), tote, 0xAEB8C4, 0.85);
+    // mid cage bands
+    [0.6, 1.2].forEach(function (yy) {
+      var band = new THREEref.Mesh(new THREEref.BoxGeometry(W + 0.04, 0.05, W + 0.04), metal(COL.steelDark));
+      band.position.y = yy; g.add(band);
+    });
+    // chemical level inside (~68% full) + bright interface line
+    var fillH = W * 0.68, fillBot = 0.9 - W / 2;
+    var fill = new THREEref.Mesh(new THREEref.BoxGeometry(W * 0.94, fillH, W * 0.94),
+      new THREEref.MeshStandardMaterial({ color: PRODUCT.chemical, transparent: true, opacity: 0.6,
+        metalness: 0.1, roughness: 0.3, emissive: PRODUCT.chemical, emissiveIntensity: 0.2 }));
+    var fillTop = fillBot + fillH;
+    fill.position.set(0, fillBot + fillH / 2, 0); g.add(fill);
+    var level = new THREEref.Mesh(new THREEref.BoxGeometry(W * 0.94, 0.03, W * 0.94), glowMat(0xC084FC, 0.7));
+    level.position.set(0, fillTop, 0); g.add(level);
+    // injection pump beside the tote
+    var pump = new THREEref.Mesh(new THREEref.BoxGeometry(0.5, 0.4, 0.4), metal(COL.steel));
+    pump.position.set(W * 0.62 + 0.3, 0.5, 0); g.add(pump);
+    var motor = new THREEref.Mesh(new THREEref.CylinderGeometry(0.16, 0.16, 0.4, 12), metal(COL.steelDark));
+    motor.rotation.z = Math.PI / 2; motor.position.set(W * 0.62 + 0.3, 0.75, 0); g.add(motor);
+    // injection line up + over toward the wellhead, with metered droplets
+    var injPts = [
+      new THREEref.Vector3(W * 0.62 + 0.3, 0.7, 0),
+      new THREEref.Vector3(W * 0.62 + 0.3, 1.5, 0),
+      new THREEref.Vector3(W * 0.62 + 1.4, 1.5, 0)
+    ];
+    var injCurve = new THREEref.CatmullRomCurve3(injPts, false, "catmullrom", 0.2);
+    var inj = new THREEref.Mesh(new THREEref.TubeGeometry(injCurve, 28, 0.045, 8, false), metal(COL.steelDark));
+    g.add(inj);
+    var drops = [], i;
+    for (i = 0; i < 4; i++) {
+      var dm = new THREEref.Mesh(new THREEref.SphereGeometry(0.05, 7, 6), glowMat(PRODUCT.chemical, 0.95));
+      g.add(dm); drops.push({ mesh: dm, offset: i / 4 });
+    }
+    _chemtote = { level: level, fillTop: fillTop, drops: drops, curve: injCurve };
     return g;
   }
 
@@ -409,6 +454,9 @@
     return g;
   }
 
+  // Gas-lift compressor — CUTAWAY: the compressor cylinder is a transparent glass
+  // jacket showing a PISTON reciprocating inside (driven by the engine), plus a
+  // suction scrubber bottle and a finned interstage cooler. (Piston animates.)
   function buildCompressor() {
     var g = new THREEref.Group();
     var skid = new THREEref.Mesh(new THREEref.BoxGeometry(5.2, 0.5, 3.0), skidMat());
@@ -416,33 +464,86 @@
     var engine = new THREEref.Mesh(new THREEref.BoxGeometry(3.0, 1.7, 1.7), metal(COL.steel));
     engine.position.set(-0.6, 1.35, 0); g.add(engine);
     addEdges(g, new THREEref.BoxGeometry(3.0, 1.7, 1.7), engine, COL.accent, 0.3);
-    var cyl = new THREEref.Mesh(new THREEref.CylinderGeometry(0.9, 0.9, 2.2, 18), metal(COL.steelDark));
-    cyl.rotation.z = Math.PI / 2; cyl.position.set(1.7, 1.1, 0); g.add(cyl);
+
+    // compressor cylinder — glass jacket so the piston is visible
+    var cylLen = 2.2, cylR = 0.9, cylX = 1.7, cylY = 1.1;
+    var cylG = new THREEref.CylinderGeometry(cylR, cylR, cylLen, 22, 1, true);
+    var glassMat = new THREEref.MeshStandardMaterial({ color: 0xBFD8E6, metalness: 0.1, roughness: 0.08,
+      transparent: true, opacity: 0.16, side: THREEref.DoubleSide, depthWrite: false });
+    var cyl = new THREEref.Mesh(cylG, glassMat); cyl.rotation.z = Math.PI / 2; cyl.position.set(cylX, cylY, 0); g.add(cyl);
+    addEdges(g, cylG, cyl, COL.accent, 0.3);
+    // head end cap (solid)
+    var head = new THREEref.Mesh(new THREEref.CylinderGeometry(cylR + 0.05, cylR + 0.05, 0.22, 22), metal(COL.steelDark));
+    head.rotation.z = Math.PI / 2; head.position.set(cylX + cylLen / 2, cylY, 0); g.add(head);
+    // PISTON inside (reciprocates along x) + rod back to the crank (engine)
+    var piston = new THREEref.Mesh(new THREEref.CylinderGeometry(cylR * 0.82, cylR * 0.82, 0.4, 20), metal(0x8893A1));
+    piston.rotation.z = Math.PI / 2; piston.position.set(cylX, cylY, 0); g.add(piston);
+    var rod = new THREEref.Mesh(new THREEref.CylinderGeometry(0.1, 0.1, 1.2, 10), metal(COL.steel));
+    rod.rotation.z = Math.PI / 2; rod.position.set(cylX - 0.8, cylY, 0); g.add(rod);
+
+    // suction scrubber bottle (vertical) + finned interstage cooler
+    var scrub = new THREEref.Mesh(new THREEref.CylinderGeometry(0.45, 0.45, 2.0, 16), metal(COL.steel));
+    scrub.position.set(1.7, 1.5, 1.1); g.add(scrub);
+    addEdges(g, new THREEref.CylinderGeometry(0.45, 0.45, 2.0, 16), scrub, COL.accent, 0.25);
+    var cooler = new THREEref.Mesh(new THREEref.BoxGeometry(1.6, 0.5, 1.0), metal(COL.steelDark));
+    cooler.position.set(-0.6, 0.65, -1.2); g.add(cooler);
+    for (var fi = 0; fi < 6; fi++) {
+      var fin = new THREEref.Mesh(new THREEref.BoxGeometry(0.04, 0.6, 1.0), metal(COL.steel));
+      fin.position.set(-1.2 + fi * 0.24, 0.65, -1.2); g.add(fin);
+    }
     var stack = new THREEref.Mesh(new THREEref.CylinderGeometry(0.22, 0.26, 3.2, 12), metal(COL.steelDark));
     stack.position.set(-1.6, 2.9, -0.6); g.add(stack);
+
+    _compressor = { piston: piston, x0: cylX - 0.45, x1: cylX + 0.45, rod: rod, rodX: cylX - 0.8 };
     return g;
   }
 
+  // Storage tank — CUTAWAY: a transparent shell with a short solid skirt at grade,
+  // so the product LEVEL inside is visible (translucent fill + bright interface
+  // line). External level gauge bead tracks the level; a fill stream drips to the
+  // surface. (Level shimmers + droplets fall in animate().)
   function buildTank(productKey, level) {
     var g = new THREEref.Group();
     var r = 2.8, h = 6.0;
-    var shellG = new THREEref.CylinderGeometry(r, r, h, 28, 1, true);
+    var lvl = Math.max(0.08, Math.min(0.95, level || 0.6));
+    var fillTop = h * lvl;
+    // transparent shell (the cutaway) + a short opaque skirt grounding it
+    var shellG = new THREEref.CylinderGeometry(r, r, h, 30, 1, true);
     var shell = new THREEref.Mesh(shellG, new THREEref.MeshStandardMaterial({
-      color: COL.steel, metalness: 0.5, roughness: 0.5, side: THREEref.DoubleSide
-    }));
+      color: 0xBFD8E6, metalness: 0.12, roughness: 0.1, transparent: true, opacity: 0.13,
+      side: THREEref.DoubleSide, depthWrite: false }));
     shell.position.y = h / 2; g.add(shell);
-    addEdges(g, new THREEref.CylinderGeometry(r, r, h, 28), shell, COL.accent, 0.28);
-    // flat roof
-    var roof = new THREEref.Mesh(new THREEref.CylinderGeometry(r, r, 0.3, 28), metal(COL.steelDark));
+    addEdges(g, new THREEref.CylinderGeometry(r, r, h, 30), shell, COL.accent, 0.3);
+    var skirt = new THREEref.Mesh(new THREEref.CylinderGeometry(r + 0.02, r + 0.02, 0.7, 30, 1, true),
+      metal(COL.steelDark));
+    skirt.position.y = 0.35; g.add(skirt);
+    // flat roof + thief hatch
+    var roof = new THREEref.Mesh(new THREEref.CylinderGeometry(r, r, 0.3, 30), metal(COL.steelDark));
     roof.position.y = h + 0.15; g.add(roof);
-    // thief hatch
     var hatch = new THREEref.Mesh(new THREEref.CylinderGeometry(0.4, 0.4, 0.4, 12), metal(COL.steelDark));
     hatch.position.set(r * 0.4, h + 0.4, 0); g.add(hatch);
-    // liquid level fill (product-tinted, translucent)
-    var lvl = Math.max(0.05, Math.min(0.95, level || 0.6));
-    var fillG = new THREEref.CylinderGeometry(r * 0.96, r * 0.96, h * lvl, 28);
-    var fill = new THREEref.Mesh(fillG, glowMat(PRODUCT[productKey], 0.35));
-    fill.position.y = (h * lvl) / 2; g.add(fill);
+    // product fill (translucent) + bright interface line
+    var fill = new THREEref.Mesh(new THREEref.CylinderGeometry(r * 0.97, r * 0.97, fillTop, 30),
+      new THREEref.MeshStandardMaterial({ color: PRODUCT[productKey], transparent: true, opacity: 0.55,
+        metalness: 0.1, roughness: 0.3, emissive: PRODUCT[productKey], emissiveIntensity: 0.18 }));
+    fill.position.y = fillTop / 2; g.add(fill);
+    var level3 = new THREEref.Mesh(new THREEref.CylinderGeometry(r * 0.97, r * 0.97, 0.05, 30),
+      glowMat(productKey === "oil" ? 0x34D399 : 0x60A5FA, 0.65));
+    level3.position.y = fillTop; g.add(level3);
+    // external level gauge (standpipe + float bead at the liquid level)
+    var gauge = new THREEref.Mesh(new THREEref.CylinderGeometry(0.06, 0.06, h * 0.92, 8),
+      metal(COL.steelDark));
+    gauge.position.set(r + 0.12, h * 0.5, 0); g.add(gauge);
+    var bead = new THREEref.Mesh(new THREEref.SphereGeometry(0.12, 10, 8), glowMat(0x34D399, 0.9));
+    bead.position.set(r + 0.12, fillTop, 0); g.add(bead);
+    // fill nozzle near top + dripping product to the surface
+    var drops = [], i;
+    for (i = 0; i < 3; i++) {
+      var dm = new THREEref.Mesh(new THREEref.SphereGeometry(0.12, 8, 6), glowMat(PRODUCT[productKey], 0.85));
+      g.add(dm); drops.push({ mesh: dm, offset: i / 3 });
+    }
+    _tanks.push({ level: level3, bead: bead, fillTop: fillTop, dropTop: h - 0.4,
+                  dropX: r * 0.45, drops: drops });
     return g;
   }
 
@@ -458,14 +559,37 @@
     var skid = new THREEref.Mesh(new THREEref.BoxGeometry(4.6, 0.4, 2.2), skidMat());
     skid.position.set(1.7, 0.2, 0); g.add(skid);
     var koLen = 3.0, koR = 0.7, koCx = 2.4, koY = koR + 0.7;
-    var koG = new THREEref.CylinderGeometry(koR, koR, koLen, 20);
-    var ko = new THREEref.Mesh(koG, metal(COL.steel));
-    ko.rotation.z = Math.PI / 2; ko.position.set(koCx, koY, 0); g.add(ko);
-    addEdges(g, koG, ko, COL.accent, 0.28);
-    var koA = new THREEref.Mesh(new THREEref.SphereGeometry(koR, 14, 10), metal(COL.steel));
+    // CUTAWAY KO drum: bottom-half solid metal (holds knocked-out liquid), top-half
+    // glass so you see the entrained liquid drop out before the gas rises to the stack.
+    var koGlass = new THREEref.MeshStandardMaterial({ color: 0xBFD8E6, metalness: 0.1, roughness: 0.08,
+      transparent: true, opacity: 0.16, side: THREEref.DoubleSide, depthWrite: false });
+    var koBotG = new THREEref.CylinderGeometry(koR, koR, koLen, 22, 1, true, Math.PI / 2, Math.PI);
+    var koBot = new THREEref.Mesh(koBotG, new THREEref.MeshStandardMaterial({
+      color: COL.steel, metalness: 0.55, roughness: 0.45, side: THREEref.DoubleSide }));
+    koBot.rotation.z = Math.PI / 2; koBot.position.set(koCx, koY, 0); g.add(koBot);
+    var koTopG = new THREEref.CylinderGeometry(koR, koR, koLen, 22, 1, true, -Math.PI / 2, Math.PI);
+    var koTop = new THREEref.Mesh(koTopG, koGlass);
+    koTop.rotation.z = Math.PI / 2; koTop.position.set(koCx, koY, 0); g.add(koTop);
+    addEdges(g, new THREEref.CylinderGeometry(koR, koR, koLen, 22), koBot, COL.accent, 0.3);
+    var koA = new THREEref.Mesh(new THREEref.SphereGeometry(koR, 14, 10), koGlass);
     koA.position.set(koCx - koLen / 2, koY, 0); g.add(koA);
-    var koB = new THREEref.Mesh(new THREEref.SphereGeometry(koR, 14, 10), metal(COL.steel));
+    var koB = new THREEref.Mesh(new THREEref.SphereGeometry(koR, 14, 10), koGlass);
     koB.position.set(koCx + koLen / 2, koY, 0); g.add(koB);
+    // knocked-out liquid pool at the bottom + interface line + settling droplets
+    var koPoolY = koY - 0.32, koPoolBot = koY - koR + 0.06, koPoolH = koPoolY - koPoolBot;
+    var koLiq = new THREEref.Mesh(new THREEref.BoxGeometry(koLen * 0.86, koPoolH, koR * 1.5),
+      new THREEref.MeshStandardMaterial({ color: PRODUCT.oil, transparent: true, opacity: 0.5,
+        metalness: 0.1, roughness: 0.3, emissive: PRODUCT.oil, emissiveIntensity: 0.15 }));
+    koLiq.position.set(koCx, koPoolBot + koPoolH / 2, 0); g.add(koLiq);
+    var koLevel = new THREEref.Mesh(new THREEref.BoxGeometry(koLen * 0.86, 0.03, koR * 1.5), glowMat(0x34D399, 0.6));
+    koLevel.position.set(koCx, koPoolY, 0); g.add(koLevel);
+    var koDrops = [], kdI;
+    for (kdI = 0; kdI < 4; kdI++) {
+      var kdm = new THREEref.Mesh(new THREEref.SphereGeometry(0.07, 7, 6), glowMat(PRODUCT.oil, 0.85));
+      g.add(kdm); koDrops.push({ mesh: kdm, offset: kdI / 4 });
+    }
+    _koDrum = { level: koLevel, drops: koDrops, poolY: koPoolY, dropTop: koY + koR - 0.2,
+                cx: koCx, len: koLen };
     [koCx - 0.9, koCx + 0.9].forEach(function (sx) {
       var sad = new THREEref.Mesh(new THREEref.BoxGeometry(0.4, 0.6, 1.5), skidMat());
       sad.position.set(sx, 0.5, 0); g.add(sad);
@@ -1179,6 +1303,44 @@
         wp.mesh.material.opacity = wu < 0.92 ? 0.9 : 0;
       }
     }
+    // storage tanks — level shimmer, gauge bead tracks the level, fill drips in
+    for (i = 0; i < _tanks.length; i++) {
+      var T = _tanks[i], wob = Math.sin(ts * 1.3 + i) * 0.03;
+      if (T.level) { T.level.position.y = T.fillTop + wob; }
+      if (T.bead) { T.bead.position.y = T.fillTop + wob; }
+      for (k = 0; k < T.drops.length; k++) {
+        var td = T.drops[k], tv = ((ts * 0.45 + td.offset) % 1 + 1) % 1;
+        td.mesh.position.set(T.dropX + Math.sin(k) * 0.2, T.dropTop - tv * (T.dropTop - T.fillTop), Math.cos(k) * 0.2);
+        td.mesh.material.opacity = tv < 0.9 ? 0.85 : 0;
+      }
+    }
+    // chemical tote — level shimmer + metered injection droplets up the line
+    if (_chemtote) {
+      var C = _chemtote;
+      if (C.level) { C.level.position.y = C.fillTop + Math.sin(ts * 1.6) * 0.015; }
+      for (k = 0; k < C.drops.length; k++) {
+        var cd = C.drops[k], cu = ((ts * 0.55 + cd.offset) % 1 + 1) % 1;
+        var cp = C.curve.getPointAt(cu);
+        cd.mesh.position.set(cp.x, cp.y, cp.z);
+      }
+    }
+    // compressor — piston reciprocates inside the glass cylinder
+    if (_compressor) {
+      var P = _compressor, ph = (Math.sin(ts * 6) + 1) / 2;       // 0..1 stroke
+      var px = P.x0 + ph * (P.x1 - P.x0);
+      if (P.piston) { P.piston.position.x = px; }
+      if (P.rod) { P.rod.position.x = P.rodX + ph * 0.3; }
+    }
+    // flare KO drum — knockout liquid level shimmer + settling droplets
+    if (_koDrum) {
+      var K = _koDrum;
+      if (K.level) { K.level.position.y = K.poolY + Math.sin(ts * 1.5) * 0.02; }
+      for (k = 0; k < K.drops.length; k++) {
+        var kd = K.drops[k], kv = ((ts * 0.5 + kd.offset) % 1 + 1) % 1;
+        kd.mesh.position.set(K.cx + (k / K.drops.length - 0.5) * K.len * 0.7, K.dropTop - kv * (K.dropTop - K.poolY), (k % 2 ? 0.2 : -0.2));
+        kd.mesh.material.opacity = kv < 0.9 ? 0.85 : 0;
+      }
+    }
     // windsock — stream DOWNWIND in the real geographic direction (local frame:
     // x=east, z=south => rotation.y = PI/2 - toward), with flutter + wind-driven droop
     if (_windsock && _windsock.pivot) {
@@ -1437,7 +1599,7 @@
     }, 9000);
     // reset per-mount state (new map instance => rebuild scene in onAdd)
     scene = null; renderer = null; facility = null;
-    segments = []; equipMeshes = {}; flameMeshes = []; blinkMeshes = []; _windsock = null; _flares = []; _separator = null; _heater = null; _wellhead = null; _callouts = {};
+    segments = []; equipMeshes = {}; flameMeshes = []; blinkMeshes = []; _windsock = null; _flares = []; _separator = null; _heater = null; _wellhead = null; _tanks = []; _chemtote = null; _compressor = null; _koDrum = null; _callouts = {};
     try {
       if (map.getLayer(LAYER_ID)) { map.removeLayer(LAYER_ID); }
     } catch (e) {}

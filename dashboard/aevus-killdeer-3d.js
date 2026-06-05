@@ -123,7 +123,7 @@
   // revalidate in the background and rebuild ONLY if the server graph actually
   // changed. Cache key is versioned so a shipped topology/frame change cleanly
   // invalidates stale client caches.
-  var _TOPO_CACHE_KEY = "aevus_twin_topo_v12_" + TWIN_FACILITY;  // v11: tank-battery row relayout
+  var _TOPO_CACHE_KEY = "aevus_twin_topo_v13_" + TWIN_FACILITY;  // v13: condensate relabel + BPR/flare-valve inline devices + meter run
   function _applyTopology(t) {
     if (Array.isArray(t.origin) && t.origin.length === 2) { ORIGIN = t.origin; }
     if (t.frame && t.frame.center) {
@@ -136,6 +136,7 @@
       return { id: e.id, from: e.from, to: e.to, product: e.product,
                diameter: e.diameter_in || 3,
                detailed: true,  // engineer EVERY process line nozzle-to-nozzle — consistent across the whole pad
+               inline: e.inline || null,  // "bpr" | "flare_valve" → inline field device on the run
                rackH: e.rack_h_m || 2.2, speed: _BASE_SPEED[e.product] || 0.1 };
     });
   }
@@ -1083,6 +1084,30 @@
       var hw = new THREEref.Mesh(new THREEref.TorusGeometry(0.27, 0.05, 8, 18), metal(0xCC4444));
       hw.position.copy(p.clone().add(new THREEref.Vector3(0, radius + 0.78, 0))); hw.rotation.x = Math.PI / 2; facility.add(hw);
     }
+    // inline field device: BPR (back-pressure regulator) = wide diaphragm dome
+    // actuator; flare_valve (relief) = tall spring-bonnet with topworks.
+    function inlineDevice(u, kind) {
+      var p = curve.getPointAt(u), q = quatTo(_UP, u);
+      var body = new THREEref.Mesh(new THREEref.CylinderGeometry(radius + 0.18, radius + 0.18, 0.55, 16), metal(0x6B7785));
+      body.position.copy(p); body.quaternion.copy(q); facility.add(body);
+      var stem = new THREEref.Mesh(new THREEref.CylinderGeometry(0.07, 0.07, 0.45, 10), metal(COL.steelDark));
+      stem.position.copy(p.clone().add(new THREEref.Vector3(0, radius + 0.4, 0))); facility.add(stem);
+      if (kind === "bpr") {
+        // diaphragm dome (the BPR signature) + pilot tube
+        var dome = new THREEref.Mesh(new THREEref.CylinderGeometry(0.42, 0.42, 0.22, 18), metal(COL.accent));
+        dome.position.copy(p.clone().add(new THREEref.Vector3(0, radius + 0.74, 0))); facility.add(dome);
+        var domeTop = new THREEref.Mesh(new THREEref.SphereGeometry(0.42, 16, 8, 0, Math.PI * 2, 0, Math.PI / 2), metal(0x9AA6B2));
+        domeTop.position.copy(p.clone().add(new THREEref.Vector3(0, radius + 0.85, 0))); facility.add(domeTop);
+        var pilot = new THREEref.Mesh(new THREEref.CylinderGeometry(0.03, 0.03, 0.7, 6), metal(COL.steelDark));
+        pilot.position.copy(p.clone().add(new THREEref.Vector3(0.3, radius + 0.5, 0))); pilot.rotation.z = Math.PI / 2.4; facility.add(pilot);
+      } else {
+        // relief/flare valve: tall spring bonnet + cap (set above BPR pressure)
+        var bonnet = new THREEref.Mesh(new THREEref.CylinderGeometry(0.16, 0.2, 0.7, 12), metal(PRODUCT.gas));
+        bonnet.position.copy(p.clone().add(new THREEref.Vector3(0, radius + 0.78, 0))); facility.add(bonnet);
+        var cap = new THREEref.Mesh(new THREEref.CylinderGeometry(0.1, 0.1, 0.18, 10), metal(COL.steelDark));
+        cap.position.copy(p.clone().add(new THREEref.Vector3(0, radius + 1.22, 0))); facility.add(cap);
+      }
+    }
 
     // flanged tie-ins at both vessel connections
     flangePair(0.0, detailed);
@@ -1094,6 +1119,10 @@
       var _nSup = Math.max(2, Math.min(9, Math.round(_runLen / 3.5)));
       for (var _si = 1; _si <= _nSup; _si++) { support(0.15 + (_si / (_nSup + 1)) * 0.7); }
       gateValve(0.5);                    // isolation valve on every line
+      // BPR sits near the separator gas outlet (run start); flare valve near the
+      // relief take-off — both just downstream of the source nozzle.
+      if (spec.inline === "bpr") { inlineDevice(0.3, "bpr"); }
+      else if (spec.inline === "flare_valve") { inlineDevice(0.3, "flare_valve"); }
     } else {
       support(0.5);
     }

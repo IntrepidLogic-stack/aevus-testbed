@@ -69,6 +69,10 @@ class TwinEdge(BaseModel):
     diameter_in: float | None = None
     rack_h_m: float = 2.2
     asset_id: str | None = None
+    # Optional inline field device rendered on the segment by the frontend.
+    # "bpr" = back-pressure regulator (holds upstream vessel pressure);
+    # "flare_valve" = relief/flare control valve (opens at a higher setpoint).
+    inline: Literal["bpr", "flare_valve"] | None = None
 
 
 class TwinTopology(BaseModel):
@@ -139,14 +143,14 @@ _TOPOLOGY = TwinTopology(
         TwinNode(
             id="OT1",
             type="oiltank",
-            name="Stock Tank #1",
+            name="Condensate Tank #1",  # gas wellsite: liquid drop-out is condensate, not stock-tank oil
             lnglat=(-95.86772, 29.33968),  # tank battery: clean E-W row, ~10m centers
             model=TwinModelRef(ref="oiltank"),
         ),
         TwinNode(
             id="OT2",
             type="oiltank",
-            name="Stock Tank #2",
+            name="Condensate Tank #2",
             lnglat=(-95.8676, 29.33968),  # tank battery row (middle)
             model=TwinModelRef(ref="oiltank"),
         ),
@@ -160,7 +164,7 @@ _TOPOLOGY = TwinTopology(
         TwinNode(
             id="EFM",
             type="efm",
-            name="EFM / Custody Meter",
+            name="Meter Run — Custody (Sales)",
             lnglat=(-95.86748, 29.33957),
             asset_id="RTU-01",
             model=TwinModelRef(ref="efm"),
@@ -182,7 +186,7 @@ _TOPOLOGY = TwinTopology(
         TwinNode(
             id="HTR",
             type="heater",
-            name="Line Heater / Scrubber",
+            name="Line Heater / Inlet Scrubber",
             lnglat=(-95.86784, 29.33957),
             asset_id="RTU-01",
             model=TwinModelRef(ref="heater"),
@@ -226,11 +230,26 @@ _TOPOLOGY = TwinTopology(
         TwinEdge(id="P1", src="WH", to="HTR", product="gas", diameter_in=3, rack_h_m=2.4, asset_id="RTU-01"),
         TwinEdge(id="P8", src="HTR", to="SEP", product="gas", diameter_in=4, rack_h_m=2.4, asset_id="RTU-01"),
         TwinEdge(id="P2", src="CHE", to="WH", product="chemical", diameter_in=1, rack_h_m=1.8),
-        TwinEdge(id="P3", src="SEP", to="CMP", product="gas", diameter_in=3, rack_h_m=2.6, asset_id="RTU-01"),
+        # Gas-sales path: separator gas outlet holds vessel pressure on a BACK-PRESSURE
+        # REGULATOR (BPR), boosts through the compressor, then crosses the custody meter run.
+        TwinEdge(
+            id="P3", src="SEP", to="CMP", product="gas", diameter_in=3, rack_h_m=2.6, asset_id="RTU-01", inline="bpr"
+        ),
+        TwinEdge(id="P7", src="CMP", to="EFM", product="gas", diameter_in=3, rack_h_m=2.5, asset_id="RTU-01"),
+        # Liquids drop out to the condensate tanks (hydrocarbon) and produced-water tank.
         TwinEdge(id="P4", src="SEP", to="OT1", product="oil", diameter_in=4, rack_h_m=2.0, asset_id="RTU-01"),
         TwinEdge(id="P5", src="SEP", to="PWT", product="water", diameter_in=3, rack_h_m=2.2, asset_id="RTU-01"),
-        TwinEdge(id="P6", src="CMP", to="FLR", product="gas", diameter_in=2, rack_h_m=2.8, asset_id="RTU-01"),
-        TwinEdge(id="P7", src="CMP", to="EFM", product="gas", diameter_in=3, rack_h_m=2.5, asset_id="RTU-01"),
+        # Relief/blowdown to flare via a FLARE VALVE set at a higher setpoint than the BPR.
+        TwinEdge(
+            id="P6",
+            src="CMP",
+            to="FLR",
+            product="gas",
+            diameter_in=2,
+            rack_h_m=2.8,
+            asset_id="RTU-01",
+            inline="flare_valve",
+        ),
     ],
 )
 

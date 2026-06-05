@@ -136,13 +136,25 @@ def test_canonical_icon_crossbar_is_indigo():
     assert TEAL in icon, "Canonical icon lost its teal 'A' (#06B6D4)."
 
 
-def test_brand_assets_are_in_deploy_whitelist():
-    """The canonical brand/ assets must ship via deploy.sh (else prod 404s)."""
-    deploy_sh = (REPO / "deploy.sh").read_text()
+def test_brand_assets_are_git_tracked():
+    """The canonical brand/ assets must be committed (else prod 404s).
+
+    The deploy does `git reset --hard origin/main`, so anything committed ships.
+    (The old DASHBOARD_FILES whitelist was removed — it was the footgun behind the
+    2026-05-30 Leaflet outage; "is it committed?" is the correct, safer invariant.)
+    """
+    import subprocess
+
+    tracked = set(
+        subprocess.run(
+            ["git", "ls-files", "dashboard/brand/"],
+            cwd=REPO,
+            capture_output=True,
+            text=True,
+            check=True,
+        ).stdout.split()
+    )
     for asset in ("dashboard/brand/aevus-logo.svg", "dashboard/brand/aevus-icon.svg"):
-        in_files = asset in deploy_sh
-        in_dirs = "dashboard/brand" in deploy_sh
-        assert in_files or in_dirs, (
-            f"{asset} is not covered by deploy.sh's DASHBOARD_FILES/DASHBOARD_DIRS "
-            "whitelist, so the deploy won't ship it. Add 'dashboard/brand' to DASHBOARD_DIRS."
+        assert asset in tracked, (
+            f"{asset} is not committed to git, so `git reset --hard origin/main` won't ship it. git add + commit it."
         )

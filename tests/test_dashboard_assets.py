@@ -26,11 +26,11 @@ repo or isn't in the deploy whitelist, this test fails — no more silent
 from __future__ import annotations
 
 import re
+import subprocess
 from pathlib import Path
 
 REPO = Path(__file__).resolve().parent.parent
 HTML = REPO / "dashboard" / "Aevus_Console.html"
-DEPLOY_SH = REPO / "deploy.sh"
 
 # Hosts that aren't us — don't validate (CDN, fonts.googleapis.com, etc).
 EXTERNAL_PREFIXES = ("http://", "https://", "//", "data:")
@@ -64,32 +64,28 @@ def _raw_local_refs() -> list[str]:
     return [ref for ref in refs if not any(ref.startswith(p) for p in EXTERNAL_PREFIXES)]
 
 
-def _deploy_whitelist() -> tuple[set[str], set[str]]:
-    """Parse DASHBOARD_FILES and DASHBOARD_DIRS from deploy.sh.
+def _git_tracked_dashboard() -> set[str]:
+    """Dashboard assets tracked by git, relative to `dashboard/`.
 
-    Returns (set of file paths, set of dir prefixes), each relative to `dashboard/`.
+    The production deploy (deploy/deploy.sh) does `git reset --hard origin/main`,
+    so EVERY committed file ships — there is no per-file whitelist anymore. The
+    invariant that protects against the 2026-05-30 Leaflet 404 is therefore simply
+    "the referenced asset is committed." (This is strictly safer than the old
+    whitelist, whose missing entry caused that very outage.)
     """
-    src = DEPLOY_SH.read_text()
-
-    def _extract(var: str) -> set[str]:
-        # Match VAR="..." possibly multi-line with backslash continuations.
-        m = re.search(rf'{var}="((?:[^"\\]|\\.)*?)"', src, re.DOTALL)
-        if not m:
-            return set()
-        # Collapse line-continuations + whitespace.
-        body = re.sub(r"\\\s*\n", " ", m.group(1))
-        items: set[str] = set()
-        for token in body.split():
-            if token.startswith("dashboard/"):
-                items.add(token[len("dashboard/") :])
-        return items
-
-    return _extract("DASHBOARD_FILES"), _extract("DASHBOARD_DIRS")
-
-
-def _covered_by_dirs(asset: str, dirs: set[str]) -> bool:
-    """True if `asset` lives under one of the whitelisted directory prefixes."""
-    return any(asset == d or asset.startswith(d + "/") for d in dirs)
+    out = subprocess.run(
+        ["git", "ls-files", "dashboard/"],
+        cwd=REPO,
+        capture_output=True,
+        text=True,
+        check=True,
+    ).stdout
+    tracked: set[str] = set()
+    for line in out.splitlines():
+        line = line.strip()
+        if line.startswith("dashboard/"):
+            tracked.add(line[len("dashboard/") :])
+    return tracked
 
 
 def test_every_referenced_asset_exists_in_repo():
@@ -128,19 +124,19 @@ def test_local_assets_use_absolute_dashboard_path():
     )
 
 
-def test_every_referenced_asset_is_in_deploy_whitelist():
-    """Every dashboard asset the HTML loads must be in deploy.sh's whitelist.
+def test_every_referenced_asset_is_git_tracked():
+    """Every dashboard asset the HTML loads must be committed to git.
 
-    Caught: this is the exact 2026-05-30 outage — Leaflet was in the repo
-    but not in DASHBOARD_FILES, so the deploy didn't ship it and production
-    404'd. The blank map/forecast/etc. cascade followed from there.
+    The deploy does `git reset --hard origin/main`, so a committed file always
+    ships — and an UNcommitted one never does. This is the modern form of the
+    2026-05-30 Leaflet-404 guard: instead of "is it in the deploy whitelist?"
+    (whitelist removed — it was the footgun), assert "is it committed?".
     """
-    files, dirs = _deploy_whitelist()
-    missing = sorted(
-        asset for asset in _referenced_local_assets() if asset not in files and not _covered_by_dirs(asset, dirs)
-    )
+    tracked = _git_tracked_dashboard()
+    missing = sorted(asset for asset in _referenced_local_assets() if asset not in tracked)
     assert not missing, (
-        "Aevus_Console.html references dashboard assets that deploy.sh won't ship:\n"
+        "Aevus_Console.html references dashboard assets that aren't committed to git "
+        "(so `git reset --hard origin/main` won't ship them):\n"
         + "\n".join(f"  - dashboard/{a}" for a in missing)
-        + "\n\nFix: add each to DASHBOARD_FILES (or DASHBOARD_DIRS) in deploy.sh."
+        + "\n\nFix: git add + commit each referenced asset."
     )

@@ -1241,6 +1241,49 @@
       facility.add(new THREEref.Mesh(new THREEref.TubeGeometry(crv, 40, 0.045, 8, false), mat));
     });
   }
+  // ── FIELD INSTRUMENTATION (detectors + IP camera, from the monitoring ref) ──
+  // Pad safety/security devices: gas detector, pressure transmitter, and a
+  // pan-tilt IP camera on a pole — each wired back to the RTU on an I/O link.
+  function buildFieldInstruments() {
+    var rtu = equipLocal("RTU"), io = 0xA06CD4;
+    function ioLink(x, z) {
+      var crv = new THREEref.CatmullRomCurve3([
+        new THREEref.Vector3(x, 0.12, z), new THREEref.Vector3(x, 0.28, z),
+        new THREEref.Vector3(rtu.x, 0.28, rtu.z), new THREEref.Vector3(rtu.x, 0.15, rtu.z)
+      ], false, "catmullrom", 0.2);
+      facility.add(new THREEref.Mesh(new THREEref.TubeGeometry(crv, 36, 0.04, 6, false),
+        new THREEref.MeshStandardMaterial({ color: io, emissive: io, emissiveIntensity: 0.4, transparent: true, opacity: 0.8 })));
+    }
+    // gas detector (SE of the compressor)
+    var cmp = equipLocal("CMP"), gx = cmp.x + 2.0, gz = cmp.z + 3.0;
+    var gpole = new THREEref.Mesh(new THREEref.CylinderGeometry(0.05, 0.06, 1.6, 8), metal(COL.steelDark));
+    gpole.position.set(gx, 0.8, gz); facility.add(gpole);
+    var ghead = new THREEref.Mesh(new THREEref.CylinderGeometry(0.14, 0.14, 0.3, 12), metal(0xE0B020));
+    ghead.position.set(gx, 1.65, gz); facility.add(ghead);
+    var gcone = new THREEref.Mesh(new THREEref.ConeGeometry(0.14, 0.18, 12), metal(COL.steel));
+    gcone.position.set(gx, 1.85, gz); facility.add(gcone);
+    ioLink(gx, gz);
+    // pressure transmitter (S of the separator)
+    var sep = equipLocal("SEP"), px = sep.x + 1.0, pz = sep.z + 2.6;
+    var pstand = new THREEref.Mesh(new THREEref.CylinderGeometry(0.04, 0.05, 1.0, 6), metal(COL.steelDark));
+    pstand.position.set(px, 0.5, pz); facility.add(pstand);
+    var pbody = new THREEref.Mesh(new THREEref.BoxGeometry(0.3, 0.3, 0.2), metal(COL.steel));
+    pbody.position.set(px, 1.05, pz); facility.add(pbody);
+    var pgauge = new THREEref.Mesh(new THREEref.CylinderGeometry(0.12, 0.12, 0.06, 14), metal(0xBFD8E6));
+    pgauge.rotation.x = Math.PI / 2; pgauge.position.set(px, 1.05, pz + 0.13); facility.add(pgauge);
+    ioLink(px, pz);
+    // pan-tilt IP camera on a tall pole overlooking the pad (SE corner)
+    var efm = equipLocal("EFM"), cx = efm.x + 3.0, cz = efm.z + 3.5;
+    var cpole = new THREEref.Mesh(new THREEref.CylinderGeometry(0.07, 0.09, 5.0, 10), metal(COL.steelDark));
+    cpole.position.set(cx, 2.5, cz); facility.add(cpole);
+    var carm = new THREEref.Mesh(new THREEref.BoxGeometry(0.6, 0.08, 0.08), metal(COL.steelDark));
+    carm.position.set(cx - 0.3, 5.0, cz); facility.add(carm);
+    var cbody = new THREEref.Mesh(new THREEref.BoxGeometry(0.4, 0.22, 0.22), metal(0x2A2F3A));
+    cbody.position.set(cx - 0.6, 4.95, cz); cbody.rotation.y = -0.5; facility.add(cbody);
+    var clens = new THREEref.Mesh(new THREEref.CylinderGeometry(0.08, 0.08, 0.1, 12), metal(0x111418));
+    clens.rotation.z = Math.PI / 2; clens.position.set(cx - 0.82, 4.95, cz - 0.1); facility.add(clens);
+    ioLink(cx, cz);
+  }
   function buildFacility() {
     facility = new THREEref.Group();
 
@@ -1276,7 +1319,8 @@
     for (j = 0; j < PIPES.length; j++) {
       segments.push(buildPipe(PIPES[j]));
     }
-    buildCommsNet();   // OT-network overlay (Phase 4 of the pipeline-architecture roadmap)
+    buildCommsNet();          // OT-network overlay (Phase 4 of the pipeline-architecture roadmap)
+    buildFieldInstruments();  // pad detectors + IP camera from the monitoring reference
 
     scene.add(facility);
   }

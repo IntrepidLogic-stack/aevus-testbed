@@ -215,6 +215,7 @@
   var blinkMeshes = [];         // tower beacon
   var _windsock = null;         // {pivot, droop} — oriented to live wind each frame
   var _flares = [];             // [{yaw, lean, layers, light}] — flame flickers + leans downwind
+  var _separator = null;        // cutaway internals: gas particles, droplets, liquid level
   var _FLAME_WARN = null, _FLAME_SOOT = null;  // status tint colors (lazy-init in animate)
   var WINDSOCK_LL = [-95.86771, 29.33947];  // clear open foreground (S of process train), unoccluded
   var transform = null;
@@ -271,28 +272,78 @@
     return g;
   }
 
+  // 2-phase separator — CUTAWAY: bottom half solid metal (holds the liquid), top
+  // half transparent glass so you see inside: gas space, liquid level, inlet
+  // diverter + mist extractor. Gas flows along the top to the outlet; droplets
+  // fall off the diverter into the pool (animated in animate()).
   function buildSeparator() {
     var g = new THREEref.Group();
-    var len = 7.0, r = 1.4;
-    var bodyG = new THREEref.CylinderGeometry(r, r, len, 24);
-    var body = new THREEref.Mesh(bodyG, metal(COL.steel));
-    body.rotation.z = Math.PI / 2; body.position.y = r + 0.9; g.add(body);
-    addEdges(g, bodyG, body, COL.accent, 0.35);
-    // domed end caps
-    var capA = new THREEref.Mesh(new THREEref.SphereGeometry(r, 16, 12), metal(COL.steel));
-    capA.position.set(-len / 2, r + 0.9, 0); g.add(capA);
-    var capB = new THREEref.Mesh(new THREEref.SphereGeometry(r, 16, 12), metal(COL.steel));
-    capB.position.set(len / 2, r + 0.9, 0); g.add(capB);
-    // saddle supports
-    var sx, k, dx = [-len * 0.3, len * 0.3];
+    var len = 7.0, r = 1.4, yC = r + 0.9;   // shell center height
+    var sx, k, dx;
+
+    // shell: bottom 180° solid metal, top 180° glass (after rotz=+90°, theta=0 -> top)
+    var botG = new THREEref.CylinderGeometry(r, r, len, 30, 1, true, Math.PI / 2, Math.PI);
+    var bot = new THREEref.Mesh(botG, new THREEref.MeshStandardMaterial({
+      color: COL.steel, metalness: 0.55, roughness: 0.45, side: THREEref.DoubleSide }));
+    bot.rotation.z = Math.PI / 2; bot.position.y = yC; g.add(bot);
+    var glassMat = new THREEref.MeshStandardMaterial({
+      color: 0xBFD8E6, metalness: 0.1, roughness: 0.08, transparent: true, opacity: 0.15,
+      side: THREEref.DoubleSide, depthWrite: false });
+    var topG = new THREEref.CylinderGeometry(r, r, len, 30, 1, true, -Math.PI / 2, Math.PI);
+    var top = new THREEref.Mesh(topG, glassMat);
+    top.rotation.z = Math.PI / 2; top.position.y = yC; g.add(top);
+    addEdges(g, new THREEref.CylinderGeometry(r, r, len, 30), bot, COL.accent, 0.4);
+    // glass end caps (see in from the ends too)
+    var capA = new THREEref.Mesh(new THREEref.SphereGeometry(r, 18, 12), glassMat);
+    capA.position.set(-len / 2, yC, 0); g.add(capA);
+    var capB = new THREEref.Mesh(new THREEref.SphereGeometry(r, 18, 12), glassMat);
+    capB.position.set(len / 2, yC, 0); g.add(capB);
+
+    // saddles
+    dx = [-len * 0.3, len * 0.3];
     for (k = 0; k < dx.length; k++) {
-      sx = dx[k];
       var sad = new THREEref.Mesh(new THREEref.BoxGeometry(0.6, 0.9, r * 2.0), skidMat());
-      sad.position.set(sx, 0.45, 0); g.add(sad);
+      sad.position.set(dx[k], 0.45, 0); g.add(sad);
     }
-    // relief nozzle on top
-    var noz = new THREEref.Mesh(new THREEref.CylinderGeometry(0.16, 0.16, 1.2, 10), metal(COL.steelDark));
-    noz.position.set(len * 0.25, r + 0.9 + r + 0.5, 0); g.add(noz);
+
+    // ── INTERNALS (visible through the glass top) ──
+    var poolY = yC - 0.30;             // liquid interface level
+    var poolBot = yC - r + 0.08;
+    var poolH = poolY - poolBot;
+    var liquid = new THREEref.Mesh(new THREEref.BoxGeometry(len * 0.9, poolH, 2.05),
+      new THREEref.MeshStandardMaterial({ color: PRODUCT.oil, transparent: true, opacity: 0.5,
+        metalness: 0.1, roughness: 0.3, emissive: PRODUCT.oil, emissiveIntensity: 0.15 }));
+    liquid.position.set(0, poolBot + poolH / 2, 0); g.add(liquid);
+    var level = new THREEref.Mesh(new THREEref.BoxGeometry(len * 0.9, 0.04, 2.05), glowMat(0x34D399, 0.6));
+    level.position.set(0, poolY, 0); g.add(level);
+
+    // inlet nozzle + diverter plate (gas/liquid enters, hits the diverter)
+    var inNoz = new THREEref.Mesh(new THREEref.CylinderGeometry(0.18, 0.18, 1.0, 12), metal(COL.steelDark));
+    inNoz.position.set(-len * 0.4, yC + r + 0.3, 0); g.add(inNoz);
+    var div = new THREEref.Mesh(new THREEref.BoxGeometry(0.1, 1.0, 1.5), metal(0xAEB8C4));
+    div.position.set(-len * 0.36, yC + 0.15, 0); div.rotation.z = 0.35; g.add(div);
+    // mist extractor / demister pad before the gas outlet
+    var mist = new THREEref.Mesh(new THREEref.BoxGeometry(0.18, 1.0, 1.7),
+      new THREEref.MeshStandardMaterial({ color: 0xC7D0DA, transparent: true, opacity: 0.5, metalness: 0.3, roughness: 0.7 }));
+    mist.position.set(len * 0.34, yC + 0.45, 0); g.add(mist);
+    // gas outlet (top) + liquid outlet (bottom) nozzles
+    var gOut = new THREEref.Mesh(new THREEref.CylinderGeometry(0.16, 0.16, 1.0, 10), metal(COL.steelDark));
+    gOut.position.set(len * 0.42, yC + r + 0.3, 0); g.add(gOut);
+    var lOut = new THREEref.Mesh(new THREEref.CylinderGeometry(0.14, 0.14, 0.9, 10), metal(COL.steelDark));
+    lOut.position.set(len * 0.42, yC - r - 0.25, 0); g.add(lOut);
+
+    // ── animated material: gas flows along the top, droplets fall off the diverter ──
+    var gasY = yC + 0.55, x0 = -len * 0.34, x1 = len * 0.30, gas = [], drops = [], i;
+    for (i = 0; i < 6; i++) {
+      var gp = new THREEref.Mesh(new THREEref.SphereGeometry(0.13, 8, 6), glowMat(0xFFE6A8, 0.4));
+      g.add(gp); gas.push({ mesh: gp, offset: i / 6 });
+    }
+    for (i = 0; i < 4; i++) {
+      var dpm = new THREEref.Mesh(new THREEref.SphereGeometry(0.09, 7, 6), glowMat(PRODUCT.oil, 0.85));
+      g.add(dpm); drops.push({ mesh: dpm, offset: i / 4 });
+    }
+    _separator = { gas: gas, drops: drops, level: level, x0: x0, x1: x1, gasY: gasY,
+                   poolY: poolY, dropX: -len * 0.34, dropTop: yC + r - 0.3 };
     return g;
   }
 
@@ -842,6 +893,22 @@
       }
       if (fr.light) { fr.light.intensity = (0.4 + hot * 1.5) + Math.sin(ts * 8) * 0.35; }
     }
+    // separator cutaway — gas flows along the top to the outlet; droplets fall
+    // off the inlet diverter into the pool; the liquid level gently shimmers.
+    if (_separator) {
+      var S = _separator;
+      for (k = 0; k < S.gas.length; k++) {
+        var gp = S.gas[k], u = ((ts * 0.16 + gp.offset) % 1 + 1) % 1;
+        gp.mesh.position.set(S.x0 + u * (S.x1 - S.x0), S.gasY + Math.sin(ts * 3 + k) * 0.12, Math.sin(ts * 1.3 + k) * 0.4);
+        gp.mesh.material.opacity = 0.18 + 0.3 * Math.sin(u * Math.PI);
+      }
+      for (k = 0; k < S.drops.length; k++) {
+        var dp = S.drops[k], v = ((ts * 0.6 + dp.offset) % 1 + 1) % 1;
+        dp.mesh.position.set(S.dropX + Math.sin(k) * 0.2, S.dropTop - v * (S.dropTop - S.poolY), Math.cos(k) * 0.3);
+        dp.mesh.material.opacity = v < 0.9 ? 0.85 : 0;
+      }
+      if (S.level) { S.level.position.y = S.poolY + Math.sin(ts * 1.5) * 0.025; }
+    }
     // windsock — stream DOWNWIND in the real geographic direction (local frame:
     // x=east, z=south => rotation.y = PI/2 - toward), with flutter + wind-driven droop
     if (_windsock && _windsock.pivot) {
@@ -1100,7 +1167,7 @@
     }, 9000);
     // reset per-mount state (new map instance => rebuild scene in onAdd)
     scene = null; renderer = null; facility = null;
-    segments = []; equipMeshes = {}; flameMeshes = []; blinkMeshes = []; _windsock = null; _flares = []; _callouts = {};
+    segments = []; equipMeshes = {}; flameMeshes = []; blinkMeshes = []; _windsock = null; _flares = []; _separator = null; _callouts = {};
     try {
       if (map.getLayer(LAYER_ID)) { map.removeLayer(LAYER_ID); }
     } catch (e) {}

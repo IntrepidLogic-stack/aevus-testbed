@@ -221,7 +221,10 @@ _TOPOLOGY = TwinTopology(
         ),
     ],
     edges=[
-        TwinEdge(id="P1", src="WH", to="SEP", product="gas", diameter_in=3, rack_h_m=2.4, asset_id="RTU-01"),
+        # Production routes through the line heater (hydrate prevention) before
+        # the separator: wellhead -> line heater (line in) -> 2-phase separator (line out).
+        TwinEdge(id="P1", src="WH", to="HTR", product="gas", diameter_in=3, rack_h_m=2.4, asset_id="RTU-01"),
+        TwinEdge(id="P8", src="HTR", to="SEP", product="gas", diameter_in=4, rack_h_m=2.4, asset_id="RTU-01"),
         TwinEdge(id="P2", src="CHE", to="WH", product="chemical", diameter_in=1, rack_h_m=1.8),
         TwinEdge(id="P3", src="SEP", to="CMP", product="gas", diameter_in=3, rack_h_m=2.6, asset_id="RTU-01"),
         TwinEdge(id="P4", src="SEP", to="OT1", product="oil", diameter_in=4, rack_h_m=2.0, asset_id="RTU-01"),

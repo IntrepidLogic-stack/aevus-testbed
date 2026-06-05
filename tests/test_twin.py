@@ -24,7 +24,7 @@ class TestTwinTopology:
         body = resp.json()
         assert body["facility_id"] == "killdeer-bluejay-1"
         assert len(body["nodes"]) == 15  # 10 process + HTR/RTU/PWR + SOL/COM (2026-06-04)
-        assert len(body["edges"]) == 7
+        assert len(body["edges"]) == 8  # WH->HTR->SEP routed through the line heater (2026-06-05)
         # the new support/process assets are present
         ids = {n["id"] for n in body["nodes"]}
         assert {"HTR", "RTU", "PWR", "SOL", "COM"} <= ids
@@ -44,7 +44,7 @@ class TestTwinFlow:
         assert resp.status_code == 200
         body = resp.json()
         assert body["facility_id"] == "killdeer-bluejay-1"
-        assert len(body["segments"]) == 7
+        assert len(body["segments"]) == 8  # WH->HTR->SEP reroute (2026-06-05)
         for s in body["segments"]:
             assert 0.0 <= s["flow"] <= 1.0  # normalized — never raw
             assert s["dir"] in (-1, 0, 1)

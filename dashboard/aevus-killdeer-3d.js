@@ -123,7 +123,7 @@
   // revalidate in the background and rebuild ONLY if the server graph actually
   // changed. Cache key is versioned so a shipped topology/frame change cleanly
   // invalidates stale client caches.
-  var _TOPO_CACHE_KEY = "aevus_twin_topo_v9_" + TWIN_FACILITY;  // v9: new default frame (zoom/pitch/bearing)
+  var _TOPO_CACHE_KEY = "aevus_twin_topo_v10_" + TWIN_FACILITY;  // v10: WH->HTR->SEP reroute + engineered piping
   function _applyTopology(t) {
     if (Array.isArray(t.origin) && t.origin.length === 2) { ORIGIN = t.origin; }
     if (t.frame && t.frame.center) {
@@ -134,6 +134,8 @@
     });
     PIPES = t.edges.map(function (e) {
       return { id: e.id, from: e.from, to: e.to, product: e.product,
+               diameter: e.diameter_in || 3,
+               detailed: (e.from === "HTR" || e.to === "HTR"),  // the wellhead↔heater↔separator headers
                rackH: e.rack_h_m || 2.2, speed: _BASE_SPEED[e.product] || 0.1 };
     });
   }
@@ -845,32 +847,118 @@
   }
 
   // ── PIPE BUILDER ────────────────────────────────────────────────────────────
+  // Engineered field piping: diameter-scaled runs with flanged tie-ins (bolt
+  // circles), elbow fittings at the corners, pipe supports/sleepers, an inline
+  // gate valve + insulation cladding on the process headers, and the digital-twin
+  // signature — glowing "data-pulse" rings that travel the pipe along its path.
+  var _UP = null, _ZAXIS = null;
   function buildPipe(spec) {
+    if (!_UP) { _UP = new THREEref.Vector3(0, 1, 0); _ZAXIS = new THREEref.Vector3(0, 0, 1); }
     var a = equipLocal(spec.from), b = equipLocal(spec.to);
-    var nozzle = 1.4;
+    var nozzle = 1.4, rackH = spec.rackH;
     var pts = [
       new THREEref.Vector3(a.x, nozzle, a.z),
-      new THREEref.Vector3(a.x, spec.rackH, a.z),
-      new THREEref.Vector3((a.x + b.x) / 2, spec.rackH, (a.z + b.z) / 2),
-      new THREEref.Vector3(b.x, spec.rackH, b.z),
+      new THREEref.Vector3(a.x, rackH, a.z),
+      new THREEref.Vector3((a.x + b.x) / 2, rackH, (a.z + b.z) / 2),
+      new THREEref.Vector3(b.x, rackH, b.z),
       new THREEref.Vector3(b.x, nozzle, b.z)
     ];
     var curve = new THREEref.CatmullRomCurve3(pts, false, "catmullrom", 0.4);
-    var tubeG = new THREEref.TubeGeometry(curve, 48, 0.22, 10, false);
-    var color = PRODUCT[spec.product];
+    var dia = spec.diameter || 3;
+    var radius = 0.13 + dia * 0.03;                 // 3" -> 0.22, 4" -> 0.25
+    var detailed = !!spec.detailed;
+    var color = PRODUCT[spec.product] || PRODUCT.gas;
+
+    // main pipe
+    var tubeG = new THREEref.TubeGeometry(curve, 72, radius, 14, false);
     var mesh = new THREEref.Mesh(tubeG, pmat(color));
     facility.add(mesh);
 
-    // flow packets — small bright spheres travelling the curve
-    var packets = [], k, np = 3;
+    // insulation cladding (aluminum jacket) on the hot heater-outlet line
+    if (detailed && spec.from === "HTR") {
+      var clad = new THREEref.Mesh(new THREEref.TubeGeometry(curve, 72, radius + 0.09, 14, false),
+        new THREEref.MeshStandardMaterial({ color: 0xC9D2DC, metalness: 0.45, roughness: 0.55,
+          transparent: true, opacity: 0.8, side: THREEref.DoubleSide }));
+      facility.add(clad);
+    }
+
+    // ── fitting helpers (oriented to the pipe's local tangent) ──
+    function quatTo(axis, u) {
+      var tg = curve.getTangentAt(u).normalize();
+      return new THREEref.Quaternion().setFromUnitVectors(axis, tg);
+    }
+    function flangePair(u, bolts) {
+      var p = curve.getPointAt(u), tg = curve.getTangentAt(u).normalize();
+      var q = new THREEref.Quaternion().setFromUnitVectors(_UP, tg);
+      [-0.05, 0.05].forEach(function (off) {
+        var d = new THREEref.Mesh(new THREEref.CylinderGeometry(radius + 0.13, radius + 0.13, 0.07, 18), metal(COL.steelDark));
+        d.position.copy(p.clone().addScaledVector(tg, off)); d.quaternion.copy(q); facility.add(d);
+      });
+      if (bolts) {
+        var ref = Math.abs(tg.y) < 0.9 ? _UP : new THREEref.Vector3(1, 0, 0);
+        var e1 = new THREEref.Vector3().crossVectors(tg, ref).normalize();
+        var e2 = new THREEref.Vector3().crossVectors(tg, e1).normalize();
+        for (var bi = 0; bi < 6; bi++) {
+          var ang = bi / 6 * Math.PI * 2, rb = radius + 0.10;
+          var bp = p.clone().addScaledVector(e1, Math.cos(ang) * rb).addScaledVector(e2, Math.sin(ang) * rb);
+          var bolt = new THREEref.Mesh(new THREEref.CylinderGeometry(0.022, 0.022, 0.17, 6), metal(0x9AA6B2));
+          bolt.position.copy(bp); bolt.quaternion.copy(q); facility.add(bolt);
+        }
+      }
+    }
+    function elbow(u) {
+      var p = curve.getPointAt(u);
+      var s = new THREEref.Mesh(new THREEref.SphereGeometry(radius + 0.09, 16, 12), metal(COL.steel));
+      s.position.copy(p); facility.add(s);
+    }
+    function support(u) {
+      var p = curve.getPointAt(u), legH = Math.max(0.3, p.y - radius - 0.1);
+      var leg = new THREEref.Mesh(new THREEref.BoxGeometry(0.14, legH, 0.14), metal(COL.steelDark));
+      leg.position.set(p.x, legH / 2, p.z); facility.add(leg);
+      var base = new THREEref.Mesh(new THREEref.BoxGeometry(0.32, 0.08, 0.32), skidMat());
+      base.position.set(p.x, 0.04, p.z); facility.add(base);
+      var saddle = new THREEref.Mesh(new THREEref.CylinderGeometry(radius + 0.05, radius + 0.05, 0.2, 12, 1, true, 0, Math.PI), metal(COL.steel));
+      saddle.rotation.z = Math.PI / 2; saddle.position.set(p.x, p.y - radius - 0.02, p.z); facility.add(saddle);
+    }
+    function gateValve(u) {
+      var p = curve.getPointAt(u), q = quatTo(_UP, u);
+      var body = new THREEref.Mesh(new THREEref.CylinderGeometry(radius + 0.16, radius + 0.16, 0.5, 16), metal(0x6B7785));
+      body.position.copy(p); body.quaternion.copy(q); facility.add(body);
+      var bonnet = new THREEref.Mesh(new THREEref.CylinderGeometry(0.1, 0.14, 0.55, 12), metal(COL.steelDark));
+      bonnet.position.copy(p.clone().add(new THREEref.Vector3(0, radius + 0.45, 0))); facility.add(bonnet);
+      var hw = new THREEref.Mesh(new THREEref.TorusGeometry(0.27, 0.05, 8, 18), metal(0xCC4444));
+      hw.position.copy(p.clone().add(new THREEref.Vector3(0, radius + 0.78, 0))); hw.rotation.x = Math.PI / 2; facility.add(hw);
+    }
+
+    // flanged tie-ins at both vessel connections
+    flangePair(0.0, detailed);
+    flangePair(1.0, detailed);
+    if (detailed) {
+      elbow(0.12); elbow(0.88);          // 90° elbows where risers meet the rack
+      support(0.34); support(0.5); support(0.66);
+      gateValve(0.44);                   // isolation valve on the header
+      flangePair(0.12, false); flangePair(0.88, false);
+    } else {
+      support(0.5);
+    }
+
+    // flow packets — slugs riding the line
+    var packets = [], k, np = 3, pr = Math.max(0.18, radius * 1.15);
     for (k = 0; k < np; k++) {
-      var pk = new THREEref.Mesh(new THREEref.SphereGeometry(0.34, 10, 8), glowMat(0xFFFFFF, 0.9));
-      pk.material.color.setHex(color);
-      facility.add(pk);
+      var pk = new THREEref.Mesh(new THREEref.SphereGeometry(pr, 10, 8), glowMat(0xFFFFFF, 0.9));
+      pk.material.color.setHex(color); facility.add(pk);
       packets.push({ mesh: pk, offset: k / np });
     }
-    return { id: spec.id, mesh: mesh, curve: curve, packets: packets,
-             product: spec.product, baseSpeed: spec.speed, speed: spec.speed };
+    // digital-twin "data-pulse" rings — glowing bands sweeping the pipe path
+    var pulses = [];
+    if (detailed) {
+      for (k = 0; k < 2; k++) {
+        var ring = new THREEref.Mesh(new THREEref.TorusGeometry(radius + 0.11, 0.045, 8, 22), glowMat(COL.accent, 0.9));
+        facility.add(ring); pulses.push({ mesh: ring, offset: k / 2 });
+      }
+    }
+    return { id: spec.id, mesh: mesh, curve: curve, packets: packets, pulses: pulses,
+             detailed: detailed, product: spec.product, baseSpeed: spec.speed, speed: spec.speed };
   }
 
   // ── FACILITY ASSEMBLY ───────────────────────────────────────────────────────
@@ -941,6 +1029,16 @@
         pos = s.curve.getPointAt(u);
         pk.mesh.position.set(pos.x, pos.y, pos.z);
         pk.mesh.scale.set(sc, sc, sc);
+      }
+      // digital-twin data-pulse rings — sweep the pipe path, oriented to its tangent
+      if (s.pulses && _ZAXIS) {
+        for (k = 0; k < s.pulses.length; k++) {
+          var pu = s.pulses[k], uu = ((ts * (s.speed * 2.4) + pu.offset) % 1 + 1) % 1;
+          var pp = s.curve.getPointAt(uu), tg = s.curve.getTangentAt(uu).normalize();
+          pu.mesh.position.set(pp.x, pp.y, pp.z);
+          pu.mesh.quaternion.setFromUnitVectors(_ZAXIS, tg);
+          pu.mesh.material.opacity = (0.2 + 0.65 * Math.sin(uu * Math.PI)) * (0.4 + 0.6 * fl);
+        }
       }
     }
     // flare flicker

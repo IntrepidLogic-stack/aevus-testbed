@@ -38,6 +38,7 @@
   var _pollTimer = null;
   var _wind = { fromDeg: 0, mph: 0, dir: "N", gust: 0, temp: null, rh: null, cond: "", real: false };
   var _boundMap = null;
+  var _userHidden = false;   // Layers-card "Weather" toggle state (controls this card)
 
   function onMapPage() {
     var h = (location.hash || "").toLowerCase();
@@ -267,10 +268,25 @@
 
   function setVisible(on) { if (_el) { _el.style.display = on ? "block" : "none"; } }
 
+  // The Layers card "Weather" toggle (#lyr-weather) used to show/hide the old
+  // bottom-left weather widget — now merged into this card, so repoint it here.
+  function hookLayerToggle() {
+    var cb = document.getElementById("lyr-weather");
+    if (!cb || cb._wsHooked) { return; }
+    cb._wsHooked = true;
+    _userHidden = !cb.checked;
+    cb.addEventListener("change", function () {
+      _userHidden = !this.checked;
+      setVisible(!_userHidden);
+      hideLegend();   // keep the merged-away legend hidden regardless
+    });
+  }
+
   function tick() {
     if (onMapPage()) {
       if (ensureMounted()) {
-        setVisible(true);
+        hookLayerToggle();
+        setVisible(!_userHidden);
         if (!_pollTimer) { fetchWeather(); _pollTimer = setInterval(fetchWeather, WEATHER_MS); }
       }
     } else {

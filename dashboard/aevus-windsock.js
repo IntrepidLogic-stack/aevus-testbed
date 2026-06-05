@@ -33,9 +33,10 @@
   var _compass = null;   // <g> N marker (rotates to true north)
   var _sock = null;      // sock group (flutter + speed-scale)
   var _label = null;
+  var _wxTemp = null, _wxGust = null, _wxCond = null, _wxUpd = null;  // merged weather rows
   var _mounted = false;
   var _pollTimer = null;
-  var _wind = { fromDeg: 0, mph: 0, dir: "N", gust: 0, real: false };
+  var _wind = { fromDeg: 0, mph: 0, dir: "N", gust: 0, temp: null, cond: "", real: false };
   var _boundMap = null;
 
   function onMapPage() {
@@ -48,17 +49,22 @@
     var st = document.createElement("style");
     st.id = "aws-windsock-css";
     st.textContent =
-      "#aevus-windsock{position:fixed;z-index:30;width:96px;pointer-events:none;" +
+      "#aevus-windsock{position:fixed;z-index:30;width:160px;pointer-events:none;" +
       "font-family:Manrope,-apple-system,sans-serif;text-align:center;" +
       "filter:drop-shadow(0 4px 10px rgba(0,0,0,0.45));}" +
-      "#aevus-windsock .ws-wrap{background:rgba(11,16,32,0.72);border:1px solid rgba(255,255,255,0.10);" +
-      "border-radius:12px;padding:6px 6px 5px;backdrop-filter:blur(6px);}" +
-      "#aevus-windsock svg{display:block;width:84px;height:84px;margin:0 auto;}" +
+      "#aevus-windsock .ws-wrap{background:rgba(11,16,32,0.74);border:1px solid rgba(255,255,255,0.10);" +
+      "border-radius:12px;padding:7px 9px 6px;backdrop-filter:blur(6px);}" +
+      "#aevus-windsock svg.ws-dial{display:block;width:82px;height:82px;margin:0 auto;}" +
       "#aevus-windsock .ws-sock{transform-box:view-box;transform-origin:50px 50px;" +
       "animation:ws-flutter 2.2s ease-in-out infinite;}" +
       "@keyframes ws-flutter{0%{transform:rotate(-4deg)}50%{transform:rotate(4deg)}100%{transform:rotate(-4deg)}}" +
-      "#aevus-windsock .ws-label{margin-top:2px;font-size:10px;font-weight:800;letter-spacing:0.4px;color:#E2E8F0;}" +
-      "#aevus-windsock .ws-sub{font-size:8px;font-weight:700;letter-spacing:0.6px;text-transform:uppercase;color:#94A3B8;}" +
+      "#aevus-windsock .ws-label{margin-top:1px;font-size:11px;font-weight:800;letter-spacing:0.3px;color:#E2E8F0;}" +
+      "#aevus-windsock .ws-wx{margin-top:6px;border-top:1px solid rgba(255,255,255,0.10);padding-top:5px;text-align:left;}" +
+      "#aevus-windsock .ws-wx-row{display:flex;align-items:center;gap:6px;font-size:10.5px;font-weight:600;" +
+      "color:#CBD5E1;padding:1.5px 1px;line-height:1.2;}" +
+      "#aevus-windsock .ws-wx-row svg{flex:0 0 auto;}" +
+      "#aevus-windsock .ws-wx-alert{color:#10D478;font-weight:700;margin-top:2px;}" +
+      "#aevus-windsock .ws-wx-upd{font-size:8px;font-weight:600;color:#4A5168;margin-top:4px;text-align:center;letter-spacing:0.3px;}" +
       "#aevus-windsock .ws-ntext{font:700 9px Manrope,sans-serif;fill:#94A3B8;}";
     document.head.appendChild(st);
   }
@@ -84,9 +90,13 @@
     el.id = "aevus-windsock";
     el.setAttribute("role", "img");
     el.setAttribute("aria-label", "Wind direction");
+    // thin-line weather row icons (strokeWidth 1.8, brand style — no emoji)
+    var iTemp = '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#EF4444" stroke-width="1.8"><path d="M10 13.5V5a2 2 0 0 1 4 0v8.5a3.5 3.5 0 1 1-4 0z"/></svg>';
+    var iGust = '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#0EA5E9" stroke-width="1.8" stroke-linecap="round"><path d="M3 8h11a2.5 2.5 0 1 0-2.5-2.5M3 14h15a2.5 2.5 0 1 1-2.5 2.5M3 11h8"/></svg>';
+    var iCond = '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#94A3B8" stroke-width="1.8"><path d="M6 17h11a4 4 0 0 0 0-8 5 5 0 0 0-9.6-1.3A3.5 3.5 0 0 0 6 17z"/></svg>';
     el.innerHTML =
       '<div class="ws-wrap">' +
-      '<svg viewBox="0 0 100 100">' +
+      '<svg class="ws-dial" viewBox="0 0 100 100">' +
         '<circle cx="50" cy="50" r="46" fill="none" stroke="rgba(255,255,255,0.10)" stroke-width="1"/>' +
         // compass N marker (rotates to true north)
         '<g class="ws-compass">' +
@@ -102,12 +112,23 @@
         '<circle cx="50" cy="50" r="3" fill="#E2E8F0"/>' +
       '</svg>' +
       '<div class="ws-label">CALM</div>' +
-      '<div class="ws-sub">WIND</div>' +
+      // merged weather block (real /api/v1/weather data, windsock-card layout)
+      '<div class="ws-wx">' +
+        '<div class="ws-wx-row">' + iTemp + '<span class="ws-temp">--°F</span></div>' +
+        '<div class="ws-wx-row">' + iGust + '<span class="ws-gust">steady</span></div>' +
+        '<div class="ws-wx-row">' + iCond + '<span class="ws-cond">—</span></div>' +
+        '<div class="ws-wx-row ws-wx-alert"><span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:#10D478;margin-right:1px;"></span>No active NWS alerts</div>' +
+        '<div class="ws-wx-upd">Updated —</div>' +
+      '</div>' +
       '</div>';
     _rotor = el.querySelector(".ws-rotor");
     _compass = el.querySelector(".ws-compass");
     _sock = el.querySelector(".ws-sock");
     _label = el.querySelector(".ws-label");
+    _wxTemp = el.querySelector(".ws-temp");
+    _wxGust = el.querySelector(".ws-gust");
+    _wxCond = el.querySelector(".ws-cond");
+    _wxUpd = el.querySelector(".ws-wx-upd");
     return el;
   }
 
@@ -123,10 +144,13 @@
           _wind.mph = d.wind_mph;
           _wind.gust = d.wind_gust_mph || 0;
           _wind.dir = d.wind_dir || "";
+          _wind.temp = (typeof d.temp_f === "number") ? d.temp_f : null;
+          _wind.cond = d.condition || "";
           var deg = COMPASS16[_wind.dir];
           if (deg != null) { _wind.fromDeg = deg; }
           _wind.real = true;
-          syncWidget(d);
+          renderWx();
+          hideLegend();   // merged into this card — retire the bottom-left weather panel
           update();
         }
       })
@@ -165,6 +189,19 @@
     } catch (e) {}
   }
 
+  // Populate the merged weather rows inside the windsock card (real /weather data).
+  function renderWx() {
+    if (_wxTemp) { _wxTemp.textContent = (_wind.temp != null ? Math.round(_wind.temp) : "--") + "°F"; }
+    if (_wxGust) { _wxGust.textContent = (_wind.gust > _wind.mph + 1) ? ("gusts " + Math.round(_wind.gust) + " mph") : "steady"; }
+    if (_wxCond) { _wxCond.textContent = _wind.cond ? (_wind.cond.charAt(0).toUpperCase() + _wind.cond.slice(1)) : "—"; }
+    if (_wxUpd) { _wxUpd.textContent = "Updated " + new Date().toLocaleTimeString(); }
+  }
+
+  // Weather is now MERGED into this windsock card — retire the bottom-left panel.
+  function hideLegend() {
+    try { var w = document.querySelector(".map-weather-legend"); if (w) { w.style.display = "none"; } } catch (e) {}
+  }
+
   function bearing() {
     try { return _boundMap && _boundMap.getBearing ? _boundMap.getBearing() : 0; } catch (e) { return 0; }
   }
@@ -196,7 +233,7 @@
     var r = c.getBoundingClientRect();
     if (r.width < 40) { return; }
     // top-right of the map area, above the zoom controls
-    _el.style.left = Math.round(r.right - 96 - 12) + "px";
+    _el.style.left = Math.round(r.right - 160 - 12) + "px";
     _el.style.top = Math.round(r.top + 14) + "px";
   }
 

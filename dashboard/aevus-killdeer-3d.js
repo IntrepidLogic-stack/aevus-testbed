@@ -216,6 +216,7 @@
   var _windsock = null;         // {pivot, droop} — oriented to live wind each frame
   var _flares = [];             // [{yaw, lean, layers, light}] — flame flickers + leans downwind
   var _separator = null;        // cutaway internals: gas particles, droplets, liquid level
+  var _heater = null;           // cutaway internals: fire-tube glow, bath bubbles, coil flow
   var _FLAME_WARN = null, _FLAME_SOOT = null;  // status tint colors (lazy-init in animate)
   var WINDSOCK_LL = [-95.86771, 29.33947];  // clear open foreground (S of process train), unoccluded
   var transform = null;
@@ -586,24 +587,81 @@
     return g;
   }
 
-  // Line heater / scrubber — horizontal vessel on a firebox skid with a burner stack.
+  // Line heater / scrubber — CUTAWAY indirect water-bath heater: bottom half
+  // solid metal (holds the water bath), top half glass so you see inside: the
+  // glowing fire-tube/burner, the process coil the gas runs through, and the
+  // water level. Animated: combustion glow pulses, bubbles rise, gas flows
+  // through the coil (all in animate()).
   function buildHeater() {
     var g = new THREEref.Group();
-    var len = 4.2, r = 1.0;
-    var bodyG = new THREEref.CylinderGeometry(r, r, len, 20);
-    var body = new THREEref.Mesh(bodyG, metal(COL.steel));
-    body.rotation.z = Math.PI / 2; body.position.y = r + 0.7; g.add(body);
-    addEdges(g, bodyG, body, COL.accent, 0.32);
-    var capA = new THREEref.Mesh(new THREEref.SphereGeometry(r, 14, 10), metal(COL.steel));
-    capA.position.set(-len / 2, r + 0.7, 0); g.add(capA);
-    var capB = new THREEref.Mesh(new THREEref.SphereGeometry(r, 14, 10), metal(COL.steel));
-    capB.position.set(len / 2, r + 0.7, 0); g.add(capB);
+    var len = 4.2, r = 1.0, yC = r + 0.7, i;
+
+    // split shell: bottom metal (water bath), top glass (after rotz=+90°, theta=0 -> top)
+    var botG = new THREEref.CylinderGeometry(r, r, len, 28, 1, true, Math.PI / 2, Math.PI);
+    var bot = new THREEref.Mesh(botG, new THREEref.MeshStandardMaterial({
+      color: COL.steel, metalness: 0.55, roughness: 0.45, side: THREEref.DoubleSide }));
+    bot.rotation.z = Math.PI / 2; bot.position.y = yC; g.add(bot);
+    var glassMat = new THREEref.MeshStandardMaterial({
+      color: 0xBFD8E6, metalness: 0.1, roughness: 0.08, transparent: true, opacity: 0.15,
+      side: THREEref.DoubleSide, depthWrite: false });
+    var topG = new THREEref.CylinderGeometry(r, r, len, 28, 1, true, -Math.PI / 2, Math.PI);
+    var top = new THREEref.Mesh(topG, glassMat);
+    top.rotation.z = Math.PI / 2; top.position.y = yC; g.add(top);
+    addEdges(g, new THREEref.CylinderGeometry(r, r, len, 28), bot, COL.accent, 0.32);
+    var capA = new THREEref.Mesh(new THREEref.SphereGeometry(r, 16, 10), glassMat);
+    capA.position.set(-len / 2, yC, 0); g.add(capA);
+    var capB = new THREEref.Mesh(new THREEref.SphereGeometry(r, 16, 10), glassMat);
+    capB.position.set(len / 2, yC, 0); g.add(capB);
+
+    // skid + burner stack + process nozzle (exterior)
     var skid = new THREEref.Mesh(new THREEref.BoxGeometry(len * 0.7, 0.6, r * 2.2), skidMat());
     skid.position.y = 0.3; g.add(skid);
     var stack = new THREEref.Mesh(new THREEref.CylinderGeometry(0.18, 0.22, 2.4, 12), metal(COL.steelDark));
-    stack.position.set(-len * 0.28, r + 0.7 + r + 1.0, 0); g.add(stack);
+    stack.position.set(-len * 0.28, yC + r + 1.0, 0); g.add(stack);
     var noz = new THREEref.Mesh(new THREEref.CylinderGeometry(0.12, 0.12, 0.9, 10), metal(COL.steelDark));
-    noz.position.set(len * 0.22, r + 0.7 + r + 0.4, 0); g.add(noz);
+    noz.position.set(len * 0.22, yC + r + 0.4, 0); g.add(noz);
+
+    // ── INTERNALS (visible through the glass top) ──
+    var bathY = yC + 0.15;                 // water-bath level (~65% full)
+    var bathBot = yC - r + 0.06;
+    var bathH = bathY - bathBot;
+    var bath = new THREEref.Mesh(new THREEref.BoxGeometry(len * 0.88, bathH, 1.7),
+      new THREEref.MeshStandardMaterial({ color: 0x1E7FA8, transparent: true, opacity: 0.4,
+        metalness: 0.1, roughness: 0.2, emissive: 0x0E4E70, emissiveIntensity: 0.12 }));
+    bath.position.set(0, bathBot + bathH / 2, 0); g.add(bath);
+    var level = new THREEref.Mesh(new THREEref.BoxGeometry(len * 0.88, 0.04, 1.7), glowMat(0x38D6E0, 0.55));
+    level.position.set(0, bathY, 0); g.add(level);
+
+    // fire tube + burner muzzle (immersed, glows with combustion)
+    var fireMat = new THREEref.MeshStandardMaterial({ color: 0xFF7A33, emissive: 0xFF4500,
+      emissiveIntensity: 0.8, metalness: 0.4, roughness: 0.5 });
+    var fire = new THREEref.Mesh(new THREEref.CylinderGeometry(0.24, 0.24, len * 0.66, 14), fireMat);
+    fire.rotation.z = Math.PI / 2; fire.position.set(0.1, yC - 0.45, 0.45); g.add(fire);
+    var muzzle = new THREEref.Mesh(new THREEref.CylinderGeometry(0.28, 0.34, 0.5, 14), metal(COL.steelDark));
+    muzzle.rotation.z = Math.PI / 2; muzzle.position.set(-len * 0.4, yC - 0.45, 0.45); g.add(muzzle);
+
+    // process coil (the gas being heated spirals through the bath)
+    var pts = [], turns = 3, n = 48, coilR = 0.52, coilLen = len * 0.62, a;
+    for (i = 0; i <= n; i++) {
+      var t = i / n; a = t * turns * 2 * Math.PI;
+      pts.push(new THREEref.Vector3(-coilLen / 2 + t * coilLen, yC - 0.05 + Math.sin(a) * coilR * 0.5, -0.35 + Math.cos(a) * coilR));
+    }
+    var curve = new THREEref.CatmullRomCurve3(pts);
+    var coil = new THREEref.Mesh(new THREEref.TubeGeometry(curve, 90, 0.08, 8, false), metal(COL.accent));
+    g.add(coil);
+
+    // animated material: gas packets flow through the coil; bubbles rise in the bath
+    var flow = [], bubbles = [];
+    for (i = 0; i < 5; i++) {
+      var fp = new THREEref.Mesh(new THREEref.SphereGeometry(0.1, 8, 6), glowMat(PRODUCT.gas || 0x7DE0FF, 0.85));
+      g.add(fp); flow.push({ mesh: fp, offset: i / 5 });
+    }
+    for (i = 0; i < 7; i++) {
+      var bb = new THREEref.Mesh(new THREEref.SphereGeometry(0.06, 6, 5), glowMat(0x9FE8F0, 0.5));
+      g.add(bb); bubbles.push({ mesh: bb, offset: i / 7, x: (i / 7 - 0.5) * len * 0.7, z: ((i % 3) - 1) * 0.45 });
+    }
+    _heater = { fire: fire, level: level, curve: curve, flow: flow, bubbles: bubbles,
+                bathBot: bathBot, bathY: bathY };
     return g;
   }
 
@@ -909,6 +967,25 @@
       }
       if (S.level) { S.level.position.y = S.poolY + Math.sin(ts * 1.5) * 0.025; }
     }
+    // line heater cutaway — fire-tube glow pulses (combustion), bubbles rise in
+    // the water bath, gas packets flow through the process coil.
+    if (_heater) {
+      var H = _heater;
+      if (H.fire) { H.fire.material.emissiveIntensity = 0.55 + 0.35 * (0.5 + 0.5 * Math.sin(ts * 9)) + 0.1 * Math.sin(ts * 23); }
+      for (k = 0; k < H.bubbles.length; k++) {
+        var bb = H.bubbles[k], w = ((ts * 0.4 + bb.offset) % 1 + 1) % 1;
+        bb.mesh.position.set(bb.x + Math.sin(ts * 2 + k) * 0.06, H.bathBot + 0.1 + w * (H.bathY - H.bathBot - 0.15), bb.z);
+        bb.mesh.material.opacity = w < 0.88 ? 0.5 : 0;
+      }
+      if (H.curve && H.flow) {
+        for (k = 0; k < H.flow.length; k++) {
+          var hp = H.flow[k], hu = ((ts * 0.1 + hp.offset) % 1 + 1) % 1;
+          var pt = H.curve.getPointAt(hu);
+          hp.mesh.position.set(pt.x, pt.y, pt.z);
+        }
+      }
+      if (H.level) { H.level.position.y = H.bathY + Math.sin(ts * 1.7) * 0.02; }
+    }
     // windsock — stream DOWNWIND in the real geographic direction (local frame:
     // x=east, z=south => rotation.y = PI/2 - toward), with flutter + wind-driven droop
     if (_windsock && _windsock.pivot) {
@@ -1167,7 +1244,7 @@
     }, 9000);
     // reset per-mount state (new map instance => rebuild scene in onAdd)
     scene = null; renderer = null; facility = null;
-    segments = []; equipMeshes = {}; flameMeshes = []; blinkMeshes = []; _windsock = null; _flares = []; _separator = null; _callouts = {};
+    segments = []; equipMeshes = {}; flameMeshes = []; blinkMeshes = []; _windsock = null; _flares = []; _separator = null; _heater = null; _callouts = {};
     try {
       if (map.getLayer(LAYER_ID)) { map.removeLayer(LAYER_ID); }
     } catch (e) {}

@@ -296,6 +296,24 @@
     var wWheel = new THREEref.Mesh(new THREEref.TorusGeometry(0.24, 0.05, 8, 16), metal(0xCC4444));
     wWheel.position.set(wingX, wingY, 0); wWheel.rotation.x = Math.PI / 2; g.add(wWheel);
 
+    // production CHOKE + block valve on the flowline wing (downstream of the wing
+    // valve — this is where the flowline to the line heater ties on)
+    var choke = new THREEref.Mesh(new THREEref.CylinderGeometry(0.17, 0.13, 0.5, 12), metal(COL.steelDark));
+    choke.rotation.z = Math.PI / 2; choke.position.set(0.98, wingY, 0); g.add(choke);
+    var chokeStem = new THREEref.Mesh(new THREEref.CylinderGeometry(0.045, 0.045, 0.42, 8), metal(0xCC4444));
+    chokeStem.position.set(0.98, wingY + 0.42, 0); g.add(chokeStem);
+    // kill-wing valve on the opposite side (a real tree has two wings)
+    var kwing = new THREEref.Mesh(new THREEref.CylinderGeometry(0.1, 0.1, 0.55, 10), metal(COL.steelDark));
+    kwing.rotation.z = Math.PI / 2; kwing.position.set(-0.42, wingY, 0); g.add(kwing);
+    var kWheel = new THREEref.Mesh(new THREEref.TorusGeometry(0.19, 0.045, 8, 14), metal(0xCC4444));
+    kWheel.position.set(-0.66, wingY, 0); kWheel.rotation.x = Math.PI / 2; g.add(kWheel);
+    // chemical-injection inlet stub (west side) — where the chem line ties in
+    var chemIn = new THREEref.Mesh(new THREEref.CylinderGeometry(0.07, 0.07, 0.5, 8), metal(COL.steelDark));
+    chemIn.rotation.z = Math.PI / 2; chemIn.position.set(-0.45, 2.0, 0); g.add(chemIn);
+    // swab valve below the tree cap (vertical access valve)
+    var swab = new THREEref.Mesh(new THREEref.CylinderGeometry(0.15, 0.15, 0.4, 12), metal(COL.steel));
+    swab.position.set(0, 2.92, 0); g.add(swab);
+
     // animated material: packets rise up the bore; some turn out the wing outlet
     var riser = [], wingFlow = [], i;
     for (i = 0; i < 6; i++) {
@@ -1007,6 +1025,24 @@
     if (t === "chemtote") return 0.7;
     return 0.8;
   }
+  // EXACT nozzle registry — local offset of the REAL modeled nozzle stub for a pipe
+  // of this product/role. Equipment groups are axis-aligned at scale 1, so the world
+  // tie = equipmentCenter + offset. Values match the stubs modeled in
+  // buildWellhead/buildHeater/buildSeparator/buildCompressor/buildFlare/buildTank.
+  function _noz(t, p, isSource) {
+    if (t === "wellhead") return isSource ? { x: 0.95, y: 2.55, z: 0 } : { x: -0.55, y: 2.0, z: 0 };       // flowline wing/choke out · chem-injection in
+    if (t === "heater" || t === "scrubber") return isSource ? { x: 1.5, y: 2.9, z: 0 } : { x: -1.5, y: 2.9, z: 0 }; // process out E · in W (top)
+    if (t === "separator") {
+      if (p === "gas") return isSource ? { x: 2.94, y: 4.0, z: 0 } : { x: -2.8, y: 4.0, z: 0 };            // gas outlet E-top · inlet W-top
+      return { x: 2.94, y: 0.7, z: 0 };                                                                    // liquid dump E-bottom
+    }
+    if (t === "compressor") return isSource ? { x: 2.6, y: 1.2, z: 0 } : { x: 1.7, y: 2.4, z: 1.1 };       // discharge header · suction scrubber
+    if (t === "flare") return { x: 3.55, y: 2.35, z: 0 };                                                  // relief gas into the KO-drum inlet
+    if (t === "oiltank" || t === "watertank") return { x: 0, y: 4.3, z: 2.6 };                            // gravity dump into upper shell, facing the train
+    if (t === "efm") return isSource ? { x: 0.8, y: 1.1, z: 0 } : { x: -0.8, y: 1.1, z: 0 };
+    if (t === "chemtote") return { x: 1.4, y: 1.5, z: 0 };                                                 // injection-pump discharge toward the wellhead
+    return { x: 0, y: 1.4, z: 0 };
+  }
   function buildPipe(spec) {
     if (!_UP) { _UP = new THREEref.Vector3(0, 1, 0); _ZAXIS = new THREEref.Vector3(0, 0, 1); }
     var a = equipLocal(spec.from), b = equipLocal(spec.to);
@@ -1018,12 +1054,14 @@
       // with 90° elbows at the corners. This is how a real wellsite is piped:
       // short, low, nozzle-to-nozzle, not up-and-over a tall pipe rack.
       var fT = _nodeType(spec.from), tT = _nodeType(spec.to);
-      var dx = b.x - a.x, dz = b.z - a.z, L = Math.sqrt(dx * dx + dz * dz) || 1, ux = dx / L, uz = dz / L;
-      var sR = _nozR(fT, spec.product), dR = _nozR(tT, spec.product), sH = _nozH(fT, spec.product, true), dH = _nozH(tT, spec.product, false), runH = 1.2;
-      var sTie = new THREEref.Vector3(a.x + ux * sR, sH, a.z + uz * sR);          // source nozzle (faces dest)
-      var dTie = new THREEref.Vector3(b.x - ux * dR, dH, b.z - uz * dR);          // dest nozzle (faces source)
-      var sRun = new THREEref.Vector3(sTie.x + ux * 0.5, runH, sTie.z + uz * 0.5); // elbow: drop to run height
-      var dRun = new THREEref.Vector3(dTie.x - ux * 0.5, runH, dTie.z - uz * 0.5); // elbow: rise to dest nozzle
+      // Start the pipe ON the real source nozzle stub and land it ON the real dest
+      // nozzle stub, then drop/rise to a low sleeper run with 90° elbows between.
+      var sN = _noz(fT, spec.product, true), dN = _noz(tT, spec.product, false);
+      var sTie = new THREEref.Vector3(a.x + sN.x, sN.y, a.z + sN.z);                // exact source nozzle
+      var dTie = new THREEref.Vector3(b.x + dN.x, dN.y, b.z + dN.z);                // exact dest nozzle
+      var hdx = dTie.x - sTie.x, hdz = dTie.z - sTie.z, hL = Math.sqrt(hdx * hdx + hdz * hdz) || 1, ux = hdx / hL, uz = hdz / hL, runH = 1.2;
+      var sRun = new THREEref.Vector3(sTie.x + ux * 0.6, runH, sTie.z + uz * 0.6); // elbow: leave nozzle -> low run
+      var dRun = new THREEref.Vector3(dTie.x - ux * 0.6, runH, dTie.z - uz * 0.6); // elbow: low run -> dest nozzle
       pts = [sTie, sRun, dRun, dTie];
     } else {
       pts = [

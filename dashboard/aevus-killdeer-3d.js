@@ -217,6 +217,7 @@
   var _flares = [];             // [{yaw, lean, layers, light}] — flame flickers + leans downwind
   var _separator = null;        // cutaway internals: gas particles, droplets, liquid level
   var _heater = null;           // cutaway internals: fire-tube glow, bath bubbles, coil flow
+  var _wellhead = null;         // cutaway internals: bore riser flow + wing-outlet flow
   var _FLAME_WARN = null, _FLAME_SOOT = null;  // status tint colors (lazy-init in animate)
   var WINDSOCK_LL = [-95.86771, 29.33947];  // clear open foreground (S of process train), unoccluded
   var transform = null;
@@ -250,16 +251,55 @@
   }
 
   // ── EQUIPMENT BUILDERS (y-up, base at y=0) ──────────────────────────────────
+  // Wellhead / Christmas tree — CUTAWAY: solid casing + tubing-head spools at the
+  // base, a transparent tree body so you see the production bore, and material
+  // flowing — oil/gas rises up the tubing from the well and turns out the wing
+  // valve to the flowline (animated in animate()).
   function buildWellhead() {
     var g = new THREEref.Group();
-    var spoolG = new THREEref.CylinderGeometry(0.45, 0.5, 1.4, 16);
-    var spool = new THREEref.Mesh(spoolG, metal(COL.steelDark)); spool.position.y = 0.7; g.add(spool);
-    var tree = new THREEref.Mesh(new THREEref.BoxGeometry(0.5, 1.8, 0.5), metal(COL.steel));
-    tree.position.y = 1.9; g.add(tree);
-    var wheel = new THREEref.Mesh(new THREEref.TorusGeometry(0.42, 0.07, 8, 18), metal(0xC44));
-    wheel.position.set(0.45, 1.6, 0); wheel.rotation.y = Math.PI / 2; g.add(wheel);
-    var cap = new THREEref.Mesh(new THREEref.SphereGeometry(0.28, 12, 8), metal(COL.steel));
-    cap.position.y = 2.85; g.add(cap);
+    var glassMat = new THREEref.MeshStandardMaterial({
+      color: 0xBFD8E6, metalness: 0.1, roughness: 0.08, transparent: true, opacity: 0.16,
+      side: THREEref.DoubleSide, depthWrite: false });
+
+    // casing-head + tubing-head spools (solid steel, stacked, flanged)
+    var csg = new THREEref.Mesh(new THREEref.CylinderGeometry(0.5, 0.55, 0.9, 18), metal(COL.steelDark));
+    csg.position.y = 0.45; g.add(csg);
+    var th = new THREEref.Mesh(new THREEref.CylinderGeometry(0.42, 0.48, 0.6, 18), metal(COL.steel));
+    th.position.y = 1.1; g.add(th);
+    var fl1 = new THREEref.Mesh(new THREEref.CylinderGeometry(0.56, 0.56, 0.1, 18), metal(COL.steelDark));
+    fl1.position.y = 0.92; g.add(fl1);
+
+    // transparent tree body (the cutaway shell) + edges for definition
+    var bodyG = new THREEref.CylinderGeometry(0.34, 0.34, 1.7, 20, 1, true);
+    var body = new THREEref.Mesh(bodyG, glassMat); body.position.y = 2.25; g.add(body);
+    addEdges(g, bodyG, body, COL.accent, 0.35);
+
+    // production tubing (the inner bore, visible through the glass) + top cap
+    var bore = new THREEref.Mesh(new THREEref.CylinderGeometry(0.11, 0.11, 3.0, 12), metal(0x55606E));
+    bore.position.y = 1.55; g.add(bore);
+    var cap = new THREEref.Mesh(new THREEref.SphereGeometry(0.22, 12, 8), metal(COL.steel));
+    cap.position.y = 3.15; g.add(cap);
+
+    // wing / flow outlet (production leaves to the flowline) + valve wheels
+    var wingY = 2.55, wingX = 0.72;
+    var wing = new THREEref.Mesh(new THREEref.CylinderGeometry(0.12, 0.12, 0.8, 12), metal(COL.steelDark));
+    wing.rotation.z = Math.PI / 2; wing.position.set(0.4, wingY, 0); g.add(wing);
+    var mWheel = new THREEref.Mesh(new THREEref.TorusGeometry(0.34, 0.06, 8, 18), metal(0xCC4444));
+    mWheel.position.set(0.42, 1.75, 0); mWheel.rotation.y = Math.PI / 2; g.add(mWheel);
+    var wWheel = new THREEref.Mesh(new THREEref.TorusGeometry(0.24, 0.05, 8, 16), metal(0xCC4444));
+    wWheel.position.set(wingX, wingY, 0); wWheel.rotation.x = Math.PI / 2; g.add(wWheel);
+
+    // animated material: packets rise up the bore; some turn out the wing outlet
+    var riser = [], wingFlow = [], i;
+    for (i = 0; i < 6; i++) {
+      var rp = new THREEref.Mesh(new THREEref.SphereGeometry(0.1, 8, 6), glowMat(PRODUCT.oil, 0.9));
+      g.add(rp); riser.push({ mesh: rp, offset: i / 6 });
+    }
+    for (i = 0; i < 3; i++) {
+      var wp = new THREEref.Mesh(new THREEref.SphereGeometry(0.09, 7, 6), glowMat(PRODUCT.oil, 0.9));
+      g.add(wp); wingFlow.push({ mesh: wp, offset: i / 3 });
+    }
+    _wellhead = { riser: riser, wingFlow: wingFlow, y0: 0.15, y1: 3.0, wingY: wingY, wingX: wingX };
     return g;
   }
 
@@ -986,6 +1026,21 @@
       }
       if (H.level) { H.level.position.y = H.bathY + Math.sin(ts * 1.7) * 0.02; }
     }
+    // wellhead cutaway — oil/gas rises up the production bore; some turns out the
+    // wing valve to the flowline.
+    if (_wellhead) {
+      var W = _wellhead;
+      for (k = 0; k < W.riser.length; k++) {
+        var rp = W.riser[k], ru = ((ts * 0.22 + rp.offset) % 1 + 1) % 1;
+        rp.mesh.position.set(Math.sin(ts * 2 + k) * 0.03, W.y0 + ru * (W.y1 - W.y0), Math.cos(ts * 2 + k) * 0.03);
+        rp.mesh.material.opacity = 0.5 + 0.4 * Math.sin(ru * Math.PI);
+      }
+      for (k = 0; k < W.wingFlow.length; k++) {
+        var wp = W.wingFlow[k], wu = ((ts * 0.5 + wp.offset) % 1 + 1) % 1;
+        wp.mesh.position.set(wu * W.wingX, W.wingY, 0);
+        wp.mesh.material.opacity = wu < 0.92 ? 0.9 : 0;
+      }
+    }
     // windsock — stream DOWNWIND in the real geographic direction (local frame:
     // x=east, z=south => rotation.y = PI/2 - toward), with flutter + wind-driven droop
     if (_windsock && _windsock.pivot) {
@@ -1244,7 +1299,7 @@
     }, 9000);
     // reset per-mount state (new map instance => rebuild scene in onAdd)
     scene = null; renderer = null; facility = null;
-    segments = []; equipMeshes = {}; flameMeshes = []; blinkMeshes = []; _windsock = null; _flares = []; _separator = null; _heater = null; _callouts = {};
+    segments = []; equipMeshes = {}; flameMeshes = []; blinkMeshes = []; _windsock = null; _flares = []; _separator = null; _heater = null; _wellhead = null; _callouts = {};
     try {
       if (map.getLayer(LAYER_ID)) { map.removeLayer(LAYER_ID); }
     } catch (e) {}

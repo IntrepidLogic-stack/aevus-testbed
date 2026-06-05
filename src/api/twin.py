@@ -52,6 +52,9 @@ class TwinNode(BaseModel):
     lnglat: tuple[float, float]
     asset_id: str | None = None
     model: TwinModelRef
+    # Station/site grouping for the multi-station pipeline view (Phase 3). The
+    # original wellsite is "killdeer"; downstream stations carry their own id.
+    station: str = "killdeer"
 
 
 class TwinEdge(BaseModel):
@@ -223,6 +226,26 @@ _TOPOLOGY = TwinTopology(
             asset_id="RAD-01",
             model=TwinModelRef(ref="comms"),
         ),
+        # ── SALES METERING STATION (downstream, Phase 3 multi-station) ──────────
+        # The custody-sold gas leaves the wellsite and runs ~60 m east on the sales
+        # pipeline to a small metering station: an inlet scrubber + a custody meter.
+        # (Zoom out from the locked Killdeer view to see the pipeline continue.)
+        TwinNode(
+            id="M2-KO",
+            type="separator",
+            name="Inlet Scrubber — Sales Meter Sta",
+            lnglat=(-95.86688, 29.33957),
+            station="metering-east",
+            model=TwinModelRef(ref="separator"),
+        ),
+        TwinNode(
+            id="M2-EFM",
+            type="efm",
+            name="Custody Meter — Sales Station",
+            lnglat=(-95.86676, 29.33957),
+            station="metering-east",
+            model=TwinModelRef(ref="efm"),
+        ),
     ],
     edges=[
         # Production routes through the line heater (hydrate prevention) before
@@ -250,6 +273,10 @@ _TOPOLOGY = TwinTopology(
             asset_id="RTU-01",
             inline="flare_valve",
         ),
+        # Sales pipeline backbone: custody-sold gas leaves the wellsite meter and
+        # runs to the downstream metering station (Phase 3 multi-station).
+        TwinEdge(id="BB1", src="EFM", to="M2-KO", product="gas", diameter_in=6, rack_h_m=2.4),
+        TwinEdge(id="BB2", src="M2-KO", to="M2-EFM", product="gas", diameter_in=6, rack_h_m=2.4),
     ],
 )
 

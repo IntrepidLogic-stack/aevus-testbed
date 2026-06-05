@@ -123,7 +123,7 @@
   // revalidate in the background and rebuild ONLY if the server graph actually
   // changed. Cache key is versioned so a shipped topology/frame change cleanly
   // invalidates stale client caches.
-  var _TOPO_CACHE_KEY = "aevus_twin_topo_v13_" + TWIN_FACILITY;  // v13: condensate relabel + BPR/flare-valve inline devices + meter run
+  var _TOPO_CACHE_KEY = "aevus_twin_topo_v14_" + TWIN_FACILITY;  // v13: condensate relabel + BPR/flare-valve inline devices + meter run
   function _applyTopology(t) {
     if (Array.isArray(t.origin) && t.origin.length === 2) { ORIGIN = t.origin; }
     if (t.frame && t.frame.center) {

@@ -1052,8 +1052,8 @@
       if (p === "gas") return isSource ? { x: 2.94, y: 4.0, z: 0 } : { x: -2.8, y: 4.0, z: 0 };            // gas outlet E-top · inlet W-top
       return { x: 2.94, y: 0.7, z: 0 };                                                                    // liquid dump E-bottom
     }
-    if (t === "compressor") return isSource ? { x: 2.6, y: 1.2, z: 0 } : { x: 1.7, y: 2.4, z: 1.1 };       // discharge header · suction scrubber
-    if (t === "flare") return { x: 3.55, y: 2.35, z: 0 };                                                  // relief gas into the KO-drum inlet
+    if (t === "compressor") return isSource ? { x: 2.6, y: 1.2, z: 0 } : { x: -2.0, y: 2.0, z: 0 };        // discharge header (E) · suction on the SEP-facing (W) side
+    if (t === "flare") return { x: 2.4, y: 2.3, z: -0.9 };                                                 // relief into the KO drum on the compressor-facing (N) side
     if (t === "oiltank" || t === "watertank") return { x: 0, y: 4.3, z: 2.6 };                            // gravity dump into upper shell, facing the train
     if (t === "efm") return isSource ? { x: 0.8, y: 1.1, z: 0 } : { x: -0.8, y: 1.1, z: 0 };
     if (t === "chemtote") return { x: 1.4, y: 1.5, z: 0 };                                                 // injection-pump discharge toward the wellhead

@@ -328,10 +328,13 @@
     th.position.y = 1.92; g.add(th);
     flange(2.3, 0.58);
     // chemical-injection quill + check valve into the tubing head (WEST) — the chem line ties here
-    var chemIn = new THREEref.Mesh(new THREEref.CylinderGeometry(0.07, 0.07, 0.55, 8), metal(COL.steelDark));
-    chemIn.rotation.z = Math.PI / 2; chemIn.position.set(-0.5, 1.85, 0); g.add(chemIn);
+    var chemIn = new THREEref.Mesh(new THREEref.CylinderGeometry(0.07, 0.07, 0.62, 8), metal(COL.steelDark));
+    chemIn.rotation.z = Math.PI / 2; chemIn.position.set(-0.52, 1.85, 0); g.add(chemIn);
     var chemChk = new THREEref.Mesh(new THREEref.SphereGeometry(0.1, 8, 6), metal(PRODUCT.chemical));
     chemChk.position.set(-0.74, 1.85, 0); g.add(chemChk);
+    // chem-injection inlet FLANGE — the purple chemical line lands ON this flange
+    var chemFl = new THREEref.Mesh(new THREEref.CylinderGeometry(0.13, 0.13, 0.07, 14), metal(0x9AA6B2));
+    chemFl.rotation.z = Math.PI / 2; chemFl.position.set(-0.82, 1.85, 0); g.add(chemFl);
 
     // ── SECTIONED steel tree body — a 270° opaque PAINTED-STEEL shell with a
     // quarter cut away (facing the production wing / +X) so the production bore and
@@ -392,27 +395,33 @@
       ring.position.set(x, y, z + 0.08); g.add(ring);
     }
 
-    // ── PRODUCTION WING (EAST, +X): wing gate → CHOKE → flowline take-off flange.
-    // This is where the gas flowline to the line heater ties on. ──
-    var pwBody = new THREEref.Mesh(new THREEref.CylinderGeometry(0.14, 0.14, 0.44, 12), metal(COL.steelDark));
-    pwBody.rotation.z = Math.PI / 2; pwBody.position.set(0.46, crossY, 0); g.add(pwBody);
-    wingWheel(0.46, 0.2);                                              // seated production-wing handwheel
-    var choke = new THREEref.Mesh(new THREEref.CylinderGeometry(0.18, 0.13, 0.5, 12), metal(0x6B7785));
-    choke.rotation.z = Math.PI / 2; choke.position.set(1.04, crossY, 0); g.add(choke);
+    // ── PRODUCTION WING (EAST, +X): a wing NIPPLE off the flow cross carries the
+    // valve + handwheel OUT clear of the tree body, then CHOKE → flowline take-off
+    // flange. (Valve/wheel pushed out so the red handwheel sits on the wing, not
+    // overlapping the body.) ──
+    var pwNip = new THREEref.Mesh(new THREEref.CylinderGeometry(0.12, 0.12, 0.56, 12), metal(COL.steelDark));
+    pwNip.rotation.z = Math.PI / 2; pwNip.position.set(0.52, crossY, 0); g.add(pwNip);
+    var pwBody = new THREEref.Mesh(new THREEref.CylinderGeometry(0.15, 0.15, 0.42, 12), metal(0x6B7785));
+    pwBody.rotation.z = Math.PI / 2; pwBody.position.set(0.9, crossY, 0); g.add(pwBody);
+    wingWheel(0.9, 0.2);                                              // production-wing handwheel — clear of the body
+    var choke = new THREEref.Mesh(new THREEref.CylinderGeometry(0.18, 0.13, 0.46, 12), metal(0x6B7785));
+    choke.rotation.z = Math.PI / 2; choke.position.set(1.34, crossY, 0); g.add(choke);
     var chokeInd = new THREEref.Mesh(new THREEref.CylinderGeometry(0.04, 0.04, 0.44, 8), metal(0xFBBF24));
-    chokeInd.position.set(1.04, crossY + 0.38, 0); g.add(chokeInd);   // adjustable-choke position indicator
+    chokeInd.position.set(1.34, crossY + 0.38, 0); g.add(chokeInd);   // adjustable-choke position indicator
     var flFl = new THREEref.Mesh(new THREEref.CylinderGeometry(0.19, 0.19, 0.1, 14), metal(FLANGE));
-    flFl.rotation.z = Math.PI / 2; flFl.position.set(1.55, crossY, 0); g.add(flFl);    // flowline take-off flange
-    gauge(1.3, crossY + 0.05, 0.18);                                  // FLOWLINE PRESSURE gauge (FLP) on the take-off
+    flFl.rotation.z = Math.PI / 2; flFl.position.set(1.78, crossY, 0); g.add(flFl);    // flowline take-off flange
+    gauge(1.58, crossY + 0.05, 0.18);                                // FLOWLINE PRESSURE gauge (FLP) on the take-off
 
-    // ── KILL WING (WEST, −X): wing gate + blind cap (well-kill / injection access) ──
-    var kwBody = new THREEref.Mesh(new THREEref.CylinderGeometry(0.12, 0.12, 0.44, 10), metal(COL.steelDark));
-    kwBody.rotation.z = Math.PI / 2; kwBody.position.set(-0.46, crossY, 0); g.add(kwBody);
-    wingWheel(-0.46, 0.16);                                           // seated kill-wing handwheel
+    // ── KILL WING (WEST, −X): nipple → wing gate (out clear of the body) → blind cap ──
+    var kwNip = new THREEref.Mesh(new THREEref.CylinderGeometry(0.1, 0.1, 0.56, 10), metal(COL.steelDark));
+    kwNip.rotation.z = Math.PI / 2; kwNip.position.set(-0.52, crossY, 0); g.add(kwNip);
+    var kwBody = new THREEref.Mesh(new THREEref.CylinderGeometry(0.13, 0.13, 0.42, 10), metal(0x6B7785));
+    kwBody.rotation.z = Math.PI / 2; kwBody.position.set(-0.9, crossY, 0); g.add(kwBody);
+    wingWheel(-0.9, 0.16);                                            // kill-wing handwheel — clear of the body
     var kwCap = new THREEref.Mesh(new THREEref.CylinderGeometry(0.13, 0.14, 0.13, 12), metal(COL.steelDark));
-    kwCap.rotation.z = Math.PI / 2; kwCap.position.set(-0.86, crossY, 0); g.add(kwCap);
+    kwCap.rotation.z = Math.PI / 2; kwCap.position.set(-1.24, crossY, 0); g.add(kwCap);
     // TUBING-HEAD pressure gauge (well TBG) on the front (+X) face, casing-head level
-    gauge(0.55, 1.85, 0.18);
+    gauge(0.6, 1.85, 0.18);
 
     // ── SWAB VALVE (vertical access) + tree cap + master pressure gauge ──
     boreGate(4.18, 0.2, 0.21);
@@ -1304,7 +1313,7 @@
     if (t === "separator") return 3.0;                            // outlets sit near the vessel ends (±2.94)
     if (t === "compressor") return 2.4;
     if (t === "heater" || t === "scrubber") return 1.9;
-    if (t === "wellhead") return 1.55;                            // production wing/choke reaches out ±1.55
+    if (t === "wellhead") return 1.78;                            // production wing/choke reaches out ±1.78
     if (t === "oiltank" || t === "watertank") return 2.95;       // clear the 2.8 m tank radius
     if (t === "flare") return 2.2;
     if (t === "efm") return 0.8;
@@ -1316,7 +1325,7 @@
   // tie = equipmentCenter + offset. Values match the stubs modeled in
   // buildWellhead/buildHeater/buildSeparator/buildCompressor/buildFlare/buildTank.
   function _noz(t, p, isSource) {
-    if (t === "wellhead") return isSource ? { x: 1.55, y: 3.78, z: 0 } : { x: -0.74, y: 1.85, z: 0 };       // production take-off flange (choke out) · chem-injection quill in
+    if (t === "wellhead") return isSource ? { x: 1.78, y: 3.78, z: 0 } : { x: -0.82, y: 1.85, z: 0 };       // production take-off flange (choke out) · chem-injection flange in
     if (t === "heater" || t === "scrubber") return isSource ? { x: 0.95, y: 3.1, z: 0 } : { x: -2.1, y: 1.7, z: 0 }; // gas outlet TOP (via mist extractor) · inlet on the END head
     if (t === "separator") {
       if (p === "gas") return isSource ? { x: 2.94, y: 4.0, z: 0 } : { x: -2.8, y: 4.0, z: 0 };            // gas outlet E-top · inlet W-top

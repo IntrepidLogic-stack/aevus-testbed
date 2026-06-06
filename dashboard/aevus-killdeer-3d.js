@@ -123,7 +123,7 @@
   // revalidate in the background and rebuild ONLY if the server graph actually
   // changed. Cache key is versioned so a shipped topology/frame change cleanly
   // invalidates stale client caches.
-  var _TOPO_CACHE_KEY = "aevus_twin_topo_v17_" + TWIN_FACILITY;  // v13: condensate relabel + BPR/flare-valve inline devices + meter run
+  var _TOPO_CACHE_KEY = "aevus_twin_topo_v18_" + TWIN_FACILITY;  // v18: east-cluster re-space (CMB SE/downwind, WM N) — invalidate stale node positions
   function _applyTopology(t) {
     if (Array.isArray(t.origin) && t.origin.length === 2) { ORIGIN = t.origin; }
     if (t.frame && t.frame.center) {
@@ -1979,6 +1979,19 @@
       loop.rotation.x = -Math.PI / 2; loop.position.y = 0.015; facility.add(loop);
       var spur = new THREEref.Mesh(new THREEref.PlaneGeometry(4.0, 12.0), rmat);
       spur.rotation.x = -Math.PI / 2; spur.rotation.z = Math.PI / 4; spur.position.set(-15, 0.015, -15); facility.add(spur);
+      // LACT TRUCK LOAD-OUT PAD — a graded concrete apron at the condensate LACT so a
+      // transport truck has a defined spot to pull onto for custody load-out.
+      var lc = equipLocal("LACT");
+      if (lc) {
+        var padMat = new THREEref.MeshStandardMaterial({ color: 0x6A6E76, metalness: 0.0, roughness: 1.0 });
+        var pad = new THREEref.Mesh(new THREEref.PlaneGeometry(6.0, 4.0), padMat);
+        pad.rotation.x = -Math.PI / 2; pad.position.set(lc.x + 2.6, 0.02, lc.z); facility.add(pad);
+        var stripeMat = new THREEref.MeshStandardMaterial({ color: 0xC9A227, emissive: 0xC9A227, emissiveIntensity: 0.25, roughness: 0.9 });
+        [-0.9, 0.9].forEach(function (oz) {
+          var s = new THREEref.Mesh(new THREEref.PlaneGeometry(5.4, 0.18), stripeMat);
+          s.rotation.x = -Math.PI / 2; s.position.set(lc.x + 2.6, 0.03, lc.z + oz); facility.add(s);
+        });
+      }
     })();
 
     scene.add(facility);

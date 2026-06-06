@@ -251,9 +251,9 @@ _TOPOLOGY = TwinTopology(
             type="combustor",
             name="Enclosed Combustor",
             lnglat=(
-                -95.86728,
-                29.33962,
-            ),  # E end of the vapor-control zone (VRU latitude): clean E vapor lane, clear of the solar array + the Ask-box UI
+                -95.86718,
+                29.33958,
+            ),  # pulled further SE onto a clear downwind sub-grid — walking room from the water skids, away from the solar array + Ask-box UI
             model=TwinModelRef(ref="combustor"),
         ),
         TwinNode(
@@ -293,7 +293,10 @@ _TOPOLOGY = TwinTopology(
             id="WM",
             type="watermeter",
             name="Produced-Water Meter",
-            lnglat=(-95.86732, 29.33973),  # disposal-volume measurement downstream of the SWD pump
+            lnglat=(
+                -95.86726,
+                29.33977,
+            ),  # pulled N + E of the SWD pump for walking room (downstream disposal measurement)
             asset_id="RTU-01",
             model=TwinModelRef(ref="watermeter"),
         ),

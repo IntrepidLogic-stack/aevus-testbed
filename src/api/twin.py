@@ -346,6 +346,9 @@ _TOPOLOGY = TwinTopology(
         # three regulated emission sources on a gas pad (NSPS OOOOb); route them to
         # the VRU so they share the combustor with the tank vapors.
         TwinEdge(id="V3", src="DEHY", to="VRU", product="gas", diameter_in=2, rack_h_m=1.7),
+        # Compressor rod-packing / seal vent -> vapor recovery (the 3rd regulated
+        # emission source after tank vapors + dehy still-vent; NSPS OOOOb).
+        TwinEdge(id="RP", src="CMP", to="VRU", product="gas", diameter_in=1, rack_h_m=1.9, asset_id="RTU-01"),
         # Produced water -> saltwater disposal pump -> disposal METER (volume custody).
         TwinEdge(id="W1", src="PWT", to="SWD", product="water", diameter_in=3, rack_h_m=1.8, asset_id="RTU-01"),
         TwinEdge(id="W2", src="SWD", to="WM", product="water", diameter_in=3, rack_h_m=1.6, asset_id="RTU-01"),
@@ -523,6 +526,7 @@ def _process_snapshot(topo: TwinTopology) -> ProcessSnapshot:
     choke = v(62.0, 3.0)  # choke position %
     flowline = v(192.0, 8.0)  # flowline pressure DOWNSTREAM of the choke (FLP)
     choke_dp = tubing - flowline  # differential across the production choke (the rate device)
+    erosion = v(2.4, 0.4)  # sand/erosion probe at the choke (mils/yr) — high-velocity gas service
     heat_bath = v(168.0, 5.0)  # line-heater bath temp
     heat_gas = v(112.0, 4.0)  # gas temp leaving the heater (hydrate margin across the choke)
     hyd_margin = heat_gas - 58.0  # °F above the hydrate-formation point at FLP (heater's whole job)
@@ -566,6 +570,7 @@ def _process_snapshot(topo: TwinTopology) -> ProcessSnapshot:
                 rd("FLP", flowline, "PSI"),  # flowline pressure downstream of the choke
                 rd("CHOKE", choke, "%"),
                 rd("ΔP", choke_dp, "PSI"),  # differential across the choke (well rate)
+                rd("EROS", erosion, "mpy"),  # sand/erosion probe (high-velocity gas service)
             ],
         ),
         ProcessStage(

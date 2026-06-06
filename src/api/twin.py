@@ -226,6 +226,38 @@ _TOPOLOGY = TwinTopology(
             asset_id="RAD-01",
             model=TwinModelRef(ref="comms"),
         ),
+        # ── Audit-build process additions: dehydration, vapor recovery, water disposal ──
+        TwinNode(
+            id="DEHY",
+            type="dehydrator",
+            name="TEG Dehydrator",
+            lnglat=(-95.86754, 29.33951),
+            asset_id="RTU-01",
+            model=TwinModelRef(ref="dehydrator"),
+        ),
+        TwinNode(
+            id="VRU",
+            type="vru",
+            name="Vapor Recovery Unit",
+            lnglat=(-95.86766, 29.33963),
+            asset_id="RTU-01",
+            model=TwinModelRef(ref="vru"),
+        ),
+        TwinNode(
+            id="CMB",
+            type="combustor",
+            name="Enclosed Combustor",
+            lnglat=(-95.86773, 29.33935),
+            model=TwinModelRef(ref="combustor"),
+        ),
+        TwinNode(
+            id="SWD",
+            type="swd",
+            name="Water Disposal Pump",
+            lnglat=(-95.86738, 29.33968),
+            asset_id="RTU-01",
+            model=TwinModelRef(ref="swd"),
+        ),
         # ── SALES METERING STATION (downstream, Phase 3 multi-station) ──────────
         # The custody-sold gas leaves the wellsite and runs ~60 m east on the sales
         # pipeline to a small metering station: an inlet scrubber + a custody meter.
@@ -258,7 +290,14 @@ _TOPOLOGY = TwinTopology(
         TwinEdge(
             id="P3", src="SEP", to="CMP", product="gas", diameter_in=3, rack_h_m=2.6, asset_id="RTU-01", inline="bpr"
         ),
-        TwinEdge(id="P7", src="CMP", to="EFM", product="gas", diameter_in=3, rack_h_m=2.5, asset_id="RTU-01"),
+        # Boosted gas is dried in the TEG dehydrator before custody measurement.
+        TwinEdge(id="P7", src="CMP", to="DEHY", product="gas", diameter_in=3, rack_h_m=2.5, asset_id="RTU-01"),
+        TwinEdge(id="P9", src="DEHY", to="EFM", product="gas", diameter_in=3, rack_h_m=2.5, asset_id="RTU-01"),
+        # Tank vapors -> vapor recovery unit -> enclosed combustor (NSPS OOOOb).
+        TwinEdge(id="V1", src="OT1", to="VRU", product="gas", diameter_in=2, rack_h_m=1.6),
+        TwinEdge(id="V2", src="VRU", to="CMB", product="gas", diameter_in=2, rack_h_m=1.8),
+        # Produced water -> saltwater disposal pump.
+        TwinEdge(id="W1", src="PWT", to="SWD", product="water", diameter_in=3, rack_h_m=1.8, asset_id="RTU-01"),
         # Liquids drop out to the condensate tanks (hydrocarbon) and produced-water tank.
         TwinEdge(id="P4", src="SEP", to="OT1", product="oil", diameter_in=4, rack_h_m=2.0, asset_id="RTU-01"),
         TwinEdge(id="P5", src="SEP", to="PWT", product="water", diameter_in=3, rack_h_m=2.2, asset_id="RTU-01"),

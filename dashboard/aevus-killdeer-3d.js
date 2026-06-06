@@ -123,7 +123,7 @@
   // revalidate in the background and rebuild ONLY if the server graph actually
   // changed. Cache key is versioned so a shipped topology/frame change cleanly
   // invalidates stale client caches.
-  var _TOPO_CACHE_KEY = "aevus_twin_topo_v15_" + TWIN_FACILITY;  // v13: condensate relabel + BPR/flare-valve inline devices + meter run
+  var _TOPO_CACHE_KEY = "aevus_twin_topo_v16_" + TWIN_FACILITY;  // v13: condensate relabel + BPR/flare-valve inline devices + meter run
   function _applyTopology(t) {
     if (Array.isArray(t.origin) && t.origin.length === 2) { ORIGIN = t.origin; }
     if (t.frame && t.frame.center) {
@@ -1001,7 +1001,57 @@
     return g;
   }
 
+  // TEG glycol DEHYDRATOR — tall contactor (absorber) column with trays + a
+  // reboiler/regenerator skid + glycol pump. Dries sales gas to pipeline dewpoint.
+  function buildDehydrator() {
+    var g = new THREEref.Group();
+    var skid = new THREEref.Mesh(new THREEref.BoxGeometry(3.4, 0.4, 2.0), skidMat()); skid.position.y = 0.2; g.add(skid);
+    var glassMat = new THREEref.MeshStandardMaterial({ color: 0xBFD8E6, metalness: 0.1, roughness: 0.08, transparent: true, opacity: 0.16, side: THREEref.DoubleSide, depthWrite: false });
+    var colG = new THREEref.CylinderGeometry(0.55, 0.55, 5.4, 18, 1, true);
+    var col = new THREEref.Mesh(colG, glassMat); col.position.set(-0.9, 3.1, 0); g.add(col); addEdges(g, colG, col, COL.accent, 0.32);
+    var head = new THREEref.Mesh(new THREEref.SphereGeometry(0.55, 16, 10, 0, Math.PI * 2, 0, Math.PI / 2), metal(COL.steelDark)); head.position.set(-0.9, 5.8, 0); g.add(head);
+    for (var ti = 0; ti < 5; ti++) { var tray = new THREEref.Mesh(new THREEref.CylinderGeometry(0.5, 0.5, 0.05, 16), metal(0x9AA6B2)); tray.position.set(-0.9, 1.5 + ti * 0.7, 0); g.add(tray); }
+    var reb = new THREEref.Mesh(new THREEref.CylinderGeometry(0.5, 0.5, 2.0, 16), metal(COL.steel)); reb.rotation.z = Math.PI / 2; reb.position.set(0.95, 0.95, 0); g.add(reb);
+    var rstack = new THREEref.Mesh(new THREEref.CylinderGeometry(0.12, 0.14, 1.6, 10), metal(COL.steelDark)); rstack.position.set(0.95, 2.0, 0); g.add(rstack);
+    var pump = new THREEref.Mesh(new THREEref.BoxGeometry(0.5, 0.4, 0.4), metal(COL.steel)); pump.position.set(0.95, 0.6, 0.85); g.add(pump);
+    return g;
+  }
+  // VAPOR RECOVERY UNIT — small gas compressor skid pulling tank vapors back.
+  function buildVRU() {
+    var g = new THREEref.Group();
+    var skid = new THREEref.Mesh(new THREEref.BoxGeometry(2.4, 0.4, 1.6), skidMat()); skid.position.y = 0.2; g.add(skid);
+    var motor = new THREEref.Mesh(new THREEref.CylinderGeometry(0.4, 0.4, 1.2, 16), metal(COL.steel)); motor.rotation.z = Math.PI / 2; motor.position.set(-0.6, 0.9, 0); g.add(motor);
+    var comp = new THREEref.Mesh(new THREEref.BoxGeometry(0.9, 0.8, 0.8), metal(COL.steelDark)); comp.position.set(0.6, 0.9, 0); g.add(comp); addEdges(g, new THREEref.BoxGeometry(0.9, 0.8, 0.8), comp, COL.accent, 0.25);
+    var scrub = new THREEref.Mesh(new THREEref.CylinderGeometry(0.28, 0.28, 1.4, 12), metal(COL.steel)); scrub.position.set(1.0, 1.0, 0.6); g.add(scrub);
+    return g;
+  }
+  // ENCLOSED COMBUSTOR — insulated vertical can with an internal burner (clean
+  // burn of tank/relief vapors, ~98% destruction) + wind fence base.
+  function buildCombustor() {
+    var g = new THREEref.Group();
+    var base = new THREEref.Mesh(new THREEref.BoxGeometry(2.0, 0.4, 2.0), skidMat()); base.position.y = 0.2; g.add(base);
+    var canG = new THREEref.CylinderGeometry(0.7, 0.8, 4.2, 18);
+    var can = new THREEref.Mesh(canG, metal(0x8A93A0)); can.position.y = 2.5; g.add(can); addEdges(g, canG, can, COL.accent, 0.25);
+    var lip = new THREEref.Mesh(new THREEref.CylinderGeometry(0.75, 0.7, 0.3, 18), metal(COL.steelDark)); lip.position.y = 4.7; g.add(lip);
+    var fl = new THREEref.Mesh(new THREEref.ConeGeometry(0.45, 1.2, 12), glowMat(0xFF7A33, 0.7)); fl.position.y = 4.4; g.add(fl);
+    return g;
+  }
+  // SALTWATER DISPOSAL pump — triplex injection pump + motor + a small wellhead.
+  function buildSWD() {
+    var g = new THREEref.Group();
+    var skid = new THREEref.Mesh(new THREEref.BoxGeometry(2.6, 0.4, 1.4), skidMat()); skid.position.y = 0.2; g.add(skid);
+    var motor = new THREEref.Mesh(new THREEref.CylinderGeometry(0.35, 0.35, 1.2, 14), metal(COL.steel)); motor.rotation.z = Math.PI / 2; motor.position.set(-0.6, 0.8, 0); g.add(motor);
+    var pump = new THREEref.Mesh(new THREEref.BoxGeometry(1.0, 0.6, 0.7), metal(COL.steelDark)); pump.position.set(0.5, 0.75, 0); g.add(pump);
+    var plungers = new THREEref.Mesh(new THREEref.CylinderGeometry(0.12, 0.12, 1.1, 8), metal(0x9AA6B2)); plungers.rotation.z = Math.PI / 2; plungers.position.set(0.5, 0.95, 0); g.add(plungers);
+    var wh = new THREEref.Mesh(new THREEref.CylinderGeometry(0.18, 0.22, 0.9, 12), metal(COL.steelDark)); wh.position.set(1.3, 0.65, 0.5); g.add(wh);
+    var whw = new THREEref.Mesh(new THREEref.TorusGeometry(0.16, 0.04, 8, 14), metal(0xCC4444)); whw.position.set(1.3, 1.0, 0.5); whw.rotation.x = Math.PI / 2; g.add(whw);
+    return g;
+  }
   function buildEquip(type) {
+    if (type === "dehydrator") { return buildDehydrator(); }
+    if (type === "vru")        { return buildVRU(); }
+    if (type === "combustor")  { return buildCombustor(); }
+    if (type === "swd")        { return buildSWD(); }
     if (type === "wellhead")   { return buildWellhead(); }
     if (type === "chemtote")   { return buildChemTote(); }
     if (type === "separator")  { return buildSeparator(); }
@@ -1072,6 +1122,10 @@
     if (t === "oiltank" || t === "watertank") return { x: 0, y: 4.3, z: 2.6 };                            // gravity dump into upper shell, facing the train
     if (t === "efm") return isSource ? { x: 0.8, y: 1.1, z: 0 } : { x: -0.8, y: 1.1, z: 0 };
     if (t === "chemtote") return { x: 1.4, y: 1.5, z: 0 };                                                 // injection-pump discharge toward the wellhead
+    if (t === "dehydrator") return isSource ? { x: 0.2, y: 5.0, z: 0 } : { x: -1.5, y: 0.9, z: 0 };        // dry gas off the top · wet gas into the contactor bottom
+    if (t === "vru") return isSource ? { x: 0.6, y: 1.4, z: 0 } : { x: 1.1, y: 1.0, z: 0.6 };              // discharge · suction (tank vapors)
+    if (t === "combustor") return { x: -0.9, y: 0.7, z: 0 };                                               // vapor inlet at the base
+    if (t === "swd") return { x: -1.0, y: 0.8, z: 0 };                                                     // pump suction (produced water)
     return { x: 0, y: 1.4, z: 0 };
   }
   function buildPipe(spec) {
@@ -2182,7 +2236,7 @@
         // skid) rise UP the screen, so anchor the label+ring UNDERNEATH the base
         // (centered, hanging below) instead of to the side — otherwise the callout
         // collides with the unit.
-        var tall = (e.type === "flare" || e.type === "tower" || e.type === "compressor" || e.type === "shelter" || e.type === "power");
+        var tall = (e.type === "flare" || e.type === "tower" || e.type === "compressor" || e.type === "shelter" || e.type === "power" || e.type === "dehydrator" || e.type === "combustor");
         // Storage tanks are tall verticals — float the label+ring ABOVE the tank
         // top (anchor the callout's bottom edge ~132px above the base point).
         var tank = (e.type === "oiltank" || e.type === "watertank");

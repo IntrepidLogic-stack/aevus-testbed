@@ -29,3 +29,7 @@ deploy/greengrass/artifacts/
 *.tfplan
 tf.plan
 .terraform.lock.hcl
+
+# Reference datasets (real downloads — not committed; license + size)
+reference_data/raw/
+reference_data/prepped/

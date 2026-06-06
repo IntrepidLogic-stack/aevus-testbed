@@ -1443,6 +1443,12 @@
       if (_ft || _tt) {
         runH = (spec.product === "gas") ? 5.0 : 0.95;   // gas = elevated vapor header · liquid = low manifold
       }
+      // RELIEF HEADER → FLARE: run ELEVATED at the KO-drum inlet-flange elevation
+      // (2.3 m) so the line approaches the flange HORIZONTALLY, head-on along its
+      // −Z axis — meeting the exact tie point instead of stabbing it vertically
+      // from below. This is how a real relief header lands on the flare KO drum:
+      // an elevated header sloped to the drum, not an up-and-over riser.
+      if (spec.to === "FLR") { runH = 2.3; }
       // ENGINEERED SHELL NOZZLE — a real tank line lands on a flanged nozzle that
       // projects from the shell. Add a short stub + flange at each tank tie, oriented
       // outward along the line, so the connection reads like a P&ID nozzle, not a
@@ -1593,7 +1599,11 @@
       var _runLen = curve.getLength();
       var _nSup = Math.max(2, Math.min(9, Math.round(_runLen / 3.5)));
       for (var _si = 1; _si <= _nSup; _si++) { support(0.15 + (_si / (_nSup + 1)) * 0.7); }
-      gateValve(0.5);                    // isolation valve on every line
+      // Isolation valve on every line — EXCEPT a relief line into the flare. You
+      // never put a hand-operated block valve that can isolate relief mid-run; the
+      // flare header carries at most ONE car-sealed-open block (modeled by the
+      // flare_valve device below). So no auto gate valve here → no doubled valves.
+      if (spec.to !== "FLR") { gateValve(0.5); }
       if (runH < 2.0) {                  // low-point DRAIN on the low (liquid) runs — stub + bleed valve
         var _dp = curve.getPointAt(0.62);
         var _dst = new THREEref.Mesh(new THREEref.CylinderGeometry(0.04, 0.04, 0.3, 6), metal(COL.steelDark));

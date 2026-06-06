@@ -24,7 +24,7 @@ class TestTwinTopology:
         body = resp.json()
         assert body["facility_id"] == "killdeer-bluejay-1"
         assert len(body["nodes"]) == 21  # +dehy/vru/combustor/swd (audit build)
-        assert len(body["edges"]) == 14  # +dehy reroute, vapor recovery, water disposal
+        assert len(body["edges"]) == 15  # +V3 dehy still-vent -> vapor recovery (site-walk build)
         # the new support/process assets are present
         ids = {n["id"] for n in body["nodes"]}
         assert {"HTR", "RTU", "PWR", "SOL", "COM"} <= ids
@@ -44,7 +44,7 @@ class TestTwinFlow:
         assert resp.status_code == 200
         body = resp.json()
         assert body["facility_id"] == "killdeer-bluejay-1"
-        assert len(body["segments"]) == 14  # +4 audit-build segments
+        assert len(body["segments"]) == 15  # +V3 dehy still-vent -> vapor recovery
         for s in body["segments"]:
             assert 0.0 <= s["flow"] <= 1.0  # normalized — never raw
             assert s["dir"] in (-1, 0, 1)
@@ -109,6 +109,21 @@ class TestTwinProcess:
         # casing pressure exceeds tubing; compressor discharge exceeds suction (boost)
         assert rd["wellhead"]["CSG"] > rd["wellhead"]["TBG"]
         assert rd["compressor"]["DISCH"] > rd["compressor"]["SUCT"]
+        # flowline pressure sits BELOW tubing (pressure drops across the choke)
+        assert rd["wellhead"]["FLP"] < rd["wellhead"]["TBG"]
+        # 2-stage machine: interstage between suction and discharge (no impossible single-stage ratio)
+        assert rd["compressor"]["SUCT"] < rd["compressor"]["INT"] < rd["compressor"]["DISCH"]
+        # gas mass-balance closes: raw in = sales + fuel + flare
+        bal = body["sales"]["balance"]
+        assert bal["closes"] is True
+        assert abs(bal["gas_in_mcfd"] - (bal["sales_mcfd"] + bal["fuel_mcfd"] + bal["flare_mcfd"])) <= 1.0
+
+    def test_process_readings_carry_register_tags(self, client):
+        """The twin↔real bridge: key points advertise their SCADAPack 470 Modbus
+        register so a reviewer sees the real address behind the simulated value."""
+        body = client.get("/api/v1/twin/facility/killdeer/process").json()
+        regs = {r.get("reg") for s in body["stages"] for r in s["readings"] if r.get("reg")}
+        assert {"40001", "40003", "40005", "40017"} <= regs  # suction/discharge/flow/vibration
         # GAS-well units: sales leads with gas at a realistic magnitude (hundreds–thousands MCFD)
         assert 200.0 <= body["sales"]["gas_mcfd"] <= 5000.0
         # condensate is a modest gas-well yield (tens of bbl/day); water > 0

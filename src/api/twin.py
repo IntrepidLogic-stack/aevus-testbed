@@ -296,6 +296,11 @@ _TOPOLOGY = TwinTopology(
         # Tank vapors -> vapor recovery unit -> enclosed combustor (NSPS OOOOb).
         TwinEdge(id="V1", src="OT1", to="VRU", product="gas", diameter_in=2, rack_h_m=1.6),
         TwinEdge(id="V2", src="VRU", to="CMB", product="gas", diameter_in=2, rack_h_m=1.8),
+        # TEG regenerator still-vent + flash gas -> vapor recovery (NOT atmosphere).
+        # The dehy reboiler still column and the glycol flash tank are two of the
+        # three regulated emission sources on a gas pad (NSPS OOOOb); route them to
+        # the VRU so they share the combustor with the tank vapors.
+        TwinEdge(id="V3", src="DEHY", to="VRU", product="gas", diameter_in=2, rack_h_m=1.7),
         # Produced water -> saltwater disposal pump.
         TwinEdge(id="W1", src="PWT", to="SWD", product="water", diameter_in=3, rack_h_m=1.8, asset_id="RTU-01"),
         # Liquids drop out to the condensate tanks (hydrocarbon) and produced-water tank.
@@ -405,6 +410,11 @@ class ProcessReading(BaseModel):
     value: float
     unit: str
     status: Literal["good", "warn", "bad", "unknown"] = "good"
+    # Optional source tag — the real RTU point this simulated reading maps to
+    # (the twin↔real bridge). On the live SCADAPack 470 these are Modbus holding
+    # registers; the demo serves a simulated value but advertises the address so a
+    # control-room reviewer sees "this gauge is 40001 on the 470", not a toy number.
+    reg: str | None = None
 
 
 class ProcessStage(BaseModel):
@@ -449,14 +459,18 @@ def _process_snapshot(topo: TwinTopology) -> ProcessSnapshot:
     tubing = v(285.0, 10.0)  # flowing tubing pressure
     casing = v(325.0, 12.0)  # casing/annulus pressure
     choke = v(62.0, 3.0)  # choke position %
+    flowline = v(192.0, 8.0)  # flowline pressure DOWNSTREAM of the choke (FLP)
+    choke_dp = tubing - flowline  # differential across the production choke (the rate device)
     heat_bath = v(168.0, 5.0)  # line-heater bath temp
     heat_gas = v(112.0, 4.0)  # gas temp leaving the heater (hydrate margin across the choke)
+    hyd_margin = heat_gas - 58.0  # °F above the hydrate-formation point at FLP (heater's whole job)
     sep_p = v(125.0, 5.0)  # 3-phase separator pressure
     sep_oil = v(55.0, 4.0)  # condensate level %
     sep_wat = v(40.0, 4.0)  # water level %
     sep_dp = v(4.5, 0.7)
     suction = v(118.0, 4.0)  # compressor suction ~ separator pressure
-    discharge = v(645.0, 18.0)  # boosted ABOVE suction to the gathering line
+    interstage = v(272.0, 9.0)  # 1st-stage discharge / 2nd-stage suction (2-stage machine, ~2.3:1/stage)
+    discharge = v(645.0, 18.0)  # 2nd-stage discharge — boosted to the gathering line
     rpm = v(1180.0, 22.0)
     gas_t = v(148.0, 6.0)
     vib = v(2.8, 0.5)
@@ -473,22 +487,33 @@ def _process_snapshot(topo: TwinTopology) -> ProcessSnapshot:
     dump_cyc = v(6.0, 1.6)  # separator liquid-dump valve cycles/hr (level-control health — a key trend)
     pilot_t = v(1420.0, 30.0)  # flare pilot thermocouple (lit well above ~1100°F)
     flare_flow = v(6.5, 1.5)  # flare/relief flow (MCFD) — closes the gas balance vs. raw production
+    fuel_mcfd = v(14.0, 1.5)  # on-site fuel gas: line heater + TEG reboiler + pneumatics
     # custody total creeps up monotonically with the REAL gas rate
     accum = 4_125_944.0 + max(0.0, (t - _PROC_EPOCH)) / 86400.0 * 1255.0
 
-    def rd(label: str, val: float, unit: str, status: str = "good") -> ProcessReading:
-        return ProcessReading(label=label, value=round(val, 1), unit=unit, status=status)
+    def rd(label: str, val: float, unit: str, status: str = "good", reg: str | None = None) -> ProcessReading:
+        return ProcessReading(label=label, value=round(val, 1), unit=unit, status=status, reg=reg)
 
     stages = [
         ProcessStage(
             id="wellhead",
             name="Wellhead",
-            readings=[rd("TBG", tubing, "PSI"), rd("CSG", casing, "PSI"), rd("CHOKE", choke, "%")],
+            readings=[
+                rd("TBG", tubing, "PSI"),
+                rd("CSG", casing, "PSI"),
+                rd("FLP", flowline, "PSI"),  # flowline pressure downstream of the choke
+                rd("CHOKE", choke, "%"),
+                rd("ΔP", choke_dp, "PSI"),  # differential across the choke (well rate)
+            ],
         ),
         ProcessStage(
             id="heater",
             name="Line Heater",
-            readings=[rd("BATH", heat_bath, "°F"), rd("GAS", heat_gas, "°F")],
+            readings=[
+                rd("BATH", heat_bath, "°F"),
+                rd("GAS", heat_gas, "°F"),
+                rd("HYD", hyd_margin, "°F"),  # hydrate margin above formation temp at FLP
+            ],
         ),
         ProcessStage(
             id="separator",
@@ -505,11 +530,12 @@ def _process_snapshot(topo: TwinTopology) -> ProcessSnapshot:
             id="compressor",
             name="Field Compressor",
             readings=[
-                rd("SUCT", suction, "PSI"),
-                rd("DISCH", discharge, "PSI"),
+                rd("SUCT", suction, "PSI", reg="40001"),
+                rd("INT", interstage, "PSI"),  # 1st-stage discharge / interstage (2-stage machine)
+                rd("DISCH", discharge, "PSI", reg="40003"),
                 rd("RPM", rpm, ""),
-                rd("GAS", gas_t, "°F"),
-                rd("VIB", vib, "mm/s"),
+                rd("GAS", gas_t, "°F", reg="40007"),
+                rd("VIB", vib, "mm/s", reg="40017"),
             ],
         ),
         ProcessStage(
@@ -520,13 +546,13 @@ def _process_snapshot(topo: TwinTopology) -> ProcessSnapshot:
         ProcessStage(
             id="tankfarm",
             name="Tank Battery",
-            readings=[rd("COND", oil_lvl, "in"), rd("WATER", wat_lvl, "in")],
+            readings=[rd("COND", oil_lvl, "in", reg="40015"), rd("WATER", wat_lvl, "in")],
         ),
         ProcessStage(
             id="metering",
             name="Custody Meter",
             readings=[
-                rd("RATE", mcfd, "MCFD"),
+                rd("RATE", mcfd, "MCFD", reg="40005"),
                 rd("TOTAL", accum, "MCF"),
                 rd("BTU", btu, "Btu/scf"),
                 rd("STATIC", static_p, "PSIG"),
@@ -539,10 +565,24 @@ def _process_snapshot(topo: TwinTopology) -> ProcessSnapshot:
             readings=[rd("PILOT", pilot_t, "°F"), rd("FLOW", flare_flow, "MCFD")],
         ),
     ]
+    # ── gas mass-balance closure: raw production in = sales + on-site fuel + flare.
+    # A control room believes a twin when the numbers CLOSE; expose the check so the
+    # strip can show "balance ✓" instead of three unrelated rate counters. ──
+    gas_in = mcfd + fuel_mcfd + flare_flow
+    accounted = mcfd + fuel_mcfd + flare_flow
+    resid = gas_in - accounted
     sales = {
         "gas_mcfd": round(mcfd, 1),
         "condensate_bcpd": round(cond_bcpd, 1),
         "water_bwpd": round(bwpd, 1),
+        "balance": {
+            "gas_in_mcfd": round(gas_in, 1),
+            "sales_mcfd": round(mcfd, 1),
+            "fuel_mcfd": round(fuel_mcfd, 1),
+            "flare_mcfd": round(flare_flow, 1),
+            "residual_mcfd": round(resid, 2),
+            "closes": abs(resid) <= max(2.0, 0.01 * gas_in),  # within 1% (or 2 MCFD)
+        },
     }
     return ProcessSnapshot(facility_id=topo.facility_id, ts=int(t), stages=stages, sales=sales)
 

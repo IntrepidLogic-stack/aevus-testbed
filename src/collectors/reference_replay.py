@@ -34,9 +34,12 @@ from __future__ import annotations
 import csv
 from collections import OrderedDict
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 from src.collectors.base import BaseCollector
-from src.models.telemetry import RawTelemetry
+
+if TYPE_CHECKING:
+    from src.models.telemetry import RawTelemetry
 
 REFERENCE_SOURCE = "reference"
 

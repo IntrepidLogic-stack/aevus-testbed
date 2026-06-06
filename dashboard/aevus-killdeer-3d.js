@@ -648,6 +648,22 @@
     }
     var stack = new THREEref.Mesh(new THREEref.CylinderGeometry(0.22, 0.26, 3.2, 12), metal(COL.steelDark));
     stack.position.set(-1.6, 2.9, -0.6); g.add(stack);
+    // DISCHARGE AFTERCOOLER — a fin-fan air cooler on the discharge (cools the gas
+    // before the dehy/sales). Tube bundle box + two forced-draft fan rings on top.
+    var acBox = new THREEref.Mesh(new THREEref.BoxGeometry(2.4, 0.5, 1.6), metal(COL.steelDark));
+    acBox.position.set(1.4, 2.5, -1.3); g.add(acBox);
+    for (var aci = 0; aci < 7; aci++) {
+      var acf = new THREEref.Mesh(new THREEref.BoxGeometry(0.04, 0.46, 1.6), metal(COL.steel));
+      acf.position.set(0.35 + aci * 0.3, 2.5, -1.3); g.add(acf);   // tube fins
+    }
+    [0.8, 2.0].forEach(function (fx) {
+      var ring = new THREEref.Mesh(new THREEref.TorusGeometry(0.42, 0.05, 8, 20), metal(COL.steel));
+      ring.rotation.x = Math.PI / 2; ring.position.set(fx, 2.78, -1.3); g.add(ring);
+      var hub = new THREEref.Mesh(new THREEref.CylinderGeometry(0.1, 0.1, 0.12, 10), metal(COL.steelDark));
+      hub.position.set(fx, 2.8, -1.3); g.add(hub);
+    });
+    var acLeg = new THREEref.Mesh(new THREEref.BoxGeometry(2.2, 1.8, 0.12), metal(COL.steelDark));
+    acLeg.position.set(1.4, 1.35, -1.85); g.add(acLeg);            // support frame
 
     _compressor = { piston: piston, x0: cylX - 0.45, x1: cylX + 0.45, rod: rod, rodX: cylX - 0.8 };
     return g;
@@ -1482,8 +1498,9 @@
     var mesh = new THREEref.Mesh(tubeG, pmat(color));
     facility.add(mesh);
 
-    // insulation cladding (aluminum jacket) on the hot heater-outlet line
-    if (detailed && spec.from === "HTR") {
+    // insulation cladding (aluminum jacket) on the HOT lines — heater outlet + the
+    // TEG dehy lines (reboiler-hot service) + the fuel lines firing them.
+    if (detailed && (spec.from === "HTR" || spec.from === "DEHY" || spec.to === "DEHY" || spec.to === "HTR")) {
       var clad = new THREEref.Mesh(new THREEref.TubeGeometry(curve, 72, radius + 0.09, 14, false),
         new THREEref.MeshStandardMaterial({ color: 0xC9D2DC, metalness: 0.45, roughness: 0.55,
           transparent: true, opacity: 0.8, side: THREEref.DoubleSide }));
@@ -1576,6 +1593,13 @@
       var _nSup = Math.max(2, Math.min(9, Math.round(_runLen / 3.5)));
       for (var _si = 1; _si <= _nSup; _si++) { support(0.15 + (_si / (_nSup + 1)) * 0.7); }
       gateValve(0.5);                    // isolation valve on every line
+      if (runH < 2.0) {                  // low-point DRAIN on the low (liquid) runs — stub + bleed valve
+        var _dp = curve.getPointAt(0.62);
+        var _dst = new THREEref.Mesh(new THREEref.CylinderGeometry(0.04, 0.04, 0.3, 6), metal(COL.steelDark));
+        _dst.position.set(_dp.x, _dp.y - radius - 0.15, _dp.z); facility.add(_dst);
+        var _dv = new THREEref.Mesh(new THREEref.CylinderGeometry(0.06, 0.06, 0.1, 8), metal(0x6B7785));
+        _dv.position.set(_dp.x, _dp.y - radius - 0.32, _dp.z); facility.add(_dv);
+      }
       // BPR sits near the separator gas outlet (run start); flare valve near the
       // relief take-off — both just downstream of the source nozzle.
       if (spec.inline === "bpr") { inlineDevice(0.3, "bpr"); }

@@ -2649,6 +2649,9 @@
     "compressor-trip": {
       label: "Compressor Trip",
       alarmId: "ALM-CMP-TRIP",
+      severity: "CRITICAL",
+      btnColor: "#EF4444",
+      alarmHead: "Field Sales Compressor (CMP) tripped — discharge flow lost",
       // gas train downstream of the trip loses flow; CMP fuel + recovery taps too
       blockedSegs: ["P3", "P7", "P9", "F1", "RP", "BB1", "BB2"],
       riskSegs: ["R1", "R2"],   // relief header — ARMED as a risk path, not flowing
@@ -2664,6 +2667,31 @@
       rec: "Aevus detected a compressor trip with falling discharge flow and rising upstream separator pressure. " +
            "Verify compressor permissives, suction/discharge pressures, vibration trend, and ESD status. " +
            "Monitor separator pressure and confirm relief/flare path readiness. Do not restart until trip cause is confirmed."
+    },
+    "telemetry-loss": {
+      label: "Telemetry Loss",
+      alarmId: "ALM-COM-LOSS",
+      severity: "WARNING",
+      btnColor: "#FBBF24",
+      alarmHead: "Backhaul degraded — radio RSSI fallen, RTU heartbeat missed",
+      // A DATA-QUALITY event, NOT a process upset: process keeps flowing (no segs
+      // blocked); the comm path degrades and dependent points go STALE (handoff §7).
+      blockedSegs: [],
+      riskSegs: [],
+      nodes: {
+        "TWR":  { status: "warn", word: "LINK DEGRADED" },
+        "COM":  { status: "bad",  word: "OFFLINE" },
+        "RTU":  { status: "warn", word: "HEARTBEAT MISSED" },
+        // instrument points bound to RTU-01 — last-known-good held, marked STALE
+        "SEP":  { status: "warn", word: "STALE" },
+        "CMP":  { status: "warn", word: "STALE" },
+        "DEHY": { status: "warn", word: "STALE" },
+        "EFM":  { status: "warn", word: "STALE" }
+      },
+      impact: "TWR RSSI ↓ · packet success ↓ · COM offline · RTU heartbeat missed · dependent points STALE (last-known held)",
+      rec: "Aevus detected a telemetry backhaul loss — NOT a process upset. Process values are last-known-good and held stale. " +
+           "Check radio link quality (RSSI/SNR) and antenna alignment at the tower, RTU and gateway/modem power and status, " +
+           "and fail over to the backup channel. Equipment readings cannot be trusted as live until the link is restored."
     }
   };
   function _segById(id) { for (var i = 0; i < segments.length; i++) { if (segments[i].id === id) { return segments[i]; } } return null; }
@@ -2693,6 +2721,7 @@
   function simulateScenario(name) {
     var sc = SCENARIOS[name];
     if (!sc) { return false; }
+    _sim = {};               // drop any prior scenario's segment overrides before applying this one
     _scenario = sc;
     var i;
     for (i = 0; i < sc.blockedSegs.length; i++) { _sim[sc.blockedSegs[i]] = true; _applySeg(sc.blockedSegs[i], 0, "bad"); }
@@ -2709,6 +2738,7 @@
     _scenarioTintNodes(sc);
     _applyScenarioCallouts();
     _scenarioPanel(sc);
+    pollFlow();   // restore live flow on every segment NOT held by this scenario's _sim
     console.log("[killdeer3d] SIMULATED scenario injected: " + sc.label + " (" + sc.alarmId + ")");
     return true;
   }
@@ -2726,14 +2756,17 @@
       if (!c) { return; }
       var p = c.querySelector("#kd-scenario");
       if (!sc) { if (p) { p.remove(); } return; }
+      var sev = (sc.severity === "WARNING") ? "#FBBF24" : "#EF4444";   // data/telemetry warning = amber; process critical = red
+      var sevTxt = (sc.severity === "WARNING") ? "#1A1205" : "#fff";
       if (!p) {
         p = document.createElement("div"); p.id = "kd-scenario";
         p.style.cssText = "position:absolute;top:64px;left:50%;transform:translateX(-50%);z-index:7;" +
           "width:560px;max-width:86%;font-family:Manrope,-apple-system,sans-serif;" +
-          "background:rgba(11,17,32,0.94);border:1px solid #EF4444;border-radius:11px;" +
+          "background:rgba(11,17,32,0.94);border-radius:11px;" +
           "padding:12px 14px;backdrop-filter:blur(6px);box-shadow:0 8px 30px rgba(0,0,0,0.5);";
         c.appendChild(p);
       }
+      p.style.border = "1px solid " + sev;
       p.innerHTML =
         '<div style="display:flex;align-items:center;gap:8px;margin-bottom:7px;">' +
           '<span style="width:9px;height:9px;border-radius:50%;background:#3B82F6;box-shadow:0 0 8px #3B82F6;"></span>' +
@@ -2741,9 +2774,9 @@
           '<span style="color:#64748B;font-size:10px;margin-left:auto;">not live field data</span>' +
         '</div>' +
         '<div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;flex-wrap:wrap;">' +
-          '<span style="background:#EF4444;color:#fff;font-size:10px;font-weight:800;padding:2px 7px;border-radius:5px;letter-spacing:0.03em;">CRITICAL</span>' +
+          '<span style="background:' + sev + ';color:' + sevTxt + ';font-size:10px;font-weight:800;padding:2px 7px;border-radius:5px;letter-spacing:0.03em;">' + sc.severity + '</span>' +
           '<span style="color:#FCA5A5;font-size:12px;font-weight:700;">' + sc.alarmId + '</span>' +
-          '<span style="color:#E2E8F0;font-size:12px;">Field Sales Compressor (CMP) tripped — discharge flow lost</span>' +
+          '<span style="color:#E2E8F0;font-size:12px;">' + sc.alarmHead + '</span>' +
         '</div>' +
         '<div style="color:#FBBF24;font-size:11px;margin-bottom:8px;">Impact: ' + sc.impact + '</div>' +
         '<div style="border-top:1px solid rgba(148,163,184,0.18);padding-top:8px;">' +
@@ -2761,13 +2794,21 @@
       var box = document.createElement("div");
       box.id = "kd-sim-ui";
       box.style.cssText = "position:absolute;bottom:156px;left:50%;transform:translateX(-50%);z-index:6;" +
-        "display:flex;gap:8px;font-family:Manrope,-apple-system,sans-serif;";
-      var btn = "padding:7px 14px;border-radius:8px;font-size:12px;font-weight:600;cursor:pointer;";
-      box.innerHTML =
-        '<button id="kd-sim-trip" style="' + btn + 'background:rgba(239,68,68,0.16);border:1px solid #EF4444;color:#FCA5A5;">Simulate: Compressor Trip</button>' +
-        '<button id="kd-sim-reset" style="' + btn + 'background:rgba(6,182,212,0.16);border:1px solid #06B6D4;color:#67E8F9;">Reset to Live</button>';
+        "display:flex;gap:8px;flex-wrap:wrap;justify-content:center;font-family:Manrope,-apple-system,sans-serif;";
+      var btn = "padding:7px 14px;border-radius:8px;font-size:12px;font-weight:600;cursor:pointer;background:rgba(11,17,32,0.8);";
+      var html = "", key;
+      for (key in SCENARIOS) {        // one button per demo scenario (handoff §10)
+        if (!SCENARIOS.hasOwnProperty(key)) { continue; }
+        var sc = SCENARIOS[key];
+        html += '<button class="kd-sim-btn" data-sc="' + key + '" style="' + btn + 'border:1px solid ' + sc.btnColor + ';color:' + sc.btnColor + ';">Simulate: ' + sc.label + '</button>';
+      }
+      html += '<button id="kd-sim-reset" style="' + btn + 'border:1px solid #06B6D4;color:#67E8F9;">Reset to Live</button>';
+      box.innerHTML = html;
       c.appendChild(box);
-      box.querySelector("#kd-sim-trip").addEventListener("click", function () { simulateScenario("compressor-trip"); });
+      var sbtns = box.querySelectorAll(".kd-sim-btn"), si;
+      for (si = 0; si < sbtns.length; si++) {
+        (function (b) { b.addEventListener("click", function () { simulateScenario(b.getAttribute("data-sc")); }); })(sbtns[si]);
+      }
       box.querySelector("#kd-sim-reset").addEventListener("click", function () { clearSim(); });
     } catch (e) {}
   }

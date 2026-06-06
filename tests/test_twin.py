@@ -99,7 +99,7 @@ class TestTwinProcess:
         assert body["facility_id"] == "killdeer-bluejay-1"
         ids = [s["id"] for s in body["stages"]]
         # full gas-train order incl. line heater + TEG dehydrator (audit build)
-        assert ids == ["wellhead", "heater", "separator", "compressor", "dehydrator", "tankfarm", "metering"]
+        assert ids == ["wellhead", "heater", "separator", "compressor", "dehydrator", "tankfarm", "metering", "flare"]
         # sales summary leads with GAS; condensate + produced water as byproducts
         assert set(body["sales"]) >= {"gas_mcfd", "condensate_bcpd", "water_bwpd"}
 

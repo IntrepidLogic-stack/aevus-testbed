@@ -470,6 +470,9 @@ def _process_snapshot(topo: TwinTopology) -> ProcessSnapshot:
     dp = v(48.0, 3.5)  # orifice differential
     cond_bcpd = v(28.0, 3.0)  # condensate to sales — GOR yield ~22 bbl/MMscf
     bwpd = v(24.0, 2.5)  # produced water to disposal
+    dump_cyc = v(6.0, 1.6)  # separator liquid-dump valve cycles/hr (level-control health — a key trend)
+    pilot_t = v(1420.0, 30.0)  # flare pilot thermocouple (lit well above ~1100°F)
+    flare_flow = v(6.5, 1.5)  # flare/relief flow (MCFD) — closes the gas balance vs. raw production
     # custody total creeps up monotonically with the REAL gas rate
     accum = 4_125_944.0 + max(0.0, (t - _PROC_EPOCH)) / 86400.0 * 1255.0
 
@@ -492,6 +495,7 @@ def _process_snapshot(topo: TwinTopology) -> ProcessSnapshot:
             name="3-Phase Sep",
             readings=[
                 rd("PRESS", sep_p, "PSI"),
+                rd("DUMP", dump_cyc, "/hr"),
                 rd("OIL", sep_oil, "%"),
                 rd("WATER", sep_wat, "%"),
                 rd("ΔP", sep_dp, "PSI"),
@@ -528,6 +532,11 @@ def _process_snapshot(topo: TwinTopology) -> ProcessSnapshot:
                 rd("STATIC", static_p, "PSIG"),
                 rd("DP", dp, "inH₂O"),
             ],
+        ),
+        ProcessStage(
+            id="flare",
+            name="Flare / Relief",
+            readings=[rd("PILOT", pilot_t, "°F"), rd("FLOW", flare_flow, "MCFD")],
         ),
     ]
     sales = {

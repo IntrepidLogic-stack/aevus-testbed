@@ -29,11 +29,12 @@
   var PRIMARY = {
     wellhead: ["TBG", "CSG"],
     heater: ["BATH", "GAS"],
-    separator: ["PRESS", "OIL"],
+    separator: ["PRESS", "DUMP"],
     compressor: ["DISCH", "RPM"],
     dehydrator: ["DEWPT", "GLYCOL"],
     tankfarm: ["COND", "WATER"],
-    metering: ["RATE", "TOTAL"]
+    metering: ["RATE", "TOTAL"],
+    flare: ["PILOT", "FLOW"]
   };
 
   // Thin-line SVG glyphs (strokeWidth 1.8, no fill) per stage.
@@ -44,10 +45,11 @@
     separator: '<rect x="3" y="8" width="18" height="8" rx="4"/><path d="M12 4v4M9 16v3M15 16v3"/>',
     compressor: '<rect x="4" y="6" width="11" height="12" rx="2"/><circle cx="9.5" cy="12" r="2.6"/><path d="M15 9h4M15 15h4M19 7v10"/>',
     tankfarm: '<path d="M5 20V9a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2v11M13 20v-8a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2v8M5 11h6M13 13h6"/>',
-    metering: '<circle cx="12" cy="12" r="8"/><path d="M12 12l4-3M12 6v1M18 12h-1M12 18v-1M6 12h1"/>'
+    metering: '<circle cx="12" cy="12" r="8"/><path d="M12 12l4-3M12 6v1M18 12h-1M12 18v-1M6 12h1"/>',
+    flare: '<path d="M12 3c2 3 4 4.5 4 8a4 4 0 0 1-8 0c0-2 1-3.5 2-4.5M10 21h4"/>'
   };
 
-  var STAGE_ORDER = ["wellhead", "heater", "separator", "compressor", "dehydrator", "tankfarm", "metering"];
+  var STAGE_ORDER = ["wellhead", "heater", "separator", "compressor", "dehydrator", "tankfarm", "metering", "flare"];
 
   var _strip = null;       // root DOM node
   var _mounted = false;

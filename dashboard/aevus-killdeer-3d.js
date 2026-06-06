@@ -420,6 +420,14 @@
     var flFl = new THREEref.Mesh(new THREEref.CylinderGeometry(0.19, 0.19, 0.1, 14), metal(FLANGE));
     flFl.rotation.z = Math.PI / 2; flFl.position.set(2.45, crossY, 0); g.add(flFl);    // flowline take-off flange (P1 lands here)
     gauge(1.7, crossY + 0.05, 0.18);                                 // FLOWLINE PRESSURE gauge (FLP) on the take-off
+    // WELL-TEST / SAMPLE takeoff — a small valved branch off the production flowline
+    // (isolate + sample/test the well). Needle valve + handwheel.
+    var tstStub = new THREEref.Mesh(new THREEref.CylinderGeometry(0.05, 0.05, 0.42, 8), metal(COL.steelDark));
+    tstStub.position.set(1.1, crossY - 0.26, 0); g.add(tstStub);
+    var tstV = new THREEref.Mesh(new THREEref.CylinderGeometry(0.08, 0.08, 0.16, 10), metal(0x6B7785));
+    tstV.position.set(1.1, crossY - 0.52, 0); g.add(tstV);
+    var tstW = new THREEref.Mesh(new THREEref.TorusGeometry(0.08, 0.025, 6, 12), metal(WHEEL));
+    tstW.position.set(1.1, crossY - 0.52, 0.12); g.add(tstW);
 
     // ── KILL WING (WEST, −X): nipple → wing gate (out clear of the body) → blind cap ──
     var kwNip = new THREEref.Mesh(new THREEref.CylinderGeometry(0.12, 0.12, 0.56, 12), metal(COL.steelDark));
@@ -1787,6 +1795,16 @@
         var m = new THREEref.Mesh(new THREEref.BoxGeometry(w[2], ch, w[3]), cmat);
         m.position.set(w[0], ch / 2, w[1]); facility.add(m);
       });
+    })();
+    // PERIMETER ACCESS / FIRE-TRUCK ROAD — a graded lease-road loop around the pad
+    // (truck access to the LACT load-out + fire access to the tanks), plus an entry
+    // spur from the SW corner.
+    (function () {
+      var rmat = new THREEref.MeshStandardMaterial({ color: 0x2C2C31, metalness: 0.0, roughness: 1.0 });
+      var loop = new THREEref.Mesh(new THREEref.RingGeometry(18.5, 21.0, 56), rmat);
+      loop.rotation.x = -Math.PI / 2; loop.position.y = 0.015; facility.add(loop);
+      var spur = new THREEref.Mesh(new THREEref.PlaneGeometry(4.0, 12.0), rmat);
+      spur.rotation.x = -Math.PI / 2; spur.rotation.z = Math.PI / 4; spur.position.set(-15, 0.015, -15); facility.add(spur);
     })();
 
     scene.add(facility);

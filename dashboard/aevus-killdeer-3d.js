@@ -313,6 +313,14 @@
     // swab valve below the tree cap (vertical access valve)
     var swab = new THREEref.Mesh(new THREEref.CylinderGeometry(0.15, 0.15, 0.4, 12), metal(COL.steel));
     swab.position.set(0, 2.92, 0); g.add(swab);
+    // SURFACE SAFETY VALVE (SSV) — fail-safe actuated master on the tree, the
+    // wellhead end of the ESD loop (high/low pilots shut it in on an upset).
+    var ssvBody = new THREEref.Mesh(new THREEref.CylinderGeometry(0.26, 0.26, 0.5, 14), metal(0x6B7785));
+    ssvBody.position.set(0, 1.45, 0); g.add(ssvBody);
+    var ssvAct = new THREEref.Mesh(new THREEref.CylinderGeometry(0.3, 0.3, 0.38, 16), metal(0xCC4444));
+    ssvAct.position.set(0, 1.95, 0); g.add(ssvAct);                 // spring/diaphragm actuator (fail-closed)
+    var ssvCap = new THREEref.Mesh(new THREEref.SphereGeometry(0.3, 14, 8, 0, Math.PI * 2, 0, Math.PI / 2), metal(COL.steelDark));
+    ssvCap.position.set(0, 2.13, 0); g.add(ssvCap);
 
     // animated material: packets rise up the bore; some turn out the wing outlet
     var riser = [], wingFlow = [], i;
@@ -452,6 +460,14 @@
     oOut.rotation.z = Math.PI / 2; oOut.position.set(len / 2 + 0.35, poolY, 0.5); g.add(oOut);   // condensate outlet (E head, mid)
     var wOut = new THREEref.Mesh(new THREEref.CylinderGeometry(0.13, 0.13, 0.9, 10), metal(COL.steelDark));
     wOut.position.set(len * 0.42, yC - r - 0.25, -0.5); g.add(wOut);                              // water outlet (bottom)
+    // PRESSURE-SAFETY VALVE (PSV) on the vessel top — relieves to the flare/relief
+    // header on overpressure (the protective layer the audit flagged as missing).
+    var psvBody = new THREEref.Mesh(new THREEref.CylinderGeometry(0.16, 0.2, 0.5, 12), metal(COL.steelDark));
+    psvBody.position.set(-len * 0.18, yC + r + 0.35, 0); g.add(psvBody);
+    var psvBonnet = new THREEref.Mesh(new THREEref.CylinderGeometry(0.12, 0.16, 0.55, 10), metal(0xCC4444));
+    psvBonnet.position.set(-len * 0.18, yC + r + 0.85, 0); g.add(psvBonnet);
+    var psvOut = new THREEref.Mesh(new THREEref.CylinderGeometry(0.1, 0.1, 0.6, 8), metal(COL.steelDark));
+    psvOut.rotation.z = Math.PI / 2; psvOut.position.set(-len * 0.18 + 0.4, yC + r + 0.55, 0); g.add(psvOut);
 
     // ── animated material: gas flows along the top, droplets fall off the diverter ──
     var gasY = yC + 0.55, x0 = -len * 0.34, x1 = len * 0.30, gas = [], drops = [], i;
@@ -1376,6 +1392,15 @@
     var cled = new THREEref.Mesh(new THREEref.SphereGeometry(0.05, 8, 6), glowMat(0xFF3B3B, 0.9));   // recording LED
     cled.position.set(cx + 1.2, 5.78, cz - 0.12); facility.add(cled);
     ioLink(cx, cz);
+    // H2S DETECTOR (sour-service personnel safety) near the wellhead/separator
+    var wh2 = equipLocal("WH"), hx = wh2.x + 1.2, hz = wh2.z + 2.2;
+    var hpole = new THREEref.Mesh(new THREEref.CylinderGeometry(0.06, 0.07, 1.7, 8), metal(COL.steelDark));
+    hpole.position.set(hx, 0.85, hz); facility.add(hpole);
+    var hhead = new THREEref.Mesh(new THREEref.CylinderGeometry(0.18, 0.18, 0.34, 14), metal(0xEF4444));
+    hhead.position.set(hx, 1.85, hz); facility.add(hhead);
+    var hbeac = new THREEref.Mesh(new THREEref.SphereGeometry(0.07, 8, 6), glowMat(0xFF3B3B, 0.9));
+    hbeac.position.set(hx, 2.08, hz); facility.add(hbeac);
+    ioLink(hx, hz);
   }
   function buildFacility() {
     facility = new THREEref.Group();
@@ -1414,6 +1439,18 @@
     }
     buildCommsNet();          // OT-network overlay (Phase 4 of the pipeline-architecture roadmap)
     buildFieldInstruments();  // pad detectors + IP camera from the monitoring reference
+    // SECONDARY-CONTAINMENT BERM around the tank battery (spill control + NSPS/SPCC)
+    (function () {
+      var ot1 = equipLocal("OT1"), pwt = equipLocal("PWT");
+      var bcx = (ot1.x + pwt.x) / 2, bcz = (ot1.z + pwt.z) / 2;
+      var halfW = Math.abs(pwt.x - ot1.x) / 2 + 4.0, halfD = 4.2, bh = 0.9, tB = 0.5;
+      var bmat = new THREEref.MeshStandardMaterial({ color: 0x6B5B4A, metalness: 0.04, roughness: 0.96 });
+      [[bcx, bcz - halfD, 2 * halfW, tB], [bcx, bcz + halfD, 2 * halfW, tB],
+       [bcx - halfW, bcz, tB, 2 * halfD], [bcx + halfW, bcz, tB, 2 * halfD]].forEach(function (w) {
+        var m = new THREEref.Mesh(new THREEref.BoxGeometry(w[2], bh, w[3]), bmat);
+        m.position.set(w[0], bh / 2, w[1]); facility.add(m);
+      });
+    })();
 
     scene.add(facility);
   }

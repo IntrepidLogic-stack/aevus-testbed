@@ -75,11 +75,19 @@ echo "→ Restart $SERVICE — detached, health-verified, retried (commit $COMMI
 cat > /tmp/aevus-restart.sh <<EOF
 #!/usr/bin/env bash
 for attempt in 1 2 3; do
+  # ── Task #179 race fix: ALWAYS serve the ABSOLUTE latest at restart time. This
+  # restart may have been scheduled for $COMMIT, but newer pushes can land while a
+  # slow deploy holds the lock (and later deploys bail on it). Re-pull origin/main
+  # here so the service that comes up is HEAD, not whatever was latest when the
+  # holding deploy started. (Runs as the repo owner to avoid dubious-ownership.)
+  sudo -u ubuntu git -C $APP_DIR fetch origin main --quiet 2>/dev/null || true
+  sudo -u ubuntu git -C $APP_DIR reset --hard origin/main --quiet 2>/dev/null || true
   systemctl restart $SERVICE || true
   for i in \$(seq 1 30); do
     sleep 1
     if curl -fsS --max-time 2 "$HEALTH_URL" >/dev/null 2>&1; then
-      logger -t aevus-deploy "restart healthy on attempt \$attempt (commit $COMMIT)"
+      SERVED=\$(sudo -u ubuntu git -C $APP_DIR rev-parse --short HEAD 2>/dev/null)
+      logger -t aevus-deploy "restart healthy on attempt \$attempt — now serving \$SERVED (scheduled for $COMMIT)"
       exit 0
     fi
   done

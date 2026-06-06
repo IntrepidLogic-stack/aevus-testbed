@@ -247,7 +247,7 @@ _TOPOLOGY = TwinTopology(
             id="CMB",
             type="combustor",
             name="Enclosed Combustor",
-            lnglat=(-95.86773, 29.33935),
+            lnglat=(-95.86756, 29.3398),  # by the VRU/tank battery (its vapor feed), clear of the flare + UI
             model=TwinModelRef(ref="combustor"),
         ),
         TwinNode(

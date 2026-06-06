@@ -1661,6 +1661,23 @@
     var gcone = new THREEref.Mesh(new THREEref.ConeGeometry(0.22, 0.26, 14), metal(COL.steel));
     gcone.position.set(gx, 2.38, gz); facility.add(gcone);
     ioLink(gx, gz);
+    // FLAME / FIRE detector watching the compressor skid (optical head on a stand)
+    var fdx = cmp.x - 1.8, fdz = cmp.z + 2.6;
+    var fpole = new THREEref.Mesh(new THREEref.CylinderGeometry(0.05, 0.06, 1.7, 8), metal(COL.steelDark));
+    fpole.position.set(fdx, 0.85, fdz); facility.add(fpole);
+    var fhead = new THREEref.Mesh(new THREEref.BoxGeometry(0.3, 0.24, 0.3), metal(0x8B1A1A));
+    fhead.position.set(fdx, 1.85, fdz); facility.add(fhead);
+    var flens = new THREEref.Mesh(new THREEref.CylinderGeometry(0.09, 0.09, 0.06, 12), glowMat(0xEF4444, 0.7));
+    flens.rotation.x = Math.PI / 2; flens.position.set(fdx, 1.85, fdz + 0.18); facility.add(flens);
+    ioLink(fdx, fdz);
+    // SAFETY SHOWER + eyewash near the chemical-injection skid (green ANSI station)
+    var che = equipLocal("CHE"), ssx = che.x + 1.2, ssz = che.z + 1.6;
+    var sspole = new THREEref.Mesh(new THREEref.CylinderGeometry(0.055, 0.055, 2.2, 8), metal(0x10B981));
+    sspole.position.set(ssx, 1.1, ssz); facility.add(sspole);
+    var sshead = new THREEref.Mesh(new THREEref.CylinderGeometry(0.3, 0.3, 0.07, 16), metal(0x10B981));
+    sshead.position.set(ssx, 2.28, ssz); facility.add(sshead);
+    var sseye = new THREEref.Mesh(new THREEref.BoxGeometry(0.42, 0.12, 0.26), metal(0x10B981));
+    sseye.position.set(ssx, 0.95, ssz + 0.32); facility.add(sseye);
     // pressure transmitter (S of the separator)
     var sep = equipLocal("SEP"), px = sep.x + 1.0, pz = sep.z + 2.6;
     var pstand = new THREEref.Mesh(new THREEref.CylinderGeometry(0.05, 0.06, 1.3, 6), metal(COL.steelDark));

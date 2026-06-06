@@ -284,93 +284,102 @@
       w.rotation.x = Math.PI / 2; w.position.set(0, y, 0.5); g.add(w);
     }
 
-    // ── concrete cellar pad at grade ──
-    var pad = new THREEref.Mesh(new THREEref.BoxGeometry(2.1, 0.22, 2.1),
+    // ── concrete cellar pad + wide anchor skirt (a tree this tall needs a strong,
+    // grounded footing — the stack reads heavy and planted, not spindly) ──
+    var pad = new THREEref.Mesh(new THREEref.BoxGeometry(2.5, 0.28, 2.5),
       new THREEref.MeshStandardMaterial({ color: 0x8A8F96, metalness: 0.05, roughness: 0.95 }));
-    pad.position.y = 0.11; g.add(pad);
+    pad.position.y = 0.14; g.add(pad);
+    var skirt = new THREEref.Mesh(new THREEref.CylinderGeometry(0.72, 0.78, 0.34, 20), metal(COL.steelDark));
+    skirt.position.y = 0.45; g.add(skirt);                          // base spool / tubing-hanger flange stack
+    flange(0.64, 0.8);
+    var i, ab;                                                      // anchor bolts around the base flange
+    for (i = 0; i < 8; i++) {
+      ab = new THREEref.Mesh(new THREEref.CylinderGeometry(0.04, 0.04, 0.12, 6), metal(0x4A535E));
+      ab.position.set(Math.cos(i / 8 * Math.PI * 2) * 0.72, 0.66, Math.sin(i / 8 * Math.PI * 2) * 0.72); g.add(ab);
+    }
 
-    // ── casing-head spool + annulus (casing) valve & gauge ──
-    var csg = new THREEref.Mesh(new THREEref.CylinderGeometry(0.5, 0.56, 0.72, 18), metal(COL.steelDark));
-    csg.position.y = 0.56; g.add(csg);
-    flange(0.93, 0.58);
-    var annV = new THREEref.Mesh(new THREEref.CylinderGeometry(0.09, 0.09, 0.55, 10), metal(COL.steelDark));
-    annV.rotation.x = Math.PI / 2; annV.position.set(0, 0.7, 0.55); g.add(annV);
-    var annG = new THREEref.Mesh(new THREEref.CylinderGeometry(0.1, 0.1, 0.05, 14), metal(0xBFD8E6));
-    annG.position.set(0, 0.92, 0.83); g.add(annG);                 // annulus pressure gauge
+    // ── casing-head spool + annulus (casing) valve & gauge (beefed up) ──
+    var csg = new THREEref.Mesh(new THREEref.CylinderGeometry(0.58, 0.66, 0.86, 20), metal(COL.steelDark));
+    csg.position.y = 1.05; g.add(csg);
+    flange(1.5, 0.68);
+    var annV = new THREEref.Mesh(new THREEref.CylinderGeometry(0.1, 0.1, 0.6, 10), metal(COL.steelDark));
+    annV.rotation.x = Math.PI / 2; annV.position.set(0, 1.0, 0.62); g.add(annV);
+    var annG = new THREEref.Mesh(new THREEref.CylinderGeometry(0.11, 0.11, 0.05, 14), metal(0xBFD8E6));
+    annG.position.set(0, 1.24, 0.92); g.add(annG);                 // annulus pressure gauge
 
-    // ── tubing-head spool + flange ──
-    var th = new THREEref.Mesh(new THREEref.CylinderGeometry(0.42, 0.48, 0.55, 18), metal(COL.steel));
-    th.position.y = 1.22; g.add(th);
-    flange(1.5, 0.5);
+    // ── tubing-head spool + flange (beefed up) ──
+    var th = new THREEref.Mesh(new THREEref.CylinderGeometry(0.5, 0.56, 0.66, 20), metal(COL.steel));
+    th.position.y = 1.92; g.add(th);
+    flange(2.3, 0.58);
     // chemical-injection quill + check valve into the tubing head (WEST) — the chem line ties here
-    var chemIn = new THREEref.Mesh(new THREEref.CylinderGeometry(0.06, 0.06, 0.5, 8), metal(COL.steelDark));
-    chemIn.rotation.z = Math.PI / 2; chemIn.position.set(-0.42, 1.2, 0); g.add(chemIn);
-    var chemChk = new THREEref.Mesh(new THREEref.SphereGeometry(0.09, 8, 6), metal(PRODUCT.chemical));
-    chemChk.position.set(-0.64, 1.2, 0); g.add(chemChk);
+    var chemIn = new THREEref.Mesh(new THREEref.CylinderGeometry(0.07, 0.07, 0.55, 8), metal(COL.steelDark));
+    chemIn.rotation.z = Math.PI / 2; chemIn.position.set(-0.5, 1.85, 0); g.add(chemIn);
+    var chemChk = new THREEref.Mesh(new THREEref.SphereGeometry(0.1, 8, 6), metal(PRODUCT.chemical));
+    chemChk.position.set(-0.74, 1.85, 0); g.add(chemChk);
 
-    // ── transparent tree body (cutaway shell) + inner production bore ──
-    var bodyG = new THREEref.CylinderGeometry(0.3, 0.3, 2.0, 20, 1, true);
-    var body = new THREEref.Mesh(bodyG, glassMat); body.position.y = 2.45; g.add(body);
-    addEdges(g, bodyG, body, COL.accent, 0.32);
-    var bore = new THREEref.Mesh(new THREEref.CylinderGeometry(0.1, 0.1, 2.7, 12), metal(0x55606E));
-    bore.position.y = 2.25; g.add(bore);
+    // ── transparent tree body (cutaway shell) + inner production bore (thicker, taller) ──
+    var bodyG = new THREEref.CylinderGeometry(0.36, 0.36, 2.5, 22, 1, true);
+    var body = new THREEref.Mesh(bodyG, glassMat); body.position.y = 3.35; g.add(body);
+    addEdges(g, bodyG, body, COL.accent, 0.34);
+    var bore = new THREEref.Mesh(new THREEref.CylinderGeometry(0.13, 0.13, 3.4, 14), metal(0x55606E));
+    bore.position.y = 3.0; g.add(bore);
 
     // ── LOWER MASTER VALVE (manual gate) ──
-    boreGate(1.78, 0.24, 0.25);
+    boreGate(2.62, 0.3, 0.3);
 
     // ── SSV / UPPER MASTER — actuated, fail-CLOSE: the wellhead end of the ESD loop.
     // High/low pilots dump the actuator and the spring shuts the well in on an upset. ──
-    var ssvB = new THREEref.Mesh(new THREEref.CylinderGeometry(0.26, 0.26, 0.42, 14), metal(0x6B7785));
-    ssvB.position.set(0, 2.18, 0); g.add(ssvB);
-    var ssvAct = new THREEref.Mesh(new THREEref.CylinderGeometry(0.27, 0.27, 0.42, 16), metal(WHEEL));
-    ssvAct.rotation.x = Math.PI / 2; ssvAct.position.set(0, 2.18, -0.5); g.add(ssvAct);   // actuator (back)
-    var ssvCap = new THREEref.Mesh(new THREEref.SphereGeometry(0.27, 14, 8), metal(COL.steelDark));
-    ssvCap.position.set(0, 2.18, -0.74); g.add(ssvCap);
+    var ssvB = new THREEref.Mesh(new THREEref.CylinderGeometry(0.3, 0.3, 0.46, 14), metal(0x6B7785));
+    ssvB.position.set(0, 3.12, 0); g.add(ssvB);
+    var ssvAct = new THREEref.Mesh(new THREEref.CylinderGeometry(0.31, 0.31, 0.46, 16), metal(WHEEL));
+    ssvAct.rotation.x = Math.PI / 2; ssvAct.position.set(0, 3.12, -0.56); g.add(ssvAct);   // actuator (back)
+    var ssvCap = new THREEref.Mesh(new THREEref.SphereGeometry(0.31, 14, 8), metal(COL.steelDark));
+    ssvCap.position.set(0, 3.12, -0.82); g.add(ssvCap);
 
     // ── flow cross (where the wings come off the bore) ──
-    var crossY = 2.78;
-    var cross = new THREEref.Mesh(new THREEref.SphereGeometry(0.25, 14, 10), metal(0x7B8694));
+    var crossY = 3.78;
+    var cross = new THREEref.Mesh(new THREEref.SphereGeometry(0.3, 14, 10), metal(0x7B8694));
     cross.position.set(0, crossY, 0); g.add(cross);
 
     // ── PRODUCTION WING (EAST, +X): wing gate → CHOKE → flowline take-off flange.
     // This is where the gas flowline to the line heater ties on. ──
-    var pwBody = new THREEref.Mesh(new THREEref.CylinderGeometry(0.12, 0.12, 0.4, 12), metal(COL.steelDark));
-    pwBody.rotation.z = Math.PI / 2; pwBody.position.set(0.42, crossY, 0); g.add(pwBody);
-    var pwWheel = new THREEref.Mesh(new THREEref.TorusGeometry(0.18, 0.04, 8, 16), metal(WHEEL));
-    pwWheel.rotation.x = Math.PI / 2; pwWheel.position.set(0.42, crossY + 0.26, 0); g.add(pwWheel);
-    var choke = new THREEref.Mesh(new THREEref.CylinderGeometry(0.16, 0.12, 0.46, 12), metal(0x6B7785));
-    choke.rotation.z = Math.PI / 2; choke.position.set(0.92, crossY, 0); g.add(choke);
-    var chokeInd = new THREEref.Mesh(new THREEref.CylinderGeometry(0.035, 0.035, 0.4, 8), metal(0xFBBF24));
-    chokeInd.position.set(0.92, crossY + 0.34, 0); g.add(chokeInd);   // adjustable-choke position indicator
-    var flFl = new THREEref.Mesh(new THREEref.CylinderGeometry(0.17, 0.17, 0.1, 14), metal(FLANGE));
-    flFl.rotation.z = Math.PI / 2; flFl.position.set(1.4, crossY, 0); g.add(flFl);    // flowline take-off flange
+    var pwBody = new THREEref.Mesh(new THREEref.CylinderGeometry(0.14, 0.14, 0.44, 12), metal(COL.steelDark));
+    pwBody.rotation.z = Math.PI / 2; pwBody.position.set(0.46, crossY, 0); g.add(pwBody);
+    var pwWheel = new THREEref.Mesh(new THREEref.TorusGeometry(0.2, 0.045, 8, 16), metal(WHEEL));
+    pwWheel.rotation.x = Math.PI / 2; pwWheel.position.set(0.46, crossY + 0.3, 0); g.add(pwWheel);
+    var choke = new THREEref.Mesh(new THREEref.CylinderGeometry(0.18, 0.13, 0.5, 12), metal(0x6B7785));
+    choke.rotation.z = Math.PI / 2; choke.position.set(1.04, crossY, 0); g.add(choke);
+    var chokeInd = new THREEref.Mesh(new THREEref.CylinderGeometry(0.04, 0.04, 0.44, 8), metal(0xFBBF24));
+    chokeInd.position.set(1.04, crossY + 0.38, 0); g.add(chokeInd);   // adjustable-choke position indicator
+    var flFl = new THREEref.Mesh(new THREEref.CylinderGeometry(0.19, 0.19, 0.1, 14), metal(FLANGE));
+    flFl.rotation.z = Math.PI / 2; flFl.position.set(1.55, crossY, 0); g.add(flFl);    // flowline take-off flange
 
     // ── KILL WING (WEST, −X): wing gate + blind cap (well-kill / injection access) ──
-    var kwBody = new THREEref.Mesh(new THREEref.CylinderGeometry(0.1, 0.1, 0.4, 10), metal(COL.steelDark));
-    kwBody.rotation.z = Math.PI / 2; kwBody.position.set(-0.42, crossY, 0); g.add(kwBody);
-    var kwWheel = new THREEref.Mesh(new THREEref.TorusGeometry(0.15, 0.035, 8, 14), metal(WHEEL));
-    kwWheel.rotation.x = Math.PI / 2; kwWheel.position.set(-0.42, crossY + 0.22, 0); g.add(kwWheel);
-    var kwCap = new THREEref.Mesh(new THREEref.CylinderGeometry(0.12, 0.13, 0.12, 12), metal(COL.steelDark));
-    kwCap.rotation.z = Math.PI / 2; kwCap.position.set(-0.78, crossY, 0); g.add(kwCap);
+    var kwBody = new THREEref.Mesh(new THREEref.CylinderGeometry(0.12, 0.12, 0.44, 10), metal(COL.steelDark));
+    kwBody.rotation.z = Math.PI / 2; kwBody.position.set(-0.46, crossY, 0); g.add(kwBody);
+    var kwWheel = new THREEref.Mesh(new THREEref.TorusGeometry(0.16, 0.04, 8, 14), metal(WHEEL));
+    kwWheel.rotation.x = Math.PI / 2; kwWheel.position.set(-0.46, crossY + 0.26, 0); g.add(kwWheel);
+    var kwCap = new THREEref.Mesh(new THREEref.CylinderGeometry(0.13, 0.14, 0.13, 12), metal(COL.steelDark));
+    kwCap.rotation.z = Math.PI / 2; kwCap.position.set(-0.86, crossY, 0); g.add(kwCap);
 
     // ── SWAB VALVE (vertical access) + tree cap + master pressure gauge ──
-    boreGate(3.08, 0.17, 0.18);
-    var treeCap = new THREEref.Mesh(new THREEref.CylinderGeometry(0.2, 0.22, 0.16, 14), metal(COL.steel));
-    treeCap.position.set(0, 3.4, 0); g.add(treeCap);
-    var topG = new THREEref.Mesh(new THREEref.CylinderGeometry(0.1, 0.1, 0.05, 14), metal(0xBFD8E6));
-    topG.position.set(0, 3.62, 0); g.add(topG);                    // master pressure gauge on top
+    boreGate(4.18, 0.2, 0.21);
+    var treeCap = new THREEref.Mesh(new THREEref.CylinderGeometry(0.23, 0.25, 0.18, 14), metal(COL.steel));
+    treeCap.position.set(0, 4.54, 0); g.add(treeCap);
+    var topG = new THREEref.Mesh(new THREEref.CylinderGeometry(0.12, 0.12, 0.05, 14), metal(0xBFD8E6));
+    topG.position.set(0, 4.78, 0); g.add(topG);                    // master pressure gauge on top
 
     // ── animated material: gas rises up the bore; some turns out the production wing ──
-    var riser = [], wingFlow = [], i;
-    for (i = 0; i < 6; i++) {
-      var rp = new THREEref.Mesh(new THREEref.SphereGeometry(0.09, 8, 6), glowMat(PRODUCT.gas, 0.9));
-      g.add(rp); riser.push({ mesh: rp, offset: i / 6 });
+    var riser = [], wingFlow = [], wp, rp;
+    for (i = 0; i < 7; i++) {
+      rp = new THREEref.Mesh(new THREEref.SphereGeometry(0.1, 8, 6), glowMat(PRODUCT.gas, 0.9));
+      g.add(rp); riser.push({ mesh: rp, offset: i / 7 });
     }
     for (i = 0; i < 3; i++) {
-      var wp = new THREEref.Mesh(new THREEref.SphereGeometry(0.08, 7, 6), glowMat(PRODUCT.gas, 0.9));
+      wp = new THREEref.Mesh(new THREEref.SphereGeometry(0.09, 7, 6), glowMat(PRODUCT.gas, 0.9));
       g.add(wp); wingFlow.push({ mesh: wp, offset: i / 3 });
     }
-    _wellhead = { riser: riser, wingFlow: wingFlow, y0: 0.5, y1: 2.95, wingY: crossY, wingX: 1.0 };
+    _wellhead = { riser: riser, wingFlow: wingFlow, y0: 0.7, y1: 3.95, wingY: crossY, wingX: 1.1 };
     return g;
   }
 
@@ -1140,7 +1149,7 @@
     if (t === "separator") return p === "gas" ? 3.9 : 0.7;        // gas top outlet/inlet vs liquid bottom dump
     if (t === "compressor") return isSource ? 1.5 : 2.4;          // discharge header (out) vs suction scrubber (in)
     if (t === "heater" || t === "scrubber") return 2.75;
-    if (t === "wellhead") return 2.78;                           // production take-off (choke flange) height
+    if (t === "wellhead") return 3.78;                           // production take-off (choke flange) height
     if (t === "flare") return 2.0;                                // relief gas into the KO-drum inlet
     if (t === "oiltank" || t === "watertank") return 1.9;        // gravity dump enters the upper shell
     if (t === "efm") return 1.1;
@@ -1152,7 +1161,7 @@
     if (t === "separator") return 3.0;                            // outlets sit near the vessel ends (±2.94)
     if (t === "compressor") return 2.4;
     if (t === "heater" || t === "scrubber") return 1.9;
-    if (t === "wellhead") return 1.4;                             // production wing/choke reaches out ±1.4
+    if (t === "wellhead") return 1.55;                            // production wing/choke reaches out ±1.55
     if (t === "oiltank" || t === "watertank") return 2.95;       // clear the 2.8 m tank radius
     if (t === "flare") return 2.2;
     if (t === "efm") return 0.8;
@@ -1164,7 +1173,7 @@
   // tie = equipmentCenter + offset. Values match the stubs modeled in
   // buildWellhead/buildHeater/buildSeparator/buildCompressor/buildFlare/buildTank.
   function _noz(t, p, isSource) {
-    if (t === "wellhead") return isSource ? { x: 1.4, y: 2.78, z: 0 } : { x: -0.6, y: 1.2, z: 0 };          // production take-off flange (choke out) · chem-injection quill in
+    if (t === "wellhead") return isSource ? { x: 1.55, y: 3.78, z: 0 } : { x: -0.74, y: 1.85, z: 0 };       // production take-off flange (choke out) · chem-injection quill in
     if (t === "heater" || t === "scrubber") return isSource ? { x: 0.95, y: 3.1, z: 0 } : { x: -2.1, y: 1.7, z: 0 }; // gas outlet TOP (via mist extractor) · inlet on the END head
     if (t === "separator") {
       if (p === "gas") return isSource ? { x: 2.94, y: 4.0, z: 0 } : { x: -2.8, y: 4.0, z: 0 };            // gas outlet E-top · inlet W-top

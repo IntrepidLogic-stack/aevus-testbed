@@ -1162,7 +1162,98 @@
     var whw = new THREEref.Mesh(new THREEref.TorusGeometry(0.16, 0.04, 8, 14), metal(0xCC4444)); whw.position.set(1.3, 1.0, 0.5); whw.rotation.x = Math.PI / 2; g.add(whw);
     return g;
   }
+  // FUEL-GAS CONDITIONING SKID — a small scrubber/KO pot drops liquids out of the
+  // fuel-gas tap, a regulator drops the pressure, and conditioned gas leaves to the
+  // heater / TEG reboiler / pneumatics. Inlet (from compressor discharge) on the
+  // WEST end, conditioned-gas outlet on the EAST end.
+  function buildFuelGas() {
+    var g = new THREEref.Group();
+    var skid = new THREEref.Mesh(new THREEref.BoxGeometry(2.0, 0.36, 1.1), skidMat()); skid.position.y = 0.18; g.add(skid);
+    // vertical fuel-gas scrubber (small KO pot) with a glass cutaway + liquid boot
+    var pot = new THREEref.Mesh(new THREEref.CylinderGeometry(0.32, 0.32, 1.5, 18), metal(COL.steel));
+    pot.position.set(-0.5, 1.1, 0); g.add(pot);
+    var potCap = new THREEref.Mesh(new THREEref.SphereGeometry(0.32, 14, 8, 0, Math.PI * 2, 0, Math.PI / 2), metal(COL.steelDark));
+    potCap.position.set(-0.5, 1.85, 0); g.add(potCap);
+    var boot = new THREEref.Mesh(new THREEref.CylinderGeometry(0.12, 0.12, 0.3, 10), metal(COL.steelDark));
+    boot.position.set(-0.5, 0.5, 0); g.add(boot);          // liquid drain boot
+    // regulator (spring-dome) + run to the outlet
+    var reg = new THREEref.Mesh(new THREEref.SphereGeometry(0.2, 14, 10), metal(0x6B7785));
+    reg.position.set(0.35, 0.95, 0); g.add(reg);
+    var regCap = new THREEref.Mesh(new THREEref.CylinderGeometry(0.13, 0.16, 0.18, 12), metal(0x9AA6B2));
+    regCap.position.set(0.35, 1.2, 0); g.add(regCap);
+    var run = new THREEref.Mesh(new THREEref.CylinderGeometry(0.07, 0.07, 1.7, 10), metal(0x9AA6B2));
+    run.rotation.z = Math.PI / 2; run.position.set(0.0, 0.78, 0); g.add(run);
+    var gaugeF = new THREEref.Mesh(new THREEref.CylinderGeometry(0.1, 0.1, 0.05, 14), metal(0xBFD8E6));
+    gaugeF.rotation.x = Math.PI / 2; gaugeF.position.set(0.35, 1.4, 0.16); g.add(gaugeF);  // fuel-gas pressure gauge
+    return g;
+  }
+  // ESD / SIS PANEL — a safety cabinet SEPARATE from the control RTU (ISA-84): an
+  // orange instrument enclosure with a red mushroom E-STOP and an amber beacon.
+  // It trips the wellhead SSV on an upset. No process piping (logic/IO only).
+  function buildESD() {
+    var g = new THREEref.Group();
+    var legs = [[-0.5, -0.4], [0.5, -0.4], [-0.5, 0.4], [0.5, 0.4]];
+    legs.forEach(function (p) {
+      var l = new THREEref.Mesh(new THREEref.CylinderGeometry(0.05, 0.05, 0.7, 6), metal(COL.steelDark));
+      l.position.set(p[0], 0.35, p[1]); g.add(l);
+    });
+    var cab = new THREEref.Mesh(new THREEref.BoxGeometry(1.2, 1.1, 0.5),
+      new THREEref.MeshStandardMaterial({ color: 0xC2620E, metalness: 0.4, roughness: 0.5 }));  // safety orange
+    cab.position.set(0, 1.25, 0); g.add(cab);
+    addEdges(g, new THREEref.BoxGeometry(1.2, 1.1, 0.5), cab, COL.accent, 0.4);
+    // red mushroom E-STOP on the face
+    var estop = new THREEref.Mesh(new THREEref.CylinderGeometry(0.14, 0.1, 0.1, 14), glowMat(0xEF4444, 0.7));
+    estop.rotation.x = Math.PI / 2; estop.position.set(-0.3, 1.35, 0.27); g.add(estop);
+    // amber status beacon on top
+    var bcol = new THREEref.Mesh(new THREEref.CylinderGeometry(0.04, 0.04, 0.18, 6), metal(COL.steelDark));
+    bcol.position.set(0.4, 1.9, 0); g.add(bcol);
+    var beacon = new THREEref.Mesh(new THREEref.SphereGeometry(0.1, 12, 8), glowMat(0xFBBF24, 0.85));
+    beacon.position.set(0.4, 2.05, 0); g.add(beacon);
+    // 'SIS' nameplate strip
+    var plate = new THREEref.Mesh(new THREEref.BoxGeometry(0.8, 0.16, 0.02), metal(0x111827));
+    plate.position.set(0.15, 1.6, 0.26); g.add(plate);
+    return g;
+  }
+  // CONDENSATE LACT UNIT — Lease Automatic Custody Transfer skid: a charge pump, a
+  // positive-displacement/Coriolis meter, an air eliminator, a sampler can and a
+  // valve manifold. Inlet (from the condensate tank) WEST, custody/load-out EAST.
+  function buildLACT() {
+    var g = new THREEref.Group();
+    var skid = new THREEref.Mesh(new THREEref.BoxGeometry(2.4, 0.36, 1.2), skidMat()); skid.position.y = 0.18; g.add(skid);
+    var pump = new THREEref.Mesh(new THREEref.BoxGeometry(0.7, 0.5, 0.6), metal(COL.steelDark)); pump.position.set(-0.7, 0.65, 0); g.add(pump);
+    var motor = new THREEref.Mesh(new THREEref.CylinderGeometry(0.22, 0.22, 0.7, 12), metal(COL.steel)); motor.rotation.z = Math.PI / 2; motor.position.set(-1.05, 0.65, 0); g.add(motor);
+    // meter body (horizontal) + electronics head
+    var meter = new THREEref.Mesh(new THREEref.CylinderGeometry(0.26, 0.26, 0.7, 14), metal(0x9AA6B2)); meter.rotation.z = Math.PI / 2; meter.position.set(0.2, 0.75, 0); g.add(meter);
+    var head = new THREEref.Mesh(new THREEref.BoxGeometry(0.28, 0.3, 0.28), metal(0x111827)); head.position.set(0.2, 1.15, 0); g.add(head);
+    // air eliminator (vertical pot) + sampler can
+    var ae = new THREEref.Mesh(new THREEref.CylinderGeometry(0.16, 0.16, 0.7, 12), metal(COL.steel)); ae.position.set(-0.2, 1.0, 0.35); g.add(ae);
+    var sampler = new THREEref.Mesh(new THREEref.CylinderGeometry(0.12, 0.12, 0.5, 10), metal(0x6B7785)); sampler.position.set(0.7, 0.85, 0.3); g.add(sampler);
+    // run header + take-off flange (load-out)
+    var run = new THREEref.Mesh(new THREEref.CylinderGeometry(0.1, 0.1, 2.1, 12), metal(0x9AA6B2)); run.rotation.z = Math.PI / 2; run.position.set(0.0, 0.5, 0); g.add(run);
+    return g;
+  }
+  // PRODUCED-WATER METER — a simple metered spool: a horizontal run on supports with
+  // a turbine/mag meter body and an electronics head, measuring disposal volume out
+  // of the SWD pump. Inlet WEST, outlet EAST (to the disposal well).
+  function buildWaterMeter() {
+    var g = new THREEref.Group();
+    [-0.7, 0.7].forEach(function (x) {
+      var sup = new THREEref.Mesh(new THREEref.BoxGeometry(0.12, 0.55, 0.3), metal(COL.steelDark));
+      sup.position.set(x, 0.28, 0); g.add(sup);
+    });
+    var run = new THREEref.Mesh(new THREEref.CylinderGeometry(0.16, 0.16, 1.9, 14), metal(0x3B82F6)); run.rotation.z = Math.PI / 2; run.position.set(0, 0.7, 0); g.add(run);
+    var body = new THREEref.Mesh(new THREEref.CylinderGeometry(0.22, 0.22, 0.5, 16), metal(0x9AA6B2)); body.rotation.z = Math.PI / 2; body.position.set(0, 0.7, 0); g.add(body);
+    var head = new THREEref.Mesh(new THREEref.BoxGeometry(0.24, 0.28, 0.24), metal(0x111827)); head.position.set(0, 1.06, 0); g.add(head);
+    [-0.55, 0.55].forEach(function (x) {
+      var fl = new THREEref.Mesh(new THREEref.CylinderGeometry(0.2, 0.2, 0.08, 14), metal(COL.steelDark)); fl.rotation.z = Math.PI / 2; fl.position.set(x, 0.7, 0); g.add(fl);
+    });
+    return g;
+  }
   function buildEquip(type) {
+    if (type === "fuelgas")    { return buildFuelGas(); }
+    if (type === "esd")        { return buildESD(); }
+    if (type === "lact")       { return buildLACT(); }
+    if (type === "watermeter") { return buildWaterMeter(); }
     if (type === "dehydrator") { return buildDehydrator(); }
     if (type === "vru")        { return buildVRU(); }
     if (type === "combustor")  { return buildCombustor(); }
@@ -1241,6 +1332,9 @@
     if (t === "vru") return isSource ? { x: 0.6, y: 1.4, z: 0 } : { x: 1.1, y: 1.0, z: 0.6 };              // discharge · suction (tank vapors)
     if (t === "combustor") return { x: -0.9, y: 0.7, z: 0 };                                               // vapor inlet at the base
     if (t === "swd") return { x: -1.0, y: 0.8, z: 0 };                                                     // pump suction (produced water)
+    if (t === "fuelgas") return isSource ? { x: 1.0, y: 0.78, z: 0 } : { x: -0.95, y: 0.6, z: 0 };        // conditioned-gas outlet (E) · fuel tap inlet (W)
+    if (t === "lact") return isSource ? { x: 1.05, y: 0.5, z: 0 } : { x: -1.05, y: 0.5, z: 0 };           // custody load-out (E) · tank inlet (W)
+    if (t === "watermeter") return isSource ? { x: 0.55, y: 0.7, z: 0 } : { x: -0.55, y: 0.7, z: 0 };     // metered outlet (E) · SWD inlet (W)
     return { x: 0, y: 1.4, z: 0 };
   }
   function buildPipe(spec) {

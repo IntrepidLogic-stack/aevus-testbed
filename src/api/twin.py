@@ -258,6 +258,39 @@ _TOPOLOGY = TwinTopology(
             asset_id="RTU-01",
             model=TwinModelRef(ref="swd"),
         ),
+        # ── Site-walk Deploy 2: the skids a real pad has but the twin was missing ──
+        TwinNode(
+            id="FGS",
+            type="fuelgas",
+            name="Fuel-Gas Conditioning Skid",
+            lnglat=(-95.86772, 29.3395),  # south of the train; feeds heater + reboiler + pneumatics
+            asset_id="RTU-01",
+            model=TwinModelRef(ref="fuelgas"),
+        ),
+        TwinNode(
+            id="ESD",
+            type="esd",
+            name="ESD / SIS Panel",
+            lnglat=(-95.86802, 29.33967),  # safety logic separate from the control RTU (ISA-84)
+            asset_id="RTU-01",
+            model=TwinModelRef(ref="esd"),
+        ),
+        TwinNode(
+            id="LACT",
+            type="lact",
+            name="Condensate LACT Unit",
+            lnglat=(-95.86768, 29.33974),  # custody/load-out off the condensate tanks
+            asset_id="RTU-01",
+            model=TwinModelRef(ref="lact"),
+        ),
+        TwinNode(
+            id="WM",
+            type="watermeter",
+            name="Produced-Water Meter",
+            lnglat=(-95.86732, 29.33973),  # disposal-volume measurement downstream of the SWD pump
+            asset_id="RTU-01",
+            model=TwinModelRef(ref="watermeter"),
+        ),
         # ── SALES METERING STATION (downstream, Phase 3 multi-station) ──────────
         # The custody-sold gas leaves the wellsite and runs ~60 m east on the sales
         # pipeline to a small metering station: an inlet scrubber + a custody meter.
@@ -303,8 +336,15 @@ _TOPOLOGY = TwinTopology(
         # three regulated emission sources on a gas pad (NSPS OOOOb); route them to
         # the VRU so they share the combustor with the tank vapors.
         TwinEdge(id="V3", src="DEHY", to="VRU", product="gas", diameter_in=2, rack_h_m=1.7),
-        # Produced water -> saltwater disposal pump.
+        # Produced water -> saltwater disposal pump -> disposal METER (volume custody).
         TwinEdge(id="W1", src="PWT", to="SWD", product="water", diameter_in=3, rack_h_m=1.8, asset_id="RTU-01"),
+        TwinEdge(id="W2", src="SWD", to="WM", product="water", diameter_in=3, rack_h_m=1.6, asset_id="RTU-01"),
+        # Fuel gas: tapped off compressor discharge, conditioned, sent to the heater
+        # (and the TEG reboiler + pneumatics). Every gas pad burns its own gas.
+        TwinEdge(id="F1", src="CMP", to="FGS", product="gas", diameter_in=2, rack_h_m=1.8, asset_id="RTU-01"),
+        TwinEdge(id="F2", src="FGS", to="HTR", product="gas", diameter_in=1, rack_h_m=1.6, asset_id="RTU-01"),
+        # Condensate custody: the tanks feed a LACT unit for measured load-out.
+        TwinEdge(id="L1", src="OT2", to="LACT", product="oil", diameter_in=3, rack_h_m=1.6),
         # Liquids drop out to the condensate tanks (hydrocarbon) and produced-water tank.
         # The separator dumps condensate to tank #1; the two condensate tanks share a
         # bottom EQUALIZER line so they fill/draw together (standard tank battery).

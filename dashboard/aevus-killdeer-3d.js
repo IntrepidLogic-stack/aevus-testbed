@@ -1404,6 +1404,23 @@
       if (_ft || _tt) {
         runH = (spec.product === "gas") ? 5.0 : 0.95;   // gas = elevated vapor header · liquid = low manifold
       }
+      // ENGINEERED SHELL NOZZLE — a real tank line lands on a flanged nozzle that
+      // projects from the shell. Add a short stub + flange at each tank tie, oriented
+      // outward along the line, so the connection reads like a P&ID nozzle, not a
+      // pipe poked at the wall.
+      function _tankNozzle(cx, cz, tie) {
+        var dir = new THREEref.Vector3(tie.x - cx, 0, tie.z - cz); if (dir.lengthSq() < 1e-6) { return; }
+        dir.normalize();
+        var inner = new THREEref.Vector3(cx + dir.x * 2.74, tie.y, cz + dir.z * 2.74);
+        var len = inner.distanceTo(tie) + 0.06;
+        var q = new THREEref.Quaternion().setFromUnitVectors(new THREEref.Vector3(0, 1, 0), dir);
+        var noz = new THREEref.Mesh(new THREEref.CylinderGeometry(0.15, 0.15, len, 12), metal(COL.steelDark));
+        noz.quaternion.copy(q); noz.position.copy(inner.clone().lerp(tie, 0.5)); facility.add(noz);
+        var fl = new THREEref.Mesh(new THREEref.CylinderGeometry(0.22, 0.22, 0.07, 14), metal(COL.steel));
+        fl.quaternion.copy(q); fl.position.copy(tie); facility.add(fl);
+      }
+      if (_ft) { _tankNozzle(a.x, a.z, sTie); }
+      if (_tt) { _tankNozzle(b.x, b.z, dTie); }
       // MANHATTAN / orthogonal route — vertical drop off the source nozzle, run on
       // X, run on Z, vertical rise into the dest nozzle. Every segment is axis-
       // aligned, so the only bends are true 90° elbows (no curved pipe — like the field).

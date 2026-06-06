@@ -1190,6 +1190,7 @@
     var disDn = new THREEref.Mesh(new THREEref.CylinderGeometry(0.09, 0.09, 0.42, 10), metal(0x3B82F6)); disDn.position.set(1.55, 1.07, 0); g.add(disDn);
     var disFl = new THREEref.Mesh(new THREEref.CylinderGeometry(0.15, 0.15, 0.07, 14), metal(COL.steel)); disFl.rotation.z = Math.PI / 2; disFl.position.set(1.55, 0.9, 0); g.add(disFl);
     var pot = new THREEref.Mesh(new THREEref.CylinderGeometry(0.12, 0.12, 0.4, 10), metal(COL.steel)); pot.position.set(1.0, 1.45, 0); g.add(pot);   // pulsation dampener
+    var chk = new THREEref.Mesh(new THREEref.CylinderGeometry(0.13, 0.13, 0.22, 12), metal(0x6B7785)); chk.rotation.z = Math.PI / 2; chk.position.set(0.7, 1.28, 0); g.add(chk);   // discharge CHECK VALVE (no backflow)
     return g;
   }
   // FUEL-GAS CONDITIONING SKID — a small scrubber/KO pot drops liquids out of the
@@ -1215,6 +1216,13 @@
     run.rotation.z = Math.PI / 2; run.position.set(0.0, 0.78, 0); g.add(run);
     var gaugeF = new THREEref.Mesh(new THREEref.CylinderGeometry(0.1, 0.1, 0.05, 14), metal(0xBFD8E6));
     gaugeF.rotation.x = Math.PI / 2; gaugeF.position.set(0.35, 1.4, 0.16); g.add(gaugeF);  // fuel-gas pressure gauge
+    // INSTRUMENT-AIR package on the skid (NSPS OOOOb — air-actuated, zero-bleed
+    // pneumatics instead of gas bleed): a small electric air compressor + a vertical
+    // air receiver feeding the control valves.
+    var iaComp = new THREEref.Mesh(new THREEref.BoxGeometry(0.4, 0.34, 0.4), metal(COL.steelDark)); iaComp.position.set(0.55, 0.55, -0.32); g.add(iaComp);
+    var iaMot = new THREEref.Mesh(new THREEref.CylinderGeometry(0.13, 0.13, 0.36, 12), metal(COL.steel)); iaMot.rotation.z = Math.PI / 2; iaMot.position.set(0.55, 0.78, -0.32); g.add(iaMot);
+    var iaRcv = new THREEref.Mesh(new THREEref.CylinderGeometry(0.18, 0.18, 0.9, 14), metal(0xBFD8E6)); iaRcv.position.set(0.85, 0.85, -0.3); g.add(iaRcv);   // air receiver
+    var iaCap = new THREEref.Mesh(new THREEref.SphereGeometry(0.18, 12, 8, 0, Math.PI * 2, 0, Math.PI / 2), metal(0xBFD8E6)); iaCap.position.set(0.85, 1.3, -0.3); g.add(iaCap);
     return g;
   }
   // ESD / SIS PANEL — a safety cabinet SEPARATE from the control RTU (ISA-84): an
@@ -1766,6 +1774,18 @@
        [bcx - halfW, bcz, tB, 2 * halfD], [bcx + halfW, bcz, tB, 2 * halfD]].forEach(function (w) {
         var m = new THREEref.Mesh(new THREEref.BoxGeometry(w[2], bh, w[3]), bmat);
         m.position.set(w[0], bh / 2, w[1]); facility.add(m);
+      });
+    })();
+    // PRODUCED-WATER TANK — its OWN containment curb (segregated from the hydrocarbon
+    // firewall; water service gets separate containment).
+    (function () {
+      var p = equipLocal("PWT"); if (!p) { return; }
+      var hw = 3.6, ch = 0.55, tB = 0.4;
+      var cmat = new THREEref.MeshStandardMaterial({ color: 0x6B5B4A, metalness: 0.04, roughness: 0.96 });
+      [[p.x, p.z - hw, 2 * hw, tB], [p.x, p.z + hw, 2 * hw, tB],
+       [p.x - hw, p.z, tB, 2 * hw], [p.x + hw, p.z, tB, 2 * hw]].forEach(function (w) {
+        var m = new THREEref.Mesh(new THREEref.BoxGeometry(w[2], ch, w[3]), cmat);
+        m.position.set(w[0], ch / 2, w[1]); facility.add(m);
       });
     })();
 

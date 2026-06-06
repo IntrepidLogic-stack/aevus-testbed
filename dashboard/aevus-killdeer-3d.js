@@ -365,26 +365,54 @@
     var cross = new THREEref.Mesh(new THREEref.SphereGeometry(0.3, 14, 10), metal(0x7B8694));
     cross.position.set(0, crossY, 0); g.add(cross);
 
+    // helper: a wing-valve handwheel SEATED on a rising stem — bonnet on top of the
+    // wing valve, vertical stem, horizontal wheel with hub + spokes (axis vertical,
+    // because a gate valve on a horizontal line has a vertical rising stem).
+    function wingWheel(x, wheelR) {
+      var bon = new THREEref.Mesh(new THREEref.CylinderGeometry(0.1, 0.12, 0.14, 12), metal(COL.steel));
+      bon.position.set(x, crossY + 0.12, 0); g.add(bon);
+      var st = new THREEref.Mesh(new THREEref.CylinderGeometry(0.03, 0.03, 0.34, 8), metal(0x9AA6B2));
+      st.position.set(x, crossY + 0.32, 0); g.add(st);
+      var w = new THREEref.Mesh(new THREEref.TorusGeometry(wheelR, 0.04, 8, 18), metal(WHEEL));
+      w.rotation.x = Math.PI / 2; w.position.set(x, crossY + 0.46, 0); g.add(w);  // horizontal wheel ON the stem
+      var hub = new THREEref.Mesh(new THREEref.CylinderGeometry(0.045, 0.045, 0.08, 8), metal(COL.steelDark));
+      hub.position.set(x, crossY + 0.46, 0); g.add(hub);
+      var s1 = new THREEref.Mesh(new THREEref.CylinderGeometry(0.016, 0.016, wheelR * 2, 6), metal(WHEEL));
+      s1.rotation.z = Math.PI / 2; s1.position.set(x, crossY + 0.46, 0); g.add(s1);
+      var s2 = new THREEref.Mesh(new THREEref.CylinderGeometry(0.016, 0.016, wheelR * 2, 6), metal(WHEEL));
+      s2.rotation.x = Math.PI / 2; s2.position.set(x, crossY + 0.46, 0); g.add(s2);
+    }
+    // small pressure gauge (case + face) on a standpipe — face toward +Z (the viewer)
+    function gauge(x, y, z) {
+      var stand = new THREEref.Mesh(new THREEref.CylinderGeometry(0.025, 0.025, 0.34, 6), metal(COL.steelDark));
+      stand.position.set(x, y - 0.17, z); g.add(stand);
+      var face = new THREEref.Mesh(new THREEref.CylinderGeometry(0.12, 0.12, 0.06, 18), metal(0xBFD8E6));
+      face.rotation.x = Math.PI / 2; face.position.set(x, y, z + 0.05); g.add(face);
+      var ring = new THREEref.Mesh(new THREEref.TorusGeometry(0.12, 0.02, 6, 18), metal(COL.steelDark));
+      ring.position.set(x, y, z + 0.08); g.add(ring);
+    }
+
     // ── PRODUCTION WING (EAST, +X): wing gate → CHOKE → flowline take-off flange.
     // This is where the gas flowline to the line heater ties on. ──
     var pwBody = new THREEref.Mesh(new THREEref.CylinderGeometry(0.14, 0.14, 0.44, 12), metal(COL.steelDark));
     pwBody.rotation.z = Math.PI / 2; pwBody.position.set(0.46, crossY, 0); g.add(pwBody);
-    var pwWheel = new THREEref.Mesh(new THREEref.TorusGeometry(0.2, 0.045, 8, 16), metal(WHEEL));
-    pwWheel.rotation.x = Math.PI / 2; pwWheel.position.set(0.46, crossY + 0.3, 0); g.add(pwWheel);
+    wingWheel(0.46, 0.2);                                              // seated production-wing handwheel
     var choke = new THREEref.Mesh(new THREEref.CylinderGeometry(0.18, 0.13, 0.5, 12), metal(0x6B7785));
     choke.rotation.z = Math.PI / 2; choke.position.set(1.04, crossY, 0); g.add(choke);
     var chokeInd = new THREEref.Mesh(new THREEref.CylinderGeometry(0.04, 0.04, 0.44, 8), metal(0xFBBF24));
     chokeInd.position.set(1.04, crossY + 0.38, 0); g.add(chokeInd);   // adjustable-choke position indicator
     var flFl = new THREEref.Mesh(new THREEref.CylinderGeometry(0.19, 0.19, 0.1, 14), metal(FLANGE));
     flFl.rotation.z = Math.PI / 2; flFl.position.set(1.55, crossY, 0); g.add(flFl);    // flowline take-off flange
+    gauge(1.3, crossY + 0.05, 0.18);                                  // FLOWLINE PRESSURE gauge (FLP) on the take-off
 
     // ── KILL WING (WEST, −X): wing gate + blind cap (well-kill / injection access) ──
     var kwBody = new THREEref.Mesh(new THREEref.CylinderGeometry(0.12, 0.12, 0.44, 10), metal(COL.steelDark));
     kwBody.rotation.z = Math.PI / 2; kwBody.position.set(-0.46, crossY, 0); g.add(kwBody);
-    var kwWheel = new THREEref.Mesh(new THREEref.TorusGeometry(0.16, 0.04, 8, 14), metal(WHEEL));
-    kwWheel.rotation.x = Math.PI / 2; kwWheel.position.set(-0.46, crossY + 0.26, 0); g.add(kwWheel);
+    wingWheel(-0.46, 0.16);                                           // seated kill-wing handwheel
     var kwCap = new THREEref.Mesh(new THREEref.CylinderGeometry(0.13, 0.14, 0.13, 12), metal(COL.steelDark));
     kwCap.rotation.z = Math.PI / 2; kwCap.position.set(-0.86, crossY, 0); g.add(kwCap);
+    // TUBING-HEAD pressure gauge (well TBG) on the front (+X) face, casing-head level
+    gauge(0.55, 1.85, 0.18);
 
     // ── SWAB VALVE (vertical access) + tree cap + master pressure gauge ──
     boreGate(4.18, 0.2, 0.21);

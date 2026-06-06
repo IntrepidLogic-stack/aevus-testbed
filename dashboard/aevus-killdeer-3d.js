@@ -2692,6 +2692,30 @@
       rec: "Aevus detected a telemetry backhaul loss — NOT a process upset. Process values are last-known-good and held stale. " +
            "Check radio link quality (RSSI/SNR) and antenna alignment at the tower, RTU and gateway/modem power and status, " +
            "and fail over to the backup channel. Equipment readings cannot be trusted as live until the link is restored."
+    },
+    "stale-custody": {
+      label: "Stale Custody Data",
+      alarmId: "ALM-DATA-STALE",
+      severity: "WARNING",
+      btnColor: "#A78BFA",   // violet = data-quality / unknown (brand --status-unknown)
+      alarmHead: "Custody sync stale — last-known-good held, timestamps frozen",
+      // DATA-QUALITY only: custody values went stale; equipment condition is NOMINAL
+      // (handoff §13 — do not auto-fail equipment on stale data). No segs blocked.
+      blockedSegs: [],
+      riskSegs: [],
+      nodes: {
+        "EFM":  { status: "warn", word: "STALE 4m" },
+        "LACT": { status: "warn", word: "STALE 4m" },
+        "WM":   { status: "warn", word: "STALE 4m" },
+        "RTU":  { status: "warn", word: "POLL LATE" },
+        "COM":  { status: "warn", word: "SYNC LAG" },
+        "TWR":  { status: "warn", word: "LINK WEAK" }
+      },
+      impact: "EFM / LACT / WM custody values STALE (last-known-good, timestamped) · equipment condition NOMINAL · trends paused",
+      rec: "Aevus flagged DATA-QUALITY staleness on the custody chain — separate from equipment condition. The metering and tanks are " +
+           "healthy; only their data sync is late, so custody values are last-known-good with frozen timestamps and must NOT be used as " +
+           "live for billing/allocation until sync is restored. Verify the EFM flow-computer comms + clock, the RTU poll cycle, and the " +
+           "radio link. Do not record equipment as failed on stale data alone."
     }
   };
   function _segById(id) { for (var i = 0; i < segments.length; i++) { if (segments[i].id === id) { return segments[i]; } } return null; }

@@ -161,7 +161,10 @@ _TOPOLOGY = TwinTopology(
             id="PWT",
             type="watertank",
             name="Produced Water Tank",
-            lnglat=(-95.86748, 29.33968),  # tank battery row (east end)
+            # SEGREGATED from the condensate (hydrocarbon) firewall and placed in the
+            # water-handling train, directly downstream of the separator water leg and
+            # adjacent to the SWD pump it feeds (its own containment).
+            lnglat=(-95.86738, 29.33961),
             model=TwinModelRef(ref="watertank"),
         ),
         TwinNode(

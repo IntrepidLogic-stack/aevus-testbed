@@ -411,9 +411,15 @@
     choke.rotation.z = Math.PI / 2; choke.position.set(1.34, crossY, 0); g.add(choke);
     var chokeInd = new THREEref.Mesh(new THREEref.CylinderGeometry(0.04, 0.04, 0.44, 8), metal(0xFBBF24));
     chokeInd.position.set(1.34, crossY + 0.38, 0); g.add(chokeInd);   // adjustable-choke position indicator
+    // FLOWLINE TAKE-OFF — a horizontal spool runs OUT of the choke (gas-amber, the
+    // production flowline) to a take-off flange where the line to the heater (P1)
+    // lands. The line clearly LEAVES the choke horizontally instead of dropping
+    // straight down the tree face.
+    var flSpool = new THREEref.Mesh(new THREEref.CylinderGeometry(0.13, 0.13, 0.95, 12), metal(PRODUCT.gas));
+    flSpool.rotation.z = Math.PI / 2; flSpool.position.set(1.95, crossY, 0); g.add(flSpool);
     var flFl = new THREEref.Mesh(new THREEref.CylinderGeometry(0.19, 0.19, 0.1, 14), metal(FLANGE));
-    flFl.rotation.z = Math.PI / 2; flFl.position.set(1.78, crossY, 0); g.add(flFl);    // flowline take-off flange
-    gauge(1.58, crossY + 0.05, 0.18);                                // FLOWLINE PRESSURE gauge (FLP) on the take-off
+    flFl.rotation.z = Math.PI / 2; flFl.position.set(2.45, crossY, 0); g.add(flFl);    // flowline take-off flange (P1 lands here)
+    gauge(1.7, crossY + 0.05, 0.18);                                 // FLOWLINE PRESSURE gauge (FLP) on the take-off
 
     // ── KILL WING (WEST, −X): nipple → wing gate (out clear of the body) → blind cap ──
     var kwNip = new THREEref.Mesh(new THREEref.CylinderGeometry(0.12, 0.12, 0.56, 12), metal(COL.steelDark));
@@ -1340,7 +1346,7 @@
   // tie = equipmentCenter + offset. Values match the stubs modeled in
   // buildWellhead/buildHeater/buildSeparator/buildCompressor/buildFlare/buildTank.
   function _noz(t, p, isSource) {
-    if (t === "wellhead") return isSource ? { x: 1.78, y: 3.78, z: 0 } : { x: -0.82, y: 1.85, z: 0 };       // production take-off flange (choke out) · chem-injection flange in
+    if (t === "wellhead") return isSource ? { x: 2.45, y: 3.78, z: 0 } : { x: -0.82, y: 1.85, z: 0 };       // production take-off flange (end of choke spool) · chem-injection flange in
     if (t === "heater" || t === "scrubber") return isSource ? { x: 0.95, y: 3.1, z: 0 } : { x: -2.1, y: 1.7, z: 0 }; // gas outlet TOP (via mist extractor) · inlet on the END head
     if (t === "separator") {
       if (p === "gas") return isSource ? { x: 2.94, y: 4.0, z: 0 } : { x: -2.8, y: 4.0, z: 0 };            // gas outlet E-top · inlet W-top
@@ -1748,11 +1754,13 @@
     buildFieldInstruments();  // pad detectors + IP camera from the monitoring reference
     buildAreaClassification(); // NEC 500 / API RP 500 electrical area-classification boundaries
     buildEsdTrip();            // ESD/SIS panel -> wellhead SSV safety trip line (ISA-84)
-    // SECONDARY-CONTAINMENT BERM around the tank battery (spill control + NSPS/SPCC)
+    // SECONDARY-CONTAINMENT BERM around the CONDENSATE (hydrocarbon) tanks only —
+    // OT1..OT2. The produced-water tank is segregated to its own area by the SWD, so
+    // the hydrocarbon firewall wraps just the condensate tanks (spill control / SPCC).
     (function () {
-      var ot1 = equipLocal("OT1"), pwt = equipLocal("PWT");
-      var bcx = (ot1.x + pwt.x) / 2, bcz = (ot1.z + pwt.z) / 2;
-      var halfW = Math.abs(pwt.x - ot1.x) / 2 + 4.0, halfD = 4.2, bh = 0.9, tB = 0.5;
+      var ot1 = equipLocal("OT1"), ot2 = equipLocal("OT2");
+      var bcx = (ot1.x + ot2.x) / 2, bcz = (ot1.z + ot2.z) / 2;
+      var halfW = Math.abs(ot2.x - ot1.x) / 2 + 4.0, halfD = 4.2, bh = 0.9, tB = 0.5;
       var bmat = new THREEref.MeshStandardMaterial({ color: 0x6B5B4A, metalness: 0.04, roughness: 0.96 });
       [[bcx, bcz - halfD, 2 * halfW, tB], [bcx, bcz + halfD, 2 * halfW, tB],
        [bcx - halfW, bcz, tB, 2 * halfD], [bcx + halfW, bcz, tB, 2 * halfD]].forEach(function (w) {

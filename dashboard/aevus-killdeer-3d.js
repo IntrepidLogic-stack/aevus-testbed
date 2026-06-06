@@ -317,11 +317,19 @@
     var chemChk = new THREEref.Mesh(new THREEref.SphereGeometry(0.1, 8, 6), metal(PRODUCT.chemical));
     chemChk.position.set(-0.74, 1.85, 0); g.add(chemChk);
 
-    // ── transparent tree body (cutaway shell) + inner production bore (thicker, taller) ──
-    var bodyG = new THREEref.CylinderGeometry(0.36, 0.36, 2.5, 22, 1, true);
-    var body = new THREEref.Mesh(bodyG, glassMat); body.position.y = 3.35; g.add(body);
-    addEdges(g, bodyG, body, COL.accent, 0.34);
-    var bore = new THREEref.Mesh(new THREEref.CylinderGeometry(0.13, 0.13, 3.4, 14), metal(0x55606E));
+    // ── SECTIONED steel tree body — a 270° opaque PAINTED-STEEL shell with a
+    // quarter cut away (facing the production wing / +X) so the production bore and
+    // the rising gas stay visible, like a cutaway training model. Reads as solid
+    // steel field equipment, not a hollow glass tube. ──
+    var steelBody = new THREEref.MeshStandardMaterial({
+      color: 0x556372, metalness: 0.72, roughness: 0.42, side: THREEref.DoubleSide });
+    var bodyG = new THREEref.CylinderGeometry(0.36, 0.36, 2.5, 28, 1, true, Math.PI * 0.25, Math.PI * 1.5);
+    var body = new THREEref.Mesh(bodyG, steelBody); body.position.y = 3.35; g.add(body);
+    addEdges(g, new THREEref.CylinderGeometry(0.36, 0.36, 2.5, 28), body, COL.accent, 0.28);
+    // a faint glass pane closes the cutaway opening so the tree still reads enclosed
+    var paneG = new THREEref.CylinderGeometry(0.355, 0.355, 2.5, 12, 1, true, Math.PI * 1.75, Math.PI * 0.5);
+    var pane = new THREEref.Mesh(paneG, glassMat); pane.position.y = 3.35; g.add(pane);
+    var bore = new THREEref.Mesh(new THREEref.CylinderGeometry(0.13, 0.13, 3.4, 14), metal(0x8893A0));
     bore.position.y = 3.0; g.add(bore);
 
     // ── LOWER MASTER VALVE (manual gate) ──

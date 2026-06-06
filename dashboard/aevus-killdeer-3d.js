@@ -1395,7 +1395,15 @@
       // tank-to-tank liquid line = bottom EQUALIZER (both ends low); otherwise a
       // gravity fill enters the upper side inlet.
       if (tT === "oiltank" || tT === "watertank") { dTie = _tankTie(b, a, spec.product, bothTanks && spec.product !== "gas"); }
+      // RUN HEIGHT — like a real tank battery, vapor headers run ELEVATED off the
+      // tank tops while liquid / equalizer / disposal lines run LOW near grade, so
+      // the two services don't crowd and cross at one mid-level. Tank lines pick the
+      // matching deck; everything else stays on the standard sleeper run.
+      var _ft = (fT === "oiltank" || fT === "watertank"), _tt = (tT === "oiltank" || tT === "watertank");
       var runH = 1.2;
+      if (_ft || _tt) {
+        runH = (spec.product === "gas") ? 5.0 : 0.95;   // gas = elevated vapor header · liquid = low manifold
+      }
       // MANHATTAN / orthogonal route — vertical drop off the source nozzle, run on
       // X, run on Z, vertical rise into the dest nozzle. Every segment is axis-
       // aligned, so the only bends are true 90° elbows (no curved pipe — like the field).

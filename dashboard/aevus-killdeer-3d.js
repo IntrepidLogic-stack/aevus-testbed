@@ -1173,8 +1173,17 @@
     var motor = new THREEref.Mesh(new THREEref.CylinderGeometry(0.35, 0.35, 1.2, 14), metal(COL.steel)); motor.rotation.z = Math.PI / 2; motor.position.set(-0.6, 0.8, 0); g.add(motor);
     var pump = new THREEref.Mesh(new THREEref.BoxGeometry(1.0, 0.6, 0.7), metal(COL.steelDark)); pump.position.set(0.5, 0.75, 0); g.add(pump);
     var plungers = new THREEref.Mesh(new THREEref.CylinderGeometry(0.12, 0.12, 1.1, 8), metal(0x9AA6B2)); plungers.rotation.z = Math.PI / 2; plungers.position.set(0.5, 0.95, 0); g.add(plungers);
-    var wh = new THREEref.Mesh(new THREEref.CylinderGeometry(0.18, 0.22, 0.9, 12), metal(COL.steelDark)); wh.position.set(1.3, 0.65, 0.5); g.add(wh);
-    var whw = new THREEref.Mesh(new THREEref.TorusGeometry(0.16, 0.04, 8, 14), metal(0xCC4444)); whw.position.set(1.3, 1.0, 0.5); whw.rotation.x = Math.PI / 2; g.add(whw);
+    // SUCTION manifold (LOW, WEST) — produced water enters the fluid end here; the
+    // PWT line (W1) lands on this flange. Low + large bore = pump suction.
+    var suc = new THREEref.Mesh(new THREEref.CylinderGeometry(0.14, 0.14, 1.3, 12), metal(0x3B82F6)); suc.rotation.z = Math.PI / 2; suc.position.set(-0.35, 0.48, 0); g.add(suc);
+    var sucFl = new THREEref.Mesh(new THREEref.CylinderGeometry(0.2, 0.2, 0.08, 14), metal(COL.steelDark)); sucFl.rotation.z = Math.PI / 2; sucFl.position.set(-1.05, 0.5, 0); g.add(sucFl);
+    // DISCHARGE manifold (HIGH, EAST) — high-pressure water leaves to the disposal
+    // meter (W2). Small bore + a relief/pulsation pot; flange on the east end.
+    var disRis = new THREEref.Mesh(new THREEref.CylinderGeometry(0.08, 0.08, 0.34, 10), metal(0x3B82F6)); disRis.position.set(0.95, 1.12, 0); g.add(disRis);
+    var dis = new THREEref.Mesh(new THREEref.CylinderGeometry(0.09, 0.09, 0.95, 12), metal(0x3B82F6)); dis.rotation.z = Math.PI / 2; dis.position.set(1.25, 1.28, 0); g.add(dis);
+    var disDn = new THREEref.Mesh(new THREEref.CylinderGeometry(0.09, 0.09, 0.42, 10), metal(0x3B82F6)); disDn.position.set(1.55, 1.07, 0); g.add(disDn);
+    var disFl = new THREEref.Mesh(new THREEref.CylinderGeometry(0.15, 0.15, 0.07, 14), metal(COL.steel)); disFl.rotation.z = Math.PI / 2; disFl.position.set(1.55, 0.9, 0); g.add(disFl);
+    var pot = new THREEref.Mesh(new THREEref.CylinderGeometry(0.12, 0.12, 0.4, 10), metal(COL.steel)); pot.position.set(1.0, 1.45, 0); g.add(pot);   // pulsation dampener
     return g;
   }
   // FUEL-GAS CONDITIONING SKID — a small scrubber/KO pot drops liquids out of the
@@ -1346,7 +1355,7 @@
     if (t === "dehydrator") return isSource ? { x: 0.2, y: 5.0, z: 0 } : { x: -1.5, y: 0.9, z: 0 };        // dry gas off the top · wet gas into the contactor bottom
     if (t === "vru") return isSource ? { x: 0.6, y: 1.4, z: 0 } : { x: 1.1, y: 1.0, z: 0.6 };              // discharge · suction (tank vapors)
     if (t === "combustor") return { x: -0.9, y: 0.7, z: 0 };                                               // vapor inlet at the base
-    if (t === "swd") return { x: -1.0, y: 0.8, z: 0 };                                                     // pump suction (produced water)
+    if (t === "swd") return isSource ? { x: 1.55, y: 0.9, z: 0 } : { x: -1.05, y: 0.5, z: 0 };             // discharge to disposal meter (E, high) · produced-water suction (W, low)
     if (t === "fuelgas") return isSource ? { x: 1.0, y: 0.78, z: 0 } : { x: -0.95, y: 0.6, z: 0 };        // conditioned-gas outlet (E) · fuel tap inlet (W)
     if (t === "lact") return isSource ? { x: 1.05, y: 0.5, z: 0 } : { x: -1.05, y: 0.5, z: 0 };           // custody load-out (E) · tank inlet (W)
     if (t === "watermeter") return isSource ? { x: 0.55, y: 0.7, z: 0 } : { x: -0.55, y: 0.7, z: 0 };     // metered outlet (E) · SWD inlet (W)

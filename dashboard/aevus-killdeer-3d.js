@@ -917,6 +917,21 @@
     panel.position.set(0.6, 1.9, -0.4); panel.rotation.x = -0.5; g.add(panel);
     var pole = new THREEref.Mesh(new THREEref.CylinderGeometry(0.05, 0.05, 1.6, 8), metal(COL.skid));
     pole.position.set(0.6, 1.1, -0.4); g.add(pole);
+    // GAS CHROMATOGRAPH — custody composition/BTU analyzer (per piping/instrument
+    // review: custody gas is measured for full Btu, not a single lumped value). A
+    // white analyzer enclosure + carrier-gas (He) bottle + a heated sample line
+    // tapping the meter run, so the custody point reads metrologically complete.
+    var gc = new THREEref.Mesh(new THREEref.BoxGeometry(0.5, 0.72, 0.42), metal(0xE8EAED));
+    gc.position.set(0.95, 0.76, 0.6); g.add(gc);
+    var gcHead = new THREEref.Mesh(new THREEref.BoxGeometry(0.5, 0.2, 0.42), metal(0x111827));
+    gcHead.position.set(0.95, 1.22, 0.6); g.add(gcHead);
+    var carrier = new THREEref.Mesh(new THREEref.CylinderGeometry(0.09, 0.09, 0.78, 12), metal(0x10B981));
+    carrier.position.set(1.28, 0.62, 0.6); g.add(carrier);    // He carrier-gas bottle
+    var sample = new THREEref.Mesh(new THREEref.TubeGeometry(new THREEref.CatmullRomCurve3([
+      new THREEref.Vector3(0.35, 0.9, 0.0), new THREEref.Vector3(0.35, 0.95, 0.6),
+      new THREEref.Vector3(0.95, 0.95, 0.6), new THREEref.Vector3(0.95, 1.05, 0.6)
+    ], false, "catmullrom", 0.2), 24, 0.03, 6, false), metal(0x9AA6B2));   // heated sample line off the run
+    g.add(sample);
     return g;
   }
 
@@ -1782,6 +1797,28 @@
     sshead.position.set(ssx, 2.28, ssz); facility.add(sshead);
     var sseye = new THREEref.Mesh(new THREEref.BoxGeometry(0.42, 0.12, 0.26), metal(0x10B981));
     sseye.position.set(ssx, 0.95, ssz + 0.32); facility.add(sseye);
+    // SECOND safety shower at the condensate LACT load-out (truck/operator exposure)
+    var lact = equipLocal("LACT");
+    if (lact) {
+      var l2x = lact.x + 1.4, l2z = lact.z + 1.2;
+      var l2pole = new THREEref.Mesh(new THREEref.CylinderGeometry(0.055, 0.055, 2.2, 8), metal(0x10B981));
+      l2pole.position.set(l2x, 1.1, l2z); facility.add(l2pole);
+      var l2head = new THREEref.Mesh(new THREEref.CylinderGeometry(0.3, 0.3, 0.07, 16), metal(0x10B981));
+      l2head.position.set(l2x, 2.28, l2z); facility.add(l2head);
+    }
+    // MUSTER / ASSEMBLY POINT — green sign on a post at the upwind (NW) pad corner,
+    // so an HSE walk sees a defined egress/assembly location (review v2 HSE item).
+    var wh0 = equipLocal("WH");
+    if (wh0) {
+      var mx = wh0.x - 3.2, mz = wh0.z - 3.2;
+      var mpost = new THREEref.Mesh(new THREEref.CylinderGeometry(0.05, 0.05, 2.0, 8), metal(COL.steelDark));
+      mpost.position.set(mx, 1.0, mz); facility.add(mpost);
+      var msign = new THREEref.Mesh(new THREEref.BoxGeometry(0.7, 0.5, 0.04), new THREEref.MeshStandardMaterial({
+        color: 0x10B981, metalness: 0.2, roughness: 0.6, emissive: 0x0B6B49, emissiveIntensity: 0.3 }));
+      msign.position.set(mx, 2.2, mz); facility.add(msign);
+      var marrow = new THREEref.Mesh(new THREEref.CylinderGeometry(0.0, 0.16, 0.3, 4), metal(0xFFFFFF));
+      marrow.rotation.z = -Math.PI / 2; marrow.position.set(mx, 2.2, mz + 0.03); facility.add(marrow);
+    }
     // pressure transmitter (S of the separator)
     var sep = equipLocal("SEP"), px = sep.x + 1.0, pz = sep.z + 2.6;
     var pstand = new THREEref.Mesh(new THREEref.CylinderGeometry(0.05, 0.06, 1.3, 6), metal(COL.steelDark));

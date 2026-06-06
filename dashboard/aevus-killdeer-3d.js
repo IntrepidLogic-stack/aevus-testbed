@@ -273,15 +273,31 @@
       var f = new THREEref.Mesh(new THREEref.CylinderGeometry(r, r, 0.09, 18), metal(FLANGE));
       f.position.y = y; g.add(f); return f;
     }
-    // a gate valve sitting ON the vertical bore — handwheel/operator on the +Z back,
-    // out of the way of the production/kill wings (which take the X axis)
+    // a gate valve sitting ON the vertical bore — bonnet + rising-stem yoke + a
+    // handwheel on the +Z back, out of the way of the production/kill wings (X axis).
+    // The handwheel is SEATED ON the stem: its ring plane is perpendicular to the
+    // stem so the stem passes through the wheel hub (in the groove), not a flat ring
+    // floating beside the valve.
     function boreGate(y, bodyR, wheelR) {
       var b = new THREEref.Mesh(new THREEref.CylinderGeometry(bodyR, bodyR, 0.34, 14), metal(0x6B7785));
       b.position.set(0, y, 0); g.add(b);
-      var stem = new THREEref.Mesh(new THREEref.CylinderGeometry(0.035, 0.035, 0.36, 8), metal(COL.steelDark));
-      stem.rotation.x = Math.PI / 2; stem.position.set(0, y, 0.3); g.add(stem);
-      var w = new THREEref.Mesh(new THREEref.TorusGeometry(wheelR, 0.04, 8, 16), metal(WHEEL));
-      w.rotation.x = Math.PI / 2; w.position.set(0, y, 0.5); g.add(w);
+      // bonnet flange where the stem leaves the body
+      var bonnet = new THREEref.Mesh(new THREEref.CylinderGeometry(bodyR * 0.55, bodyR * 0.62, 0.16, 12), metal(COL.steel));
+      bonnet.rotation.x = Math.PI / 2; bonnet.position.set(0, y, bodyR + 0.02); g.add(bonnet);
+      // rising stem along +Z, through the wheel hub
+      var stem = new THREEref.Mesh(new THREEref.CylinderGeometry(0.035, 0.035, 0.5, 8), metal(0x9AA6B2));
+      stem.rotation.x = Math.PI / 2; stem.position.set(0, y, bodyR + 0.28); g.add(stem);
+      // handwheel — ring plane perpendicular to the stem (axis = +Z, default torus),
+      // hub seated on the stem end
+      var w = new THREEref.Mesh(new THREEref.TorusGeometry(wheelR, 0.045, 8, 20), metal(WHEEL));
+      w.position.set(0, y, bodyR + 0.42); g.add(w);
+      var hub = new THREEref.Mesh(new THREEref.CylinderGeometry(0.06, 0.06, 0.1, 10), metal(COL.steelDark));
+      hub.rotation.x = Math.PI / 2; hub.position.set(0, y, bodyR + 0.42); g.add(hub);
+      // two spokes across the wheel so it reads as a real handwheel
+      var sp1 = new THREEref.Mesh(new THREEref.CylinderGeometry(0.018, 0.018, wheelR * 2, 6), metal(WHEEL));
+      sp1.position.set(0, y, bodyR + 0.42); g.add(sp1);
+      var sp2 = new THREEref.Mesh(new THREEref.CylinderGeometry(0.018, 0.018, wheelR * 2, 6), metal(WHEEL));
+      sp2.rotation.z = Math.PI / 2; sp2.position.set(0, y, bodyR + 0.42); g.add(sp2);
     }
 
     // ── concrete cellar pad + wide anchor skirt (a tree this tall needs a strong,

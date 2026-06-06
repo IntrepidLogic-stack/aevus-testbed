@@ -214,6 +214,7 @@
   var segments = [];            // {id, mesh, curve, packets[], product, baseSpeed, speed}
   var equipMeshes = {};         // id -> THREE.Object3D (for status tint)
   var _callouts = {};           // id -> {marker, dot, name, node} HTML callouts at equipment
+  var _areaClass = [], _areaClassWired = false;   // electrical area-classification rings (Env Hazards toggle)
   var flameMeshes = [];         // flicker
   var blinkMeshes = [];         // tower beacon
   var _windsock = null;         // {pivot, droop} — oriented to live wind each frame
@@ -1742,18 +1743,34 @@
   // release points, Division 2 (amber) the surrounding buffer. Subtle so it reads as
   // classification boundaries without muddying the pad.
   function buildAreaClassification() {
+    _areaClass = [];   // rebuilt each facility build; collected so the layer can toggle them
     function zoneRing(id, r, color, op) {
       var p = equipLocal(id); if (!p) { return; }
       var ring = new THREEref.Mesh(
         new THREEref.TorusGeometry(r, 0.05, 6, 44),
         new THREEref.MeshStandardMaterial({ color: color, emissive: color, emissiveIntensity: 0.45,
           transparent: true, opacity: op, metalness: 0.1, roughness: 0.7, depthWrite: false }));
-      ring.rotation.x = Math.PI / 2; ring.position.set(p.x, 0.05, p.z); facility.add(ring);
+      ring.rotation.x = Math.PI / 2; ring.position.set(p.x, 0.05, p.z);
+      ring.visible = false;             // OFF by default — shown via the Env Hazards layer toggle
+      facility.add(ring); _areaClass.push(ring);
     }
     // Division 1 (red) — at the primary vapor-release points
     ["WH", "SEP", "FLR", "OT1", "PWT", "DEHY"].forEach(function (id) { zoneRing(id, 2.4, 0xEF4444, 0.42); });
     // Division 2 (amber) — the surrounding buffer around the heavier sources
     ["WH", "SEP", "CMP", "OT1", "OT2", "PWT", "FLR", "DEHY", "FGS", "LACT"].forEach(function (id) { zoneRing(id, 4.2, 0xFBBF24, 0.28); });
+    // Wire to the "Env Hazards" layer checkbox (id=lyr-hazards). Honor its current
+    // state; default OFF. The 2D map "hazard-circles" layer already rides this toggle.
+    try {
+      var hz = document.getElementById("lyr-hazards");
+      if (hz) {
+        if (!_areaClassWired) { hz.addEventListener("change", function () { setAreaClass(hz.checked); }); _areaClassWired = true; }
+        setAreaClass(hz.checked);
+      }
+    } catch (eHz) {}
+  }
+  function setAreaClass(on) {
+    for (var i = 0; i < _areaClass.length; i++) { _areaClass[i].visible = !!on; }
+    if (_attachedMap) { try { _attachedMap.triggerRepaint(); } catch (e) {} }
   }
   // ESD TRIP SIGNAL — a thin red safety line from the ESD/SIS panel to the wellhead
   // SSV, showing the panel shuts the well in on an upset (ISA-84). Routed
@@ -2677,8 +2694,13 @@
         var opts = tank
           ? { element: el, anchor: "bottom", offset: [0, -132] }
           : tall
-            ? { element: el, anchor: "top", offset: [0, 16] }
+            // flare: drop the label+ring lower so they sit clearly CENTERED UNDER the
+            // tall stack (the stack base is the marker point); other tall units use 16.
+            ? { element: el, anchor: "top", offset: [0, (e.type === "flare" ? 40 : 16)] }
             : { element: el, anchor: "left", offset: [12, 0] };
+        // Keep the callout SCREEN-ALIGNED (viewport) so the label stays upright and
+        // readable no matter how the map is rotated or pitched.
+        opts.rotationAlignment = "viewport"; opts.pitchAlignment = "viewport";
         if (tall || tank) { el.style.flexDirection = "column"; el.style.alignItems = "center"; el.style.gap = "3px"; el.style.transform = "none"; }
         var mk = new maplibregl.Marker(opts).setLngLat([e.lng, e.lat]).addTo(map);
         _callouts[e.id] = { marker: mk, ring: ring, num: num, sub: sub, name: name, node: e };

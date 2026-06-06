@@ -753,18 +753,21 @@
     var sump = new THREEref.Mesh(new THREEref.BoxGeometry(0.7, 0.5, 0.7), skidMat());
     sump.position.set(koCx + 1.7, 0.25, 0); g.add(sump);
 
-    // INLET header — process/relief gas enters the drum top at the far end.
-    var inNozX = koCx + koLen / 2 - 0.35;
-    var inNoz = new THREEref.Mesh(new THREEref.CylinderGeometry(0.2, 0.2, 0.6, 12), metal(COL.steelDark));
-    inNoz.position.set(inNozX, koY + koR + 0.25, 0); g.add(inNoz);
+    // INLET — the relief line (P6, from the compressor) LANDS on this flange on the
+    // drum's compressor-facing (−Z) side, then the header elbows IN and DOWN into the
+    // drum top. This is the exact point _noz("flare") returns, so the field relief
+    // line and the flare-skid header are ONE continuous run (no disconnected stub).
+    var inTieZ = -0.95;
+    var inFlg = new THREEref.Mesh(new THREEref.CylinderGeometry(0.26, 0.26, 0.1, 14), metal(COL.steel));
+    inFlg.rotation.x = Math.PI / 2; inFlg.position.set(koCx, 2.3, inTieZ); g.add(inFlg);   // P6 tie flange (= _noz)
     var header = new THREEref.Mesh(new THREEref.TubeGeometry(new THREEref.CatmullRomCurve3([
-      new THREEref.Vector3(-0.2, 1.5, 0),                 // arrives from the process side (P6 lands here)
-      new THREEref.Vector3(inNozX, 1.5, 0),
-      new THREEref.Vector3(inNozX, koY + koR + 0.55, 0)   // down into the inlet nozzle
+      new THREEref.Vector3(koCx, 2.3, inTieZ),             // P6 lands here (relief in)
+      new THREEref.Vector3(koCx, 2.3, -0.32),              // elbow in toward the drum
+      new THREEref.Vector3(koCx, koY + koR + 0.05, 0)      // down into the drum-top inlet
     ], false, "catmullrom", 0.2), 44, 0.18, 12, false), metal(COL.steelDark));
     g.add(header);
-    var hdrFlg = new THREEref.Mesh(new THREEref.CylinderGeometry(0.27, 0.27, 0.1, 14), metal(COL.steel));
-    hdrFlg.rotation.z = Math.PI / 2; hdrFlg.position.set(-0.2, 1.5, 0); g.add(hdrFlg);
+    var inNoz = new THREEref.Mesh(new THREEref.CylinderGeometry(0.2, 0.2, 0.4, 12), metal(COL.steelDark));
+    inNoz.position.set(koCx, koY + koR + 0.12, 0); g.add(inNoz);     // drum-top inlet nozzle
 
     // GAS OUTLET riser — dry gas leaves the drum top (stack end) into the stack base.
     var outNozX = koCx - koLen / 2 + 0.35;
@@ -1336,7 +1339,7 @@
       return { x: 3.2, y: 2.0, z: 0.5 };                                                                   // condensate over the weir (E head, mid)
     }
     if (t === "compressor") return isSource ? { x: 2.6, y: 1.2, z: 0 } : { x: -2.0, y: 2.0, z: 0 };        // discharge header (E) · suction on the SEP-facing (W) side
-    if (t === "flare") return { x: 2.4, y: 2.3, z: -0.9 };                                                 // relief into the KO drum on the compressor-facing (N) side
+    if (t === "flare") return { x: 2.4, y: 2.3, z: -0.95 };                                                // relief lands ON the inlet flange (compressor-facing −Z), then header elbows into the drum top
     if (t === "oiltank" || t === "watertank") return { x: 0, y: 4.3, z: 2.6 };                            // gravity dump into upper shell, facing the train
     if (t === "efm") return isSource ? { x: 0.8, y: 1.1, z: 0 } : { x: -0.8, y: 1.1, z: 0 };
     if (t === "chemtote") return { x: 1.4, y: 1.5, z: 0 };                                                 // injection-pump discharge toward the wellhead

@@ -1335,28 +1335,39 @@
       ["RTU", "PWR", "io"], ["RTU", "SOL", "io"],
       ["RTU", "SEP", "serial"], ["RTU", "CMP", "serial"], ["RTU", "EFM", "serial"]
     ];
-    links.forEach(function (lk) {
-      var a = equipLocal(lk[0]), b = equipLocal(lk[1]), col = MED[lk[2]] || MED.ethernet, trayH = 0.28;
-      var crv = new THREEref.CatmullRomCurve3([
-        new THREEref.Vector3(a.x, 0.15, a.z), new THREEref.Vector3(a.x, trayH, a.z),
-        new THREEref.Vector3(b.x, trayH, b.z), new THREEref.Vector3(b.x, 0.15, b.z)
-      ], false, "catmullrom", 0.2);
+    links.forEach(function (lk, li) {
+      var a = equipLocal(lk[0]), b = equipLocal(lk[1]), col = MED[lk[2]] || MED.ethernet;
+      var trayH = 0.22 + (li % 4) * 0.06;   // stacked tray levels so parallel runs don't overlap
+      // SCHEMATIC / cable-tray route: riser up, run on X, run on Z, riser down —
+      // 90° bends only (no diagonal), matching the orthogonal process piping.
+      var pts = [
+        new THREEref.Vector3(a.x, 0.14, a.z), new THREEref.Vector3(a.x, trayH, a.z),
+        new THREEref.Vector3(b.x, trayH, a.z), new THREEref.Vector3(b.x, trayH, b.z),
+        new THREEref.Vector3(b.x, 0.14, b.z)
+      ];
+      var crv = new THREEref.CurvePath();
+      for (var ci = 0; ci < pts.length - 1; ci++) { if (pts[ci].distanceTo(pts[ci + 1]) > 1e-4) { crv.add(new THREEref.LineCurve3(pts[ci], pts[ci + 1])); } }
       var mat = new THREEref.MeshStandardMaterial({ color: col, emissive: col, emissiveIntensity: 0.4,
         metalness: 0.2, roughness: 0.6, transparent: true, opacity: 0.85 });
-      facility.add(new THREEref.Mesh(new THREEref.TubeGeometry(crv, 40, 0.045, 8, false), mat));
+      facility.add(new THREEref.Mesh(new THREEref.TubeGeometry(crv, 64, 0.045, 8, false), mat));
     });
   }
   // ── FIELD INSTRUMENTATION (detectors + IP camera, from the monitoring ref) ──
   // Pad safety/security devices: gas detector, pressure transmitter, and a
   // pan-tilt IP camera on a pole — each wired back to the RTU on an I/O link.
   function buildFieldInstruments() {
-    var rtu = equipLocal("RTU"), io = 0xA06CD4;
+    var rtu = equipLocal("RTU"), io = 0xA06CD4, _ioN = 0;
     function ioLink(x, z) {
-      var crv = new THREEref.CatmullRomCurve3([
-        new THREEref.Vector3(x, 0.12, z), new THREEref.Vector3(x, 0.28, z),
-        new THREEref.Vector3(rtu.x, 0.28, rtu.z), new THREEref.Vector3(rtu.x, 0.15, rtu.z)
-      ], false, "catmullrom", 0.2);
-      facility.add(new THREEref.Mesh(new THREEref.TubeGeometry(crv, 36, 0.04, 6, false),
+      var trayH = 0.20 + (_ioN++ % 4) * 0.06;   // stacked tray levels
+      // schematic / cable-tray route back to the RTU — 90° bends only
+      var pts = [
+        new THREEref.Vector3(x, 0.12, z), new THREEref.Vector3(x, trayH, z),
+        new THREEref.Vector3(rtu.x, trayH, z), new THREEref.Vector3(rtu.x, trayH, rtu.z),
+        new THREEref.Vector3(rtu.x, 0.14, rtu.z)
+      ];
+      var crv = new THREEref.CurvePath();
+      for (var ci = 0; ci < pts.length - 1; ci++) { if (pts[ci].distanceTo(pts[ci + 1]) > 1e-4) { crv.add(new THREEref.LineCurve3(pts[ci], pts[ci + 1])); } }
+      facility.add(new THREEref.Mesh(new THREEref.TubeGeometry(crv, 48, 0.04, 6, false),
         new THREEref.MeshStandardMaterial({ color: io, emissive: io, emissiveIntensity: 0.4, transparent: true, opacity: 0.8 })));
     }
     // gas detector (SE of the compressor)

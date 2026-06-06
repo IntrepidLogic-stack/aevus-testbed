@@ -336,6 +336,10 @@ _TOPOLOGY = TwinTopology(
         # BOTH condensate tanks vent to the VRU (common vapor header).
         TwinEdge(id="V1", src="OT1", to="VRU", product="gas", diameter_in=2, rack_h_m=1.6),
         TwinEdge(id="V4", src="OT2", to="VRU", product="gas", diameter_in=2, rack_h_m=1.6),
+        # VRU RECOVERY: the primary path RECOMPRESSES recovered vapor back to the
+        # compressor suction (sold, not burned). The combustor (V2) is the excess /
+        # upset path only. This is how a real VRU pays for itself.
+        TwinEdge(id="VRe", src="VRU", to="CMP", product="gas", diameter_in=2, rack_h_m=2.0, asset_id="RTU-01"),
         TwinEdge(id="V2", src="VRU", to="CMB", product="gas", diameter_in=2, rack_h_m=1.8),
         # TEG regenerator still-vent + flash gas -> vapor recovery (NOT atmosphere).
         # The dehy reboiler still column and the glycol flash tank are two of the
@@ -349,6 +353,8 @@ _TOPOLOGY = TwinTopology(
         # (and the TEG reboiler + pneumatics). Every gas pad burns its own gas.
         TwinEdge(id="F1", src="CMP", to="FGS", product="gas", diameter_in=2, rack_h_m=1.8, asset_id="RTU-01"),
         TwinEdge(id="F2", src="FGS", to="HTR", product="gas", diameter_in=1, rack_h_m=1.6, asset_id="RTU-01"),
+        # Fuel gas also fires the TEG reboiler (the other big on-site fuel user).
+        TwinEdge(id="F3", src="FGS", to="DEHY", product="gas", diameter_in=1, rack_h_m=1.5, asset_id="RTU-01"),
         # Condensate custody: the tanks feed a LACT unit for measured load-out.
         TwinEdge(id="L1", src="OT2", to="LACT", product="oil", diameter_in=3, rack_h_m=1.6),
         # Liquids drop out to the condensate tanks (hydrocarbon) and produced-water tank.
@@ -368,6 +374,11 @@ _TOPOLOGY = TwinTopology(
             asset_id="RTU-01",
             inline="flare_valve",
         ),
+        # RELIEF HEADER — the vessel PSVs (separator, TEG dehy) tie into the relief
+        # header to the flare KO drum, alongside the compressor relief (P6). This is
+        # the over-pressure protection path every vessel needs.
+        TwinEdge(id="R1", src="SEP", to="FLR", product="gas", diameter_in=3, rack_h_m=3.0, inline="flare_valve"),
+        TwinEdge(id="R2", src="DEHY", to="FLR", product="gas", diameter_in=2, rack_h_m=3.0, inline="flare_valve"),
         # Sales pipeline backbone: custody-sold gas leaves the wellsite meter and
         # runs to the downstream metering station (Phase 3 multi-station).
         TwinEdge(id="BB1", src="EFM", to="M2-KO", product="gas", diameter_in=6, rack_h_m=2.4),

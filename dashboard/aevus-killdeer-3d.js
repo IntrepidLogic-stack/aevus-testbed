@@ -1633,6 +1633,24 @@
     hbeac.position.set(hx, 2.08, hz); facility.add(hbeac);
     ioLink(hx, hz);
   }
+  // ELECTRICAL AREA CLASSIFICATION overlay (NEC 500 / API RP 500): thin grade-level
+  // boundary rings marking the hydrocarbon zones — Division 1 (red) tight around the
+  // release points, Division 2 (amber) the surrounding buffer. Subtle so it reads as
+  // classification boundaries without muddying the pad.
+  function buildAreaClassification() {
+    function zoneRing(id, r, color, op) {
+      var p = equipLocal(id); if (!p) { return; }
+      var ring = new THREEref.Mesh(
+        new THREEref.TorusGeometry(r, 0.05, 6, 44),
+        new THREEref.MeshStandardMaterial({ color: color, emissive: color, emissiveIntensity: 0.45,
+          transparent: true, opacity: op, metalness: 0.1, roughness: 0.7, depthWrite: false }));
+      ring.rotation.x = Math.PI / 2; ring.position.set(p.x, 0.05, p.z); facility.add(ring);
+    }
+    // Division 1 (red) — at the primary vapor-release points
+    ["WH", "SEP", "FLR", "OT1", "PWT", "DEHY"].forEach(function (id) { zoneRing(id, 2.4, 0xEF4444, 0.42); });
+    // Division 2 (amber) — the surrounding buffer around the heavier sources
+    ["WH", "SEP", "CMP", "OT1", "OT2", "PWT", "FLR", "DEHY", "FGS", "LACT"].forEach(function (id) { zoneRing(id, 4.2, 0xFBBF24, 0.28); });
+  }
   function buildFacility() {
     facility = new THREEref.Group();
 
@@ -1670,6 +1688,7 @@
     }
     buildCommsNet();          // OT-network overlay (Phase 4 of the pipeline-architecture roadmap)
     buildFieldInstruments();  // pad detectors + IP camera from the monitoring reference
+    buildAreaClassification(); // NEC 500 / API RP 500 electrical area-classification boundaries
     // SECONDARY-CONTAINMENT BERM around the tank battery (spill control + NSPS/SPCC)
     (function () {
       var ot1 = equipLocal("OT1"), pwt = equipLocal("PWT");

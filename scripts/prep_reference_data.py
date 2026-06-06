@@ -114,26 +114,36 @@ def prep_cwru(mat_path: Path, out_path: Path, label: str, fs: int = 12000, win: 
     for frame in range(n_windows):
         w = sig[frame * win : (frame + 1) * win]
         accel_rms_g = float(np.sqrt(np.mean(w**2)))
-        # integrate acceleration (m/s^2) -> velocity (m/s), detrend to kill drift
-        a = (w - w.mean()) * g_to_ms2
-        v = np.cumsum(a) / fs
-        v -= v.mean()
+        # FFT-domain integration accel -> velocity: V(f) = A(f) / (j*2*pi*f),
+        # band-limited (10 Hz–5 kHz) so the 1/f term doesn't blow up at DC and the
+        # bearing-fault band is preserved (naive time integration attenuates it).
+        a = (w - w.mean()) * g_to_ms2  # m/s^2
+        spec = np.fft.rfft(a)
+        freq = np.fft.rfftfreq(len(a), d=1.0 / fs)
+        band = (freq >= 10.0) & (freq <= 5000.0)
+        vel_spec = np.zeros_like(spec)
+        vel_spec[band] = spec[band] / (1j * 2.0 * np.pi * freq[band])
+        v = np.fft.irfft(vel_spec, n=len(a))  # velocity m/s
         vel_rms_mm_s = float(np.sqrt(np.mean(v**2)) * 1000.0)
+        # PRIMARY bearing-fault indicator = acceleration RMS (g). Rolling-element
+        # faults are high-frequency/impulsive, so ISO-10816 *velocity* (mm/s) does
+        # NOT flag them — velocity is for imbalance/misalignment. We carry velocity
+        # as a labeled ISO-overall secondary so the contrast is visible.
         rows.append(
             {
                 "frame": frame,
                 "metric": "vibration",
-                "value": round(vel_rms_mm_s, 3),
-                "unit": "mm/s",
+                "value": round(accel_rms_g, 4),
+                "unit": "g",
                 "group": "reference:cwru",
             }
         )
         rows.append(
             {
                 "frame": frame,
-                "metric": "vibration_accel",
-                "value": round(accel_rms_g, 4),
-                "unit": "g",
+                "metric": "vibration_velocity",
+                "value": round(vel_rms_mm_s, 3),
+                "unit": "mm/s",
                 "group": "reference:cwru",
             }
         )

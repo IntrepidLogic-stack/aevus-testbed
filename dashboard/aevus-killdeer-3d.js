@@ -356,12 +356,14 @@
 
     // ── SSV / UPPER MASTER — actuated, fail-CLOSE: the wellhead end of the ESD loop.
     // High/low pilots dump the actuator and the spring shuts the well in on an upset. ──
-    var ssvB = new THREEref.Mesh(new THREEref.CylinderGeometry(0.3, 0.3, 0.46, 14), metal(0x6B7785));
-    ssvB.position.set(0, 3.12, 0); g.add(ssvB);
-    var ssvAct = new THREEref.Mesh(new THREEref.CylinderGeometry(0.31, 0.31, 0.46, 16), metal(WHEEL));
-    ssvAct.rotation.x = Math.PI / 2; ssvAct.position.set(0, 3.12, -0.56); g.add(ssvAct);   // actuator (back)
-    var ssvCap = new THREEref.Mesh(new THREEref.SphereGeometry(0.31, 14, 8), metal(COL.steelDark));
-    ssvCap.position.set(0, 3.12, -0.82); g.add(ssvCap);
+    var ssvB = new THREEref.Mesh(new THREEref.CylinderGeometry(0.3, 0.3, 0.42, 14), metal(0x6B7785));
+    ssvB.position.set(0, 3.0, 0); g.add(ssvB);
+    // VERTICAL fail-close actuator on the bore axis (steel yoke + red spring housing),
+    // centered — symmetric from both sides, no cantilevered can.
+    var ssvY = new THREEref.Mesh(new THREEref.CylinderGeometry(0.2, 0.25, 0.34, 12), metal(COL.steel));
+    ssvY.position.set(0, 3.34, 0); g.add(ssvY);
+    var ssvCap = new THREEref.Mesh(new THREEref.CylinderGeometry(0.22, 0.22, 0.16, 14), metal(WHEEL));
+    ssvCap.position.set(0, 3.56, 0); g.add(ssvCap);          // red fail-close spring housing
 
     // ── flow cross (where the wings come off the bore) ──
     var crossY = 3.78;
@@ -372,18 +374,19 @@
     // wing valve, vertical stem, horizontal wheel with hub + spokes (axis vertical,
     // because a gate valve on a horizontal line has a vertical rising stem).
     function wingWheel(x, wheelR) {
-      var bon = new THREEref.Mesh(new THREEref.CylinderGeometry(0.1, 0.12, 0.14, 12), metal(COL.steel));
-      bon.position.set(x, crossY + 0.12, 0); g.add(bon);
-      var st = new THREEref.Mesh(new THREEref.CylinderGeometry(0.03, 0.03, 0.34, 8), metal(0x9AA6B2));
-      st.position.set(x, crossY + 0.32, 0); g.add(st);
+      var bon = new THREEref.Mesh(new THREEref.CylinderGeometry(0.1, 0.12, 0.12, 12), metal(COL.steel));
+      bon.position.set(x, crossY + 0.1, 0); g.add(bon);
+      var st = new THREEref.Mesh(new THREEref.CylinderGeometry(0.03, 0.03, 0.18, 8), metal(0x9AA6B2));
+      st.position.set(x, crossY + 0.2, 0); g.add(st);
+      var wy = crossY + 0.29;                                       // wheel seated just above the wing valve
       var w = new THREEref.Mesh(new THREEref.TorusGeometry(wheelR, 0.04, 8, 18), metal(WHEEL));
-      w.rotation.x = Math.PI / 2; w.position.set(x, crossY + 0.46, 0); g.add(w);  // horizontal wheel ON the stem
+      w.rotation.x = Math.PI / 2; w.position.set(x, wy, 0); g.add(w);  // horizontal wheel ON the stem
       var hub = new THREEref.Mesh(new THREEref.CylinderGeometry(0.045, 0.045, 0.08, 8), metal(COL.steelDark));
-      hub.position.set(x, crossY + 0.46, 0); g.add(hub);
+      hub.position.set(x, wy, 0); g.add(hub);
       var s1 = new THREEref.Mesh(new THREEref.CylinderGeometry(0.016, 0.016, wheelR * 2, 6), metal(WHEEL));
-      s1.rotation.z = Math.PI / 2; s1.position.set(x, crossY + 0.46, 0); g.add(s1);
+      s1.rotation.z = Math.PI / 2; s1.position.set(x, wy, 0); g.add(s1);
       var s2 = new THREEref.Mesh(new THREEref.CylinderGeometry(0.016, 0.016, wheelR * 2, 6), metal(WHEEL));
-      s2.rotation.x = Math.PI / 2; s2.position.set(x, crossY + 0.46, 0); g.add(s2);
+      s2.rotation.x = Math.PI / 2; s2.position.set(x, wy, 0); g.add(s2);
     }
     // small pressure gauge (case + face) on a standpipe — face toward +Z (the viewer)
     function gauge(x, y, z) {
@@ -401,9 +404,9 @@
     // overlapping the body.) ──
     var pwNip = new THREEref.Mesh(new THREEref.CylinderGeometry(0.12, 0.12, 0.56, 12), metal(COL.steelDark));
     pwNip.rotation.z = Math.PI / 2; pwNip.position.set(0.52, crossY, 0); g.add(pwNip);
-    var pwBody = new THREEref.Mesh(new THREEref.CylinderGeometry(0.15, 0.15, 0.42, 12), metal(0x6B7785));
+    var pwBody = new THREEref.Mesh(new THREEref.CylinderGeometry(0.14, 0.14, 0.42, 12), metal(0x6B7785));
     pwBody.rotation.z = Math.PI / 2; pwBody.position.set(0.9, crossY, 0); g.add(pwBody);
-    wingWheel(0.9, 0.2);                                              // production-wing handwheel — clear of the body
+    wingWheel(0.9, 0.18);                                             // production-wing handwheel (matches kill wing)
     var choke = new THREEref.Mesh(new THREEref.CylinderGeometry(0.18, 0.13, 0.46, 12), metal(0x6B7785));
     choke.rotation.z = Math.PI / 2; choke.position.set(1.34, crossY, 0); g.add(choke);
     var chokeInd = new THREEref.Mesh(new THREEref.CylinderGeometry(0.04, 0.04, 0.44, 8), metal(0xFBBF24));
@@ -413,11 +416,11 @@
     gauge(1.58, crossY + 0.05, 0.18);                                // FLOWLINE PRESSURE gauge (FLP) on the take-off
 
     // ── KILL WING (WEST, −X): nipple → wing gate (out clear of the body) → blind cap ──
-    var kwNip = new THREEref.Mesh(new THREEref.CylinderGeometry(0.1, 0.1, 0.56, 10), metal(COL.steelDark));
+    var kwNip = new THREEref.Mesh(new THREEref.CylinderGeometry(0.12, 0.12, 0.56, 12), metal(COL.steelDark));
     kwNip.rotation.z = Math.PI / 2; kwNip.position.set(-0.52, crossY, 0); g.add(kwNip);
-    var kwBody = new THREEref.Mesh(new THREEref.CylinderGeometry(0.13, 0.13, 0.42, 10), metal(0x6B7785));
+    var kwBody = new THREEref.Mesh(new THREEref.CylinderGeometry(0.14, 0.14, 0.42, 12), metal(0x6B7785));
     kwBody.rotation.z = Math.PI / 2; kwBody.position.set(-0.9, crossY, 0); g.add(kwBody);
-    wingWheel(-0.9, 0.16);                                            // kill-wing handwheel — clear of the body
+    wingWheel(-0.9, 0.18);                                            // kill-wing handwheel (mirror of production)
     var kwCap = new THREEref.Mesh(new THREEref.CylinderGeometry(0.13, 0.14, 0.13, 12), metal(COL.steelDark));
     kwCap.rotation.z = Math.PI / 2; kwCap.position.set(-1.24, crossY, 0); g.add(kwCap);
     // TUBING-HEAD pressure gauge (well TBG) on the front (+X) face, casing-head level

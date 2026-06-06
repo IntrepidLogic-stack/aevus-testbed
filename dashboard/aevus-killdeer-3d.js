@@ -2318,6 +2318,7 @@
         }
       });
     }
+    if (_scenario) { _scenarioTintNodes(_scenario); }   // a live poll must not wash out an active what-if
   }
 
   // ── HIDE THE OLD BOXY PAD ────────────────────────────────────────────────────
@@ -2638,22 +2639,118 @@
       }
     });
   }
+  // ── DEMO SCENARIOS (SIMULATED, demo-only, facility-gated) ───────────────────
+  // The compressor-trip scenario is the primary sales/demo workflow (handoff §10):
+  // it must show process impact, telemetry confidence, a named alarm, downstream
+  // propagation, the armed relief path, and an Aevus recommendation — all clearly
+  // labeled SIMULATED (handoff §7/§17). Edge + node ids are validated vs twin.py.
+  var _scenario = null;   // active what-if scenario (null = live)
   var SCENARIOS = {
-    "compressor-trip": { segs: ["P3", "P6", "P7"], equip: ["CMP"], label: "Compressor Trip" }
+    "compressor-trip": {
+      label: "Compressor Trip",
+      alarmId: "ALM-CMP-TRIP",
+      // gas train downstream of the trip loses flow; CMP fuel + recovery taps too
+      blockedSegs: ["P3", "P7", "P9", "F1", "RP", "BB1", "BB2"],
+      riskSegs: ["R1", "R2"],   // relief header — ARMED as a risk path, not flowing
+      nodes: {
+        "CMP":    { status: "bad",  word: "TRIPPED" },
+        "SEP":    { status: "warn", word: "PRESS RISING" },
+        "DEHY":   { status: "warn", word: "DEGRADED" },
+        "EFM":    { status: "warn", word: "NO FLOW" },
+        "M2-KO":  { status: "warn", word: "DEGRADED" },
+        "M2-EFM": { status: "warn", word: "DEGRADED" }
+      },
+      impact: "SEP pressure rising · EFM custody flow → 0 · DEHY + sales metering degraded · relief/flare path armed",
+      rec: "Aevus detected a compressor trip with falling discharge flow and rising upstream separator pressure. " +
+           "Verify compressor permissives, suction/discharge pressures, vibration trend, and ESD status. " +
+           "Monitor separator pressure and confirm relief/flare path readiness. Do not restart until trip cause is confirmed."
+    }
   };
+  function _segById(id) { for (var i = 0; i < segments.length; i++) { if (segments[i].id === id) { return segments[i]; } } return null; }
+  function _scenarioTintNodes(sc) {
+    for (var id in sc.nodes) {
+      if (!sc.nodes.hasOwnProperty(id)) { continue; }
+      var st = sc.nodes[id].status;
+      _tintEquip(id, st === "bad" ? COL.bad : COL.warn, st === "bad" ? 0.45 : 0.3);
+    }
+  }
+  // override the affected callouts with the scenario status word/color; called on
+  // inject AND at the end of every live updateCallouts() so the override persists.
+  function _applyScenarioCallouts() {
+    if (!_scenario) { return; }
+    for (var id in _scenario.nodes) {
+      if (!_scenario.nodes.hasOwnProperty(id)) { continue; }
+      var co = _callouts[id]; if (!co) { continue; }
+      var nd = _scenario.nodes[id];
+      var hexS = COL_HEX(nd.status === "bad" ? COL.bad : COL.warn);
+      try {
+        co.sub.innerHTML = co.node.id + " · <span style=\"color:" + hexS + "\">" + nd.word + "</span>";
+        co.ring.style.background = "conic-gradient(" + hexS + " 0 100%)";
+        co.num.style.color = hexS;
+      } catch (e) {}
+    }
+  }
   function simulateScenario(name) {
     var sc = SCENARIOS[name];
     if (!sc) { return false; }
+    _scenario = sc;
     var i;
-    for (i = 0; i < sc.segs.length; i++) { _sim[sc.segs[i]] = true; _applySeg(sc.segs[i], 0, "bad"); }
-    for (i = 0; i < sc.equip.length; i++) { _tintEquip(sc.equip[i], COL.bad, 0.4); }
-    console.log("[killdeer3d] what-if: " + (sc.label || name) + " injected");
+    for (i = 0; i < sc.blockedSegs.length; i++) { _sim[sc.blockedSegs[i]] = true; _applySeg(sc.blockedSegs[i], 0, "bad"); }
+    for (i = 0; i < sc.riskSegs.length; i++) {       // relief header armed: amber, standby (no flow)
+      _sim[sc.riskSegs[i]] = true;
+      var s = _segById(sc.riskSegs[i]);
+      if (s && s.mesh && s.mesh.material) {
+        s.flow = 0; s.speed = 0;
+        s.mesh.material.color.setHex(COL.warn); s.mesh.material.emissive.setHex(COL.warn);
+        s.mesh.material.emissiveIntensity = 0.55;
+        for (var k = 0; k < s.packets.length; k++) { s.packets[k].mesh.visible = false; }
+      }
+    }
+    _scenarioTintNodes(sc);
+    _applyScenarioCallouts();
+    _scenarioPanel(sc);
+    console.log("[killdeer3d] SIMULATED scenario injected: " + sc.label + " (" + sc.alarmId + ")");
     return true;
   }
   function clearSim() {
-    _sim = {};
+    _scenario = null; _sim = {};
+    _scenarioPanel(null);
     pollStatus(); pollFlow();  // restore equipment + pipes from live data
-    console.log("[killdeer3d] what-if cleared — back to live");
+    console.log("[killdeer3d] scenario cleared — back to live");
+  }
+  // SIMULATED-scenario overlay: labeled banner + named alarm + Aevus recommendation.
+  // No emoji (IL UI rule) — a CSS status dot conveys severity.
+  function _scenarioPanel(sc) {
+    try {
+      var c = _attachedMap && _attachedMap.getContainer ? _attachedMap.getContainer() : null;
+      if (!c) { return; }
+      var p = c.querySelector("#kd-scenario");
+      if (!sc) { if (p) { p.remove(); } return; }
+      if (!p) {
+        p = document.createElement("div"); p.id = "kd-scenario";
+        p.style.cssText = "position:absolute;top:64px;left:50%;transform:translateX(-50%);z-index:7;" +
+          "width:560px;max-width:86%;font-family:Manrope,-apple-system,sans-serif;" +
+          "background:rgba(11,17,32,0.94);border:1px solid #EF4444;border-radius:11px;" +
+          "padding:12px 14px;backdrop-filter:blur(6px);box-shadow:0 8px 30px rgba(0,0,0,0.5);";
+        c.appendChild(p);
+      }
+      p.innerHTML =
+        '<div style="display:flex;align-items:center;gap:8px;margin-bottom:7px;">' +
+          '<span style="width:9px;height:9px;border-radius:50%;background:#3B82F6;box-shadow:0 0 8px #3B82F6;"></span>' +
+          '<span style="color:#93C5FD;font-size:11px;font-weight:700;letter-spacing:0.04em;">SIMULATED SCENARIO — ' + sc.label.toUpperCase() + '</span>' +
+          '<span style="color:#64748B;font-size:10px;margin-left:auto;">not live field data</span>' +
+        '</div>' +
+        '<div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;flex-wrap:wrap;">' +
+          '<span style="background:#EF4444;color:#fff;font-size:10px;font-weight:800;padding:2px 7px;border-radius:5px;letter-spacing:0.03em;">CRITICAL</span>' +
+          '<span style="color:#FCA5A5;font-size:12px;font-weight:700;">' + sc.alarmId + '</span>' +
+          '<span style="color:#E2E8F0;font-size:12px;">Field Sales Compressor (CMP) tripped — discharge flow lost</span>' +
+        '</div>' +
+        '<div style="color:#FBBF24;font-size:11px;margin-bottom:8px;">Impact: ' + sc.impact + '</div>' +
+        '<div style="border-top:1px solid rgba(148,163,184,0.18);padding-top:8px;">' +
+          '<div style="color:#67E8F9;font-size:10px;font-weight:700;letter-spacing:0.05em;margin-bottom:3px;">AEVUS RECOMMENDATION</div>' +
+          '<div style="color:#CBD5E1;font-size:12px;line-height:1.5;">' + sc.rec + '</div>' +
+        '</div>';
+    } catch (e) {}
   }
 
   // Small brand-compliant control (text only — no emoji per IL UI rule).
@@ -2878,6 +2975,7 @@
         co.sub.innerHTML = co.node.id + " · <span style=\"color:" + hexS + "\">" + word + "</span>";
       } catch (e) {}
     }
+    _applyScenarioCallouts();   // keep an active what-if scenario's overrides on top of live status
   }
 
   window.AevusKilldeer3D = {

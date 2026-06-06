@@ -1164,17 +1164,74 @@
 
   // TEG glycol DEHYDRATOR — tall contactor (absorber) column with trays + a
   // reboiler/regenerator skid + glycol pump. Dries sales gas to pipeline dewpoint.
+  // TEG dehydrator built to a real field unit's arrangement (verified vs. a working
+  // glycol package): a tall CONTACTOR/absorber (WEST) with an inlet gas scrubber, and
+  // a REGEN skid (EAST) = fired reboiler + still column + reflux + glycol pump/surge.
+  // Service nozzles are distinct + flanged so each line lands where it really would —
+  // see _noz("dehydrator", …) for the routing of wet/dry gas, still-vent, fuel, relief.
   function buildDehydrator() {
     var g = new THREEref.Group();
-    var skid = new THREEref.Mesh(new THREEref.BoxGeometry(3.4, 0.4, 2.0), skidMat()); skid.position.y = 0.2; g.add(skid);
+    var skid = new THREEref.Mesh(new THREEref.BoxGeometry(3.9, 0.4, 2.2), skidMat()); skid.position.y = 0.2; g.add(skid);
     var glassMat = new THREEref.MeshStandardMaterial({ color: 0xBFD8E6, metalness: 0.1, roughness: 0.08, transparent: true, opacity: 0.16, side: THREEref.DoubleSide, depthWrite: false });
-    var colG = new THREEref.CylinderGeometry(0.55, 0.55, 5.4, 18, 1, true);
-    var col = new THREEref.Mesh(colG, glassMat); col.position.set(-0.9, 3.1, 0); g.add(col); addEdges(g, colG, col, COL.accent, 0.32);
-    var head = new THREEref.Mesh(new THREEref.SphereGeometry(0.55, 16, 10, 0, Math.PI * 2, 0, Math.PI / 2), metal(COL.steelDark)); head.position.set(-0.9, 5.8, 0); g.add(head);
-    for (var ti = 0; ti < 5; ti++) { var tray = new THREEref.Mesh(new THREEref.CylinderGeometry(0.5, 0.5, 0.05, 16), metal(0x9AA6B2)); tray.position.set(-0.9, 1.5 + ti * 0.7, 0); g.add(tray); }
-    var reb = new THREEref.Mesh(new THREEref.CylinderGeometry(0.5, 0.5, 2.0, 16), metal(COL.steel)); reb.rotation.z = Math.PI / 2; reb.position.set(0.95, 0.95, 0); g.add(reb);
-    var rstack = new THREEref.Mesh(new THREEref.CylinderGeometry(0.12, 0.14, 1.6, 10), metal(COL.steelDark)); rstack.position.set(0.95, 2.0, 0); g.add(rstack);
-    var pump = new THREEref.Mesh(new THREEref.BoxGeometry(0.5, 0.4, 0.4), metal(COL.steel)); pump.position.set(0.95, 0.6, 0.85); g.add(pump);
+    var glycolMat = new THREEref.MeshStandardMaterial({ color: 0xCBA135, metalness: 0.45, roughness: 0.5 });   // lean/rich TEG glycol (gold)
+
+    // flanged nozzle stub: the FLANGE sits exactly at the tie point (tx,ty,tz) that
+    // _noz returns, with the stub projecting back into the vessel along −ax.
+    function nozzleAt(tx, ty, tz, ax, len, r) {
+      r = r || 0.13;
+      var dir = ax.clone().normalize();
+      var q = new THREEref.Quaternion().setFromUnitVectors(new THREEref.Vector3(0, 1, 0), dir);
+      var stub = new THREEref.Mesh(new THREEref.CylinderGeometry(r, r, len, 12), metal(COL.steelDark));
+      stub.quaternion.copy(q); stub.position.copy(new THREEref.Vector3(tx, ty, tz).addScaledVector(dir, -len / 2)); g.add(stub);
+      var fl = new THREEref.Mesh(new THREEref.CylinderGeometry(r + 0.09, r + 0.09, 0.07, 14), metal(COL.steel));
+      fl.quaternion.copy(q); fl.position.set(tx, ty, tz); g.add(fl);
+    }
+    function gtube(pts, r) {   // thin glycol line
+      g.add(new THREEref.Mesh(new THREEref.TubeGeometry(new THREEref.CatmullRomCurve3(pts, false, "catmullrom", 0.2),
+        Math.max(12, pts.length * 6), r || 0.055, 8, false), glycolMat));
+    }
+
+    // ── CONTACTOR / ABSORBER — tall WEST column, gas up / glycol down ──
+    var cX = -0.95;
+    var colG = new THREEref.CylinderGeometry(0.55, 0.55, 5.4, 20, 1, true);
+    var col = new THREEref.Mesh(colG, glassMat); col.position.set(cX, 3.1, 0); g.add(col); addEdges(g, colG, col, COL.accent, 0.32);
+    var dome = new THREEref.Mesh(new THREEref.SphereGeometry(0.55, 16, 10, 0, Math.PI * 2, 0, Math.PI / 2), metal(COL.steelDark)); dome.position.set(cX, 5.8, 0); g.add(dome);
+    var botHead = new THREEref.Mesh(new THREEref.SphereGeometry(0.55, 16, 10, 0, Math.PI * 2, Math.PI / 2, Math.PI / 2), metal(COL.steelDark)); botHead.position.set(cX, 0.4, 0); g.add(botHead);
+    for (var ti = 0; ti < 6; ti++) { var tray = new THREEref.Mesh(new THREEref.CylinderGeometry(0.5, 0.5, 0.05, 18), metal(0x9AA6B2)); tray.position.set(cX, 1.25 + ti * 0.62, 0); g.add(tray); }
+    var mist = new THREEref.Mesh(new THREEref.CylinderGeometry(0.5, 0.5, 0.22, 18), metal(0x6B7785)); mist.position.set(cX, 5.25, 0); g.add(mist);   // mist extractor — dry gas leaves above it
+
+    // ── INLET GAS SCRUBBER — small KO pot WEST of the contactor (free liquids drop
+    // out before the wet gas enters the bottom of the column) ──
+    var scr = new THREEref.Mesh(new THREEref.CylinderGeometry(0.26, 0.26, 1.5, 16), metal(COL.steel)); scr.position.set(-1.7, 1.15, 0); g.add(scr);
+    var scrCap = new THREEref.Mesh(new THREEref.SphereGeometry(0.26, 14, 8, 0, Math.PI * 2, 0, Math.PI / 2), metal(COL.steelDark)); scrCap.position.set(-1.7, 1.9, 0); g.add(scrCap);
+    var scrBoot = new THREEref.Mesh(new THREEref.CylinderGeometry(0.1, 0.1, 0.28, 10), metal(COL.steelDark)); scrBoot.position.set(-1.7, 0.45, 0); g.add(scrBoot);
+    nozzleAt(-2.0, 1.2, 0, new THREEref.Vector3(-1, 0, 0), 0.18, 0.16);   // WET-gas inlet (from compressor) — west face
+    g.add(new THREEref.Mesh(new THREEref.TubeGeometry(new THREEref.CatmullRomCurve3([   // scrubbed gas -> contactor bottom
+      new THREEref.Vector3(-1.7, 1.95, 0), new THREEref.Vector3(-1.7, 2.15, 0), new THREEref.Vector3(cX, 2.15, 0), new THREEref.Vector3(cX, 1.05, 0)
+    ], false, "catmullrom", 0.2), 32, 0.12, 10, false), metal(COL.steelDark)));
+
+    // dry-gas + relief nozzles up top (offset in +Z so their drop legs clear the shell)
+    nozzleAt(cX, 5.4, 0.75, new THREEref.Vector3(0, 0, 1), 0.2, 0.15);    // DRY sales gas out (to custody)
+    nozzleAt(-0.6, 5.55, 0.7, new THREEref.Vector3(0, 0, 1), 0.16, 0.1);  // PSV relief take-off (to flare)
+    var psv = new THREEref.Mesh(new THREEref.CylinderGeometry(0.12, 0.15, 0.4, 10), metal(PRODUCT.gas)); psv.position.set(-0.6, 5.95, 0.5); g.add(psv);
+
+    // ── REGEN SKID (EAST) — fired reboiler + still column + reflux + glycol pump ──
+    var reb = new THREEref.Mesh(new THREEref.CylinderGeometry(0.5, 0.5, 2.0, 18), metal(COL.steel)); reb.rotation.z = Math.PI / 2; reb.position.set(0.85, 0.9, 0); g.add(reb);
+    var firebox = new THREEref.Mesh(new THREEref.BoxGeometry(0.5, 0.6, 0.7), metal(COL.steelDark)); firebox.position.set(1.85, 0.9, 0); g.add(firebox);  // burner / firetube end
+    nozzleAt(2.05, 0.85, 0, new THREEref.Vector3(1, 0, 0), 0.16, 0.09);   // FUEL-gas inlet to the reboiler burner — east end
+    var still = new THREEref.Mesh(new THREEref.CylinderGeometry(0.3, 0.3, 2.4, 16), metal(0x9AA6B2)); still.position.set(0.5, 2.6, 0); g.add(still);   // stripping still column on the reboiler
+    var reflux = new THREEref.Mesh(new THREEref.CylinderGeometry(0.34, 0.34, 0.4, 16), metal(COL.steelDark)); reflux.position.set(0.5, 3.75, 0); g.add(reflux);  // reflux condenser at the still top
+    nozzleAt(0.5, 3.7, 0.5, new THREEref.Vector3(0, 0, 1), 0.18, 0.1);    // STILL VENT (water vapor + BTEX -> VRU)
+    var pump = new THREEref.Mesh(new THREEref.BoxGeometry(0.5, 0.4, 0.4), metal(COL.steel)); pump.position.set(1.05, 0.55, 0.8); g.add(pump);  // glycol circulation pump
+    var pmot = new THREEref.Mesh(new THREEref.CylinderGeometry(0.16, 0.16, 0.5, 12), metal(COL.steelDark)); pmot.rotation.z = Math.PI / 2; pmot.position.set(1.5, 0.55, 0.8); g.add(pmot);
+    var surge = new THREEref.Mesh(new THREEref.CylinderGeometry(0.22, 0.22, 1.2, 14), metal(COL.steel)); surge.rotation.z = Math.PI / 2; surge.position.set(0.9, 0.5, -0.75); g.add(surge);   // glycol surge / accumulator
+
+    // ── GLYCOL CIRCULATION LOOP — the TEG signature: RICH off the contactor bottom to
+    // the regen still; LEAN from the pump back up to the contactor top tray ──
+    gtube([new THREEref.Vector3(cX + 0.45, 0.85, 0.35), new THREEref.Vector3(cX + 0.45, 0.85, 0.45),
+           new THREEref.Vector3(0.5, 0.85, 0.45), new THREEref.Vector3(0.5, 2.0, 0.45)]);          // rich glycol -> still
+    gtube([new THREEref.Vector3(1.05, 0.75, 0.8), new THREEref.Vector3(1.05, 5.05, 0.8),
+           new THREEref.Vector3(cX, 5.05, 0.55), new THREEref.Vector3(cX, 5.05, 0.0)], 0.05);       // lean glycol -> contactor top
     return g;
   }
   // VAPOR RECOVERY UNIT — small gas compressor skid pulling tank vapors back.
@@ -1378,7 +1435,7 @@
   // of this product/role. Equipment groups are axis-aligned at scale 1, so the world
   // tie = equipmentCenter + offset. Values match the stubs modeled in
   // buildWellhead/buildHeater/buildSeparator/buildCompressor/buildFlare/buildTank.
-  function _noz(t, p, isSource) {
+  function _noz(t, p, isSource, peer) {
     if (t === "wellhead") return isSource ? { x: 2.45, y: 3.78, z: 0 } : { x: -0.82, y: 1.85, z: 0 };       // production take-off flange (end of choke spool) · chem-injection flange in
     if (t === "heater" || t === "scrubber") return isSource ? { x: 0.95, y: 3.1, z: 0 } : { x: -2.1, y: 1.7, z: 0 }; // gas outlet TOP (via mist extractor) · inlet on the END head
     if (t === "separator") {
@@ -1391,7 +1448,18 @@
     if (t === "oiltank" || t === "watertank") return { x: 0, y: 4.3, z: 2.6 };                            // gravity dump into upper shell, facing the train
     if (t === "efm") return isSource ? { x: 0.8, y: 1.1, z: 0 } : { x: -0.8, y: 1.1, z: 0 };
     if (t === "chemtote") return { x: 1.4, y: 1.5, z: 0 };                                                 // injection-pump discharge toward the wellhead
-    if (t === "dehydrator") return isSource ? { x: 0.2, y: 5.0, z: 0 } : { x: -1.5, y: 0.9, z: 0 };        // dry gas off the top · wet gas into the contactor bottom
+    if (t === "dehydrator") {
+      // Service-routed to the REAL nozzles modeled in buildDehydrator (peer = the
+      // node at the other end of the line). Contactor/absorber is the WEST column;
+      // the fired reboiler + still column is the EAST regen skid.
+      if (isSource) {
+        if (peer === "VRU") return { x: 0.5, y: 3.7, z: 0.5 };      // STILL VENT (water vapor + BTEX) off the regen still top
+        if (peer === "FLR") return { x: -0.6, y: 5.55, z: 0.7 };    // contactor-top PSV relief take-off
+        return { x: -0.95, y: 5.4, z: 0.75 };                       // DRY sales gas off the contactor top (to custody) — default
+      }
+      if (peer === "FGS") return { x: 2.05, y: 0.85, z: 0 };        // FUEL gas to the reboiler burner (EAST end)
+      return { x: -2.0, y: 1.2, z: 0 };                              // WET gas into the inlet scrubber / contactor bottom (WEST) — default
+    }
     if (t === "vru") return isSource ? { x: 0.6, y: 1.4, z: 0 } : { x: 1.1, y: 1.0, z: 0.6 };              // discharge · suction (tank vapors)
     if (t === "combustor") return { x: -0.9, y: 0.7, z: 0 };                                               // vapor inlet at the base
     if (t === "swd") return isSource ? { x: 1.55, y: 0.9, z: 0 } : { x: -1.05, y: 0.5, z: 0 };             // discharge to disposal meter (E, high) · produced-water suction (W, low)
@@ -1413,7 +1481,7 @@
       var fT = _nodeType(spec.from), tT = _nodeType(spec.to);
       // Start the pipe ON the real source nozzle stub and land it ON the real dest
       // nozzle stub, then drop/rise to a low sleeper run with 90° elbows between.
-      var sN = _noz(fT, spec.product, true), dN = _noz(tT, spec.product, false);
+      var sN = _noz(fT, spec.product, true, spec.to), dN = _noz(tT, spec.product, false, spec.from);
       var sTie = new THREEref.Vector3(a.x + sN.x, sN.y, a.z + sN.z);                // exact source nozzle
       var dTie = new THREEref.Vector3(b.x + dN.x, dN.y, b.z + dN.z);                // exact dest nozzle
       // TANK NOZZLES — tie ON the shell, on the face POINTING AT the connected

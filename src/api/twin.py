@@ -294,7 +294,9 @@ _TOPOLOGY = TwinTopology(
         TwinEdge(id="P7", src="CMP", to="DEHY", product="gas", diameter_in=3, rack_h_m=2.5, asset_id="RTU-01"),
         TwinEdge(id="P9", src="DEHY", to="EFM", product="gas", diameter_in=3, rack_h_m=2.5, asset_id="RTU-01"),
         # Tank vapors -> vapor recovery unit -> enclosed combustor (NSPS OOOOb).
+        # BOTH condensate tanks vent to the VRU (common vapor header).
         TwinEdge(id="V1", src="OT1", to="VRU", product="gas", diameter_in=2, rack_h_m=1.6),
+        TwinEdge(id="V4", src="OT2", to="VRU", product="gas", diameter_in=2, rack_h_m=1.6),
         TwinEdge(id="V2", src="VRU", to="CMB", product="gas", diameter_in=2, rack_h_m=1.8),
         # TEG regenerator still-vent + flash gas -> vapor recovery (NOT atmosphere).
         # The dehy reboiler still column and the glycol flash tank are two of the
@@ -304,7 +306,10 @@ _TOPOLOGY = TwinTopology(
         # Produced water -> saltwater disposal pump.
         TwinEdge(id="W1", src="PWT", to="SWD", product="water", diameter_in=3, rack_h_m=1.8, asset_id="RTU-01"),
         # Liquids drop out to the condensate tanks (hydrocarbon) and produced-water tank.
+        # The separator dumps condensate to tank #1; the two condensate tanks share a
+        # bottom EQUALIZER line so they fill/draw together (standard tank battery).
         TwinEdge(id="P4", src="SEP", to="OT1", product="oil", diameter_in=4, rack_h_m=2.0, asset_id="RTU-01"),
+        TwinEdge(id="EQ1", src="OT1", to="OT2", product="oil", diameter_in=4, rack_h_m=0.8),
         TwinEdge(id="P5", src="SEP", to="PWT", product="water", diameter_in=3, rack_h_m=2.2, asset_id="RTU-01"),
         # Relief/blowdown to flare via a FLARE VALVE set at a higher setpoint than the BPR.
         TwinEdge(

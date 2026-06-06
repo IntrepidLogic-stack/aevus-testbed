@@ -1207,6 +1207,24 @@
       var sN = _noz(fT, spec.product, true), dN = _noz(tT, spec.product, false);
       var sTie = new THREEref.Vector3(a.x + sN.x, sN.y, a.z + sN.z);                // exact source nozzle
       var dTie = new THREEref.Vector3(b.x + dN.x, dN.y, b.z + dN.z);                // exact dest nozzle
+      // TANK NOZZLES — tie ON the shell, on the face POINTING AT the connected
+      // equipment, so the run leaves outward and never crosses under/through the
+      // tank. Elevation matches the real service: liquid gravity fill enters an
+      // UPPER side inlet, a liquid/equalizer outlet leaves LOW near grade, and
+      // vapor leaves the ROOF (thief hatch -> VRU). r=2.8 shell + flange standoff.
+      function _tankTie(center, peer, product, isOutlet) {
+        var dx = peer.x - center.x, dz = peer.z - center.z, L = Math.sqrt(dx * dx + dz * dz) || 1;
+        var R = 3.0, y;
+        if (product === "gas") { y = 6.15; }            // vapor: roof nozzle -> VRU
+        else if (isOutlet) { y = 0.85; }                // liquid / equalizer outlet: low side nozzle
+        else { y = 4.2; }                               // liquid gravity fill: upper side inlet
+        return new THREEref.Vector3(center.x + dx / L * R, y, center.z + dz / L * R);
+      }
+      var bothTanks = (fT === "oiltank" || fT === "watertank") && (tT === "oiltank" || tT === "watertank");
+      if (fT === "oiltank" || fT === "watertank") { sTie = _tankTie(a, b, spec.product, true); }
+      // tank-to-tank liquid line = bottom EQUALIZER (both ends low); otherwise a
+      // gravity fill enters the upper side inlet.
+      if (tT === "oiltank" || tT === "watertank") { dTie = _tankTie(b, a, spec.product, bothTanks && spec.product !== "gas"); }
       var runH = 1.2;
       // MANHATTAN / orthogonal route — vertical drop off the source nozzle, run on
       // X, run on Z, vertical rise into the dest nozzle. Every segment is axis-

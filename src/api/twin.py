@@ -555,7 +555,13 @@ def _process_snapshot(topo: TwinTopology) -> ProcessSnapshot:
     flare_flow = v(6.5, 1.5)  # flare/relief flow (MCFD) — closes the gas balance vs. raw production
     fuel_mcfd = v(14.0, 1.5)  # on-site fuel gas: line heater + TEG reboiler + pneumatics
     # custody total creeps up monotonically with the REAL gas rate
-    accum = 4_125_944.0 + max(0.0, (t - _PROC_EPOCH)) / 86400.0 * 1255.0
+    _elapsed_days = max(0.0, (t - _PROC_EPOCH)) / 86400.0
+    accum = 4_125_944.0 + _elapsed_days * 1255.0
+    # condensate (LACT) + produced-water (disposal meter) custody totalizers — same
+    # monotonic creep so the custody nodes carry believable, ever-increasing totals.
+    cond_accum = 86_540.0 + _elapsed_days * 28.0  # LACT net condensate (bbl)
+    wat_accum = 71_220.0 + _elapsed_days * 24.0  # produced-water disposal (bbl)
+    stn_p = static_p - 12.0  # sales-station line pressure (slight drop downstream of pad custody)
 
     def rd(label: str, val: float, unit: str, status: str = "good", reg: str | None = None) -> ProcessReading:
         return ProcessReading(label=label, value=round(val, 1), unit=unit, status=status, reg=reg)
@@ -613,7 +619,16 @@ def _process_snapshot(topo: TwinTopology) -> ProcessSnapshot:
         ProcessStage(
             id="tankfarm",
             name="Tank Battery",
-            readings=[rd("COND", oil_lvl, "in", reg="40015"), rd("WATER", wat_lvl, "in")],
+            readings=[
+                rd("COND", oil_lvl, "in", reg="40015"),
+                rd("WATER", wat_lvl, "in"),
+                # Condensate LACT custody load-out (was a "dark" node — now carries telemetry)
+                rd("LACT", cond_bcpd, "BCPD"),
+                rd("CTOT", cond_accum, "bbl"),
+                # Produced-water disposal meter downstream of the SWD pump
+                rd("DISP", bwpd, "BWPD"),
+                rd("WTOT", wat_accum, "bbl"),
+            ],
         ),
         ProcessStage(
             id="metering",
@@ -624,6 +639,9 @@ def _process_snapshot(topo: TwinTopology) -> ProcessSnapshot:
                 rd("BTU", btu, "Btu/scf"),
                 rd("STATIC", static_p, "PSIG"),
                 rd("DP", dp, "inH₂O"),
+                # Downstream sales metering station (M2) — was a "dark" node, now metered
+                rd("STN", mcfd, "MCFD"),
+                rd("STN P", stn_p, "PSIG"),
             ],
         ),
         ProcessStage(

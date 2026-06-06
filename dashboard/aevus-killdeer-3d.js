@@ -1651,6 +1651,24 @@
     // Division 2 (amber) — the surrounding buffer around the heavier sources
     ["WH", "SEP", "CMP", "OT1", "OT2", "PWT", "FLR", "DEHY", "FGS", "LACT"].forEach(function (id) { zoneRing(id, 4.2, 0xFBBF24, 0.28); });
   }
+  // ESD TRIP SIGNAL — a thin red safety line from the ESD/SIS panel to the wellhead
+  // SSV, showing the panel shuts the well in on an upset (ISA-84). Routed
+  // orthogonally at a low cable height, then rises into the tree's SSV.
+  function buildEsdTrip() {
+    var a = equipLocal("ESD"), b = equipLocal("WH");
+    if (!a || !b) { return; }
+    var h = 0.34;
+    var pts = [
+      new THREEref.Vector3(a.x, 0.2, a.z), new THREEref.Vector3(a.x, h, a.z),
+      new THREEref.Vector3(b.x, h, a.z), new THREEref.Vector3(b.x, h, b.z),
+      new THREEref.Vector3(b.x, 3.1, b.z)                     // rise into the SSV actuator on the tree
+    ];
+    var crv = new THREEref.CurvePath();
+    for (var i = 0; i < pts.length - 1; i++) { if (pts[i].distanceTo(pts[i + 1]) > 1e-4) { crv.add(new THREEref.LineCurve3(pts[i], pts[i + 1])); } }
+    var mat = new THREEref.MeshStandardMaterial({ color: 0xEF4444, emissive: 0xEF4444, emissiveIntensity: 0.55,
+      transparent: true, opacity: 0.8, metalness: 0.2, roughness: 0.6 });
+    facility.add(new THREEref.Mesh(new THREEref.TubeGeometry(crv, 56, 0.028, 6, false), mat));
+  }
   function buildFacility() {
     facility = new THREEref.Group();
 
@@ -1689,6 +1707,7 @@
     buildCommsNet();          // OT-network overlay (Phase 4 of the pipeline-architecture roadmap)
     buildFieldInstruments();  // pad detectors + IP camera from the monitoring reference
     buildAreaClassification(); // NEC 500 / API RP 500 electrical area-classification boundaries
+    buildEsdTrip();            // ESD/SIS panel -> wellhead SSV safety trip line (ISA-84)
     // SECONDARY-CONTAINMENT BERM around the tank battery (spill control + NSPS/SPCC)
     (function () {
       var ot1 = equipLocal("OT1"), pwt = equipLocal("PWT");

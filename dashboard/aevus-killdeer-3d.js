@@ -1643,13 +1643,14 @@
     ];
     links.forEach(function (lk, li) {
       var a = equipLocal(lk[0]), b = equipLocal(lk[1]), col = MED[lk[2]] || MED.ethernet;
-      var trayH = 0.22 + (li % 4) * 0.06;   // stacked tray levels so parallel runs don't overlap
-      // SCHEMATIC / cable-tray route: riser up, run on X, run on Z, riser down —
-      // 90° bends only (no diagonal), matching the orthogonal process piping.
+      // BURIED DUCT BANK — data/electrical runs UNDERGROUND (below the tank berm /
+      // retaining wall and the tanks), not through the wall. Staggered depths so the
+      // parallel buried runs don't overlap; risers come up at each equipment.
+      var dy = -0.08 - (li % 4) * 0.05;
       var pts = [
-        new THREEref.Vector3(a.x, 0.14, a.z), new THREEref.Vector3(a.x, trayH, a.z),
-        new THREEref.Vector3(b.x, trayH, a.z), new THREEref.Vector3(b.x, trayH, b.z),
-        new THREEref.Vector3(b.x, 0.14, b.z)
+        new THREEref.Vector3(a.x, 0.12, a.z), new THREEref.Vector3(a.x, dy, a.z),
+        new THREEref.Vector3(b.x, dy, a.z), new THREEref.Vector3(b.x, dy, b.z),
+        new THREEref.Vector3(b.x, 0.12, b.z)
       ];
       var crv = new THREEref.CurvePath();
       for (var ci = 0; ci < pts.length - 1; ci++) { if (pts[ci].distanceTo(pts[ci + 1]) > 1e-4) { crv.add(new THREEref.LineCurve3(pts[ci], pts[ci + 1])); } }
@@ -1664,12 +1665,12 @@
   function buildFieldInstruments() {
     var rtu = equipLocal("RTU"), io = 0xA06CD4, _ioN = 0;
     function ioLink(x, z) {
-      var trayH = 0.20 + (_ioN++ % 4) * 0.06;   // stacked tray levels
-      // schematic / cable-tray route back to the RTU — 90° bends only
+      var dy = -0.08 - (_ioN++ % 4) * 0.05;   // buried duct-bank depth (staggered)
+      // BURIED route back to the RTU — underground (under the berm + tanks), 90° bends
       var pts = [
-        new THREEref.Vector3(x, 0.12, z), new THREEref.Vector3(x, trayH, z),
-        new THREEref.Vector3(rtu.x, trayH, z), new THREEref.Vector3(rtu.x, trayH, rtu.z),
-        new THREEref.Vector3(rtu.x, 0.14, rtu.z)
+        new THREEref.Vector3(x, 0.12, z), new THREEref.Vector3(x, dy, z),
+        new THREEref.Vector3(rtu.x, dy, z), new THREEref.Vector3(rtu.x, dy, rtu.z),
+        new THREEref.Vector3(rtu.x, 0.12, rtu.z)
       ];
       var crv = new THREEref.CurvePath();
       for (var ci = 0; ci < pts.length - 1; ci++) { if (pts[ci].distanceTo(pts[ci + 1]) > 1e-4) { crv.add(new THREEref.LineCurve3(pts[ci], pts[ci + 1])); } }

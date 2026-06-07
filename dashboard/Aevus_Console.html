@@ -2196,7 +2196,7 @@ body.wall-mode #ai-prediction-hero { display: none !important; }
 body.wall-mode #ov-deep-dive { display: none !important; }
 body.wall-mode #toggle-process-btn { display: none !important; }
 body.wall-mode #quick-actions-bar { display: none !important; }
-body.wall-mode [data-page="overview"] > div:nth-child(n+4):not(#pid-hero-wrap):not(#situation-banner) { display: none !important; }
+body.wall-mode [data-page="overview"] > div:nth-child(n+5):not(#pid-hero-wrap):not(#situation-banner):not(.modeled-banner) { display: none !important; }
 body.wall-mode #predictions-list { display: none !important; }
 body.wall-mode #shift-summary { display: none !important; }
 body.wall-mode #correlations-panel { display: none !important; }
@@ -4347,6 +4347,46 @@ body.wall-mode .cmd-status { padding:6px 24px 8px; font-size:11px; }
     .offline-banner.show { display:block; }
     .pwa-install-btn { display:none; position:fixed; bottom:16px; right:16px; z-index:999; background:var(--accent); color:#070B16; border:none; padding:10px 20px; border-radius:10px; font-size:12px; font-weight:700; cursor:pointer; font-family:inherit; box-shadow:0 4px 20px rgba(14,165,233,0.3); }
 
+    /* ── Modeled-reference banner (K-T3) — Killdeer is a modeled digital twin
+       with simulated demo data; this disclosure mirrors the drawing-package
+       policy ("MODELED DIGITAL TWIN REFERENCE — NOT FOR CONSTRUCTION") on the
+       three Killdeer-facing dashboard pages (overview, map, sites). In-flow,
+       advisory styling (info-blue, not amber-warn). Session-dismissable via
+       sessionStorage; ?reset clears the dismissal. ── */
+    .modeled-banner {
+      display: flex; align-items: center; gap: 10px;
+      padding: 8px 14px; margin: 0 0 8px 0;
+      background: rgba(96, 165, 250, 0.08);
+      border: 1px solid rgba(96, 165, 250, 0.22);
+      border-radius: 8px;
+      color: var(--status-info, #60A5FA);
+      font-size: 11px; font-weight: 700; letter-spacing: 0.6px;
+      text-transform: uppercase;
+    }
+    .modeled-banner[hidden] { display: none !important; }
+    .modeled-banner-icon {
+      display: inline-flex; align-items: center; justify-content: center;
+      width: 14px; height: 14px; flex: 0 0 auto;
+    }
+    .modeled-banner-text { flex: 1 1 auto; text-align: center; }
+    .modeled-banner-dismiss {
+      background: transparent; border: none; cursor: pointer;
+      color: var(--status-info, #60A5FA);
+      font-size: 16px; line-height: 1; padding: 0 4px;
+      opacity: 0.55; font-family: inherit;
+    }
+    .modeled-banner-dismiss:hover,
+    .modeled-banner-dismiss:focus { opacity: 1; outline: none; }
+    /* Map page: section is a fixed-height overflow-hidden container; convert it
+       to a flex column so the banner sits in-flow above the map. */
+    section[data-page="map"].active { display: flex !important; flex-direction: column !important; }
+    section[data-page="map"] .modeled-banner { margin: 0; border-radius: 0; border-left: none; border-right: none; flex: 0 0 auto; }
+    section[data-page="map"] #map-container { flex: 1 1 auto !important; height: auto !important; }
+    /* Wall-mode: scale the banner up so it reads from a distance. */
+    body.wall-mode .modeled-banner { font-size: 14px; letter-spacing: 0.8px; padding: 10px 24px; }
+    body.wall-mode .modeled-banner-icon { width: 18px; height: 18px; }
+    body.wall-mode .modeled-banner-dismiss { font-size: 20px; }
+
     /* ── Mobile L1 View ── */
     .mobile-l1 { display:none; }
     @media(max-width:480px) {
@@ -4766,6 +4806,15 @@ html { scroll-behavior:smooth; }
 <!-- ━━━ PAGE: OVERVIEW ━━━ -->
 <section class="page-section active" data-page="overview">
 
+  <!-- ═══ K-T3: Modeled-reference disclosure (in-flow, top of section) ═══ -->
+  <div class="modeled-banner" role="note" aria-label="Modeled digital twin advisory">
+    <span class="modeled-banner-icon" aria-hidden="true">
+      <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="10"/><path d="M12 8v4"/><path d="M12 16h.01"/></svg>
+    </span>
+    <span class="modeled-banner-text">Modeled digital twin — simulated demo data — not for construction</span>
+    <button type="button" class="modeled-banner-dismiss" aria-label="Dismiss disclosure for this session">×</button>
+  </div>
+
   <!-- ═══ ZONE 1: SITUATION AWARENESS — Status + AI at a Glance (v119 redesign) ═══ -->
   <div id="situation-banner" role="alert" title="Situation Awareness Model: Endsley L1→L2→L3 | ISA-101 HMI Standard | Dynamic Visual Weight Inversion" aria-live="assertive"></div>
   <div id="alarm-summary-strip" role="status" aria-live="polite" aria-label="Alarm summary" style="display:none;"></div>
@@ -4991,7 +5040,15 @@ html { scroll-behavior:smooth; }
 <!-- ━━━ PAGE: OPERATIONS ━━━ -->
 
 <section class="page-section" data-page="map">
-  <div id="map-container" style="width:100%;height:calc(100vh - var(--topbar-h));position:relative;">
+  <!-- K-T3: Modeled-reference disclosure (in-flow, flex-column above the map) -->
+  <div class="modeled-banner" role="note" aria-label="Modeled digital twin advisory">
+    <span class="modeled-banner-icon" aria-hidden="true">
+      <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="10"/><path d="M12 8v4"/><path d="M12 16h.01"/></svg>
+    </span>
+    <span class="modeled-banner-text">Modeled digital twin — simulated demo data — not for construction</span>
+    <button type="button" class="modeled-banner-dismiss" aria-label="Dismiss disclosure for this session">×</button>
+  </div>
+  <div id="map-container" style="width:100%;position:relative;">
     <div id="aevus-map" style="width:100%;height:100%;"></div>
   </div>
 </section>
@@ -5789,7 +5846,16 @@ html { scroll-behavior:smooth; }
 </div>
 
     <section class="page-section" data-page="sites">
-      
+
+      <!-- K-T3: Modeled-reference disclosure (in-flow, top of section) -->
+      <div class="modeled-banner" role="note" aria-label="Modeled digital twin advisory">
+        <span class="modeled-banner-icon" aria-hidden="true">
+          <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="10"/><path d="M12 8v4"/><path d="M12 16h.01"/></svg>
+        </span>
+        <span class="modeled-banner-text">Modeled digital twin — simulated demo data — not for construction</span>
+        <button type="button" class="modeled-banner-dismiss" aria-label="Dismiss disclosure for this session">×</button>
+      </div>
+
       <div class="page-title">Enterprise Overview</div>
       <div style="font-size:12px;color:var(--text-muted);margin-bottom:20px;">Multi-site fleet management — 4 locations</div>
 
@@ -7360,6 +7426,34 @@ html { scroll-behavior:smooth; }
   // Track operator interactions
   document.addEventListener('click', function() { window._lastInteraction = Date.now(); });
   document.addEventListener('keydown', function() { window._lastInteraction = Date.now(); });
+
+  // ── K-T3: Modeled-reference banner — session-dismissable ────────────────
+  // Disclosure lives on Killdeer-facing pages (overview, map, sites). Dismissal
+  // is per-session (sessionStorage); ?reset clears it. No data fetch.
+  (function initModeledBanner() {
+    var KEY = 'aevus_modeled_banner_dismissed_v1';
+    function banners() { return document.querySelectorAll('.modeled-banner'); }
+    function applyState(hidden) {
+      var els = banners();
+      for (var i = 0; i < els.length; i++) {
+        if (hidden) { els[i].setAttribute('hidden', ''); }
+        else { els[i].removeAttribute('hidden'); }
+      }
+    }
+    try {
+      if (/[?&]reset(=|&|$)/.test(window.location.search)) {
+        sessionStorage.removeItem(KEY);
+      }
+      applyState(sessionStorage.getItem(KEY) === '1');
+    } catch (e) { /* sessionStorage may be unavailable (privacy mode) — leave shown */ }
+    document.addEventListener('click', function(ev) {
+      var t = ev.target;
+      if (t && t.classList && t.classList.contains('modeled-banner-dismiss')) {
+        try { sessionStorage.setItem(KEY, '1'); } catch (e) {}
+        applyState(true);
+      }
+    });
+  })();
 
   function calcCognitiveLoad() {
     // 1. SHIFT DURATION (25%) — fatigue increases nonlinearly after 4hrs

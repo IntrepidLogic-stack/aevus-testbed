@@ -75,7 +75,17 @@ async def list_assets(
         refs = [a for a in refs if a.type == type]
     if status:
         refs = [a for a in refs if a.status == status]
-    return result + refs
+
+    # Flag-gated derived PROCESS assets (e.g. CMP from the live SCADAPack-470) — OFF by
+    # default; appended in-memory, never via the registry, and never able to raise.
+    from src.api.process_assets import process_assets
+
+    procs = process_assets()
+    if type:
+        procs = [a for a in procs if a.type == type]
+    if status:
+        procs = [a for a in procs if a.status == status]
+    return result + refs + procs
 
 
 @router.get("/{asset_id}", response_model=Asset)
@@ -90,6 +100,11 @@ async def get_asset(asset_id: str) -> Asset:
         ref = next((a for a in reference_assets() if a.id == asset_id), None)
         if ref is not None:
             return ref
+        from src.api.process_assets import process_assets
+
+        proc = next((a for a in process_assets() if a.id == asset_id), None)
+        if proc is not None:
+            return proc
         raise HTTPException(status_code=404, detail=f"Asset {asset_id} not found")
     from src.api.relay_overlay import apply_relay_overlay
 

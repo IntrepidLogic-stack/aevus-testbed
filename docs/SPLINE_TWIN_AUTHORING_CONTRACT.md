@@ -19,26 +19,43 @@ harness binds *live data* to it by **stable asset ID** at runtime.
 Name the top-level object/group for each asset **exactly** one of these IDs
 (case-sensitive). These match `src/api/twin.py` topology + the asset registry.
 
+The render label column is the canonical `TwinNode.name` from `_TOPOLOGY` —
+use it verbatim on any in-scene text so the Spline scene, the procedural 3D
+twin, the dashboard, and the Killdeer Rev A drawing package all read the same
+words.
+
 | Spline object name | Asset | Render label |
 |---|---|---|
-| `WH`  | Wellhead | WELLHEAD #1 |
-| `CMP` | Gas-Lift Compressor | GAS LIFT COMPRESSOR |
-| `HTR` | Line Heater / Scrubber | LINE HEATER / SCRUBBER *(new node)* |
-| `CHE` | Chemical Injection | CHEMICAL INJECTION |
-| `SEP` | 2-Phase Separator | 2-PHASE SEPARATOR |
-| `FLR` | Flare Stack | FLARE STACK |
-| `OT1` | Stock Tank #1 | STOCK TANK #1 |
-| `OT2` | Stock Tank #2 | STOCK TANK #2 |
-| `PWT` | Produced Water Tank | PRODUCED WATER TANK |
-| `EFM` | EFM / Custody Meter | EFM / CUSTODY METER |
-| `RTU` | RTU / PLC Shelter | RTU / PLC SHELTER *(new node)* |
-| `TWR` | Radio Tower | RADIO TOWER |
-| `PWR` | Power System (solar+battery) | POWER SYSTEM *(new node)* |
-| `SOL` | Solar Array | SOLAR ARRAY *(new node)* |
-| `COM` | Communications (VSAT/comms) | COMMUNICATIONS *(new node)* |
+| `WH`     | Wellhead                          | Wellhead — BlueJay #1 |
+| `CHE`    | Chemical Injection                | Chemical Injection |
+| `HTR`    | Line Heater / Inlet Scrubber      | Line Heater / Inlet Scrubber |
+| `SEP`    | 3-Phase Separator                 | 3-Phase Separator |
+| `CMP`    | Field Sales Compressor            | Field Sales Compressor |
+| `DEHY`   | TEG Dehydrator                    | TEG Dehydrator |
+| `VRU`    | Vapor Recovery Unit               | Vapor Recovery Unit |
+| `FGS`    | Fuel-Gas Conditioning Skid        | Fuel-Gas Conditioning Skid |
+| `OT1`    | Condensate Tank #1                | Condensate Tank #1 |
+| `OT2`    | Condensate Tank #2                | Condensate Tank #2 |
+| `PWT`    | Produced Water Tank               | Produced Water Tank |
+| `SWD`    | Water Disposal Pump               | Water Disposal Pump |
+| `WM`     | Produced-Water Meter              | Produced-Water Meter |
+| `EFM`    | Custody Meter (sales)             | Meter Run — Custody (Sales) |
+| `LACT`   | Condensate LACT Unit              | Condensate LACT Unit |
+| `CMB`    | Enclosed Combustor                | Enclosed Combustor |
+| `FLR`    | Flare Stack                       | Flare Stack |
+| `ESD`    | ESD / SIS Panel                   | ESD / SIS Panel |
+| `RTU`    | PLC Shelter                       | PLC Shelter |
+| `PWR`    | Power System (solar+battery)      | Power System |
+| `SOL`    | Solar Array                       | Solar Array |
+| `COM`    | Communications (VSAT/comms)       | Communications |
+| `TWR`    | Radio Tower                       | Radio Tower |
+| `M2-KO`  | Sales-station inlet scrubber      | Inlet Scrubber — Sales Meter Sta |
+| `M2-EFM` | Sales-station custody meter       | Custody Meter — Sales Station |
 
-*(HTR / RTU / PWR will be added to the topology graph to match the render — confirm
-the IDs above are fine and we'll register them.)*
+All 25 IDs above are present in `_TOPOLOGY.nodes` (`src/api/twin.py`) — they
+are the live topology; no further registration is needed. `M2-KO` and `M2-EFM`
+belong to the `metering-east` station; the other 23 belong to the `killdeer`
+station.
 
 **Rules**
 - The asset's whole mesh group gets the ID name. Sub-parts can be named freely.

@@ -38,7 +38,15 @@
   var POLL_MS = 5000;
 
   // Canonical asset IDs (match src/api/twin.py topology + the asset registry).
-  var ASSET_IDS = ["WH", "CMP", "HTR", "CHE", "SEP", "FLR", "OT1", "OT2", "PWT", "EFM", "RTU", "TWR", "PWR", "SOL", "COM"];
+  // Mirrors the 25-node _TOPOLOGY verbatim (K-T1). Order = drawing-package /
+  // PFD reading order: wellpad in → gas train → liquids → safety/utility →
+  // comms/power → sales-meter station.
+  var ASSET_IDS = [
+    "WH", "CHE", "HTR", "SEP", "CMP", "DEHY", "VRU", "FGS",
+    "OT1", "OT2", "PWT", "SWD", "WM", "EFM", "LACT", "CMB",
+    "FLR", "ESD", "RTU", "PWR", "SOL", "COM", "TWR",
+    "M2-KO", "M2-EFM"
+  ];
 
   // Status -> emissive color (contract §4). Hex ints for three/Spline material.
   var EMISSIVE = { good: 0x06b6d4, warn: 0xfbbf24, bad: 0xef4444, offline: 0x334155, unknown: 0x334155 };

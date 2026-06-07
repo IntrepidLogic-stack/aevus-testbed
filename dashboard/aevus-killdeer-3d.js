@@ -76,36 +76,68 @@
     bad:       0xEF4444
   };
 
-  // Equipment registry — coords lifted from the award map so the 3D models land
-  // exactly where the pad already sits.  id, lng, lat, type, name.
+  // Equipment registry — id, lng, lat, type, name. Mirrors the 25-node Killdeer
+  // _TOPOLOGY in src/api/twin.py verbatim (drawing-aligned names; coords match
+  // TwinNode.lnglat). This is the OFFLINE FALLBACK; the live geometry comes from
+  // /api/v1/twin/.../topology when the endpoint is reachable.
   var EQUIP = [
-    { id: "WH",  lng: -95.86804, lat: 29.33961, type: "wellhead",  name: "Wellhead — BlueJay #1" },
-    { id: "CHE", lng: -95.86808, lat: 29.33957, type: "chemtote",  name: "Chemical Injection" },
-    { id: "SEP", lng: -95.86772, lat: 29.33957, type: "separator", name: "2-Phase Separator" },
-    { id: "CMP", lng: -95.8676, lat: 29.33957, type: "compressor",name: "Gas-Lift Compressor" },
-    { id: "OT1", lng: -95.86772, lat: 29.33968, type: "oiltank",   name: "Stock Tank #1" },
-    { id: "OT2", lng: -95.8676, lat: 29.33968, type: "oiltank",   name: "Stock Tank #2" },
-    { id: "PWT", lng: -95.86748, lat: 29.33968, type: "watertank", name: "Produced Water Tank" },
-    { id: "EFM", lng: -95.86748, lat: 29.33957, type: "efm",       name: "EFM / Custody Meter" },
-    { id: "FLR", lng: -95.8676, lat: 29.33935, type: "flare",     name: "Flare Stack" },
-    { id: "TWR", lng: -95.86748, lat: 29.33976, type: "tower",     name: "Radio Tower" },
-    { id: "HTR", lng: -95.86784, lat: 29.33957, type: "heater",    name: "Line Heater / Scrubber" },
-    { id: "RTU", lng: -95.86796, lat: 29.33976, type: "shelter",   name: "PLC Shelter" },
-    { id: "PWR", lng: -95.86784, lat: 29.33976, type: "power",     name: "Power System" },
-    { id: "SOL", lng: -95.8676, lat: 29.33976, type: "solararray", name: "Solar Array" },
-    { id: "COM", lng: -95.86772, lat: 29.33976, type: "comms",     name: "Communications" }
+    { id: "WH",     lng: -95.86796, lat: 29.33957, type: "wellhead",   name: "Wellhead — BlueJay #1" },
+    { id: "CHE",    lng: -95.86808, lat: 29.33957, type: "chemtote",   name: "Chemical Injection" },
+    { id: "HTR",    lng: -95.86784, lat: 29.33957, type: "heater",     name: "Line Heater / Inlet Scrubber" },
+    { id: "SEP",    lng: -95.86772, lat: 29.33957, type: "separator",  name: "3-Phase Separator" },
+    { id: "CMP",    lng: -95.86760, lat: 29.33957, type: "compressor", name: "Field Sales Compressor" },
+    { id: "DEHY",   lng: -95.86754, lat: 29.33951, type: "dehydrator", name: "TEG Dehydrator" },
+    { id: "VRU",    lng: -95.86766, lat: 29.33963, type: "vru",        name: "Vapor Recovery Unit" },
+    { id: "FGS",    lng: -95.86772, lat: 29.33950, type: "fuelgas",    name: "Fuel-Gas Conditioning Skid" },
+    { id: "OT1",    lng: -95.86772, lat: 29.33968, type: "oiltank",    name: "Condensate Tank #1" },
+    { id: "OT2",    lng: -95.86760, lat: 29.33968, type: "oiltank",    name: "Condensate Tank #2" },
+    { id: "PWT",    lng: -95.86738, lat: 29.33961, type: "watertank",  name: "Produced Water Tank" },
+    { id: "SWD",    lng: -95.86738, lat: 29.33968, type: "swd",        name: "Water Disposal Pump" },
+    { id: "WM",     lng: -95.86726, lat: 29.33977, type: "watermeter", name: "Produced-Water Meter" },
+    { id: "EFM",    lng: -95.86748, lat: 29.33957, type: "efm",        name: "Meter Run — Custody (Sales)" },
+    { id: "LACT",   lng: -95.86768, lat: 29.33974, type: "lact",       name: "Condensate LACT Unit" },
+    { id: "CMB",    lng: -95.86718, lat: 29.33958, type: "combustor",  name: "Enclosed Combustor" },
+    { id: "FLR",    lng: -95.86760, lat: 29.33935, type: "flare",      name: "Flare Stack" },
+    { id: "ESD",    lng: -95.86802, lat: 29.33967, type: "esd",        name: "ESD / SIS Panel" },
+    { id: "RTU",    lng: -95.86796, lat: 29.33976, type: "shelter",    name: "PLC Shelter" },
+    { id: "PWR",    lng: -95.86784, lat: 29.33976, type: "power",      name: "Power System" },
+    { id: "SOL",    lng: -95.86760, lat: 29.33976, type: "solararray", name: "Solar Array" },
+    { id: "COM",    lng: -95.86772, lat: 29.33976, type: "comms",      name: "Communications" },
+    { id: "TWR",    lng: -95.86748, lat: 29.33976, type: "tower",      name: "Radio Tower" },
+    { id: "M2-KO",  lng: -95.86688, lat: 29.33957, type: "separator",  name: "Inlet Scrubber — Sales Meter Sta" },
+    { id: "M2-EFM", lng: -95.86676, lat: 29.33957, type: "efm",        name: "Custody Meter — Sales Station" }
   ];
 
   // Process pipe network — product-colored, flow-ready. rackH staggers heights
-  // so crossings read cleanly.
+  // so crossings read cleanly. Mirrors the 26 TwinEdge entries in _TOPOLOGY
+  // verbatim (id, from=src, to, product, rack_h_m → rackH). OFFLINE FALLBACK.
   var PIPES = [
-    { id: "P1", from: "WH",  to: "SEP", product: "gas",      rackH: 2.4, speed: 0.10 },
-    { id: "P2", from: "CHE", to: "WH",  product: "chemical", rackH: 1.8, speed: 0.06 },
-    { id: "P3", from: "SEP", to: "CMP", product: "gas",      rackH: 2.6, speed: 0.12 },
-    { id: "P4", from: "SEP", to: "OT1", product: "oil",      rackH: 2.0, speed: 0.07 },
-    { id: "P5", from: "SEP", to: "PWT", product: "water",    rackH: 2.2, speed: 0.07 },
-    { id: "P6", from: "CMP", to: "FLR", product: "gas",      rackH: 2.8, speed: 0.13 },
-    { id: "P7", from: "CMP", to: "EFM", product: "gas",      rackH: 2.5, speed: 0.11 }
+    { id: "P1",  from: "WH",   to: "HTR",    product: "gas",      rackH: 2.4, speed: 0.10 },
+    { id: "P8",  from: "HTR",  to: "SEP",    product: "gas",      rackH: 2.4, speed: 0.10 },
+    { id: "P2",  from: "CHE",  to: "WH",     product: "chemical", rackH: 1.8, speed: 0.06 },
+    { id: "P3",  from: "SEP",  to: "CMP",    product: "gas",      rackH: 2.6, speed: 0.12 },
+    { id: "P7",  from: "CMP",  to: "DEHY",   product: "gas",      rackH: 2.5, speed: 0.11 },
+    { id: "P9",  from: "DEHY", to: "EFM",    product: "gas",      rackH: 2.5, speed: 0.11 },
+    { id: "V1",  from: "OT1",  to: "VRU",    product: "gas",      rackH: 1.6, speed: 0.08 },
+    { id: "V4",  from: "OT2",  to: "VRU",    product: "gas",      rackH: 1.6, speed: 0.08 },
+    { id: "VRe", from: "VRU",  to: "CMP",    product: "gas",      rackH: 2.0, speed: 0.09 },
+    { id: "V2",  from: "VRU",  to: "CMB",    product: "gas",      rackH: 1.8, speed: 0.08 },
+    { id: "V3",  from: "DEHY", to: "VRU",    product: "gas",      rackH: 1.7, speed: 0.08 },
+    { id: "RP",  from: "CMP",  to: "VRU",    product: "gas",      rackH: 1.9, speed: 0.06 },
+    { id: "W1",  from: "PWT",  to: "SWD",    product: "water",    rackH: 1.8, speed: 0.07 },
+    { id: "W2",  from: "SWD",  to: "WM",     product: "water",    rackH: 1.6, speed: 0.07 },
+    { id: "F1",  from: "CMP",  to: "FGS",    product: "gas",      rackH: 1.8, speed: 0.08 },
+    { id: "F2",  from: "FGS",  to: "HTR",    product: "gas",      rackH: 1.6, speed: 0.06 },
+    { id: "F3",  from: "FGS",  to: "DEHY",   product: "gas",      rackH: 1.5, speed: 0.06 },
+    { id: "L1",  from: "OT2",  to: "LACT",   product: "oil",      rackH: 1.6, speed: 0.07 },
+    { id: "P4",  from: "SEP",  to: "OT1",    product: "oil",      rackH: 2.0, speed: 0.07 },
+    { id: "EQ1", from: "OT1",  to: "OT2",    product: "oil",      rackH: 0.8, speed: 0.05 },
+    { id: "P5",  from: "SEP",  to: "PWT",    product: "water",    rackH: 2.2, speed: 0.07 },
+    { id: "P6",  from: "CMP",  to: "FLR",    product: "gas",      rackH: 2.8, speed: 0.13 },
+    { id: "R1",  from: "SEP",  to: "FLR",    product: "gas",      rackH: 3.0, speed: 0.13 },
+    { id: "R2",  from: "DEHY", to: "FLR",    product: "gas",      rackH: 3.0, speed: 0.13 },
+    { id: "BB1", from: "EFM",  to: "M2-KO",  product: "gas",      rackH: 2.4, speed: 0.10 },
+    { id: "BB2", from: "M2-KO",to: "M2-EFM", product: "gas",      rackH: 2.4, speed: 0.10 }
   ];
 
   // The EQUIP/PIPES above are the OFFLINE FALLBACK. The live geometry comes from
@@ -123,7 +155,7 @@
   // revalidate in the background and rebuild ONLY if the server graph actually
   // changed. Cache key is versioned so a shipped topology/frame change cleanly
   // invalidates stale client caches.
-  var _TOPO_CACHE_KEY = "aevus_twin_topo_v18_" + TWIN_FACILITY;  // v18: east-cluster re-space (CMB SE/downwind, WM N) — invalidate stale node positions
+  var _TOPO_CACHE_KEY = "aevus_twin_topo_v19_" + TWIN_FACILITY;  // v19: offline fallback expanded from 15 → 25 nodes / 26 edges (K-T1) — invalidate any cached 15-node payload
   function _applyTopology(t) {
     if (Array.isArray(t.origin) && t.origin.length === 2) { ORIGIN = t.origin; }
     if (t.frame && t.frame.center) {

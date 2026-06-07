@@ -134,3 +134,15 @@ class TestTwinProcess:
 
     def test_process_unknown_facility_404(self, client):
         assert client.get("/api/v1/twin/facility/nope/process").status_code == 404
+
+    def test_process_demo_gate_blocks_non_demo_facility(self, client):
+        """A valid/resolvable facility that is NOT in the demo allowlist must 404 on
+        /process, so the simulated strip can never leak for a real (non-demo) site.
+        'bluejay-1' is a real topology alias; here we treat it as non-demo."""
+        from unittest.mock import patch as _patch
+
+        with _patch("src.api.twin._DEMO_FACILITIES", {"killdeer"}):
+            # resolvable alias, but excluded from the demo allowlist -> gated out
+            assert client.get("/api/v1/twin/facility/bluejay-1/process").status_code == 404
+            # the demo facility still serves the simulated strip
+            assert client.get("/api/v1/twin/facility/killdeer/process").status_code == 200

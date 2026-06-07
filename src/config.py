@@ -72,6 +72,13 @@ class Settings(BaseSettings):
     # to surface them, unset to instantly roll back. Never touches the SQLite registry.
     reference_assets_enabled: bool = False
 
+    # Append derived PROCESS-EQUIPMENT assets (e.g. CMP) to /assets, built from the
+    # already-polling SCADAPack-470 (RTU-01) live vitals — the first real process
+    # binding for the Killdeer twin. OFF by default; flip PROCESS_ASSETS_ENABLED=1 to
+    # surface them, unset to instantly roll back. Read-only overlay: never touches the
+    # SQLite registry / seed (cf. incidents that broke the seed when assets were added).
+    process_assets_enabled: bool = False
+
     # ── FastAPI ──
     api_host: str = "0.0.0.0"
     api_port: int = 8000

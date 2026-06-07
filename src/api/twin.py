@@ -107,6 +107,13 @@ class FlowFrame(BaseModel):
 _FACILITY_ID = "killdeer-bluejay-1"
 _FACILITY_ALIASES = {"killdeer", "killdeer-bluejay-1", "bluejay-1"}
 
+# Facilities permitted to serve the SIMULATED /process strip. This is the public
+# Killdeer demo. A real (non-demo) facility must drive the process strip from live
+# RTU telemetry — never from _process_snapshot — so /process returns 404 for it.
+# Keeping this an explicit allowlist (not "any known facility") guarantees that
+# onboarding a real site can never accidentally leak simulated data as telemetry.
+_DEMO_FACILITIES = {"killdeer", "killdeer-bluejay-1", "bluejay-1"}
+
 _TOPOLOGY = TwinTopology(
     facility_id=_FACILITY_ID,
     name="Killdeer Field — BlueJay Unit #1",
@@ -681,5 +688,12 @@ async def get_process(facility_id: str) -> ProcessSnapshot:
 
     Poll this from the Maps page to drive the per-stage engineering readings.
     Facility-gated to the Killdeer demo; never serves real customer telemetry."""
+    if facility_id not in _DEMO_FACILITIES:
+        # Real / non-demo facility: the simulated strip must not be served. The
+        # process strip for a live site is driven from RTU telemetry, not here.
+        raise HTTPException(
+            status_code=404,
+            detail=f"Process strip is simulated demo-only; not served for facility '{facility_id}'",
+        )
     topo = _resolve_facility(facility_id)
     return _process_snapshot(topo)

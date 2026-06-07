@@ -64,7 +64,18 @@ async def list_assets(
     assets = app_state.db.list_assets(type_filter=type, status_filter=status)
     from src.api.relay_overlay import apply_relay_overlay
 
-    return apply_relay_overlay(_apply_read_source(assets))
+    result = apply_relay_overlay(_apply_read_source(assets))
+
+    # Flag-gated REFERENCE assets (real recorded datasets) — OFF by default; appended
+    # in-memory, never via the registry, and never able to raise (see reference_assets).
+    from src.api.reference_assets import reference_assets
+
+    refs = reference_assets()
+    if type:
+        refs = [a for a in refs if a.type == type]
+    if status:
+        refs = [a for a in refs if a.status == status]
+    return result + refs
 
 
 @router.get("/{asset_id}", response_model=Asset)
@@ -74,6 +85,11 @@ async def get_asset(asset_id: str) -> Asset:
 
     asset = app_state.db.get_asset(asset_id)
     if asset is None:
+        from src.api.reference_assets import reference_assets
+
+        ref = next((a for a in reference_assets() if a.id == asset_id), None)
+        if ref is not None:
+            return ref
         raise HTTPException(status_code=404, detail=f"Asset {asset_id} not found")
     from src.api.relay_overlay import apply_relay_overlay
 

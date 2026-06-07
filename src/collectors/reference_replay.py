@@ -88,18 +88,27 @@ class ReferenceReplayCollector(BaseCollector):
         """Reference data is 'reachable' iff a prepped CSV with frames is loaded."""
         return bool(self._frames)
 
-    async def poll(self) -> list[RawTelemetry]:
-        """Return the readings for the next frame; advance (and optionally loop)."""
+    def advance(self) -> list[dict[str, str]]:
+        """Sync: return the next frame's raw rows and advance the cursor (loops).
+
+        Lets non-async callers (e.g. the FastAPI /assets handler) step the replay
+        without entering the event loop. poll() builds RawTelemetry on top of this.
+        """
         if not self._frames:
             return []
         if self._cursor >= len(self._frames):
             if not self.loop:
                 return []
             self._cursor = 0
-
         frame = self._frames[self._cursor]
         self._cursor += 1
+        return frame
 
+    async def poll(self) -> list[RawTelemetry]:
+        """Return the readings for the next frame; advance (and optionally loop)."""
+        frame = self.advance()
+        if not frame:
+            return []
         readings: list[RawTelemetry] = []
         for row in frame:
             try:

@@ -67,6 +67,11 @@ class Settings(BaseSettings):
     dynamo_latest_state_table: str = "aevus-latest-state"
     aws_region: str = "us-east-1"
 
+    # Append REFERENCE assets (real recorded CWRU + Morris datasets) to /assets.
+    # OFF by default — dormant code path; flip REFERENCE_ASSETS_ENABLED=1 on the box
+    # to surface them, unset to instantly roll back. Never touches the SQLite registry.
+    reference_assets_enabled: bool = False
+
     # ── FastAPI ──
     api_host: str = "0.0.0.0"
     api_port: int = 8000

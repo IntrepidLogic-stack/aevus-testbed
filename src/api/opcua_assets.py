@@ -44,6 +44,18 @@ _snap: dict = {
 _task: asyncio.Task | None = None
 
 
+def _registry_has(asset_id: str) -> bool:
+    """True if the asset is already in the SQLite registry (edge-bridge seeded mode)."""
+    if not asset_id:
+        return False
+    try:
+        from src.main import app_state
+
+        return app_state.db.get_asset(asset_id) is not None
+    except Exception:  # noqa: BLE001 — dedupe check must never break /assets
+        return False
+
+
 def _worst(vitals: list[VitalSign]) -> str:
     sv = {getattr(v, "status", "") for v in vitals}
     if "bad" in sv:
@@ -61,6 +73,11 @@ def opcua_assets() -> list[Asset]:
         vitals = _snap["vitals"]
         if not vitals or _snap["last_seen"] is None:
             return []  # enabled, but no successful poll yet
+        # Edge-bridge dedupe: if this asset is already in the registry (seeded for the
+        # edge→cloud path), it renders via registry + DynamoDB vitals — do NOT also emit
+        # it here, or it would appear twice (cf. the EDGE-01/PI-01 duplicate, #106).
+        if _registry_has(_snap["asset_id"]):
+            return []
         status = _worst(vitals) if _snap["reachable"] else "bad"
         return [
             Asset(

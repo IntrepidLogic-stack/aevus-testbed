@@ -465,12 +465,60 @@ def _seed_lab_assets() -> None:
             logger.warning("lab_asset_seed_failed", asset_id=spec["id"], error=str(e))
 
 
+def _seed_opcua_asset() -> None:
+    """Seed the OPC UA asset's registry metadata when a tag-map is configured.
+
+    Independent of OPCUA_ENABLED so the CLOUD read-API (which does NOT poll OT) can still
+    render the asset from the DynamoDB vitals the edge pushes — the read-API overlays
+    live vitals onto registry assets, so the asset must exist in the registry. Idempotent:
+    upserts only when the row is absent (cf. the #97/#98 seed-break — never blindly
+    rewrite). No-op when no tag-map is configured, so a box without OPC UA is unchanged.
+    """
+    if not settings.opcua_config_path:
+        return
+    try:
+        from src.collectors.opcua_client import load_opcua_config
+
+        cfg = load_opcua_config(settings.opcua_config_path)
+        if app_state.db.get_asset(cfg.asset_id) is None:
+            app_state.db.upsert_asset(cfg.to_seed_asset())
+            logger.info("opcua_asset_seeded", asset_id=cfg.asset_id)
+    except Exception as e:  # noqa: BLE001 — seeding must never crash startup
+        logger.warning("opcua_seed_failed", error=str(e))
+
+
+def _register_opcua_collector() -> None:
+    """Wire the OPC UA client collector when OPCUA_ENABLED and a tag-map is set.
+
+    OFF by default. MUST run on the EDGE Pi — it connects to an OPC UA server on the OT
+    network; EC2 cannot/should not reach customer OT, so on EC2 leave OPCUA_ENABLED unset
+    (the asset still renders there from DynamoDB vitals). The collector's readings publish
+    over MQTT via the scheduler, flowing to the cloud read-API like any other edge asset.
+    Read-only (IL-9000). Registration failure is logged and never crashes the scheduler.
+    """
+    if not settings.opcua_enabled:
+        return
+    if not settings.opcua_config_path:
+        logger.warning("opcua_enabled_but_no_config_path")
+        return
+    try:
+        from src.collectors.opcua_client import load_opcua_config
+
+        cfg = load_opcua_config(settings.opcua_config_path)
+        app_state.scheduler.register(cfg.asset_id, cfg.to_collector())
+        logger.info("opcua_collector_registered", asset_id=cfg.asset_id, endpoint=cfg.endpoint)
+    except Exception as e:  # noqa: BLE001 — must not crash startup
+        logger.warning("opcua_collector_failed", error=str(e))
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     _seed_lab_assets()
+    _seed_opcua_asset()
     _register_simulators()
     _register_real_snmp_collectors()
     _register_modbus_collectors()
+    _register_opcua_collector()
     _register_mqtt_publisher()
     await app_state.scheduler.start()
     weather_task = asyncio.create_task(_weather_loop())
@@ -484,14 +532,10 @@ async def lifespan(app: FastAPI):
             await app_state.trap_receiver.start()
         except Exception as e:  # noqa: BLE001
             logger.warning("snmp_trap_receiver_start_failed", error=str(e))
-    # Flag-gated read-only OPC UA Sidecar poller. No-op unless OPCUA_ENABLED=1 with a
-    # config path, so a flag-off deployment is unaffected. Failures never crash startup.
-    from src.api.opcua_assets import start_opcua_poller
-
-    try:
-        await start_opcua_poller()
-    except Exception as e:  # noqa: BLE001
-        logger.warning("opcua_poller_start_failed", error=str(e))
+    # OPC UA: the edge-bridge path (seed + scheduler collector above) supersedes the
+    # P4 in-process overlay poller — the collector publishes over MQTT to the cloud, so
+    # no separate poller is started here. The opcua_assets overlay stays available (and
+    # self-dedupes against the registry) for standalone/direct use.
     logger.info("aevus_main_started")
     yield
     if app_state.trap_receiver is not None:
@@ -499,12 +543,6 @@ async def lifespan(app: FastAPI):
             await app_state.trap_receiver.stop()
         except Exception as e:  # noqa: BLE001
             logger.warning("snmp_trap_receiver_stop_failed", error=str(e))
-    from src.api.opcua_assets import stop_opcua_poller
-
-    try:
-        await stop_opcua_poller()
-    except Exception as e:  # noqa: BLE001
-        logger.warning("opcua_poller_stop_failed", error=str(e))
     weather_task.cancel()
     mqtt_health_task.cancel()
     warning_digest_task.cancel()

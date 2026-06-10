@@ -79,6 +79,14 @@ class Settings(BaseSettings):
     # SQLite registry / seed (cf. incidents that broke the seed when assets were added).
     process_assets_enabled: bool = False
 
+    # Append a read-only OPC UA "Sidecar" overlay asset to /assets, fed by a background
+    # poll of an external OPC UA server described by a YAML tag-map. OFF by default; flip
+    # OPCUA_ENABLED=1 and set OPCUA_CONFIG_PATH to a tag-map to surface it, unset to roll
+    # back. Read-only overlay: never touches the SQLite registry/seed; no OPC UA writes
+    # (IL-9000). Use Security=None ONLY against public simulation servers, never real sites.
+    opcua_enabled: bool = False
+    opcua_config_path: str = ""
+
     # ── FastAPI ──
     api_host: str = "0.0.0.0"
     api_port: int = 8000

@@ -247,6 +247,26 @@ class OPCUAClientConfig:
             password=self.password,
         )
 
+    def to_seed_asset(self):
+        """Registry metadata for this OPC UA source (vitals arrive via the edge feed).
+
+        Returned so EC2 can seed the asset's metadata — the read-API overlays live
+        DynamoDB vitals onto registry assets, so the asset must exist in the registry
+        to render. Vitals themselves are NOT set here; they flow from the edge.
+        """
+        from src.models.asset import Asset
+
+        return Asset(
+            id=self.asset_id,
+            type="sensor",
+            name=self.name or self.asset_id,
+            location="OPC UA server (Sidecar — read-only)",
+            vendor="(OPC UA)",
+            model="OPC UA client (northbound)",
+            protocol="opcua",
+            poll_interval=self.poll_interval,
+        )
+
 
 def load_opcua_config(path: str | Path) -> OPCUAClientConfig:
     """Parse a YAML tag-map into an :class:`OPCUAClientConfig`.

@@ -121,6 +121,8 @@ extend-immutable-calls = [
 "src/api/access_requests.py" = ["S110"]
 "src/register_writer.py" = ["S110"]
 "src/collectors/dnp3_master.py" = ["S110"]
+# Standalone OPC UA simulation server — uses random for compressor telemetry, not crypto.
+"scripts/opcua_compressor_sim.py" = ["S311"]
 
 [tool.pytest.ini_options]
 asyncio_mode = "auto"

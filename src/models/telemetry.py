@@ -28,7 +28,8 @@ class RawTelemetry(BaseModel):
     value: float
     unit: str
     timestamp: datetime
-    source: str  # "snmp", "modbus", "dnp3", "simulator"
+    source: str  # "snmp", "modbus", "dnp3", "simulator", "opcua"
     oid: str | None = None  # SNMP OID if applicable
     modbus_register: int | None = None  # Modbus register if applicable
+    opcua_node: str | None = None  # OPC UA NodeId string if applicable (e.g. "ns=3;s=Sinusoid")
     group: str = ""  # Logical group: compressor, well, production, safety, power, etc.

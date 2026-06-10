@@ -36,6 +36,7 @@ from typing import TYPE_CHECKING
 from urllib.parse import urlparse
 
 from src.collectors.base import BaseCollector
+from src.collectors.opcua_security import OPCUASecurity, ensure_client_cert
 
 if TYPE_CHECKING:
     from src.models.telemetry import RawTelemetry
@@ -91,7 +92,7 @@ class OPCUAClientCollector(BaseCollector):
         nodes: list[OPCUANodeSpec],
         poll_interval: int = 10,
         *,
-        security: str | None = None,
+        security: str | OPCUASecurity | None = None,
         username: str | None = None,
         password: str | None = None,
         connect_timeout: float = 10.0,
@@ -126,7 +127,14 @@ class OPCUAClientCollector(BaseCollector):
 
         client = Client(url=self.endpoint, timeout=self.connect_timeout)
         client.session_timeout = self.session_timeout_ms
-        if self.security:
+        if isinstance(self.security, OPCUASecurity):
+            # Encrypted, signed channel with a client certificate (P3). Generate a
+            # compliant self-signed client cert on first use if one is missing.
+            if self.security.auto_generate:
+                ensure_client_cert(self.security.client_cert, self.security.client_key, self.security.application_uri)
+            client.application_uri = self.security.application_uri
+            await client.set_security_string(self.security.security_string())
+        elif isinstance(self.security, str) and self.security:
             await client.set_security_string(self.security)
         if self.username:
             client.set_user(self.username)
@@ -224,7 +232,7 @@ class OPCUAClientConfig:
     nodes: list[OPCUANodeSpec]
     name: str = ""
     poll_interval: int = 10
-    security: str | None = None
+    security: str | OPCUASecurity | None = None
     username: str | None = None
     password: str | None = None
 
@@ -293,7 +301,31 @@ def load_opcua_config(path: str | Path) -> OPCUAClientConfig:
         nodes=nodes,
         name=str(asset.get("name", "")),
         poll_interval=int(asset.get("poll_interval", 10)),
-        security=asset.get("security"),
+        security=_parse_security(asset.get("security")),
         username=asset.get("username"),
         password=asset.get("password"),
     )
+
+
+def _parse_security(raw) -> str | OPCUASecurity | None:
+    """Parse the tag-map ``security`` value.
+
+    * ``null`` -> None (anonymous/no encryption; public sim servers ONLY).
+    * a string -> passed straight to asyncua's set_security_string (advanced).
+    * a mapping -> structured, encrypted :class:`OPCUASecurity` (the real path).
+    """
+    if raw is None or isinstance(raw, str):
+        return raw
+    if isinstance(raw, dict):
+        from src.collectors.opcua_security import DEFAULT_APP_URI, DEFAULT_CERT, DEFAULT_KEY
+
+        return OPCUASecurity(
+            policy=str(raw.get("policy", "Basic256Sha256")),
+            mode=str(raw.get("mode", "SignAndEncrypt")),
+            client_cert=str(raw.get("client_cert", DEFAULT_CERT)),
+            client_key=str(raw.get("client_key", DEFAULT_KEY)),
+            server_cert=raw.get("server_cert"),
+            application_uri=str(raw.get("application_uri", DEFAULT_APP_URI)),
+            auto_generate=bool(raw.get("auto_generate", True)),
+        )
+    raise ValueError(f"opcua security must be null, a string, or a mapping; got {type(raw).__name__}")

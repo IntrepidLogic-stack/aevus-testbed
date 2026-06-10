@@ -33,3 +33,6 @@ tf.plan
 # Reference datasets (real downloads — not committed; license + size)
 reference_data/raw/
 reference_data/prepped/
+
+# OPC UA client certs/keys (P3) — generated at runtime, never commit
+certs/

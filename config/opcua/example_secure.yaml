@@ -1,0 +1,41 @@
+# OPC UA tag-map — SECURE TEMPLATE (encrypted, signed, cert-authenticated channel).
+#
+# This is the shape for a REAL connection (P3). The client connects with
+# Basic256Sha256 + SignAndEncrypt and a client certificate. On first use, a compliant
+# self-signed client cert is generated at the paths below if missing (auto_generate).
+# The server must trust that client cert (push it to the server's trust list, or use a
+# server that auto-accepts during onboarding). Optionally pin the server cert via
+# server_cert to validate the server end too.
+#
+# NEVER use security: null against a real site. Read-only always (IL-9000).
+
+asset:
+  id: "SITE-OPCUA"
+  name: "Customer Site — via SCADA OPC UA (Sidecar, encrypted)"
+  endpoint: "opc.tcp://scada-host.example.local:4840"
+  poll_interval: 10
+  security:
+    policy: Basic256Sha256          # also: Basic256, Aes128Sha256RsaOaep, Aes256Sha256RsaPss
+    mode: SignAndEncrypt            # never 'None' for a real site
+    client_cert: certs/aevus_opcua_client_cert.der
+    client_key: certs/aevus_opcua_client_key.pem
+    server_cert: null              # optional: path to the server's cert to pin/validate it
+    application_uri: "urn:intrepidlogic:aevus:opcua-client"
+    auto_generate: true            # create the client cert/key if missing
+  # Optional user identity on top of the cert (some servers require it):
+  username: null
+  password: null
+
+tags:
+  - node: "ns=2;s=Compressor.SuctionPressure"
+    metric: suction_pressure
+    unit: PSI
+    group: compressor
+  - node: "ns=2;s=Compressor.DischargePressure"
+    metric: discharge_pressure
+    unit: PSI
+    group: compressor
+  - node: "ns=2;s=Compressor.Vibration"
+    metric: vibration
+    unit: mm/s
+    group: compressor

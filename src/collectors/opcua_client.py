@@ -31,6 +31,7 @@ from __future__ import annotations
 
 import time
 from dataclasses import dataclass
+from pathlib import Path
 from typing import TYPE_CHECKING
 from urllib.parse import urlparse
 
@@ -200,3 +201,99 @@ class OPCUAClientCollector(BaseCollector):
     async def aclose(self) -> None:
         """Tear down the persistent session (call on shutdown)."""
         await self._disconnect_quietly()
+
+
+# ── tag-map config (P2) ─────────────────────────────────────────────────────
+# A customer is onboarded by writing a YAML tag-map, not by writing code: it maps
+# their OPC UA NodeIds to Aevus metric keys. When a metric key matches one the
+# normalizer already knows (suction_pressure, discharge_pressure, vibration, ...),
+# status tagging (good/warn/bad vs thresholds) happens automatically downstream —
+# no per-customer logic. Unknown metric keys pass through with no status.
+
+
+@dataclass(frozen=True)
+class OPCUAClientConfig:
+    """A fully-described OPC UA source: one server + its mapped tags.
+
+    Built from a YAML tag-map via :func:`load_opcua_config`. ``to_collector()``
+    turns it into a ready-to-poll :class:`OPCUAClientCollector`.
+    """
+
+    asset_id: str
+    endpoint: str
+    nodes: list[OPCUANodeSpec]
+    name: str = ""
+    poll_interval: int = 10
+    security: str | None = None
+    username: str | None = None
+    password: str | None = None
+
+    def to_collector(self) -> OPCUAClientCollector:
+        return OPCUAClientCollector(
+            self.asset_id,
+            self.endpoint,
+            self.nodes,
+            poll_interval=self.poll_interval,
+            security=self.security,
+            username=self.username,
+            password=self.password,
+        )
+
+
+def load_opcua_config(path: str | Path) -> OPCUAClientConfig:
+    """Parse a YAML tag-map into an :class:`OPCUAClientConfig`.
+
+    Expected shape::
+
+        asset:
+          id: KILLDEER-OPCUA
+          name: "Killdeer / BlueJay #1 — via SCADA OPC UA"
+          endpoint: opc.tcp://scada-host:4840
+          poll_interval: 10
+          security: null            # P3: "Basic256Sha256,SignAndEncrypt,cert,key"
+        tags:
+          - node:  "ns=2;s=Compressor.Suction.PSI"
+            metric: suction_pressure
+            unit:   PSI
+            group:  compressor
+
+    Raises ``ValueError`` on a malformed/empty config so a bad file fails loudly
+    at load time rather than producing a silently-empty collector.
+    """
+    import yaml
+
+    p = Path(path)
+    raw = yaml.safe_load(p.read_text(encoding="utf-8"))
+    if not isinstance(raw, dict):
+        raise ValueError(f"opcua tag-map {p} is not a mapping")
+
+    asset = raw.get("asset") or {}
+    if not asset.get("id") or not asset.get("endpoint"):
+        raise ValueError(f"opcua tag-map {p} requires asset.id and asset.endpoint")
+
+    tags = raw.get("tags") or []
+    nodes: list[OPCUANodeSpec] = []
+    for i, t in enumerate(tags):
+        if not isinstance(t, dict) or not t.get("node") or not t.get("metric"):
+            raise ValueError(f"opcua tag-map {p} tag #{i} requires 'node' and 'metric'")
+        nodes.append(
+            OPCUANodeSpec(
+                node_id=str(t["node"]),
+                metric=str(t["metric"]),
+                unit=str(t.get("unit", "")),
+                group=str(t.get("group", "")),
+            )
+        )
+    if not nodes:
+        raise ValueError(f"opcua tag-map {p} has no tags")
+
+    return OPCUAClientConfig(
+        asset_id=str(asset["id"]),
+        endpoint=str(asset["endpoint"]),
+        nodes=nodes,
+        name=str(asset.get("name", "")),
+        poll_interval=int(asset.get("poll_interval", 10)),
+        security=asset.get("security"),
+        username=asset.get("username"),
+        password=asset.get("password"),
+    )

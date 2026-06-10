@@ -1,0 +1,41 @@
+# OPC UA tag-map — RUNNABLE SMOKE TEST against the PUBLIC Prosys reference server.
+#
+# This is NOT a real facility. It is the Prosys public OPC UA Simulation Server
+# (Security=None), used to prove the collector + tag-map + normalizer pipeline
+# end-to-end without any hardware. The five simulated signals are deliberately
+# mapped onto real Aevus metric keys so the normalizer's status tagging is visible
+# on moving data (e.g. the Sinusoid swings a "vibration" reading through
+# good/warn/bad). Do not read engineering meaning into the values.
+#
+# Endpoints verified reachable 2026-06-10.
+
+asset:
+  id: "OPCUA-PROSYS-REF"
+  name: "OPC UA Reference (Prosys public simulation)"
+  endpoint: "opc.tcp://uademo.prosysopc.com:53530/OPCUA/SimulationServer"
+  poll_interval: 10
+  security: null            # public sim only — None is correct here; never for real sites
+  username: null
+  password: null
+
+tags:
+  - node: "ns=3;i=1004"     # Sinusoid (-2..2) -> swings a vibration reading
+    metric: vibration
+    unit: mm/s
+    group: simulation
+  - node: "ns=3;i=1003"     # Sawtooth
+    metric: suction_pressure
+    unit: PSI
+    group: simulation
+  - node: "ns=3;i=1005"     # Square
+    metric: discharge_pressure
+    unit: PSI
+    group: simulation
+  - node: "ns=3;i=1002"     # Random
+    metric: motor_current
+    unit: A
+    group: simulation
+  - node: "ns=3;i=1001"     # Counter (monotonic) -> run_hours (info, no status)
+    metric: run_hours
+    unit: hours
+    group: simulation

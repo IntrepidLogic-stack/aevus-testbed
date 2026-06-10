@@ -1,0 +1,51 @@
+# OPC UA tag-map — TEMPLATE (Killdeer / BlueJay #1 via a customer SCADA host)
+#
+# This is how a new site is onboarded: map the customer's OPC UA NodeIds to Aevus
+# metric keys. Metric keys that the normalizer already knows (suction_pressure,
+# discharge_pressure, vibration, motor_current, interstage_temp, oil_pressure,
+# coolant_temp, run_hours, gas_temperature, ...) get good/warn/bad status tagging
+# automatically — no per-customer code.
+#
+# NodeIds below are PLACEHOLDERS. Replace with the real ids from the customer's
+# OPC UA server (browse it once to discover them). Do NOT point this at a real
+# server without P3 security configured (cert + SignAndEncrypt).
+
+asset:
+  id: "KILLDEER-OPCUA"
+  name: "Killdeer / BlueJay #1 — via SCADA OPC UA (Sidecar)"
+  endpoint: "opc.tcp://scada-host.example.local:4840"
+  poll_interval: 10
+  # P3 hardening — leave null until certs are configured:
+  security: null            # e.g. "Basic256Sha256,SignAndEncrypt,/path/cert.der,/path/key.pem"
+  username: null
+  password: null
+
+tags:
+  - node: "ns=2;s=Compressor.SuctionPressure"
+    metric: suction_pressure
+    unit: PSI
+    group: compressor
+  - node: "ns=2;s=Compressor.DischargePressure"
+    metric: discharge_pressure
+    unit: PSI
+    group: compressor
+  - node: "ns=2;s=Compressor.InterstageTemp"
+    metric: interstage_temp
+    unit: "°F"
+    group: compressor
+  - node: "ns=2;s=Compressor.Vibration"
+    metric: vibration
+    unit: mm/s
+    group: compressor
+  - node: "ns=2;s=Compressor.MotorCurrent"
+    metric: motor_current
+    unit: A
+    group: compressor
+  - node: "ns=2;s=Compressor.OilPressure"
+    metric: oil_pressure
+    unit: PSI
+    group: compressor
+  - node: "ns=2;s=Compressor.RunHours"
+    metric: run_hours
+    unit: hours
+    group: compressor

@@ -84,6 +84,7 @@ class BaseCollector(abc.ABC):
         source: str = "snmp",
         oid: str | None = None,
         modbus_register: int | None = None,
+        opcua_node: str | None = None,
         group: str = "",
     ) -> RawTelemetry:
         """Helper to create a RawTelemetry object."""
@@ -96,6 +97,7 @@ class BaseCollector(abc.ABC):
             source=source,
             oid=oid,
             modbus_register=modbus_register,
+            opcua_node=opcua_node,
             group=group,
         )
 

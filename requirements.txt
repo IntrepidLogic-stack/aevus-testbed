@@ -4,6 +4,7 @@ aiohappyeyeballs==2.6.1
 aiohttp==3.13.5
 aiosignal==1.4.0
 aiosqlite==0.22.1
+asyncua==2.0  # OPC UA client collector (read-only northbound ingestion, P1)
 annotated-doc==0.0.4
 annotated-types==0.7.0
 anyio==4.13.0

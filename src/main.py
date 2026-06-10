@@ -484,6 +484,14 @@ async def lifespan(app: FastAPI):
             await app_state.trap_receiver.start()
         except Exception as e:  # noqa: BLE001
             logger.warning("snmp_trap_receiver_start_failed", error=str(e))
+    # Flag-gated read-only OPC UA Sidecar poller. No-op unless OPCUA_ENABLED=1 with a
+    # config path, so a flag-off deployment is unaffected. Failures never crash startup.
+    from src.api.opcua_assets import start_opcua_poller
+
+    try:
+        await start_opcua_poller()
+    except Exception as e:  # noqa: BLE001
+        logger.warning("opcua_poller_start_failed", error=str(e))
     logger.info("aevus_main_started")
     yield
     if app_state.trap_receiver is not None:
@@ -491,6 +499,12 @@ async def lifespan(app: FastAPI):
             await app_state.trap_receiver.stop()
         except Exception as e:  # noqa: BLE001
             logger.warning("snmp_trap_receiver_stop_failed", error=str(e))
+    from src.api.opcua_assets import stop_opcua_poller
+
+    try:
+        await stop_opcua_poller()
+    except Exception as e:  # noqa: BLE001
+        logger.warning("opcua_poller_stop_failed", error=str(e))
     weather_task.cancel()
     mqtt_health_task.cancel()
     warning_digest_task.cancel()

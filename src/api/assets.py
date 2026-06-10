@@ -85,7 +85,17 @@ async def list_assets(
         procs = [a for a in procs if a.type == type]
     if status:
         procs = [a for a in procs if a.status == status]
-    return result + refs + procs
+
+    # Flag-gated read-only OPC UA "Sidecar" overlay — OFF by default; in-memory only,
+    # never via the registry, and never able to raise (see opcua_assets).
+    from src.api.opcua_assets import opcua_assets
+
+    opcua = opcua_assets()
+    if type:
+        opcua = [a for a in opcua if a.type == type]
+    if status:
+        opcua = [a for a in opcua if a.status == status]
+    return result + refs + procs + opcua
 
 
 @router.get("/{asset_id}", response_model=Asset)
@@ -105,6 +115,11 @@ async def get_asset(asset_id: str) -> Asset:
         proc = next((a for a in process_assets() if a.id == asset_id), None)
         if proc is not None:
             return proc
+        from src.api.opcua_assets import opcua_assets
+
+        opcua = next((a for a in opcua_assets() if a.id == asset_id), None)
+        if opcua is not None:
+            return opcua
         raise HTTPException(status_code=404, detail=f"Asset {asset_id} not found")
     from src.api.relay_overlay import apply_relay_overlay
 

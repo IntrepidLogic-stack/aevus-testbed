@@ -26,8 +26,31 @@ def _cmp_asset():
     return a
 
 
-def test_overlay_off_by_default():
-    with patch("src.config.settings", MagicMock(opcua_enabled=False)):
+def test_overlay_decoupled_from_poll_flag():
+    """A pure consumer (OPCUA_ENABLED=False) must still render the compressor when the
+    seeded CMP-KILLDEER asset has edge-published vitals (read_source=dynamo). The overlay
+    is gated on asset-present-with-vitals, NOT on the local poll flag."""
+    app_state = MagicMock()
+    app_state.db.get_asset.return_value = _cmp_asset()
+    with (
+        patch("src.config.settings", MagicMock(opcua_enabled=False)),
+        patch("src.main.app_state", app_state),
+    ):
+        rds = twin._opcua_compressor_readings()
+    assert rds is not None
+    assert {"SUCT", "DISCH", "VIB", "MOTOR", "OIL"} <= {r.label for r in rds}
+
+
+def test_overlay_none_when_no_vitals():
+    """Seeded asset but no vitals (no poll, no dynamo data) -> sim fallback."""
+    app_state = MagicMock()
+    empty = MagicMock()
+    empty.vitals = []
+    app_state.db.get_asset.return_value = empty
+    with (
+        patch("src.config.settings", MagicMock(opcua_enabled=False)),
+        patch("src.main.app_state", app_state),
+    ):
         assert twin._opcua_compressor_readings() is None
 
 

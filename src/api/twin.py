@@ -524,15 +524,16 @@ def _proc_drift(t: float) -> float:
 def _opcua_compressor_readings() -> list[ProcessReading] | None:
     """Live OPC UA compressor readings for the Maps process strip, or None (sim fallback).
 
-    When OPC UA is enabled and the Killdeer compressor asset (CMP-KILLDEER) is present with
-    live vitals, the compressor stage on the Maps page shows the REAL OPC UA values + their
-    good/warn/bad status instead of the simulation — including the real CWRU bearing
-    vibration. Flag-gated; never raises (-> None -> simulated fallback). Read-only.
-    """
-    from src.config import settings
+    When the Killdeer compressor asset (CMP-KILLDEER) is present with live vitals, the
+    compressor stage on the Maps page shows the REAL OPC UA values + their good/warn/bad
+    status instead of the simulation — including the real CWRU bearing vibration.
 
-    if not settings.opcua_enabled:
-        return None
+    Gated on the seeded asset having live vitals, NOT on the local poll flag (OPCUA_ENABLED):
+    a pure consumer (e.g. the cloud reading the edge-published vitals via read_source=dynamo)
+    must render the compressor even though it does not poll OPC UA itself. The asset is only
+    seeded when OPC UA is configured, so this stays config-gated. Never raises (-> None ->
+    simulated fallback). Read-only.
+    """
     try:
         from src.main import app_state
 

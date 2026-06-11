@@ -520,6 +520,49 @@ def _proc_drift(t: float) -> float:
     return max(-1.0, min(1.0, 0.7 * primary + 0.3 * secondary))
 
 
+def _opcua_compressor_readings() -> list[ProcessReading] | None:
+    """Live OPC UA compressor readings for the Maps process strip, or None (sim fallback).
+
+    When OPC UA is enabled and the Killdeer compressor asset (CMP-KILLDEER) is present with
+    live vitals, the compressor stage on the Maps page shows the REAL OPC UA values + their
+    good/warn/bad status instead of the simulation — including the real CWRU bearing
+    vibration. Flag-gated; never raises (-> None -> simulated fallback). Read-only.
+    """
+    from src.config import settings
+
+    if not settings.opcua_enabled:
+        return None
+    try:
+        from src.main import app_state
+
+        asset = app_state.db.get_asset("CMP-KILLDEER")
+        if asset is None or not getattr(asset, "vitals", None):
+            return None
+        by = {v.label: v for v in asset.vitals}
+        spec = [
+            ("SUCTION PRESSURE", "SUCT", "40001"),
+            ("DISCHARGE PRESSURE", "DISCH", "40003"),
+            ("GAS TEMP", "GAS", "40007"),
+            ("VIBRATION", "VIB", "40017"),  # real CWRU bearing vibration
+            ("MOTOR CURRENT", "MOTOR", None),
+            ("COMPRESSOR RPM", "RPM", None),
+            ("OIL PRESSURE", "OIL", None),
+        ]
+        out: list[ProcessReading] = []
+        for vlabel, rlabel, reg in spec:
+            vit = by.get(vlabel)
+            if vit is None:
+                continue
+            out.append(
+                ProcessReading(
+                    label=rlabel, value=round(vit.raw_value, 1), unit=vit.unit, status=vit.status or "good", reg=reg
+                )
+            )
+        return out or None
+    except Exception:  # noqa: BLE001 — must never break /process
+        return None
+
+
 def _process_snapshot(topo: TwinTopology) -> ProcessSnapshot:
     """Physically-consistent simulated wellsite process snapshot (demo only)."""
     t = time.time()
@@ -612,7 +655,10 @@ def _process_snapshot(topo: TwinTopology) -> ProcessSnapshot:
         ProcessStage(
             id="compressor",
             name="Field Compressor",
-            readings=[
+            # Live OPC UA compressor readings when enabled (real values + status, incl. real
+            # CWRU vibration); otherwise the physically-consistent simulation.
+            readings=_opcua_compressor_readings()
+            or [
                 rd("SUCT", suction, "PSI", reg="40001"),
                 rd("INT", interstage, "PSI"),  # 1st-stage discharge / interstage (2-stage machine)
                 rd("DISCH", discharge, "PSI", reg="40003"),

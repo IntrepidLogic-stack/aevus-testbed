@@ -1,0 +1,28 @@
+# OPC UA tag-map — Killdeer Field Sales Compressor (HYBRID demo source).
+#
+# Points at the self-hosted scripts/opcua_compressor_sim.py server: realistic compressor
+# process tags + REAL CWRU bearing-vibration replay. Far closer to a real compressor than
+# the abstract public sims, while clearly still a simulation (no customer OT). Read-only.
+#
+# Run the server first:  python scripts/opcua_compressor_sim.py
+# Then point OPCUA_CONFIG_PATH at this file.
+
+asset:
+  id: "CMP-KILLDEER"
+  name: "Killdeer / BlueJay #1 — Sales Compressor (OPC UA)"
+  endpoint: "opc.tcp://127.0.0.1:48400/aevus/compressor"
+  poll_interval: 5
+  security: null            # local self-hosted sim only; never null for a real site
+  username: null
+  password: null
+
+tags:
+  - { node: "ns=2;s=SuctionPressure",   metric: suction_pressure,   unit: PSI,  group: compressor }
+  - { node: "ns=2;s=DischargePressure", metric: discharge_pressure, unit: PSI,  group: compressor }
+  - { node: "ns=2;s=InterstageTemp",    metric: interstage_temp,    unit: "°F", group: compressor }
+  - { node: "ns=2;s=GasTemp",           metric: gas_temperature,    unit: "°F", group: compressor }
+  - { node: "ns=2;s=Vibration",         metric: vibration,          unit: mm/s, group: compressor }
+  - { node: "ns=2;s=MotorCurrent",      metric: motor_current,      unit: A,    group: compressor }
+  - { node: "ns=2;s=CompressorRPM",     metric: compressor_rpm,     unit: rpm,  group: compressor }
+  - { node: "ns=2;s=OilPressure",       metric: oil_pressure,       unit: PSI,  group: compressor }
+  - { node: "ns=2;s=RunHours",          metric: run_hours,          unit: hours, group: compressor }

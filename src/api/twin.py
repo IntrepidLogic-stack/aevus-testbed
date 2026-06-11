@@ -22,6 +22,7 @@ Endpoints (registered under /api/v1 by main.py):
 
 from __future__ import annotations
 
+import contextlib
 import math
 import time
 from typing import Literal
@@ -536,7 +537,16 @@ def _opcua_compressor_readings() -> list[ProcessReading] | None:
         from src.main import app_state
 
         asset = app_state.db.get_asset("CMP-KILLDEER")
-        if asset is None or not getattr(asset, "vitals", None):
+        if asset is None:
+            return None
+        # Apply the configured read source so the Maps compressor renders the EDGE-published
+        # vitals: on the cloud (read_source=dynamo) this overlays the Pi's DynamoDB values;
+        # on the edge (sqlite) it is a no-op and returns the local poll. True edge-pure.
+        with contextlib.suppress(Exception):  # overlay must never break /process
+            from src.api.assets import _apply_read_source
+
+            asset = _apply_read_source([asset])[0]
+        if not getattr(asset, "vitals", None):
             return None
         by = {v.label: v for v in asset.vitals}
         spec = [

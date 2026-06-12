@@ -59,8 +59,29 @@ BEDROCK_MODEL_ID = os.environ.get(
 )
 BEDROCK_FALLBACK_MODEL_ID = os.environ.get(
     "BEDROCK_FALLBACK_MODEL_ID",
-    "us.anthropic.claude-sonnet-4-5-20250929-v1:0",
+    "us.anthropic.claude-sonnet-4-6",
 )
+# Deep tier — the most capable model the account can invoke. Routed to
+# directly for high-stakes alarms (critical + high risk_score, or with
+# chattering context), and as the escalation target when the primary
+# model returns a low-confidence narrative. Flip to
+# "us.anthropic.claude-fable-5" once Bedrock grants account access —
+# the request body builder below already handles its parameter surface.
+BEDROCK_DEEP_MODEL_ID = os.environ.get(
+    "BEDROCK_DEEP_MODEL_ID",
+    "us.anthropic.claude-opus-4-6-v1",
+)
+# Routing knobs: critical alarms at/above this risk_score go straight
+# to the deep model; primary results below the confidence floor get one
+# escalation attempt on the deep model.
+DEEP_RISK_THRESHOLD = int(os.environ.get("DEEP_RISK_THRESHOLD", "90"))
+DEEP_CONFIDENCE_FLOOR = float(os.environ.get("DEEP_CONFIDENCE_FLOOR", "0.45"))
+# Prompt caching on the static system preamble. Pays off during alarm
+# storms (several RCAs inside the 5-min cache TTL); the cold-call write
+# premium on ~1.5K tokens is negligible. Set "0" to disable.
+BEDROCK_PROMPT_CACHE = os.environ.get("BEDROCK_PROMPT_CACHE", "1") == "1"
+# Models on the Opus 4.7+/Fable surface reject sampling parameters.
+_NO_SAMPLING_MARKERS = ("fable", "opus-4-7", "opus-4-8")
 BEDROCK_REGION = os.environ.get("BEDROCK_REGION", os.environ.get("AWS_REGION", "us-east-2"))
 BEDROCK_MAX_TOKENS = int(os.environ.get("BEDROCK_MAX_TOKENS", "1024"))
 BEDROCK_TEMPERATURE = float(os.environ.get("BEDROCK_TEMPERATURE", "0.2"))
@@ -128,12 +149,40 @@ def lambda_handler(event: dict[str, Any], context: Any) -> dict[str, Any]:
     ctx = PromptContext(**ctx_dict)
     system_prompt, user_prompt = render(ctx)
 
+    # Tiered routing: high-stakes alarms go straight to the deep model;
+    # everything else runs the cheap primary first.
+    chain, deep_routed = _route_chain(alert, ctx_dict.get("chattering_signals") or [])
+
     # Invoke Bedrock.
     try:
-        rca = _invoke_bedrock(system_prompt, user_prompt)
+        rca = _invoke_bedrock(system_prompt, user_prompt, chain)
     except Exception as e:
         logger.exception("rca_bedrock_failed: %s", e)
         rca = _fallback_narrative(str(e))
+
+    # Escalation: a low-confidence primary narrative gets one shot on the
+    # deep model. Keep whichever result is more confident.
+    escalated = False
+    if (
+        not deep_routed
+        and rca.get("_model_used") not in (None, BEDROCK_DEEP_MODEL_ID)
+        and rca.get("confidence", 1.0) < DEEP_CONFIDENCE_FLOOR
+    ):
+        primary_conf = rca.get("confidence", 0.0)
+        try:
+            deep_rca = _invoke_one_model(system_prompt, user_prompt, BEDROCK_DEEP_MODEL_ID)
+            deep_rca["_model_used"] = BEDROCK_DEEP_MODEL_ID
+            if deep_rca.get("confidence", 0.0) >= primary_conf:
+                rca = deep_rca
+                escalated = True
+            logger.info(
+                "rca_escalation primary_conf=%.2f deep_conf=%.2f kept=%s",
+                primary_conf,
+                deep_rca.get("confidence", 0.0),
+                "deep" if escalated else "primary",
+            )
+        except Exception as e:  # noqa: BLE001 — escalation is best-effort
+            logger.warning("rca_escalation_failed err=%s", str(e)[:200])
 
     # Annotate with the latency we care about for the patent.
     narrative_at = datetime.now(UTC).isoformat()
@@ -148,8 +197,13 @@ def lambda_handler(event: dict[str, Any], context: Any) -> dict[str, Any]:
         "detected_at": detected_at,
         "generated_at": narrative_at,
         "latency_ms_alert_to_rca": latency_ms,
-        "model_id": BEDROCK_MODEL_ID,
+        # The model that actually produced the narrative (was previously
+        # hardcoded to the primary even on fallback).
+        "model_id": rca.pop("_model_used", BEDROCK_MODEL_ID),
+        "deep_routed": deep_routed,
+        "escalated": escalated,
     }
+    rca.pop("_fallback_triggered", None)
     logger.info(
         "rca_complete alert_id=%s asset=%s confidence=%.2f latency_ms=%s",
         alert_id,
@@ -192,20 +246,41 @@ def _parse_envelope(event: dict[str, Any]) -> dict[str, Any]:
 # ──────────────────────────────────────────────────────────────────────────
 # Bedrock invocation
 # ──────────────────────────────────────────────────────────────────────────
-def _invoke_bedrock(system_prompt: str, user_prompt: str) -> dict[str, Any]:
-    """Invoke Claude via Bedrock with primary→fallback model chain.
+def _route_chain(alert: dict[str, Any], chattering_signals: list[dict[str, Any]]) -> tuple[list[str], bool]:
+    """Pick the model chain for this alarm.
 
-    Try BEDROCK_MODEL_ID (Haiku) first for low latency. On failure
-    (throttling, model degradation, malformed response), fall through
-    to BEDROCK_FALLBACK_MODEL_ID (Sonnet) — slower but more capable.
-    Only if BOTH fail does the caller fall through to the deterministic
-    _fallback_narrative.
+    High-stakes alarms — critical severity with a risk_score at/above
+    DEEP_RISK_THRESHOLD, or with chattering context that needs the
+    multi-signal reasoning rules — go straight to the deep model with
+    the standard fallback behind it. Everything else runs the cheap
+    primary first (the deep model remains reachable via the
+    low-confidence escalation in the handler).
+
+    Returns (chain, deep_routed).
+    """
+    severity = str(alert.get("severity", "")).lower()
+    risk = alert.get("risk_score") or 0
+    try:
+        risk = int(risk)
+    except (TypeError, ValueError):
+        risk = 0
+    if severity == "critical" and (risk >= DEEP_RISK_THRESHOLD or chattering_signals):
+        return [BEDROCK_DEEP_MODEL_ID, BEDROCK_FALLBACK_MODEL_ID], True
+    return [BEDROCK_MODEL_ID, BEDROCK_FALLBACK_MODEL_ID], False
+
+
+def _invoke_bedrock(system_prompt: str, user_prompt: str, chain: list[str]) -> dict[str, Any]:
+    """Invoke Claude via Bedrock walking the given model chain.
+
+    On failure (throttling, model degradation, malformed response), fall
+    through to the next model in the chain. Only if ALL fail does the
+    caller fall through to the deterministic _fallback_narrative.
 
     Logs the model actually used + whether fallback was triggered, so
     the latency widget can distinguish primary-path P95 from
     fallback-path P95 over time."""
     last_err: Exception | None = None
-    for attempt, model_id in enumerate([BEDROCK_MODEL_ID, BEDROCK_FALLBACK_MODEL_ID]):
+    for attempt, model_id in enumerate(chain):
         if attempt > 0:
             logger.warning(
                 "rca_bedrock_fallback_to model=%s primary_error=%s",
@@ -230,21 +305,60 @@ def _invoke_bedrock(system_prompt: str, user_prompt: str) -> dict[str, Any]:
     raise last_err
 
 
-def _invoke_one_model(system_prompt: str, user_prompt: str, model_id: str) -> dict[str, Any]:
-    """Single Bedrock invocation for one specific model. Raises on any failure."""
-    body = {
+def _build_body(system_prompt: str, user_prompt: str, model_id: str, cache: bool) -> dict[str, Any]:
+    """Build the InvokeModel body for one model.
+
+    - The static system preamble carries a cache_control breakpoint so
+      repeated RCAs within the cache TTL (alarm storms, drill sequences)
+      read the preamble at ~0.1x instead of reprocessing it.
+    - Sampling parameters are omitted for models on the Opus 4.7+/Fable
+      surface, which reject them outright.
+    """
+    if cache:
+        system: Any = [{"type": "text", "text": system_prompt, "cache_control": {"type": "ephemeral"}}]
+    else:
+        system = system_prompt
+    body: dict[str, Any] = {
         "anthropic_version": "bedrock-2023-05-31",
         "max_tokens": BEDROCK_MAX_TOKENS,
-        "temperature": BEDROCK_TEMPERATURE,
-        "system": system_prompt,
+        "system": system,
         "messages": [{"role": "user", "content": [{"type": "text", "text": user_prompt}]}],
     }
-    resp = bedrock.invoke_model(
-        modelId=model_id,
-        body=json.dumps(body),
-        contentType="application/json",
-    )
+    if not any(marker in model_id for marker in _NO_SAMPLING_MARKERS):
+        body["temperature"] = BEDROCK_TEMPERATURE
+    return body
+
+
+def _invoke_one_model(system_prompt: str, user_prompt: str, model_id: str) -> dict[str, Any]:
+    """Single Bedrock invocation for one specific model. Raises on any failure."""
+    cache = BEDROCK_PROMPT_CACHE
+    while True:
+        body = _build_body(system_prompt, user_prompt, model_id, cache)
+        try:
+            resp = bedrock.invoke_model(
+                modelId=model_id,
+                body=json.dumps(body),
+                contentType="application/json",
+            )
+            break
+        except ClientError as e:
+            # Defensive: if this model/region rejects cache_control,
+            # retry once without it rather than losing the RCA.
+            if cache and "cache" in str(e).lower():
+                logger.warning("rca_cache_control_rejected model=%s — retrying uncached", model_id)
+                cache = False
+                continue
+            raise
     payload = json.loads(resp["body"].read())
+    usage = payload.get("usage") or {}
+    logger.info(
+        "rca_bedrock_usage model=%s in=%s out=%s cache_read=%s cache_write=%s",
+        model_id,
+        usage.get("input_tokens"),
+        usage.get("output_tokens"),
+        usage.get("cache_read_input_tokens"),
+        usage.get("cache_creation_input_tokens"),
+    )
     text_parts = [block.get("text", "") for block in payload.get("content", []) if block.get("type") == "text"]
     raw_text = "".join(text_parts).strip()
     if not raw_text:

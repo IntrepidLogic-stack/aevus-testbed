@@ -4878,7 +4878,7 @@ html { scroll-behavior:smooth; }
   </div>
 
   <!-- Predictions detail -->
-  <div class="panel-box" style="margin-bottom:12px;"><div class="panel-title">IL9000 Predictions</div><div id="predictions-list"></div></div>
+  <div class="panel-box" style="margin-bottom:12px;"><div class="panel-title">IL9000 Trend Projections</div><div id="predictions-list"></div></div>
 
   <!-- Shift summary (hidden, shown via header button) -->
   <div id="shift-summary" style="display:none;margin-bottom:20px;"></div>
@@ -4895,7 +4895,7 @@ html { scroll-behavior:smooth; }
   <div class="kpi-strip" style="display:none;">
     <div class="kpi-tile"><div class="kpi-label">Oil Production</div><div class="kpi-value" id="kpi-assets">—</div><div class="kpi-sub">BOPD</div></div>
     <div class="kpi-tile"><div class="kpi-label">Health Score</div><div class="kpi-value" id="kpi-health">—</div><div class="kpi-sub">Fleet average</div></div>
-    <div class="kpi-tile"><div class="kpi-label">Predicted Failures</div><div class="kpi-value" id="kpi-predictions">0</div><div class="kpi-sub">Next 72 hours</div></div>
+    <div class="kpi-tile"><div class="kpi-label">Trend Projections</div><div class="kpi-value" id="kpi-predictions">0</div><div class="kpi-sub">Threshold crossings · 72h</div></div>
     <div class="kpi-tile"><div class="kpi-label">Active Alerts</div><div class="kpi-value" id="kpi-alerts">—</div><div class="kpi-alert-breakdown" id="kpi-alert-breakdown"></div></div>
   </div>
 </section>
@@ -5760,7 +5760,7 @@ html { scroll-behavior:smooth; }
   <div class="page-header"><div class="page-title">Operations</div><div class="page-subtitle">Operator commands, weather intelligence, and IL9000 cross-domain intelligence</div></div>
   <div id="ops-safety-banner" style="background:linear-gradient(135deg,rgba(16,212,120,0.06),rgba(14,165,233,0.04));border:1px solid rgba(16,212,120,0.15);border-radius:12px;padding:16px 20px;margin-bottom:16px;display:flex;align-items:center;gap:16px;">
     <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#10D478" stroke-width="1.8"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
-    <div style="flex:1;"><div style="font-size:13px;font-weight:600;color:#F1F5F9;">Worker Safety First</div><div style="font-size:11px;color:#94A3B8;margin-top:2px;">IL9000 monitoring reduces unplanned shutdowns by predicting failures before they create hazardous conditions.</div></div>
+    <div style="flex:1;"><div style="font-size:13px;font-weight:600;color:#F1F5F9;">Worker Safety First</div><div style="font-size:11px;color:#94A3B8;margin-top:2px;">IL9000 monitoring surfaces developing threshold trends early, so operators can act before conditions become hazardous.</div></div>
     <div style="text-align:right;"><div style="font-size:20px;font-weight:700;color:#10D478;font-family:var(--font-mono);">0</div><div style="font-size:9px;color:var(--text-muted);text-transform:uppercase;">Safety Incidents</div></div>
   </div>
   <div id="ops-weather-detail" style="margin-bottom:24px;"></div>
@@ -6224,26 +6224,21 @@ html { scroll-behavior:smooth; }
     if (preds.length === 0 || preds.every(function(p){ return (p.risk_score||0) < 10; })) {
       // All safe — show confidence
       heroHtml = '<div class="ai-hero ai-hero-safe">' +
-        '<div class="ai-hero-title"><span class="ai-hero-pulse" style="background:#10D478;"></span> IL9000 ENGINE <span style="font-size:8px;padding:2px 6px;background:rgba(14,165,233,0.1);border:1px solid rgba(14,165,233,0.15);border-radius:4px;color:#0EA5E9;font-weight:600;vertical-align:middle;margin-left:6px;">73% FASTER RESPONSE</span></div>' +
+        '<div class="ai-hero-title"><span class="ai-hero-pulse" style="background:#10D478;"></span> IL9000 ENGINE <span style="font-size:8px;padding:2px 6px;background:rgba(14,165,233,0.1);border:1px solid rgba(14,165,233,0.15);border-radius:4px;color:#0EA5E9;font-weight:600;vertical-align:middle;margin-left:6px;">READ-ONLY MONITORING</span></div>' +
         '<div class="ai-hero-status" style="color:#10D478;">All Assets Within Safe Envelope</div>' +
-        '<div class="ai-hero-detail">Continuous monitoring of 7 assets across ' + (window.liveAssets ? window.liveAssets.reduce(function(sum,a){return sum + (a.vitals?a.vitals.length:0)},0) : 0) + ' data points. No anomalies detected. Model confidence: 94%.</div>' +
-        '<div class="ai-hero-confidence">' +
-          '<span class="ai-conf-label">94%</span>' +
-          '<div class="ai-conf-bar"><div class="ai-conf-fill" style="width:94%;background:linear-gradient(90deg,#10D478,#0EA5E9);"></div></div>' +
-          '<span style="font-size:10px;color:var(--text-faint);">Model Confidence</span>' +
-        '</div>' +
+        '<div class="ai-hero-detail">Continuous monitoring of ' + (window.liveAssets ? window.liveAssets.length : 0) + ' assets across ' + (window.liveAssets ? window.liveAssets.reduce(function(sum,a){return sum + (a.vitals?a.vitals.length:0)},0) : 0) + ' live data points. No threshold deviations or developing trends detected.</div>' +
         '<div style="margin-top:12px;border-top:1px solid var(--border);padding-top:10px;">' +
           '<div onclick="var b=this.nextElementSibling;b.style.display=b.style.display===\x27none\x27?\x27block\x27:\x27none\x27;this.querySelector(\x27span\x27).textContent=b.style.display===\x27none\x27?\x27\u25BE\x27:\x27\u25B4\x27" style="font-size:10px;color:var(--accent);cursor:pointer;font-weight:600;">How does this work? <span>\u25BE</span></div>' +
           '<div style="display:none;margin-top:8px;font-size:10px;color:var(--text-muted);line-height:1.6;">' +
-            '<div style="margin-bottom:6px;"><strong style="color:var(--text-primary);">Multi-Layer Prediction</strong></div>' +
-            '<div>1. Edge sensors collect 200+ readings/min per asset</div>' +
-            '<div>2. Anomaly detection flags deviations from learned baselines</div>' +
-            '<div>3. Predictive model correlates patterns across fleet history</div>' +
-            '<div>4. Risk score aggregates vibration, thermal, and pressure signals</div>' +
-            '<div style="margin-top:6px;color:var(--text-faint);font-size:9px;">Trained on 18 months of field data · Model retrains weekly with new readings · Accuracy improved 12% since deployment · Updated every 5 min cycle</div>' +
+            '<div style="margin-bottom:6px;"><strong style="color:var(--text-primary);">AI-Augmented Threshold Monitoring</strong></div>' +
+            '<div>1. Edge collectors poll live assets (SNMP · Modbus · OPC UA)</div>' +
+            '<div>2. Threshold engine tags every vital good / warn / bad per asset class</div>' +
+            '<div>3. ISA-18.2-aligned rationalization suppresses chattering + nuisance alarms</div>' +
+            '<div>4. AI root-cause analysis writes an evidence-backed narrative for critical alarms</div>' +
+            '<div style="margin-top:6px;color:var(--text-faint);font-size:9px;">Read-only by design (IL-9000) · Trend projection from live historian data · No control actions, ever</div>' +
           '</div>' +
         '</div>' +
-        '<div style="margin-top:10px;font-size:10px;color:var(--text-faint);">Last model update: ' + new Date().toLocaleTimeString() + ' · Next prediction cycle: 5 min</div>' +
+        '<div style="margin-top:10px;font-size:10px;color:var(--text-faint);">Last update: ' + new Date().toLocaleTimeString() + ' · Refreshed continuously from live polling</div>' +
       '</div>';
     } else {
       // Has predictions — show hero alert
@@ -6251,9 +6246,9 @@ html { scroll-behavior:smooth; }
       var riskPct = Math.min(100, top.risk_score || 0);
       var riskColor = riskPct >= 60 ? '#EF4444' : riskPct >= 30 ? '#FBBF24' : '#10D478';
       heroHtml = '<div class="ai-hero ai-hero-warn">' +
-        '<div class="ai-hero-title"><span class="ai-hero-pulse" style="background:' + riskColor + ';"></span> IL9000 ENGINE — PREDICTION ACTIVE</div>' +
+        '<div class="ai-hero-title"><span class="ai-hero-pulse" style="background:' + riskColor + ';"></span> IL9000 ENGINE — ELEVATED RISK</div>' +
         '<div class="ai-hero-status" style="color:' + riskColor + ';">' + (top.asset_name||top.asset_id) + ' — Risk Score ' + top.risk_score + '</div>' +
-        '<div class="ai-hero-detail">Predicted failure: ' + (top.estimated_failure||'Unknown') + '<br>Confidence interval: ' + (top.confidence_interval||'—') + '</div>' +
+        '<div class="ai-hero-detail">Trend projection — threshold crossing: ' + (top.estimated_failure||'Unknown') + '<br>Projection window: ' + (top.confidence_interval||'—') + '</div>' +
         '<div class="ai-hero-confidence">' +
           '<span class="ai-conf-label" style="color:' + riskColor + ';">' + riskPct + '%</span>' +
           '<div class="ai-conf-bar"><div class="ai-conf-fill" style="width:' + riskPct + '%;background:' + riskColor + ';"></div></div>' +
@@ -6640,25 +6635,8 @@ html { scroll-behavior:smooth; }
               '<div style="font-size:10px;font-weight:600;color:var(--text-primary);margin-bottom:6px;">Active Factors</div>' +
               factorHTML +
             '</div>' +
-            // Monthly stats
-            '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">' +
-              '<div style="text-align:center;padding:8px;background:rgba(34,197,94,0.04);border-radius:8px;border:1px solid rgba(34,197,94,0.1);">' +
-                '<div style="font-family:var(--font-mono);font-size:18px;font-weight:700;color:#22c55e;">2</div>' +
-                '<div style="font-size:9px;color:var(--text-faint);margin-top:2px;">Dispatches Saved</div>' +
-              '</div>' +
-              '<div style="text-align:center;padding:8px;background:rgba(14,165,233,0.04);border-radius:8px;border:1px solid rgba(14,165,233,0.1);">' +
-                '<div style="font-family:var(--font-mono);font-size:18px;font-weight:700;color:var(--accent);">$4.2K</div>' +
-                '<div style="font-size:9px;color:var(--text-faint);margin-top:2px;">Costs Prevented</div>' +
-              '</div>' +
-              '<div style="text-align:center;padding:8px;background:rgba(34,197,94,0.04);border-radius:8px;border:1px solid rgba(34,197,94,0.1);">' +
-                '<div style="font-family:var(--font-mono);font-size:18px;font-weight:700;color:#22c55e;">0</div>' +
-                '<div style="font-size:9px;color:var(--text-faint);margin-top:2px;">Safety Incidents</div>' +
-              '</div>' +
-              '<div style="text-align:center;padding:8px;background:rgba(167,139,250,0.04);border-radius:8px;border:1px solid rgba(167,139,250,0.1);">' +
-                '<div style="font-family:var(--font-mono);font-size:18px;font-weight:700;color:#A78BFA;">94%</div>' +
-                '<div style="font-size:9px;color:var(--text-faint);margin-top:2px;">Pattern Accuracy</div>' +
-              '</div>' +
-            '</div>' +
+            // What the correlation engine does (no fabricated outcome stats — #184)
+            '<div style="font-size:10px;color:var(--text-muted);line-height:1.6;">Cross-domain correlation watches weather, RF signal quality, and process vitals together. When an environmental factor explains a degradation, the alarm narrative says so — before a crew rolls.</div>' +
           '</div>' +
         '</div>' +
 
@@ -6667,28 +6645,25 @@ html { scroll-behavior:smooth; }
       '<div class="impact-tier-safety" style="position:relative;" onclick="var d=this.parentNode;var t=d.querySelectorAll(\'.impact-tier\');var ch=this.querySelector(\'.impact-chevron\');var vis=t[0].style.display!==\'none\';t.forEach(function(el){el.style.display=vis?\'none\':\'\'});ch.classList.toggle(\'expanded\',!vis);">' +
         '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#3b82f6" stroke-width="1.8" style="flex-shrink:0;margin-top:1px;"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>' +
         '<div style="flex:1;"><div class="impact-label impact-label-safety">SAFETY</div>' +
-        '<div class="impact-body">Wind-correlated signal degradation detected before field crew dispatch. 2 dispatches rerouted this month based on wind-signal pattern.</div></div>' +
+        '<div class="impact-body">Wind-correlated signal degradation is flagged in the alarm narrative before a field crew is dispatched — environmental causes are separated from equipment faults.</div></div>' +
         '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--text-muted)" stroke-width="2" class="impact-chevron expanded"><polyline points="6 9 12 15 18 9"/></svg>' +
         '<span class="impact-tooltip">Click to show/hide details</span>' +
       '</div>' +
       // Financial
       '<div class="impact-tier impact-tier-financial">' +
         '<div class="impact-label impact-label-financial">FINANCIAL</div>' +
-        '<div class="impact-mono" style="font-size:13px;color:var(--accent);font-weight:600;">$4,200 saved</div>' +
-        '<div style="font-size:11px;color:var(--text-muted);">2 unnecessary dispatches prevented</div>' +
-        '<div style="font-size:11px;color:var(--text-muted);margin-left:auto;">$45,660 total prevented costs this month</div>' +
+        '<div style="font-size:11px;color:var(--text-muted);">Separating weather-driven degradation from equipment faults avoids unnecessary truck rolls — dollar impact depends on your dispatch costs and site distances.</div>' +
       '</div>' +
       // Technical
       '<div class="impact-tier impact-tier-technical">' +
         '<div class="impact-label impact-label-technical">TECHNICAL</div>' +
-        '<div class="impact-mono" style="font-size:10px;color:var(--text-muted);">r = -0.82 inverse correlation · Wind > 15 mph → Signal < 90% · Detection: 3.2s · 24h lookback · Confidence: 94%</div>' +
+        '<div class="impact-mono" style="font-size:10px;color:var(--text-muted);">Wind speed vs RF signal quality correlated over a 24h lookback from live weather + SNMP telemetry</div>' +
       '</div>' +
       // Recommended action
       '<div class="impact-tier impact-tier-action">' +
         '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#22c55e" stroke-width="1.8" style="flex-shrink:0;margin-top:2px;"><polyline points="20 6 9 17 4 12"/></svg>' +
         '<div style="flex:1;"><div class="impact-label impact-label-action">RECOMMENDED ACTION</div>' +
-        '<div class="impact-body">Install wind baffle on RAD-01 antenna mount</div>' +
-        '<div class="impact-mono" style="font-size:11px;color:var(--text-muted);margin-top:2px;">Est. cost: $800 · Expected ROI: 5.2x over 6 months · Confidence: 87%</div></div>' +
+        '<div class="impact-body">Review RAD-01 antenna mount for wind exposure (e.g. baffle or re-aim) — degradation tracks wind, not hardware</div></div>' +
       '</div>' +
     '</div>';
     }
@@ -6960,7 +6935,7 @@ html { scroll-behavior:smooth; }
   }
 
   function getReportContents(type) {
-    if (type === 'alarm') return '• Active alarm summary with severity distribution<br>• Alarm rate analysis (per hour / per shift)<br>• Shelved alarms log with duration & reason<br>• Acknowledgment audit trail<br>• First-out sequence analysis<br>• ISA-18.2 KPI compliance metrics<br>• Nuisance / chattering alarm candidates';
+    if (type === 'alarm') return '• Active alarm summary with severity distribution<br>• Alarm rate analysis (per hour / per shift)<br>• Shelved alarms log with duration & reason<br>• Acknowledgment audit trail<br>• First-out sequence analysis<br>• ISA-18.2-aligned KPI metrics<br>• Nuisance / chattering alarm candidates';
     if (type === 'compliance') return '• NIST CSF scorecard (current vs target)<br>• IEC 62443 zone compliance matrix<br>• Protocol security assessment<br>• Open findings & remediation status<br>• Audit trail (last 30 days)<br>• Incident response readiness score<br>• Compliance trend analysis';
     return '• Fleet health scores by asset<br>• Communication reliability metrics<br>• Stale data incident log<br>• Predictive maintenance indicators<br>• Mean time between failures<br>• Asset availability percentages<br>• Recommended maintenance actions';
   }
@@ -7164,7 +7139,7 @@ html { scroll-behavior:smooth; }
       {time:'12s', color:'#60A5FA', text:'Weather data refreshed — 74\u00b0F Clear'},
       {time:'30s', color:'#EF4444', text:'TRAP received from RAD-02 — RF link event'},
       {time:'1m', color:'#10D478', text:'RTU-01 Modbus read — all registers normal'},
-      {time:'2m', color:'#FBBF24', text:'AI model update — confidence 94%'},
+      {time:'2m', color:'#FBBF24', text:'Alarm rationalization cycle complete'},
       {time:'3m', color:'#60A5FA', text:'Shift handover summary generated'},
       {time:'5m', color:'#10D478', text:'Health scores recalculated — fleet avg 89'},
       {time:'8m', color:'#A78BFA', text:'Alarm storm check — no flooding detected'},
@@ -7183,7 +7158,7 @@ html { scroll-behavior:smooth; }
         {color:'#10D478', text:'EFM-01 DNP3 read — flow rate ' + (3.2+Math.random()*0.8).toFixed(1) + ' MCFD'},
         {color:'#FBBF24', text:'Compressor speed variance: ' + (Math.random()*2).toFixed(1) + '% from setpoint'},
         {color:'#10D478', text:'RTR-01 SNMP walk — interface stats updated'},
-        {color:'#A78BFA', text:'Prediction engine cycle — no anomalies'},
+        {color:'#A78BFA', text:'Trend scan cycle — no anomalies'},
       ];
       var evt = liveEvents[Math.floor(Math.random()*liveEvents.length)];
       var entry = document.createElement('div');
@@ -7355,7 +7330,7 @@ html { scroll-behavior:smooth; }
     wrap.id = 'sec-feed-wrap';
     wrap.style.cssText = 'margin-top:16px;padding:16px;background:var(--bg-card);border:1px solid var(--border-light);border-radius:var(--card-radius);';
     wrap.innerHTML = '<div style="font-size:10px;font-weight:600;color:var(--text-faint);letter-spacing:0.8px;text-transform:uppercase;margin-bottom:10px;display:flex;justify-content:space-between;align-items:center;">' +
-      '<span>SECURITY EVENT LOG</span><span style="font-size:9px;color:var(--text-muted);font-weight:400;">Live</span></div>' +
+      '<span>SECURITY EVENT LOG</span><span style="font-size:9px;color:var(--text-muted);font-weight:400;">Simulated — representative events</span></div>' +
       '<div id="sec-event-feed"></div>';
     cyberSection.appendChild(wrap);
 

@@ -16,7 +16,7 @@ from unittest.mock import AsyncMock, patch
 import pytest
 
 from src.engine import notifier as notifier_mod
-from src.engine.notifier import NotificationEngine, _condition_key
+from src.engine.notifier import NotificationEngine, _condition_key, _value_range
 from src.models.alert import Alert
 
 
@@ -122,3 +122,96 @@ class TestDigest:
             await engine.flush_warning_digest()
         engine._send_digest.assert_not_called()
         assert len(engine._warning_digest) == 0
+
+
+class TestValueInsensitiveDedup:
+    """Task #243: a vital oscillating near its threshold is ONE condition,
+    not one condition per distinct reading."""
+
+    def test_condition_key_ignores_reading_value(self):
+        a1 = _alert(message="SCADAPack 470: VIBRATION warning at 5.27 mm/s")
+        a2 = _alert(message="SCADAPack 470: VIBRATION warning at 4.64 mm/s")
+        assert _condition_key(a1) == _condition_key(a2)
+
+    def test_condition_key_separates_metrics(self):
+        a1 = _alert(message="SCADAPack 470: VIBRATION warning at 5.27 mm/s")
+        a2 = _alert(message="SCADAPack 470: BATTERY VOLTAGE warning at 11.8 VDC")
+        assert _condition_key(a1) != _condition_key(a2)
+
+    @pytest.mark.asyncio
+    async def test_flapping_values_collapse_to_one_digest_row(self, engine):
+        """The flood: 9 vibration warnings at 9 slightly-different values
+        rendered as 9 'conditions'. Now they are one group of 9."""
+        for v in (5.27, 4.64, 4.62, 4.55, 4.69, 5.21, 4.53, 4.58, 4.50):
+            await engine.notify(_alert(message=f"SCADAPack 470: VIBRATION warning at {v} mm/s"))
+        await engine.flush_warning_digest()
+        new_groups = engine._send_digest.call_args.args[0]
+        assert len(new_groups) == 1
+        assert len(next(iter(new_groups.values()))) == 9
+
+    @pytest.mark.asyncio
+    async def test_critical_value_jitter_does_not_bypass_cooldown(self, engine):
+        """Value-sensitive keys let 945 PSI then 946 PSI send two critical
+        emails inside the cooldown window. Now they dedup."""
+        await engine.notify(_alert(severity="critical", message="Suction pressure critical: 945 PSI"))
+        await engine.notify(_alert(severity="critical", message="Suction pressure critical: 946 PSI"))
+        engine._send_email.assert_called_once()
+
+    def test_value_range_renders_spread(self):
+        group = [
+            _alert(message="VIBRATION warning at 4.5 mm/s"),
+            _alert(message="VIBRATION warning at 5.27 mm/s"),
+            _alert(message="VIBRATION warning at 4.64 mm/s"),
+        ]
+        assert _value_range(group) == " (4.5–5.27)"
+
+    def test_value_range_empty_for_single_value(self):
+        group = [_alert(message="VIBRATION warning at 4.5 mm/s")] * 3
+        assert _value_range(group) == ""
+
+
+class TestSteadyStateSuppression:
+    """Task #243: report a condition on ENTRY; while it stays continuously
+    active, later digests suppress it (down to a summary line / no email)."""
+
+    @pytest.mark.asyncio
+    async def test_second_flush_of_same_condition_sends_nothing(self, engine):
+        await engine.notify(_alert(message="VIBRATION warning at 4.6 mm/s"))
+        await engine.flush_warning_digest()
+        assert engine._send_digest.call_count == 1
+        # Same condition keeps flapping into the next window…
+        await engine.notify(_alert(message="VIBRATION warning at 4.8 mm/s"))
+        await engine.flush_warning_digest()
+        # …but it was already reported: no second email at all.
+        assert engine._send_digest.call_count == 1
+
+    @pytest.mark.asyncio
+    async def test_new_condition_still_reported_alongside_steady(self, engine):
+        await engine.notify(_alert(message="VIBRATION warning at 4.6 mm/s"))
+        await engine.flush_warning_digest()
+        await engine.notify(_alert(message="VIBRATION warning at 4.8 mm/s"))
+        await engine.notify(_alert(asset_id="RAD-02", message="SNR warning at 12 dB"))
+        await engine.flush_warning_digest()
+        assert engine._send_digest.call_count == 2
+        new_groups, ongoing_groups = engine._send_digest.call_args.args
+        assert len(new_groups) == 1  # only the SNR condition is new
+        assert len(ongoing_groups) == 1  # vibration is steady-state
+
+    @pytest.mark.asyncio
+    async def test_condition_reports_again_after_quiet_ttl(self, engine):
+        await engine.notify(_alert(message="VIBRATION warning at 4.6 mm/s"))
+        await engine.flush_warning_digest()
+        # Age the steady-state entry past the TTL (condition went quiet).
+        key = next(iter(engine._reported_conditions))
+        engine._reported_conditions[key] -= notifier_mod.settings.warning_digest_steady_ttl + 1
+        await engine.notify(_alert(message="VIBRATION warning at 4.7 mm/s"))
+        await engine.flush_warning_digest()
+        assert engine._send_digest.call_count == 2  # re-entry → reported again
+
+
+class TestLlmSummary:
+    @pytest.mark.asyncio
+    async def test_off_by_default_no_bedrock_call(self, engine):
+        groups = {"k": [_alert(message="VIBRATION warning at 4.6 mm/s")]}
+        assert await engine._llm_summary(groups, {}) == ""
+        assert not hasattr(engine, "_bedrock")

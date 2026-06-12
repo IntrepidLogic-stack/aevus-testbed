@@ -169,6 +169,17 @@ class Settings(BaseSettings):
     # WARNING-level alerts batch into a digest sent every N seconds (Task #201).
     # Default hourly. CRITICAL alerts still email in real time.
     warning_digest_interval: int = 3600
+    # Steady-state suppression (Task #243): a warning condition already
+    # reported in a previous digest is NOT re-reported while it stays
+    # continuously active; it ages out of suppression only after being
+    # quiet for this many seconds. Kills the "same flapping vital in
+    # every digest" flood (ISA-18.2 — report on entry, not persistence).
+    warning_digest_steady_ttl: int = 86400
+    # Optional LLM-written summary paragraph at the top of the digest
+    # (clusters related warnings, says what's new). The deterministic
+    # digest is always the fallback — an LLM failure never blocks email.
+    warning_digest_llm: bool = False
+    warning_digest_llm_model: str = "us.anthropic.claude-haiku-4-5-20251001-v1:0"
     notification_sms_to: str = ""
     twilio_account_sid: str = ""
     twilio_auth_token: str = ""

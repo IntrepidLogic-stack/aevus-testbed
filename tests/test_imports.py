@@ -89,7 +89,9 @@ def test_main_app_is_fastapi():
     from src.main import app
 
     assert isinstance(app, FastAPI), f"src.main.app should be FastAPI, got {type(app)}"
-    paths = [r.path for r in app.routes]
+    # Newer Starlette includes non-route entries (e.g. _IncludedRouter) in
+    # app.routes that lack a .path attribute — filter to real routes.
+    paths = [r.path for r in app.routes if hasattr(r, "path")]
     assert "/" in paths, "Root route '/' should be registered"
     # At least one /api/v1 route should be present (sanity check on prefix)
     api_v1_count = sum(1 for p in paths if p.startswith("/api/v1"))

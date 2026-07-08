@@ -6931,7 +6931,76 @@ html { scroll-behavior:smooth; }
 
       overlay.appendChild(card);
       document.body.appendChild(overlay);
+      var dlBtn = document.getElementById('pdf-dl-btn');
+      if (dlBtn) dlBtn.onclick = function() {
+        downloadReportPdf(type, titles[type], timestamp);
+        overlay.remove();
+      };
     }, 1200);
+  }
+
+  function escHtml(s) {
+    return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;')
+      .replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+  }
+
+  // Build a printable report and hand it to the browser's PDF engine
+  // (hidden iframe → print → "Save as PDF"). No external library, works offline.
+  function downloadReportPdf(type, title, timestamp) {
+    var snapshot = '';
+    if (type === 'alarm') {
+      var rows = document.querySelectorAll('.alarm-row');
+      var items = [];
+      rows.forEach(function(r) {
+        var t = (r.innerText || '').replace(/\s+/g, ' ').trim();
+        if (t) items.push('<tr><td>' + escHtml(t) + '</td></tr>');
+      });
+      snapshot = '<h2>Current Alarm Snapshot (' + items.length + ')</h2>' +
+        (items.length
+          ? '<table>' + items.join('') + '</table>'
+          : '<p>No active alarms at time of export.</p>');
+    }
+    var reportDoc = '<!doctype html><html><head><meta charset="utf-8"><title>' +
+      escHtml(title) + '</title><style>' +
+      'body{font-family:-apple-system,"Segoe UI",Arial,sans-serif;color:#111;margin:32px;}' +
+      'h1{font-size:20px;color:#0B1020;border-bottom:2px solid #06B6D4;padding-bottom:6px;margin:0 0 12px;}' +
+      'h2{font-size:14px;color:#0B1020;margin:22px 0 6px;}' +
+      '.meta{font-size:12px;color:#333;margin:8px 0 16px;}' +
+      '.meta span{display:inline-block;margin-right:20px;}' +
+      '.contents{font-size:12px;line-height:1.9;color:#222;}' +
+      'table{border-collapse:collapse;width:100%;font-size:11px;margin-top:6px;}' +
+      'td{border:1px solid #ccc;padding:6px 8px;vertical-align:top;}' +
+      '.foot{margin-top:28px;font-size:10px;color:#888;border-top:1px solid #ddd;padding-top:8px;}' +
+      '</style></head><body>' +
+      '<h1>Aevus — ' + escHtml(title) + '</h1>' +
+      '<div class="meta"><span><b>Generated:</b> ' + escHtml(timestamp) + ' CT</span>' +
+      '<span><b>Site:</b> Killdeer Field Station</span>' +
+      '<span><b>Standard:</b> ISA-18.2 / IEC 62682 aligned</span></div>' +
+      '<h2>Contents</h2><div class="contents">' + getReportContents(type) + '</div>' +
+      snapshot +
+      '<div class="foot">Aevus by Intrepid Logic LLC — read-only monitoring. ' +
+      'Generated from live dashboard state; use browser "Save as PDF".</div>' +
+      '</body></html>';
+
+    var iframe = document.createElement('iframe');
+    iframe.style.cssText = 'position:fixed;right:0;bottom:0;width:0;height:0;border:0;';
+    document.body.appendChild(iframe);
+    var idoc = iframe.contentWindow.document;
+    idoc.open(); idoc.write(reportDoc); idoc.close();
+    setTimeout(function() {
+      try {
+        iframe.contentWindow.focus();
+        iframe.contentWindow.print();
+      } catch (e) {
+        // Fallback: some browsers block iframe print → download as HTML
+        var blob = new Blob([reportDoc], {type: 'text/html'});
+        var a = document.createElement('a');
+        a.href = URL.createObjectURL(blob);
+        a.download = 'Aevus_' + type + '_report.html';
+        a.click();
+      }
+      setTimeout(function() { iframe.remove(); }, 2000);
+    }, 300);
   }
 
   function getReportContents(type) {

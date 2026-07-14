@@ -35,7 +35,7 @@ iniconfig==2.3.0
 Jinja2==3.1.6
 jmespath==1.1.0
 joblib==1.5.3
-joserfc==1.6.5
+joserfc==1.6.8
 markdown-it-py==4.2.0
 MarkupSafe==3.0.3
 marshmallow==4.3.0

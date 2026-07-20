@@ -18,7 +18,15 @@ classifiers = [
     "Framework :: FastAPI",
 ]
 dependencies = [
-    "fastapi>=0.109.0",
+    # Web stack is PINNED, not floored. Both CI and the EC2 deploy install with
+    # `pip install -e ".[dev]"`, so these versions are the single source of truth
+    # for what runs in production. Floors here (fastapi>=0.109) previously let the
+    # resolver drift to fastapi 0.139 / starlette 1.3, whose route model made
+    # test_imports find 0 /api/v1 routes — that red gate froze prod 2026-07-08.
+    # starlette is listed explicitly (normally transitive via fastapi) so its
+    # version can't float independently. Bump both together, deliberately.
+    "fastapi==0.136.1",
+    "starlette==1.0.0",
     "uvicorn[standard]>=0.27.0",
     "structlog>=24.1.0",
     "python-dotenv>=1.0.0",

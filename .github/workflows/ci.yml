@@ -37,16 +37,9 @@ jobs:
       - name: Install dependencies
         run: |
           pip install --upgrade pip
+          # The web stack is pinned in pyproject.toml (fastapi/starlette), so this
+          # resolves the same versions CI, local, and the EC2 deploy all run.
           pip install -e ".[dev]"
-          # Pin the web stack to the versions prod runs. `-e ".[dev]"` resolves
-          # pyproject floors (fastapi>=0.109.0, starlette unpinned) and pulls a
-          # newer FastAPI/Starlette (0.139/1.3) than the deployed build
-          # (fastapi==0.136.1, starlette==1.0.0 per requirements.txt), whose
-          # route model makes test_imports find 0 /api/v1 routes — CI was
-          # testing a stack prod never runs. (requirements.txt can't be
-          # installed wholesale in CI: its first line is a git+ssh editable
-          # self-reference that has no deploy key on the runner.)
-          pip install "fastapi==0.136.1" "starlette==1.0.0"
       - name: Run tests
         run: pytest tests/ -v --tb=short --junitxml=test-results.xml
         env:

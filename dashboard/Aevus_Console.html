@@ -2116,7 +2116,17 @@ body[data-role="operator"] .exec-summary { display: none; }
 .role-option .role-opt-icon { display: inline-flex; margin-right: 6px; }
 
 /* Wall mode: page-fit with scroll-snap */
-body.wall-mode .main { scroll-snap-type: y mandatory; }
+body.wall-mode .main {
+  /* `overflow-y` was missing, so .main inherited `visible` and was NOT a
+     scroll container — on pages taller than the viewport (Network, etc.)
+     the bottom was clipped and unreachable. Make it an explicit 100vh
+     scroll container. And `mandatory` snap traps content taller than one
+     screen (can't reach the middle); `proximity` snaps to page starts but
+     lets tall pages free-scroll to the bottom. (2026-07-18) */
+  scroll-snap-type: y proximity;
+  overflow-y: auto;
+  height: 100vh;
+}
 body.wall-mode .page-section.active { scroll-snap-align: start; min-height: 100vh; display: flex; flex-direction: column; }
 /* Original rule made first-child grow to fill leftover space — but on most
    pages the first child IS .page-header (title strip), which then ballooned

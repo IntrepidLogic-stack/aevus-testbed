@@ -1,4 +1,11 @@
--e git+ssh://git@github.com/IntrepidLogic-stack/aevus-testbed.git@ebfa9b146ff9bd347a0453b077a197f269df0b39#egg=aevus_testbed
+# Frozen dependency reference snapshot. NOT the primary install source.
+# Both CI and the EC2 deploy install with `pip install -e ".[dev]"`, which
+# resolves from pyproject.toml — that is the source of truth for versions.
+# The version-sensitive web stack (fastapi==0.136.1, starlette==1.0.0) is
+# pinned in pyproject; this file is a snapshot for the security scan and for
+# reproducing a known-good environment. The first line was previously an
+# `-e git+ssh://...` editable self-reference that fails to install on any
+# host without a deploy key (it broke CI); removed 2026-07-20.
 aiocsv==1.4.0
 aiohappyeyeballs==2.6.1
 aiohttp==3.13.5

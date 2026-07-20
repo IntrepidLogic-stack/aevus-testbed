@@ -7,7 +7,7 @@
 # `-e git+ssh://...` editable self-reference that fails to install on any
 # host without a deploy key (it broke CI); removed 2026-07-20.
 aiocsv==1.4.0
-aiohappyeyeballs==2.6.1
+aiohappyeyeballs==2.6.2
 aiohttp==3.13.5
 aiosignal==1.4.0
 aiosqlite==0.22.1

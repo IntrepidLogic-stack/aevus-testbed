@@ -92,11 +92,15 @@ class APIKeyMiddleware(BaseHTTPMiddleware):
             "/api/v1/health/ping",
             "/api/v1/deploy/trigger",
             "/api/v1/ingest",
-            "/api/v1/notes",
-            "/api/v1/journal",
             "/api/v1/auth/config",
         ):
             return await call_next(request)
+        # NOTE: /ingest stays exempt — it's the shop-PC relay's HTTP push path
+        # and has no key today; hardening it needs a shared ingest secret sent
+        # by the relay (follow-up, ARCHITECTURE_REVIEW H3). /notes and /journal
+        # were previously exempt too, which let ANYONE POST operator notes / the
+        # "immutable" journal with no auth. Removed: their GET reads still flow
+        # through the demo/auth branches below; their writes now require auth.
 
         # Allow unauthenticated access request submissions (POST only) and auth config
         if path == "/api/v1/access-requests" and request.method == "POST":
@@ -106,12 +110,16 @@ class APIKeyMiddleware(BaseHTTPMiddleware):
         if not settings.api_key:
             return await call_next(request)
 
-        # Demo mode: allow read-only API access for demo sessions
+        # Demo mode: allow read-only browsing (+ the AI features the public demo
+        # showcases) for sessions served from the ?demo=true dashboard. Keyed on
+        # the Referer only — the previous `x-aevus-demo: true` header was a
+        # second, trivially client-spoofable auth-bypass vector that nothing
+        # legitimate uses (the dashboard authenticates with X-API-Key). Referer
+        # is still client-settable, so this is a soft gate, not a security
+        # boundary; the paid /ai/ POSTs it permits should be rate-limited
+        # (follow-up, ARCHITECTURE_REVIEW H3).
         referer = request.headers.get("referer", "")
-        demo_header = request.headers.get("x-aevus-demo", "")
-        if ("demo=true" in referer or demo_header == "true") and (
-            request.method == "GET" or path.startswith("/api/v1/ai/")
-        ):
+        if "demo=true" in referer and (request.method == "GET" or path.startswith("/api/v1/ai/")):
             return await call_next(request)
 
         # 1. Check session cookie

@@ -87,3 +87,41 @@ class TestAuthMiddleware:
         unauthed_client.cookies.set("aevus_session", "bad-token-value")
         resp = unauthed_client.get("/api/v1/assets")
         assert resp.status_code == 401
+
+
+class TestAuthHardening:
+    """H3 — closed auth-bypass holes."""
+
+    def test_notes_write_requires_auth(self, unauthed_client):
+        """POST /notes was unconditionally exempt — anyone could write operator
+        notes. It must now require auth (middleware rejects before the route)."""
+        resp = unauthed_client.post("/api/v1/notes", json={})
+        assert resp.status_code == 401
+
+    def test_journal_write_requires_auth(self, unauthed_client):
+        """POST /journal (the 'immutable' log) must require auth."""
+        resp = unauthed_client.post("/api/v1/journal", json={})
+        assert resp.status_code == 401
+
+    def test_demo_referer_still_allows_read(self, unauthed_client):
+        """The public ?demo=true dashboard's GET reads still work via Referer."""
+        resp = unauthed_client.get(
+            "/api/v1/assets",
+            headers={"referer": "https://aevus.intrepidlogic.io/dashboard/Aevus_Console.html?demo=true"},
+        )
+        assert resp.status_code == 200
+
+    def test_demo_header_no_longer_bypasses(self, unauthed_client):
+        """The spoofable `x-aevus-demo: true` header must NOT bypass auth."""
+        resp = unauthed_client.get("/api/v1/assets", headers={"x-aevus-demo": "true"})
+        assert resp.status_code == 401
+
+    def test_demo_referer_does_not_allow_writes(self, unauthed_client):
+        """Demo mode is read-only — a demo Referer must not authorize a POST
+        (except the /ai/* endpoints the demo showcases)."""
+        resp = unauthed_client.post(
+            "/api/v1/notes",
+            json={},
+            headers={"referer": "https://aevus.intrepidlogic.io/dashboard/Aevus_Console.html?demo=true"},
+        )
+        assert resp.status_code == 401

@@ -61,30 +61,21 @@ echo "→ Install deps (locked)..."
 source "$VENV/bin/activate"
 pip install -e ".[dev]" -c requirements.txt --quiet 2>&1 | tail -3 || echo "  (pip step non-fatal)"
 
-# ── On-box smoke test — NON-FATAL. CI's gate job already ran the full suite
-# before this webhook fired; a box-only failure (env/hardware drift) must not
-# abort and strand stale backend code. Log it loudly and continue to the restart.
-echo "→ Smoke tests (non-fatal — CI is the gate)..."
-if AEVUS_ENV=test API_KEY=test-key-deploy pytest tests/ -q -m "not integration and not slow" --tb=line 2>&1 | tail -8; then
-  echo "  smoke tests passed"
-else
-  echo "⚠ smoke tests reported failures on the box — continuing (CI already gated this commit)"
-fi
-
 # ── Restart: DETACHED so it survives our own cgroup teardown. We're a child of
-# aevus.service, so a direct or `--no-block` restart dies with our cgroup
-# (Task #179). Dispatch the restart into a SEPARATE, uniquely-named transient unit
-# (owned by PID 1) that restarts the already-updated service and verifies health.
+# aevus.service, so a direct or `--no-block` restart dies with our cgroup (Task
+# #179). Dispatch it into a SEPARATE, uniquely-named transient unit (owned by
+# PID 1) that restarts the already-updated service and verifies health.
 #
-# ROOT CAUSE of the 2026-06-05 → 2026-07-21 silent-stale-code outage (fixed here):
-# the old wrapper re-ran `sudo -u ubuntu git fetch origin main` INSIDE the transient
-# unit, where the ubuntu user has no HOME / SSH-agent environment — that fetch
-# STALLED, so the unit hung before it ever reached `systemctl restart` and logged
-# nothing. Auto-deploys updated the files (the non-sudo `git reset --hard` above
-# works) but never restarted, leaving prod on stale in-memory code. The re-pull is
-# also redundant: the reset above already synced HEAD. So: NO re-pull — just
-# restart the already-current service. Unique unit name (never collides), and no
-# `2>/dev/null` on the dispatch so a real failure is visible.
+# ROOT CAUSE of the silent-stale-code outage (fixed here): the webhook runs THIS
+# script with a 120s subprocess timeout (src/api/deploy.py). An on-box smoke test
+# used to run HERE — a full pytest suite that grew past 120s — so the subprocess
+# was killed mid-test, BEFORE ever reaching this restart. The early `git reset
+# --hard` still landed the files, so prod got new code on disk but was never
+# restarted. Fix: restart runs immediately after the dep install (well within
+# 120s); the redundant on-box smoke test is removed — CI already ran the full
+# suite as the deploy gate. (Contributing bug also removed: the old restart
+# wrapper re-pulled via `sudo -u ubuntu git fetch` inside the unit, with no ubuntu
+# HOME/SSH env, which hung; the reset above already synced HEAD, so no re-pull.)
 RESTART_UNIT="aevus-restart-$(date +%s)-$$"
 RESTART_CMD="systemctl restart $SERVICE; for i in \$(seq 1 30); do sleep 1; if curl -fsS --max-time 2 '$HEALTH_URL' >/dev/null 2>&1; then logger -t aevus-deploy \"restart healthy — serving $COMMIT\"; exit 0; fi; done; logger -t aevus-deploy \"restart UNHEALTHY 30s after start (commit $COMMIT)\"; exit 1"
 echo "→ Restart $SERVICE — detached unit $RESTART_UNIT (commit $COMMIT)..."

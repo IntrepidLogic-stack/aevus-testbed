@@ -26,7 +26,12 @@ async def _run_deploy() -> str:
             ["/home/ubuntu/aevus-testbed/deploy/deploy.sh"],
             capture_output=True,
             text=True,
-            timeout=120,
+            # deploy.sh dispatches a DETACHED restart and returns fast, so this
+            # is just a safety ceiling — but keep generous headroom over the dep
+            # install so the subprocess is never killed before the restart is
+            # dispatched (the 120s ceiling + a slow on-box step caused the
+            # stale-code outage; see deploy/deploy.sh).
+            timeout=300,
             cwd="/home/ubuntu/aevus-testbed",
         )
         return result.stdout + result.stderr

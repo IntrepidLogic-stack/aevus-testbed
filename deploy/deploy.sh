@@ -50,10 +50,16 @@ COMMIT="$(git rev-parse --short HEAD)"
 echo "  at commit $COMMIT"
 
 # ── Deps
-echo "→ Install deps..."
+# Install with requirements.txt as a constraints file so the box installs the
+# SAME locked tree CI validated (pyproject = what we depend on; requirements.txt
+# = which transitive versions). Without the lock, `-e ".[dev]"` floated pyproject
+# floors to newer versions than CI tested — the drift that froze deploys on
+# 2026-07-08. CI's gate already ran this exact command on Linux before this
+# webhook fired, so the lock is known-good here.
+echo "→ Install deps (locked)..."
 # shellcheck disable=SC1091
 source "$VENV/bin/activate"
-pip install -e ".[dev]" --quiet 2>&1 | tail -3 || echo "  (pip step non-fatal)"
+pip install -e ".[dev]" -c requirements.txt --quiet 2>&1 | tail -3 || echo "  (pip step non-fatal)"
 
 # ── On-box smoke test — NON-FATAL. CI's gate job already ran the full suite
 # before this webhook fired; a box-only failure (env/hardware drift) must not

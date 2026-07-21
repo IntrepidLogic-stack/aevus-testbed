@@ -37,9 +37,13 @@ jobs:
       - name: Install dependencies
         run: |
           pip install --upgrade pip
-          # The web stack is pinned in pyproject.toml (fastapi/starlette), so this
-          # resolves the same versions CI, local, and the EC2 deploy all run.
-          pip install -e ".[dev]"
+          # pyproject.toml is the source of truth for WHAT we depend on (and pins
+          # the web stack); requirements.txt is the lockfile pinning WHICH
+          # transitive versions resolve. Installing with it as a constraints file
+          # makes CI, local, and the EC2 deploy install an identical tree — the
+          # same command deploy/deploy.sh runs. Regenerate the lock after any
+          # pyproject dependency change (see the header in requirements.txt).
+          pip install -e ".[dev]" -c requirements.txt
       - name: Run tests
         run: pytest tests/ -v --tb=short --junitxml=test-results.xml
         env:

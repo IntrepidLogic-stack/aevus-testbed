@@ -30,6 +30,7 @@ from src.engine.health_score import compute_health, health_status
 from src.engine.maintenance_tracker import MaintenanceTracker
 from src.engine.normalizer import normalize_batch
 from src.engine.prediction import PredictionEngine
+from src.util import run_blocking
 
 if TYPE_CHECKING:
     from src.collectors.base import BaseCollector
@@ -181,8 +182,11 @@ class PollScheduler:
 
         now = datetime.now(UTC)
 
-        # 2. Write to InfluxDB
-        self.influx.write_readings(readings)
+        # 2. Write to InfluxDB — offloaded to a worker thread. The write_api is
+        # SYNCHRONOUS (blocking HTTP), so running it inline stalled the event
+        # loop — and thus every other asset's poll loop, the WS broadcast, and
+        # the API — for the whole round-trip. (H1; see ARCHITECTURE_REVIEW.)
+        await run_blocking(self.influx.write_readings, readings)
 
         # 3. Normalize
         vitals = normalize_batch(readings)

@@ -71,46 +71,28 @@ else
   echo "⚠ smoke tests reported failures on the box — continuing (CI already gated this commit)"
 fi
 
-# ── Restart: DETACHED + VERIFIED + RETRIED.
-# We run inside aevus.service's cgroup (webhook child), so a direct restart kills
-# us mid-flight and a `--no-block` job dies with the cgroup teardown (Task #179).
-# Dispatch from a SEPARATE cgroup via systemd-run (owned by PID 1): a tiny unit
-# that restarts the service, polls /health/ping until it answers, and retries up
-# to 3x. It survives our exit and converges on a healthy service running $COMMIT.
-echo "→ Restart $SERVICE — detached, health-verified, retried (commit $COMMIT)..."
-cat > /tmp/aevus-restart.sh <<EOF
-#!/usr/bin/env bash
-for attempt in 1 2 3; do
-  # ── Task #179 race fix: ALWAYS serve the ABSOLUTE latest at restart time. This
-  # restart may have been scheduled for $COMMIT, but newer pushes can land while a
-  # slow deploy holds the lock (and later deploys bail on it). Re-pull origin/main
-  # here so the service that comes up is HEAD, not whatever was latest when the
-  # holding deploy started. (Runs as the repo owner to avoid dubious-ownership.)
-  sudo -u ubuntu git -C $APP_DIR fetch origin main --quiet 2>/dev/null || true
-  sudo -u ubuntu git -C $APP_DIR reset --hard origin/main --quiet 2>/dev/null || true
-  systemctl restart $SERVICE || true
-  for i in \$(seq 1 30); do
-    sleep 1
-    if curl -fsS --max-time 2 "$HEALTH_URL" >/dev/null 2>&1; then
-      SERVED=\$(sudo -u ubuntu git -C $APP_DIR rev-parse --short HEAD 2>/dev/null)
-      logger -t aevus-deploy "restart healthy on attempt \$attempt — now serving \$SERVED (scheduled for $COMMIT)"
-      exit 0
-    fi
-  done
-  logger -t aevus-deploy "restart attempt \$attempt not healthy; retrying (commit $COMMIT)"
-done
-logger -t aevus-deploy "restart FAILED after 3 attempts (commit $COMMIT)"
-exit 1
-EOF
-chmod +x /tmp/aevus-restart.sh
-
-if sudo systemd-run --collect --on-active=2 --unit="aevus-restart-$COMMIT" /tmp/aevus-restart.sh 2>/dev/null; then
-  echo "✓ Restart dispatched to a separate cgroup (verifies health + retries 3x)."
-elif sudo systemd-run --collect --on-active=2 /tmp/aevus-restart.sh 2>/dev/null; then
-  echo "✓ Restart dispatched (unnamed transient unit)."
+# ── Restart: DETACHED so it survives our own cgroup teardown. We're a child of
+# aevus.service, so a direct or `--no-block` restart dies with our cgroup
+# (Task #179). Dispatch the restart into a SEPARATE, uniquely-named transient unit
+# (owned by PID 1) that restarts the already-updated service and verifies health.
+#
+# ROOT CAUSE of the 2026-06-05 → 2026-07-21 silent-stale-code outage (fixed here):
+# the old wrapper re-ran `sudo -u ubuntu git fetch origin main` INSIDE the transient
+# unit, where the ubuntu user has no HOME / SSH-agent environment — that fetch
+# STALLED, so the unit hung before it ever reached `systemctl restart` and logged
+# nothing. Auto-deploys updated the files (the non-sudo `git reset --hard` above
+# works) but never restarted, leaving prod on stale in-memory code. The re-pull is
+# also redundant: the reset above already synced HEAD. So: NO re-pull — just
+# restart the already-current service. Unique unit name (never collides), and no
+# `2>/dev/null` on the dispatch so a real failure is visible.
+RESTART_UNIT="aevus-restart-$(date +%s)-$$"
+RESTART_CMD="systemctl restart $SERVICE; for i in \$(seq 1 30); do sleep 1; if curl -fsS --max-time 2 '$HEALTH_URL' >/dev/null 2>&1; then logger -t aevus-deploy \"restart healthy — serving $COMMIT\"; exit 0; fi; done; logger -t aevus-deploy \"restart UNHEALTHY 30s after start (commit $COMMIT)\"; exit 1"
+echo "→ Restart $SERVICE — detached unit $RESTART_UNIT (commit $COMMIT)..."
+if sudo systemd-run --collect --on-active=2 --unit="$RESTART_UNIT" /bin/bash -c "$RESTART_CMD"; then
+  echo "✓ Restart dispatched to detached unit (restarts + verifies health)."
 else
-  echo "… systemd-run unavailable — last-resort --no-block restart."
-  sudo systemctl restart --no-block "$SERVICE" || true
+  echo "⚠ systemd-run dispatch FAILED — direct restart as last resort (may be cut short)."
+  sudo systemctl restart "$SERVICE" || true
 fi
 
 echo "✓ Deploy $COMMIT dispatched at $(date -u +%Y-%m-%dT%H:%M:%SZ)"

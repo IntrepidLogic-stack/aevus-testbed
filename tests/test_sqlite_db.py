@@ -183,3 +183,56 @@ class TestReachabilityUptime:
         db.record_reachability("RAD-01", True)  # fresh, in-window
         # Only the fresh sample counts in the 24h window → 100%.
         assert db.uptime_pct("RAD-01") == 100.0
+
+
+class TestConcurrency:
+    """M4: the shared connection is serialized by a lock and runs in WAL mode,
+    so concurrent threaded access (FastAPI threadpool + the scheduler's
+    to_thread offload) must not corrupt data or raise 'database is locked'."""
+
+    def test_wal_enabled_on_file_db(self, tmp_path):
+        db = SQLiteDB(db_path=str(tmp_path / "wal.db"))
+        try:
+            mode = db._conn.execute("PRAGMA journal_mode").fetchone()[0]
+            assert mode.lower() == "wal"
+        finally:
+            db.close()
+
+    def test_concurrent_writes_and_reads(self, tmp_path):
+        import threading
+
+        db = SQLiteDB(db_path=str(tmp_path / "concur.db"))
+        errors: list[str] = []
+
+        def worker(n: int) -> None:
+            try:
+                for i in range(25):
+                    aid = f"C-{n}-{i}"
+                    db.upsert_asset(
+                        Asset(
+                            id=aid,
+                            type="radio",
+                            name=f"r{n}-{i}",
+                            location="Lab",
+                            vendor="V",
+                            model="M",
+                            protocol="snmp",
+                            poll_interval=30,
+                        )
+                    )
+                    db.get_asset(aid)
+                    db.record_reachability(aid, True)
+            except Exception as e:  # noqa: BLE001 — capture any thread failure
+                errors.append(repr(e))
+
+        try:
+            threads = [threading.Thread(target=worker, args=(n,)) for n in range(8)]
+            for t in threads:
+                t.start()
+            for t in threads:
+                t.join()
+            assert not errors, errors
+            # 8 workers × 25 distinct ids, no lost writes under contention.
+            assert len(db.list_assets()) == 200
+        finally:
+            db.close()

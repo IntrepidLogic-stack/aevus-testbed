@@ -5,8 +5,10 @@ Asset registry, alert log, and configuration persistence.
 
 from __future__ import annotations
 
+import functools
 import json
 import sqlite3
+import threading
 from datetime import datetime
 from pathlib import Path
 
@@ -18,6 +20,28 @@ from src.models.asset import Asset, AssetEvent
 from src.models.telemetry import VitalSign
 
 logger = structlog.get_logger()
+
+
+def _synchronized(method):
+    """Serialize a method against the instance's re-entrant `_lock`.
+
+    The single sqlite3 connection is shared and used with
+    `check_same_thread=False`, and it is now reached from multiple threads:
+    FastAPI's threadpool for sync routes, and the scheduler's `to_thread`
+    offload (H1). SQLite's C layer prevents crashes, but interleaved
+    execute+commit from different threads can cross transaction boundaries —
+    so serialize every connection-touching method. RLock keeps it safe if one
+    synchronized method ever calls another on the same thread.
+    See docs/ARCHITECTURE_REVIEW_2026-07.md (M4).
+    """
+
+    @functools.wraps(method)
+    def wrapper(self, *args, **kwargs):
+        with self._lock:
+            return method(self, *args, **kwargs)
+
+    return wrapper
+
 
 SCHEMA = """
 CREATE TABLE IF NOT EXISTS assets (
@@ -118,6 +142,9 @@ class SQLiteDB:
         self._path = db_path or settings.sqlite_path
         Path(self._path).parent.mkdir(parents=True, exist_ok=True)
         self._conn: sqlite3.Connection | None = None
+        # Serializes all connection access (see _synchronized). Created before
+        # _connect() so it always exists when a decorated method runs.
+        self._lock = threading.RLock()
         self.log = logger.bind(component="sqlite")
         self._connect()
 
@@ -125,6 +152,13 @@ class SQLiteDB:
         """Open (or reopen) the database connection."""
         self._conn = sqlite3.connect(self._path, check_same_thread=False)
         self._conn.row_factory = sqlite3.Row
+        # WAL lets readers and a writer (and Commander's separate connection to
+        # the same file) coexist without "database is locked"; busy_timeout
+        # makes a contended writer wait instead of erroring; synchronous=NORMAL
+        # is the WAL-safe, faster durability setting. (M4)
+        self._conn.execute("PRAGMA journal_mode=WAL")
+        self._conn.execute("PRAGMA busy_timeout=5000")
+        self._conn.execute("PRAGMA synchronous=NORMAL")
         self._conn.executescript(SCHEMA)
         try:
             self._conn.execute("ALTER TABLE assets ADD COLUMN latitude REAL")
@@ -135,6 +169,7 @@ class SQLiteDB:
         except Exception:
             pass
 
+    @_synchronized
     def reconnect(self) -> None:
         """Reconnect if the connection was closed."""
         try:
@@ -144,6 +179,7 @@ class SQLiteDB:
 
     # ── Asset CRUD ──
 
+    @_synchronized
     def upsert_asset(self, asset: Asset) -> None:
         """Insert or update an asset in the registry."""
         self._conn.execute(
@@ -180,6 +216,7 @@ class SQLiteDB:
         )
         self._conn.commit()
 
+    @_synchronized
     def get_asset(self, asset_id: str) -> Asset | None:
         """Fetch a single asset by ID."""
         row = self._conn.execute("SELECT * FROM assets WHERE id = ?", (asset_id,)).fetchone()
@@ -187,6 +224,7 @@ class SQLiteDB:
             return None
         return self._row_to_asset(row)
 
+    @_synchronized
     def list_assets(
         self,
         type_filter: str | None = None,
@@ -208,6 +246,7 @@ class SQLiteDB:
 
     # ── Alert CRUD ──
 
+    @_synchronized
     def save_alert(self, alert: Alert) -> None:
         """Insert or update an alert."""
         self._conn.execute(
@@ -233,6 +272,7 @@ class SQLiteDB:
         )
         self._conn.commit()
 
+    @_synchronized
     def list_alerts(
         self,
         severity: str | None = None,
@@ -254,6 +294,7 @@ class SQLiteDB:
         rows = self._conn.execute(query, params).fetchall()
         return [self._row_to_alert(r) for r in rows]
 
+    @_synchronized
     def get_alert(self, alert_id: str) -> Alert | None:
         """Fetch a single alert by ID."""
         row = self._conn.execute("SELECT * FROM alerts WHERE id = ?", (alert_id,)).fetchone()
@@ -307,6 +348,7 @@ class SQLiteDB:
 
     # ── Notes CRUD ──
 
+    @_synchronized
     def add_note(self, asset_id: str, note: str, author: str = "System") -> int:
         """Add a note to an asset. Returns the note ID."""
         from datetime import UTC, datetime
@@ -319,6 +361,7 @@ class SQLiteDB:
         self._conn.commit()
         return cur.lastrowid
 
+    @_synchronized
     def update_note(self, note_id: int, note: str) -> bool:
         """Update an existing note."""
         from datetime import UTC, datetime
@@ -331,12 +374,14 @@ class SQLiteDB:
         self._conn.commit()
         return cur.rowcount > 0
 
+    @_synchronized
     def delete_note(self, note_id: int) -> bool:
         """Delete a note."""
         cur = self._conn.execute("DELETE FROM asset_notes WHERE id = ?", (note_id,))
         self._conn.commit()
         return cur.rowcount > 0
 
+    @_synchronized
     def list_notes(self, asset_id: str) -> list[dict]:
         """List all notes for an asset."""
         rows = self._conn.execute(
@@ -347,6 +392,7 @@ class SQLiteDB:
 
     # ── Journal CRUD ──
 
+    @_synchronized
     def add_journal_entry(self, asset_id: str, entry: str, author: str = "System", category: str = "general") -> int:
         """Add an immutable journal entry. Returns the entry ID."""
         from datetime import UTC, datetime
@@ -359,6 +405,7 @@ class SQLiteDB:
         self._conn.commit()
         return cur.lastrowid
 
+    @_synchronized
     def list_journal(self, asset_id: str | None = None, category: str | None = None, limit: int = 100) -> list[dict]:
         """List journal entries with optional filters."""
         query = "SELECT * FROM journal WHERE 1=1"
@@ -377,10 +424,12 @@ class SQLiteDB:
     # ---- ISA-18.2 tracker persistence ----------------------------------
     # Implements the Protocols expected by FirmwareTracker / MaintenanceTracker.
 
+    @_synchronized
     def get_firmware_version(self, asset_id: str) -> str | None:
         row = self._conn.execute("SELECT version FROM firmware_baselines WHERE asset_id = ?", (asset_id,)).fetchone()
         return row["version"] if row else None
 
+    @_synchronized
     def set_firmware_version(self, asset_id: str, version: str) -> None:
         from datetime import UTC, datetime
 
@@ -395,10 +444,12 @@ class SQLiteDB:
         )
         self._conn.commit()
 
+    @_synchronized
     def get_runhours_baseline(self, asset_id: str) -> int | None:
         row = self._conn.execute("SELECT run_hours FROM runhours_baselines WHERE asset_id = ?", (asset_id,)).fetchone()
         return row["run_hours"] if row else None
 
+    @_synchronized
     def set_runhours_baseline(self, asset_id: str, run_hours: int) -> None:
         from datetime import UTC, datetime
 
@@ -415,6 +466,7 @@ class SQLiteDB:
 
     # ---- Reachability / rolling uptime % -------------------------------
 
+    @_synchronized
     def record_reachability(self, asset_id: str, ok: bool) -> None:
         """Record one poll outcome and prune samples older than ~25h."""
         import time
@@ -431,6 +483,7 @@ class SQLiteDB:
         )
         self._conn.commit()
 
+    @_synchronized
     def uptime_pct(self, asset_id: str, window_seconds: int = 86400) -> float | None:
         """Rolling uptime % over the window. None if no samples yet.
 
@@ -454,6 +507,7 @@ class SQLiteDB:
 
     # ---- Shelve audit log (ISA-18.2 §11.4) -----------------------------
 
+    @_synchronized
     def log_shelve_action(
         self,
         asset_id: str,
@@ -477,6 +531,7 @@ class SQLiteDB:
         self._conn.commit()
         return cur.lastrowid
 
+    @_synchronized
     def list_shelve_audit(self, asset_id: str | None = None, limit: int = 100) -> list[dict]:
         query = "SELECT * FROM shelve_audit WHERE 1=1"
         params: list = []
@@ -488,6 +543,7 @@ class SQLiteDB:
         rows = self._conn.execute(query, params).fetchall()
         return [dict(r) for r in rows]
 
+    @_synchronized
     def close(self) -> None:
         """Close the database connection."""
         self._conn.close()

@@ -21,6 +21,7 @@ from typing import TYPE_CHECKING
 import structlog
 
 from src.models.prediction import Prediction
+from src.util import run_blocking
 
 if TYPE_CHECKING:
     from src.models.weather import WeatherData
@@ -87,11 +88,28 @@ class PredictionEngine:
     ) -> Prediction | None:
         """Run full prediction analysis for a single asset.
 
+        The analysis is entirely synchronous and issues one or more BLOCKING
+        InfluxDB trend queries per metric. Offload it to a worker thread so the
+        prediction loop can't stall the event loop mid-analysis. (H1; see
+        docs/ARCHITECTURE_REVIEW_2026-07.md)
+
+        Returns a Prediction if risk > 0, else None.
+        """
+        return await run_blocking(self._analyze_asset_sync, asset_id, asset_name, asset_type, location, weather)
+
+    def _analyze_asset_sync(
+        self,
+        asset_id: str,
+        asset_name: str,
+        asset_type: str,
+        location: str = "Lab Cabinet",
+        weather: WeatherData | None = None,
+    ) -> Prediction | None:
+        """Synchronous core of analyze_asset — runs in a worker thread.
+
         Queries InfluxDB for recent metric history, computes anomaly scores
         and trend-based time-to-failure estimates, then aggregates into a
         single risk score.
-
-        Returns a Prediction if risk > 0, else None.
         """
         metric_defs = MONITORED_METRICS.get(asset_type, [])
         if not metric_defs:

@@ -171,7 +171,7 @@ class PollScheduler:
         # collectors (no real device behind them).
         if not isinstance(collector, SimulatorCollector):
             with contextlib.suppress(Exception):
-                self.db.record_reachability(asset_id, bool(readings))
+                await run_blocking(self.db.record_reachability, asset_id, bool(readings))
         if not readings and not isinstance(collector, SimulatorCollector):
             # Real collector failed — fall back to simulator
             device_type = ASSET_DEVICE_TYPE_MAP.get(asset_id, "radio")
@@ -242,9 +242,10 @@ class PollScheduler:
                 if evt_alert is not None:
                     alert_changes.append(evt_alert)
 
-        # Persist alert changes
+        # Persist alert changes (SQLite commit → off the loop; safe via the
+        # SQLiteDB lock). H1.
         for alert in alert_changes:
-            self.db.save_alert(alert)
+            await run_blocking(self.db.save_alert, alert)
 
         # 6b. Send notifications for new alerts
         if self.notifier and alert_changes:
@@ -298,7 +299,7 @@ class PollScheduler:
             # collector.firmware_version (Trio MIB 10.1.5.0, router sysDescr).
             if collector.firmware_version:
                 asset.firmware = collector.firmware_version
-            self.db.upsert_asset(asset)
+            await run_blocking(self.db.upsert_asset, asset)
 
         # 9. WebSocket broadcast (local dashboard) + MQTT publish (cloud bridge)
         await ws_manager.broadcast(

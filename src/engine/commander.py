@@ -50,6 +50,11 @@ class Commander:
         Path(self._db_path).parent.mkdir(parents=True, exist_ok=True)
         self._conn = sqlite3.connect(self._db_path, check_same_thread=False)
         self._conn.row_factory = sqlite3.Row
+        # Commander keeps its own connection to the shared sqlite file (for the
+        # command_log table). WAL + busy_timeout let it coexist with SQLiteDB's
+        # connection without "database is locked" under write contention. (M4)
+        self._conn.execute("PRAGMA journal_mode=WAL")
+        self._conn.execute("PRAGMA busy_timeout=5000")
         self._conn.executescript(COMMAND_LOG_SCHEMA)
         self.log = logger.bind(component="commander")
 

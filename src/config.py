@@ -45,9 +45,6 @@ class Settings(BaseSettings):
     dnp3_master_addr: int = 1
     dnp3_outstation_addr: int = 10
     poll_interval_dnp3: int = 10
-    dnp3_port: int = 20000
-    dnp3_outstation_addr: int = 10
-    dnp3_master_addr: int = 1
 
     # ── InfluxDB ──
     influx_url: str = "http://localhost:8086"

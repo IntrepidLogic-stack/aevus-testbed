@@ -10,12 +10,10 @@ Supports:
 from __future__ import annotations
 
 import hashlib
-import json
 import secrets
-import time
-import urllib.request
 from typing import TYPE_CHECKING
 
+import structlog
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.responses import JSONResponse
 
@@ -24,11 +22,22 @@ from src.config import settings
 if TYPE_CHECKING:
     from fastapi import Request
 
+logger = structlog.get_logger()
+
 # Cognito config
 COGNITO_POOL_ID = "us-east-1_CVFBcLJV3"
 COGNITO_REGION = "us-east-1"
 COGNITO_ISSUER = f"https://cognito-idp.{COGNITO_REGION}.amazonaws.com/{COGNITO_POOL_ID}"
-_jwks_cache = {"keys": None, "fetched_at": 0}
+
+# Fail-open visibility: when api_key is empty the middleware lets ALL /api/
+# traffic through unauthenticated (dev mode). That's fine locally but a
+# silent hole in prod, so make a mis-provisioned box loud at startup.
+if not settings.api_key:
+    logger.warning(
+        "auth_fail_open",
+        detail="API_KEY is empty — all /api/ traffic is UNAUTHENTICATED. "
+        "This is expected in dev; set API_KEY in production.",
+    )
 
 
 def _make_session_token() -> str:
@@ -39,32 +48,24 @@ def _make_session_token() -> str:
 
 SESSION_TOKEN = _make_session_token()
 
-
-def _get_cognito_jwks():
-    """Fetch and cache Cognito JWKS (public keys)."""
-    now = time.time()
-    if _jwks_cache["keys"] and now - _jwks_cache["fetched_at"] < 3600:
-        return _jwks_cache["keys"]
-    try:
-        url = f"{COGNITO_ISSUER}/.well-known/jwks.json"
-        with urllib.request.urlopen(url, timeout=5) as resp:  # noqa: S310 — trusted Cognito JWKS endpoint, https only
-            data = json.loads(resp.read())
-            _jwks_cache["keys"] = data["keys"]
-            _jwks_cache["fetched_at"] = now
-            return _jwks_cache["keys"]
-    except Exception:
-        return _jwks_cache.get("keys")
+# One PyJWKClient reused across requests. It caches the Cognito signing keys
+# internally, so building it once avoids a JWKS network fetch on every Bearer
+# request (the previous code constructed a fresh client per call). Lazily
+# initialized so importing this module never does network I/O.
+_jwk_client = None
 
 
 def _validate_cognito_jwt(token: str) -> bool:
-    """Validate a Cognito JWT token."""
+    """Validate a Cognito JWT against the pool's signing keys (cached client)."""
+    global _jwk_client
     try:
         import jwt
-        from jwt import PyJWKClient
 
-        jwks_url = f"{COGNITO_ISSUER}/.well-known/jwks.json"
-        jwk_client = PyJWKClient(jwks_url)
-        signing_key = jwk_client.get_signing_key_from_jwt(token)
+        if _jwk_client is None:
+            from jwt import PyJWKClient
+
+            _jwk_client = PyJWKClient(f"{COGNITO_ISSUER}/.well-known/jwks.json")
+        signing_key = _jwk_client.get_signing_key_from_jwt(token)
 
         jwt.decode(
             token,

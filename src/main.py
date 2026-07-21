@@ -610,19 +610,36 @@ if DASHBOARD_DIR.exists():
     app.mount("/dashboard", StaticFiles(directory=str(DASHBOARD_DIR), html=True), name="dashboard")
 
 
+def _read_cached(path: Path) -> str | None:
+    """Read a static page ONCE at import and serve it from memory thereafter.
+
+    The root/login handlers previously `.read_text()` the ~8k-line console on
+    every request — a synchronous disk read on the hot path. The deploy always
+    restarts the process (deploy/deploy.sh), so a cache read at import can never
+    go stale relative to the deployed file. Returns None if the file is absent
+    (preserves the prior `.exists()` JSON fallback).
+    """
+    try:
+        return path.read_text()
+    except OSError:
+        return None
+
+
+_INDEX_HTML = _read_cached(DASHBOARD_DIR / "Aevus_Console.html")
+_LOGIN_HTML = _read_cached(DASHBOARD_DIR / "login.html")
+
+
 @app.get("/login")
 async def login_page():
-    """Serve the login page."""
-    login_file = DASHBOARD_DIR / "login.html"
-    if login_file.exists():
-        return Response(content=login_file.read_text(), media_type="text/html")
+    """Serve the login page (cached at import)."""
+    if _LOGIN_HTML is not None:
+        return Response(content=_LOGIN_HTML, media_type="text/html")
     return {"detail": "Login page not found"}
 
 
 @app.get("/")
 async def root():
-    """Serve the Aevus Console dashboard; fall back to a JSON health blob."""
-    index = DASHBOARD_DIR / "Aevus_Console.html"
-    if index.exists():
-        return Response(content=index.read_text(), media_type="text/html")
+    """Serve the Aevus Console dashboard (cached); fall back to a JSON health blob."""
+    if _INDEX_HTML is not None:
+        return Response(content=_INDEX_HTML, media_type="text/html")
     return {"service": "aevus-testbed", "version": "0.1.0", "status": "ok"}

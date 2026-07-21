@@ -1,10 +1,13 @@
 """Tests for IL-9000 Safety Interlock — Patentable Invention P-008."""
 
+import pathlib
+
 import pytest
 
 from src.il9000 import (
     IL_9000_ENFORCED,
     IL009ViolationError,
+    assert_read_only,
     il9000_can_stage,
     il9000_can_verify,
     il9000_can_write,
@@ -45,3 +48,46 @@ class TestIL009Interlock:
         """IL_9000_ENFORCED must be exactly bool True, not truthy."""
         assert type(IL_9000_ENFORCED) is bool
         assert IL_9000_ENFORCED == True  # noqa: E712
+
+
+class TestReadOnlyInterlock:
+    """IL-009 ("I never touch"): the platform never writes to field equipment."""
+
+    def test_field_write_blocked_by_default(self, monkeypatch):
+        """assert_read_only() raises with no on-site override present."""
+        monkeypatch.delenv("AEVUS_ALLOW_BENCH_WRITE", raising=False)
+        with pytest.raises(IL009ViolationError, match="READ-ONLY"):
+            assert_read_only("modbus_register_write")
+
+    def test_action_name_in_error(self, monkeypatch):
+        """The attempted action appears in the violation message (audit)."""
+        monkeypatch.delenv("AEVUS_ALLOW_BENCH_WRITE", raising=False)
+        with pytest.raises(IL009ViolationError, match="valve_setpoint"):
+            assert_read_only("valve_setpoint")
+
+    def test_bench_override_permits_write(self, monkeypatch):
+        """The explicit on-site bench override is the one sanctioned exception."""
+        monkeypatch.setenv("AEVUS_ALLOW_BENCH_WRITE", "1")
+        assert_read_only("scadapack_bench_seed_write")  # must not raise
+
+    def test_src_has_no_field_writes(self):
+        """CODE-ENFORCED read-only guarantee: the importable app package (src/)
+        must contain NO Modbus/field write call. This is what makes IL-009
+        "enforced by code, not policy" — if a future change adds a write into
+        any collector/engine/API, this test fails in CI. The only sanctioned
+        write lives in the gated bench fixture under tools/, outside src/.
+        """
+        src = pathlib.Path(__file__).resolve().parent.parent / "src"
+        write_calls = (".write_register(", ".write_registers(", ".write_coil(", ".write_coils(")
+        offenders = []
+        for py in src.rglob("*.py"):
+            text = py.read_text()
+            for call in write_calls:
+                if call in text:
+                    offenders.append(f"{py.relative_to(src.parent)}{call}")
+        assert not offenders, (
+            "IL-009 read-only violation — field-write call(s) found in src/:\n  "
+            + "\n  ".join(offenders)
+            + "\nField writes belong only in the gated bench tool under tools/, "
+            "never in the importable app package."
+        )

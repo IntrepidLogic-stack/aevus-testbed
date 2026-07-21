@@ -1,8 +1,10 @@
 # ─────────────────────────────────────────────────────────────────────────────
 # LOCKFILE — complete transitive pin of the runtime + dev dependency tree.
 #
-# GENERATED, do not hand-edit. Regenerate after any pyproject.toml dependency
-# change with:
+# GENERATED ON LINUX (ubuntu, Python 3.12 — the CI + EC2 deploy platform), so
+# the pins are authoritative for where the code actually runs. Do not hand-edit.
+# Regenerate after any pyproject.toml dependency change by running the `lockgen`
+# GitHub workflow (or, equivalently, on an ubuntu/py3.12 host):
 #
 #     python3 -m venv /tmp/lock && /tmp/lock/bin/pip install -e ".[dev]"
 #     /tmp/lock/bin/pip freeze --exclude-editable > requirements.txt
@@ -15,7 +17,7 @@
 #
 # Consumed as a constraints file: `pip install -e ".[dev]" -c requirements.txt`
 # (CI Test Suite + deploy/deploy.sh). The security scan installs it directly.
-# Last regenerated: 2026-07-20.
+# Last regenerated: 2026-07-21 (Linux).
 # ─────────────────────────────────────────────────────────────────────────────
 aiomqtt==2.5.1
 aiosqlite==0.22.1
@@ -37,7 +39,7 @@ defusedxml==0.7.1
 Deprecated==1.3.1
 dparse==0.6.4
 fastapi==0.136.1
-filelock==3.31.1
+filelock==3.31.2
 h11==0.16.0
 httpcore==1.0.9
 httptools==0.8.0

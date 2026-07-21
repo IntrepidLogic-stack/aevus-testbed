@@ -1,16 +1,30 @@
 #!/usr/bin/env python3
 """
-SCADAPack 470 Register Writer — simulates realistic oil & gas process values.
-Writes Float32 values to Modbus TCP holding registers (matching collector's register map).
+SCADAPack 470 Register Writer — LAB BENCH FIXTURE (not part of the platform).
+
+Seeds a *test* SCADAPack with simulated oil & gas process values so the
+collector read-path has realistic data. This is the ONE sanctioned write to
+field equipment, so it lives OUTSIDE the importable `src/` app package (which
+is proven write-free by tests/test_il9000.py) and is gated by the IL-009
+interlock: it refuses to run unless an on-site technician sets
+AEVUS_ALLOW_BENCH_WRITE=1 deliberately.
+
+    AEVUS_ALLOW_BENCH_WRITE=1 python tools/register_writer.py
 """
 
 import asyncio
 import math
+import os
 import random
 import struct
+import sys
 import time
 
 from pymodbus.client import AsyncModbusTcpClient
+
+# Import the interlock from the app package (tools/ runs from the repo root).
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+from src.il9000 import assert_read_only  # noqa: E402
 
 HOST = "172.16.1.200"
 PORT = 502
@@ -73,6 +87,9 @@ def compute_values():
 
 
 async def write_registers():
+    # IL-009 interlock: refuse to write to field equipment unless a technician
+    # has deliberately enabled the bench override on-site.
+    assert_read_only("scadapack_bench_seed_write")
     print(f"Connecting to SCADAPack at {HOST}:{PORT}...")
     client = AsyncModbusTcpClient(HOST, port=PORT)
     await client.connect()
@@ -113,8 +130,8 @@ async def write_registers():
             await asyncio.sleep(10)
             try:
                 await client.connect()
-            except Exception:  # noqa: BLE001 - reconnect tolerates any failure
-                pass
+            except Exception as reconnect_err:  # noqa: BLE001 - reconnect tolerates any failure
+                print(f"reconnect failed: {reconnect_err}")
 
 
 if __name__ == "__main__":

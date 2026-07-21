@@ -25,12 +25,20 @@ Patentable Invention P-008 ("I'm sorry Dave, I can't do that").
 
 from __future__ import annotations
 
+import os
+
 # ═══════════════════════════════════════════════════════════════
 #  IL-9000 INTERLOCK — DO NOT MODIFY THIS VALUE
 #  Any code review that attempts to set this to False must be
 #  flagged and rejected immediately.
 # ═══════════════════════════════════════════════════════════════
 IL_9000_ENFORCED: bool = True
+
+# The one sanctioned exception to the read-only rule: a technician physically
+# on the lab bench may seed a test SCADAPack with simulated telemetry. That
+# tool must set this env var to "1" to run — encoding the "credentialed
+# technician on site" requirement. It is NEVER set in the running platform.
+_BENCH_WRITE_OVERRIDE_ENV = "AEVUS_ALLOW_BENCH_WRITE"
 
 
 class IL009ViolationError(Exception):
@@ -72,3 +80,33 @@ def il9000_can_verify() -> bool:
 def il9000_can_write() -> bool:
     """Returns False — remote firmware writes are NEVER permitted."""
     return not IL_9000_ENFORCED
+
+
+def assert_read_only(action: str = "field_write") -> None:
+    """Gate ANY write to field equipment (Modbus registers/coils, setpoints).
+
+    The platform is read-only — IL-009, "I See. I Warn. I Never Touch." No code
+    in the running service writes to field equipment; the guard test
+    (tests/test_il9000.py::test_src_has_no_field_writes) proves the importable
+    `src/` package is write-free, so this guarantee is enforced by code, not
+    convention.
+
+    The single sanctioned write is the lab bench fixture (tools/register_writer)
+    that seeds a test SCADAPack with simulated telemetry, and it must be run
+    with AEVUS_ALLOW_BENCH_WRITE=1 set deliberately by an on-site technician.
+    Everywhere else this raises.
+
+    Args:
+        action: Description of the attempted write (for the audit message).
+
+    Raises:
+        IL009ViolationError: unless the on-site bench override is explicitly set.
+    """
+    if os.environ.get(_BENCH_WRITE_OVERRIDE_ENV) == "1":
+        return
+    raise IL009ViolationError(
+        f"IL-009 READ-ONLY: {action} to field equipment is blocked. The platform "
+        f"never writes to field devices. The only sanctioned write is the on-site "
+        f"lab bench fixture, which requires {_BENCH_WRITE_OVERRIDE_ENV}=1. "
+        f"See IL-9000 / P-008."
+    )

@@ -1,0 +1,32 @@
+# TEMPORARY: generates the requirements.txt lockfile on the real deploy platform
+# (ubuntu + Python 3.12, same as ci.yml) so the pins are authoritative for Linux
+# rather than derived from a macOS freeze. Delete this workflow once the lock is
+# regenerated and committed.
+name: lockgen
+on:
+  push:
+    branches: [chore/linux-lockfile]
+jobs:
+  gen:
+    name: Generate Linux lockfile
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Fresh install + freeze
+        run: |
+          python -m venv /tmp/lockenv
+          /tmp/lockenv/bin/pip install --upgrade pip --quiet
+          # No -c here: resolve fresh from pyproject (which pins the web stack) so
+          # the freeze captures the true Linux tree, including any Linux-only
+          # transitive deps a macOS freeze would miss.
+          /tmp/lockenv/bin/pip install -e ".[dev]" --quiet
+          /tmp/lockenv/bin/pip freeze --exclude-editable > lock-freeze.txt
+          echo "===== Linux freeze ($(wc -l < lock-freeze.txt) pkgs) ====="
+          cat lock-freeze.txt
+      - uses: actions/upload-artifact@v4
+        with:
+          name: linux-lock
+          path: lock-freeze.txt

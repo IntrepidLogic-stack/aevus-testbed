@@ -82,20 +82,44 @@ def test_all_main_imports_resolve():
         )
 
 
+def _all_route_paths(routes, prefix=""):
+    """Collect every registered route path, reconstructing full paths across
+    framework versions.
+
+    This test must not depend on HOW the framework lays out `app.routes`. Older
+    FastAPI/Starlette flattened `include_router(prefix=...)` into top-level
+    APIRoutes with full paths; newer versions can nest them under a Mount whose
+    children carry paths relative to the mount. A shallow read of `app.routes`
+    then found 0 `/api/v1` routes and — combined with unpinned deps drifting to
+    that newer stack — silently froze deploys for weeks (2026-07). Walk mounts
+    recursively so the assertion reflects real routing, not internal structure.
+    """
+    for route in routes:
+        path = getattr(route, "path", None)
+        subroutes = getattr(route, "routes", None)  # Mount / sub-application
+        if subroutes:  # recurse, carrying the mount's own path as the prefix
+            yield from _all_route_paths(subroutes, prefix + (path or ""))
+        if path is not None:
+            yield prefix + path
+
+
 def test_main_app_is_fastapi():
-    """main.app should be a FastAPI instance with at least the root route."""
+    """main.app should be a FastAPI instance with the root + the /api/v1 tree."""
     from fastapi import FastAPI
 
     from src.main import app
 
     assert isinstance(app, FastAPI), f"src.main.app should be FastAPI, got {type(app)}"
-    # Newer Starlette includes non-route entries (e.g. _IncludedRouter) in
-    # app.routes that lack a .path attribute — filter to real routes.
-    paths = [r.path for r in app.routes if hasattr(r, "path")]
+    paths = list(_all_route_paths(app.routes))
     assert "/" in paths, "Root route '/' should be registered"
-    # At least one /api/v1 route should be present (sanity check on prefix)
+    # Several /api/v1 routes should be present (sanity check on the prefix). If
+    # this drops to ~0 the app lost its API router — fail loudly, don't shrug.
     api_v1_count = sum(1 for p in paths if p.startswith("/api/v1"))
-    assert api_v1_count > 5, f"Expected several /api/v1 routes, found {api_v1_count}"
+    assert api_v1_count > 5, (
+        f"Expected several /api/v1 routes, found {api_v1_count}. If the count is "
+        "0 the API router did not register (check a FastAPI/Starlette bump — see "
+        "requirements.txt lock + pyproject web-stack pins), not a missing route."
+    )
 
 
 def test_main_lab_assets_registry():

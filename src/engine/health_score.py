@@ -22,6 +22,8 @@ from typing import TYPE_CHECKING, Literal
 
 import structlog
 
+from src.engine.scoring import band
+
 if TYPE_CHECKING:
     from src.models.telemetry import VitalSign
 
@@ -149,11 +151,10 @@ def compute_health(
 
 
 def health_status(score: int | None) -> Literal["good", "warn", "bad", "unknown"]:
-    """Map a health score to a status string."""
-    if score is None or score == 0:
-        return "unknown"
-    if score >= 80:
-        return "good"
-    if score >= 50:
-        return "warn"
-    return "bad"
+    """Map a health score to a status string.
+
+    Delegates to the shared banding utility (src.engine.scoring.band) so the
+    good/warn/bad cutoffs live in one place. Behavior is unchanged: 0/None →
+    unknown, >=80 → good, >=50 → warn, else bad.
+    """
+    return band(score, warn_at=80, crit_at=50, zero_is_unknown=True)

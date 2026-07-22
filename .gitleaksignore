@@ -1,0 +1,16 @@
+# Historical fingerprints of the client-baked API key (generic-api-key,
+# dashboard bundles line 1). The key is REMOVED from the bundles as of the
+# security commit in PR 150 and MUST be rotated server-side — see
+# docs/SEC_API_KEY_ROTATION.md. These entries only silence the already-
+# public historical value in past commit diffs; new secrets still fail CI.
+5359ed21be56f4dcba8eb4f50facf4ee7ab18d14:dashboard/api-client.js:generic-api-key:1
+4c6a46f4df763a0d05986cb693015239c360a5cb:dashboard/api-client.js:generic-api-key:1
+16ea47100424bacdde2852124f454589a1275728:dashboard/api-client.js:generic-api-key:1
+52bc50d23c6f689f9a3df853f5d0acf42e03fd38:dashboard/api-client.js:generic-api-key:1
+d56daa0e996287ed86d1ec7db7c44431ec982641:dashboard/api-client.js:generic-api-key:1
+b13abd7acd4029bda0d6e5d42c1adb0b8f989a9a:dashboard/api-client.js:generic-api-key:1
+06752080eda8219ecf9ac7b092de6e83715de1c2:dashboard/api-client.js:generic-api-key:1
+8b4afbd27e28e4fb6a03e1aa2aeb5c5d82637082:dashboard/api-client.js:generic-api-key:1
+06752080eda8219ecf9ac7b092de6e83715de1c2:dashboard/award-client.js:generic-api-key:1
+8b4afbd27e28e4fb6a03e1aa2aeb5c5d82637082:dashboard/award-client.js:generic-api-key:1
+d56daa0e996287ed86d1ec7db7c44431ec982641:dashboard/award-client.js:generic-api-key:1

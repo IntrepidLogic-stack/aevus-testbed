@@ -6,10 +6,8 @@ This collector also serves as the base for Cisco Catalyst 2960 polling
 since both use standard SNMP MIBs for interface statistics.
 """
 
-import asyncio
-import subprocess
-
 from src.collectors.base import BaseCollector
+from src.collectors.snmp_cli import SNMPCliMixin
 from src.models.telemetry import RawTelemetry
 
 # Standard MIB-II OIDs (work on MikroTik, Cisco, any SNMP device)
@@ -75,7 +73,7 @@ MIKROTIK_HW_OIDS = {
 }
 
 
-class SNMPNetworkCollector(BaseCollector):
+class SNMPNetworkCollector(SNMPCliMixin, BaseCollector):
     """Collects telemetry from a network device (MikroTik or Cisco) via SNMP v2c."""
 
     # Only the stable, always-present metrics are listed here. Per-interface
@@ -186,24 +184,19 @@ class SNMPNetworkCollector(BaseCollector):
                 except ValueError:
                     pass
 
-        # System uptime (hundredths of seconds → hours)
+        # System uptime (timeticks → hours)
         uptime_raw = await self._snmp_get(SYSTEM_OIDS["sys_uptime"])
-        if uptime_raw is not None:
-            try:
-                # uptime comes as timeticks (hundredths of a second)
-                ticks = float(uptime_raw.split("(")[1].split(")")[0]) if "(" in uptime_raw else float(uptime_raw)
-                hours = ticks / 360000.0
-                readings.append(
-                    self._make_reading(
-                        metric="uptime",
-                        value=round(hours, 2),
-                        unit="hrs",
-                        source="snmp",
-                        oid=SYSTEM_OIDS["sys_uptime"],
-                    )
+        hours = self._snmp_timeticks_to_hours(uptime_raw)
+        if hours is not None:
+            readings.append(
+                self._make_reading(
+                    metric="uptime",
+                    value=round(hours, 2),
+                    unit="hrs",
+                    source="snmp",
+                    oid=SYSTEM_OIDS["sys_uptime"],
                 )
-            except (ValueError, IndexError):
-                pass
+            )
 
         # Interface stats — walk the interface table
         if_readings = await self._poll_interfaces()
@@ -233,7 +226,7 @@ class SNMPNetworkCollector(BaseCollector):
         non-numeric path later (events_json or /api/v1/diagnostics/topology)."""
         readings = []
         try:
-            neighbors = await asyncio.to_thread(self._snmp_walk_sync, CDP_NEIGHBOR_OIDS["cdp_device_id"])
+            neighbors = await self._snmp_walk(CDP_NEIGHBOR_OIDS["cdp_device_id"])
         except Exception:
             return readings
         count = sum(1 for _, v in (neighbors or {}).items() if self._parse_snmp_walk_value(v))
@@ -258,7 +251,7 @@ class SNMPNetworkCollector(BaseCollector):
         long before they cross the if-errors threshold."""
         readings: list[RawTelemetry] = []
         try:
-            speeds = await asyncio.to_thread(self._snmp_walk_sync, PORT_HEALTH_OIDS["if_speed"])
+            speeds = await self._snmp_walk(PORT_HEALTH_OIDS["if_speed"])
         except Exception:
             return readings
         for oid, speed_raw in (speeds or {}).items():
@@ -284,7 +277,7 @@ class SNMPNetworkCollector(BaseCollector):
             ("out", PORT_HEALTH_OIDS["if_out_discards"]),
         ]:
             try:
-                discards = await asyncio.to_thread(self._snmp_walk_sync, oid_base)
+                discards = await self._snmp_walk(oid_base)
             except Exception:
                 continue
             for oid, v in (discards or {}).items():
@@ -347,7 +340,7 @@ class SNMPNetworkCollector(BaseCollector):
         readings: list[RawTelemetry] = []
 
         # Get interface descriptions to identify ports
-        if_walk = await asyncio.to_thread(self._snmp_walk_sync, INTERFACE_OIDS["if_descr"])
+        if_walk = await self._snmp_walk(INTERFACE_OIDS["if_descr"])
 
         for if_oid, if_name in if_walk.items():
             # Extract interface index from OID
@@ -396,67 +389,7 @@ class SNMPNetworkCollector(BaseCollector):
 
     async def snmp_walk(self) -> dict[str, str]:
         """Full SNMP walk for discovery."""
-        return await asyncio.to_thread(self._snmp_walk_sync)
+        return await self._snmp_walk()
 
-    async def _snmp_get(self, oid: str) -> str | None:
-        """Get a single OID value."""
-        return await asyncio.to_thread(self._snmp_get_sync, oid)
-
-    def _snmp_get_sync(self, oid: str) -> str | None:
-        """Synchronous SNMP GET via CLI."""
-        try:
-            result = subprocess.run(
-                ["snmpget", "-v2c", "-c", self.community, "-t", "5", "-r", "1", "-Oqv", self.host, oid],
-                capture_output=True,
-                text=True,
-                timeout=10,
-            )
-            if result.returncode != 0 or not result.stdout.strip():
-                return None
-            raw = result.stdout.strip()
-            if ": " in raw:
-                raw = raw.split(": ", 1)[1]
-            return raw.strip('"')
-        except (subprocess.TimeoutExpired, FileNotFoundError):
-            return None
-
-    def _parse_snmp_walk_value(self, raw):
-        """Strip SNMP type prefix from snmpwalk values.
-        snmpwalk emits values like 'STRING: "x"', 'Gauge32: 123', 'Counter32: 0'.
-        This helper returns just the value, no prefix, no surrounding quotes."""
-        if raw is None:
-            return ""
-        s = str(raw).strip().strip('"')
-        for prefix in (
-            "STRING:",
-            "Gauge32:",
-            "Counter32:",
-            "Counter64:",
-            "INTEGER:",
-            "Timeticks:",
-            "Hex-STRING:",
-            "OID:",
-            "IpAddress:",
-        ):
-            if s.startswith(prefix):
-                s = s[len(prefix) :].strip().strip('"')
-                break
-        return s
-
-    def _snmp_walk_sync(self, base_oid: str = "") -> dict[str, str]:
-        """Synchronous SNMP walk."""
-        cmd = ["snmpwalk", "-v2c", "-c", self.community, "-t", "10", self.host]
-        if base_oid:
-            cmd.append(base_oid)
-        try:
-            result = subprocess.run(cmd, capture_output=True, text=True, timeout=30)
-            if result.returncode != 0 or not result.stdout.strip():
-                return {}
-            oids: dict[str, str] = {}
-            for line in result.stdout.strip().split("\n"):
-                if "=" in line:
-                    parts = line.split("=", 1)
-                    oids[parts[0].strip()] = parts[1].strip() if len(parts) > 1 else ""
-            return oids
-        except (subprocess.TimeoutExpired, FileNotFoundError):
-            return {}
+    # SNMP CLI transport (_snmp_get / _snmp_walk / _snmp_get_sync /
+    # _snmp_walk_sync) and _parse_snmp_walk_value are provided by SNMPCliMixin.

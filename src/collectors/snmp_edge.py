@@ -4,10 +4,8 @@ Polls the Raspberry Pi (IntrepidRAS) via SNMP v2c for system health metrics.
 Uses standard HOST-RESOURCES-MIB and UCD-SNMP-MIB OIDs.
 """
 
-import asyncio
-import subprocess
-
 from src.collectors.base import BaseCollector
+from src.collectors.snmp_cli import SNMPCliMixin
 from src.models.telemetry import RawTelemetry
 
 SYSTEM_OIDS = {
@@ -28,7 +26,7 @@ HOST_RESOURCE_OIDS = {
 }
 
 
-class SNMPEdgeCollector(BaseCollector):
+class SNMPEdgeCollector(SNMPCliMixin, BaseCollector):
     """Collects system metrics from the Raspberry Pi edge collector via SNMP."""
 
     def __init__(self, asset_id: str, host: str, community: str = "aevus_ro", poll_interval: int = 30):
@@ -199,22 +197,4 @@ class SNMPEdgeCollector(BaseCollector):
 
         return readings
 
-    async def _snmp_get(self, oid: str) -> str | None:
-        return await asyncio.to_thread(self._snmp_get_sync, oid)
-
-    def _snmp_get_sync(self, oid: str) -> str | None:
-        try:
-            result = subprocess.run(
-                ["snmpget", "-v2c", "-c", self.community, "-t", "5", "-r", "1", "-Oqv", self.host, oid],
-                capture_output=True,
-                text=True,
-                timeout=10,
-            )
-            if result.returncode != 0 or not result.stdout.strip():
-                return None
-            raw = result.stdout.strip()
-            if ": " in raw:
-                raw = raw.split(": ", 1)[1]
-            return raw.strip('"')
-        except (subprocess.TimeoutExpired, FileNotFoundError):
-            return None
+    # SNMP CLI transport (_snmp_get / _snmp_get_sync) is provided by SNMPCliMixin.

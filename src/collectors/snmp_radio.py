@@ -11,6 +11,7 @@ import re
 import subprocess
 
 from src.collectors.base import BaseCollector
+from src.collectors.snmp_cli import SNMPCliMixin
 from src.models.telemetry import RawTelemetry
 
 # Trio JR900 enterprise OIDs (enterprise: 1.3.6.1.4.1.33302)
@@ -69,7 +70,7 @@ STANDARD_OIDS = {
 }
 
 
-class TrioJR900Collector(BaseCollector):
+class TrioJR900Collector(SNMPCliMixin, BaseCollector):
     """Collects telemetry from a Trio JR900 radio via SNMP v2c."""
 
     def __init__(
@@ -158,7 +159,7 @@ class TrioJR900Collector(BaseCollector):
 
     async def snmp_walk(self) -> dict[str, str]:
         """Full SNMP walk — used for discovery, not regular polling."""
-        return await asyncio.to_thread(self._snmp_walk_sync)
+        return await self._snmp_walk()
 
     async def _ping_rtt(self) -> float | None:
         """ICMP round-trip to the radio in ms (heartbeat). None if unreachable."""
@@ -184,72 +185,5 @@ class TrioJR900Collector(BaseCollector):
             self.log.warning("ping_failed", host=self.host, error=str(e))
             return None
 
-    async def _snmp_get(self, oid: str) -> str | None:
-        """Get a single OID value via snmpget CLI."""
-        return await asyncio.to_thread(self._snmp_get_sync, oid)
-
-    def _snmp_get_sync(self, oid: str) -> str | None:
-        """Synchronous SNMP GET using snmpget CLI tool."""
-        try:
-            result = subprocess.run(
-                [
-                    "snmpget",
-                    "-v2c",
-                    "-c",
-                    self.community,
-                    "-t",
-                    "5",
-                    "-r",
-                    "1",
-                    "-Oqv",
-                    self.host,
-                    oid,
-                ],
-                capture_output=True,
-                text=True,
-                timeout=10,
-            )
-            if result.returncode != 0 or not result.stdout.strip():
-                return None
-
-            raw = result.stdout.strip()
-            if ": " in raw:
-                raw = raw.split(": ", 1)[1]
-            raw = raw.strip('"')
-            return raw
-
-        except (subprocess.TimeoutExpired, FileNotFoundError) as e:
-            self.log.warning("snmp_get_failed", oid=oid, error=str(e))
-            return None
-
-    def _snmp_walk_sync(self) -> dict[str, str]:
-        """Synchronous full SNMP walk for device discovery."""
-        try:
-            result = subprocess.run(
-                [
-                    "snmpwalk",
-                    "-v2c",
-                    "-c",
-                    self.community,
-                    "-t",
-                    "10",
-                    self.host,
-                ],
-                capture_output=True,
-                text=True,
-                timeout=30,
-            )
-            if result.returncode != 0 or not result.stdout.strip():
-                return {}
-
-            oids: dict[str, str] = {}
-            for line in result.stdout.strip().split("\n"):
-                if "=" in line:
-                    parts = line.split("=", 1)
-                    oid = parts[0].strip()
-                    value = parts[1].strip() if len(parts) > 1 else ""
-                    oids[oid] = value
-            return oids
-
-        except (subprocess.TimeoutExpired, FileNotFoundError):
-            return {}
+    # SNMP CLI transport (_snmp_get / _snmp_walk / _snmp_get_sync /
+    # _snmp_walk_sync) is provided by SNMPCliMixin.

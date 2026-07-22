@@ -6093,6 +6093,17 @@ html { scroll-behavior:smooth; }
   var demo = false;
   try { demo = localStorage.getItem('aevus_demo') === 'true'; } catch (e) {}
   if (!demo) return;
+  // SEC follow-up (key removal): the API's demo gate authenticates by the
+  // Referer containing 'demo=true'. The removed master key used to paper
+  // over sessions that land without the query (stored-flag restores, deep
+  // links, reloads) — re-assert the marker in the URL so the gate sees it.
+  if (!/[?&]demo=true/.test(location.search)) {
+    try {
+      var du = new URL(location.href);
+      du.searchParams.set('demo', 'true');
+      history.replaceState(null, '', du.toString());
+    } catch (e) {}
+  }
   var name = 'calm';
   try {
     name = new URLSearchParams(location.search).get('scenario') ||

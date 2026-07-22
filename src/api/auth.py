@@ -92,7 +92,6 @@ class APIKeyMiddleware(BaseHTTPMiddleware):
             "/api/v1/health/ping",
             "/api/v1/deploy/trigger",
             "/api/v1/ingest",
-            "/api/v1/auth/config",
         ):
             return await call_next(request)
         # NOTE: /ingest stays exempt — it's the shop-PC relay's HTTP push path
@@ -102,7 +101,7 @@ class APIKeyMiddleware(BaseHTTPMiddleware):
         # "immutable" journal with no auth. Removed: their GET reads still flow
         # through the demo/auth branches below; their writes now require auth.
 
-        # Allow unauthenticated access request submissions (POST only) and auth config
+        # Allow unauthenticated access request submissions (POST only)
         if path == "/api/v1/access-requests" and request.method == "POST":
             return await call_next(request)
 

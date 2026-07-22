@@ -153,6 +153,14 @@ class Settings(BaseSettings):
     threshold_if_errors_warn: float = 100.0
     threshold_if_errors_crit: float = 1000.0
 
+    # ── AI endpoint rate limiting ──
+    # The public demo (demo-referer bypass in api/auth.py) reaches the paid
+    # Bedrock /ai/* endpoints unauthenticated, so throttle per client IP to cap
+    # abuse/cost. Sized so a human never trips it; a scripted loop trips in
+    # seconds. Set requests to 0 to disable (dev/test). ARCHITECTURE_REVIEW H3.
+    ai_rate_limit_requests: int = 20
+    ai_rate_limit_window_seconds: int = 60
+
     # ── IL-9000 Safety Interlock ──
     il_9000_enforced: bool = True  # NEVER set to False
 

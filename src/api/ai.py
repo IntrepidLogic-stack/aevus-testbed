@@ -24,8 +24,10 @@ import time
 from datetime import UTC, datetime
 
 import structlog
-from fastapi import APIRouter, File, Form, HTTPException, UploadFile
+from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile
 from pydantic import BaseModel
+
+from src.api.ratelimit import ai_rate_limit
 
 # Bedrock service layer (M3): model registry, provider invoke adapters, and the
 # classify/route plumbing live in src/services/bedrock.py. Underscore names are
@@ -40,7 +42,11 @@ from src.services.bedrock import (
 )
 
 logger = structlog.get_logger()
-router = APIRouter(tags=["ai"])
+# Rate limit applied at the router so every /ai/* endpoint shares one per-IP
+# budget — the demo bypass reaches these paid Bedrock calls unauthenticated
+# (ARCHITECTURE_REVIEW H3). All /ai calls are user-triggered (none polled), so a
+# generous window never bites legitimate use.
+router = APIRouter(tags=["ai"], dependencies=[Depends(ai_rate_limit)])
 
 
 # ═══════════════════════════════════════

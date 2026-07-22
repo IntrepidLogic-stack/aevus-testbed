@@ -609,9 +609,27 @@
         return age > 3 * (a.poll_interval || 30);
       }).map(function (a) { return a.id; });
 
+      // P0-7 (Restyle Spec v1.0, Law 5): stale is marked at point of use,
+      // not just in a banner. Publish the stale set and stamp every element
+      // that carries a data-asset-id so CSS can mute it in place.
+      window._staleAssetIds = stale;
+      var staleSet = {};
+      stale.forEach(function (id) { staleSet[id] = 1; });
+      document.querySelectorAll('[data-asset-id]').forEach(function (el) {
+        if (staleSet[el.getAttribute('data-asset-id')]) {
+          el.setAttribute('data-stale', '1');
+          el.title = 'STALE — no successful poll in 3× interval; values unconfirmed';
+        } else if (el.hasAttribute('data-stale')) {
+          el.removeAttribute('data-stale');
+          el.removeAttribute('title');
+        }
+      });
+
       if (stale.length > 0) {
+        var verified = liveAssets.length - stale.length;
         banner.style.display = 'block';
-        banner.innerHTML = STALE_ICON + 'STALE DATA: ' + stale.join(', ') + ' — data may be outdated';
+        banner.innerHTML = STALE_ICON + verified + ' verified / ' + stale.length +
+          ' stale — ' + stale.join(', ') + ' — values from stale sources are unconfirmed';
       } else {
         banner.style.display = 'none';
       }

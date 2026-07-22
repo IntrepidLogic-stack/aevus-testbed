@@ -569,7 +569,7 @@ body {
 
 <script>
 // ── API CONFIG ──
-const API_KEY = '8U7_JghqHK-nmG5bDwUx5w-A9uFg8F7tiVmvR9WJDyY';
+const API_KEY = window.AEVUS_API_KEY || '';  // no baked prod key (public file)
 const API_BASE = '/api/v1';
 const POLL_INTERVAL = 30000; // 30 seconds
 let lastUpdate = null;

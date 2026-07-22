@@ -921,8 +921,84 @@
   function escChipHtml() {
     var n = escalations().length;
     return '<span class="hphmi-esc-chip" onclick="window.AevusHPHMI.captureAndEscalate()" ' +
-      'title="Capture the current operating picture and escalate — cheap and reversible">⚑ escalate' +
-      (n ? ' · ' + n : '') + '</span>';
+      'title="Capture the current operating picture and escalate — cheap and reversible">⚑ escalate</span>' +
+      (n ? '<span class="hphmi-esc-chip" onclick="window.location.hash=\'#workbench\'" ' +
+      'title="Open the analyst workbench">' + n + ' in workbench</span>' : '');
+  }
+
+  // ── P3: Analyst workbench (#workbench) — where packets land ──────────
+  // The fused HMI shows attribution cues; the workbench is the SEPARATE
+  // investigation surface (D'Amico: fuse at cause level, separate at
+  // investigation level). Lists captured escalation packets with full
+  // detail, re-download, and disposition (clears the queue after the
+  // analyst takes it).
+  function renderWorkbench() {
+    document.querySelectorAll('section[data-page]').forEach(function (s) { s.style.display = 'none'; });
+    ['hphmi-l2', 'hphmi-sit', 'hphmi-handover', 'hphmi-entity'].forEach(function (id) {
+      var el = document.getElementById(id); if (el) el.style.display = 'none';
+    });
+    var host = document.getElementById('hphmi-workbench');
+    if (!host) {
+      host = document.createElement('section');
+      host.id = 'hphmi-workbench';
+      var anySection = document.querySelector('section[data-page]');
+      (anySection ? anySection.parentElement : document.body).appendChild(host);
+    }
+    host.style.display = 'block';
+    var list = escalations();
+
+    var html =
+      '<div class="hphmi-sit-head">' +
+        '<div class="hphmi-sit-title">ANALYST WORKBENCH — escalation packets (' + list.length + ')</div>' +
+        '<span class="hphmi-l2-back" onclick="window.location.hash=\'#overview\'">← L1</span></div>' +
+      '<div class="hphmi-sit-meta">operator suspicion travels with each packet · full detail is here, never on the operator surfaces</div>' +
+      (list.length ? list.slice().reverse().map(function (p, idx) {
+        return '<div class="hphmi-sit-card" style="margin-bottom:12px;">' +
+          '<div class="hphmi-sit-card-title">' + p.id + ' · ' + new Date(p.at).toLocaleString() + ' · by ' + p.by + '</div>' +
+          '<div style="font-size:13px;color:var(--text-primary);margin-bottom:6px;">"' + p.why + '"</div>' +
+          '<div class="hphmi-esc-row"><span class="mono">VIEW</span> ' + (p.view || '—') +
+            ' · <span class="mono">STALE</span> ' + ((p.stale || []).join(', ') || 'none') + '</div>' +
+          '<div class="hphmi-esc-row"><span class="mono">ALARMS</span> ' +
+            ((p.alarms || []).map(function (a) { return a.asset + ' ' + a.alarm + ' (' + a.severity + ')'; }).join(' · ') || 'none') + '</div>' +
+          '<div class="hphmi-esc-row"><span class="mono">ASSETS</span> ' + (p.assets || []).length +
+            ' snapshotted · trend history ' + Object.keys(p.trend_history || {}).length + ' series</div>' +
+          '<div class="hphmi-watch-verbs" style="margin-top:8px;">' +
+            '<button class="hphmi-watch-verb" onclick="window.AevusHPHMI.downloadPacket(\'' + p.id + '\')">Download JSON</button>' +
+            '<button class="hphmi-watch-verb" onclick="window.AevusHPHMI.disposePacket(\'' + p.id + '\')">Disposition & clear…</button>' +
+          '</div></div>';
+      }).join('') :
+      '<div class="hphmi-sit-card"><div class="hphmi-l2-empty">No packets. The ⚑ escalate chip on the overview captures one — cheap and reversible.</div></div>');
+
+    if (host.__lastHtml !== html) { host.__lastHtml = html; host.innerHTML = html; }
+  }
+
+  function routeWorkbench() {
+    var host = document.getElementById('hphmi-workbench');
+    if (location.hash !== '#workbench') { if (host) host.style.display = 'none'; return; }
+    renderWorkbench();
+  }
+  window.addEventListener('hashchange', routeWorkbench);
+
+  function downloadPacket(id) {
+    var p = escalations().find(function (x) { return x.id === id; });
+    if (!p) return;
+    try {
+      var blob = new Blob([JSON.stringify(p, null, 2)], { type: 'application/json' });
+      var a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = 'aevus_' + p.id + '.json';
+      a.click();
+      URL.revokeObjectURL(a.href);
+    } catch (e) {}
+  }
+
+  function disposePacket(id) {
+    var verdict = prompt('Analyst disposition for ' + id + ' (e.g. "benign config change", "confirmed — isolating conduit", "monitoring"):');
+    if (!verdict) return;
+    var list = escalations().filter(function (x) { return x.id !== id; });
+    try { localStorage.setItem('aevus_escalations', JSON.stringify(list)); } catch (e) {}
+    logSituation({ type: 'escalation_disposed', at: new Date().toISOString(), id: id, verdict: verdict, role: window.aevusRole || 'analyst' });
+    renderWorkbench();
   }
 
   // ── P3: Asset entity pages (#asset-<ID> — spec §10 S2) ───────────────
@@ -1156,6 +1232,7 @@
       try { escalateStanding(); } catch (e) { /* never break the page */ }
       try { if (location.hash === '#handover') renderHandover(); } catch (e) { /* never break the page */ }
       try { routeEntity(); } catch (e) { /* never break the page */ }
+      try { routeWorkbench(); } catch (e) { /* never break the page */ }
     });
   }
 
@@ -1182,5 +1259,5 @@
     start();
   }
 
-  window.AevusHPHMI = { bandBar: bandBar, transformRadials: transformRadials, renderL2: renderL2, toggleLedger: toggleLedger, disposeWatch: disposeWatch, closeSituation: closeSituation, declareAbnormal: declareAbnormal, signHandover: signHandover, captureAndEscalate: captureAndEscalate, renderEntity: renderEntity, BANDS: BANDS };
+  window.AevusHPHMI = { bandBar: bandBar, transformRadials: transformRadials, renderL2: renderL2, toggleLedger: toggleLedger, disposeWatch: disposeWatch, closeSituation: closeSituation, declareAbnormal: declareAbnormal, signHandover: signHandover, captureAndEscalate: captureAndEscalate, renderEntity: renderEntity, downloadPacket: downloadPacket, disposePacket: disposePacket, BANDS: BANDS };
 })();

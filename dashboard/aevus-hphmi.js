@@ -51,7 +51,7 @@
     if (document.getElementById('hphmi-styles')) return;
     var el = document.createElement('style');
     el.id = 'hphmi-styles';
-    el.textContent = CSS + '\n' + STRIP_CSS + '\n' + L2_CSS + '\n' + LEDGER_CSS + '\n' + WATCH_CSS + '\n' + SIT_CSS + '\n' + HANDOFF_CSS;
+    el.textContent = CSS + '\n' + STRIP_CSS + '\n' + L2_CSS + '\n' + LEDGER_CSS + '\n' + WATCH_CSS + '\n' + SIT_CSS + '\n' + HANDOFF_CSS + '\n' + ESC_CSS;
     document.head.appendChild(el);
   }
 
@@ -258,7 +258,7 @@
       var g = n === 1 ? '■' : n === 2 ? '▲' : '●';
       return '<span class="hphmi-alarmchip" data-p="' + n + '" data-active="' + (counts[n] > 0 ? 1 : 0) +
         '" onclick="window.location.hash=\'#alarms\'">' + g + ' ' + n + ' · ' + counts[n] + '</span>';
-    }).join('') + ledgerChipHtml() + '</div>';
+    }).join('') + ledgerChipHtml() + escChipHtml() + '</div>';
 
     // Only touch the DOM on change — this runs inside the observer cycle,
     // and an unconditional innerHTML write would re-trigger it every frame.
@@ -597,7 +597,7 @@
       '<div class="hphmi-sit-grid">' +
         '<div class="hphmi-sit-card"><div class="hphmi-sit-card-title">UNIT ALARMS (' + alarms.length + ')</div>' +
           alarms.map(function (al) {
-            return '<div class="hphmi-l2-alarm" data-p="' + al.severity + '">' +
+            return '<div class="hphmi-l2-alarm" data-p="' + al.severity + '" style="cursor:pointer;" onclick="window.location.hash=\'#asset-' + (al.asset_id || '') + '\'">' +
               '<span class="chip">' + (al.severity === 'critical' ? '■ 1' : al.severity === 'high' ? '▲ 2' : '● 3') + '</span>' +
               '<span style="font-family:var(--font-mono);color:var(--text-secondary);">' + (al.asset_id || '') + '</span>' +
               '<span style="color:var(--text-primary);">' + (al.alarm || '') + '</span>' +
@@ -858,6 +858,151 @@
     renderHandover();
   };
 
+  // ── P3: Capture-and-escalate (spec §7d — context must travel) ────────
+  // One tap freezes the operating picture: comm/alarm/stale/vitals state
+  // plus the trend history, with the operator's mandatory one-line "what
+  // made me suspicious" (Klein: the expectancy violation is the packet's
+  // highest-value, least-recoverable cue). Escalation is cheap and
+  // shame-free; packets persist locally, surface in handover, and export
+  // as JSON for the analyst handoff.
+  var ESC_CSS = [
+    '.hphmi-esc-chip { display:inline-flex; align-items:center; gap:5px; font-family:var(--font-mono); font-size:11px; font-weight:700; padding:2px 8px; border-radius:2px; cursor:pointer; border:1px solid #B48EAD; color:#B48EAD; }',
+    '.hphmi-esc-row { padding:7px 0; border-bottom:1px solid var(--border); font-size:12px; color:var(--text-secondary); }',
+    '.hphmi-esc-row:last-child { border-bottom:none; }',
+    '.hphmi-esc-row .mono { font-family:var(--font-mono); font-size:10px; color:var(--text-muted); }'
+  ].join('\n');
+
+  function escalations() {
+    try { return JSON.parse(localStorage.getItem('aevus_escalations') || '[]'); }
+    catch (e) { return []; }
+  }
+
+  function captureAndEscalate() {
+    var why = prompt('Capture & escalate — what made you suspicious? (required; travels with the packet)');
+    if (!why) return;
+    var assets = (window._aevusAssets || []).map(function (a) {
+      return { id: a.id, status: a.status, health: a.health, last_seen: a.last_seen,
+        vitals: (a.vitals || []).map(function (v) { return { label: v.label, value: v.value, status: v.status }; }) };
+    });
+    var seen = {};
+    var alarms = (window._aevusAlarms || []).filter(function (al) {
+      var k = (al.asset_id || '') + '|' + (al.alarm || '');
+      if (seen[k] || al.status === 'resolved') return false; seen[k] = 1; return true;
+    }).map(function (al) {
+      return { asset: al.asset_id, alarm: al.alarm, severity: al.severity, status: al.status, value: al.value, since: al.timestamp };
+    });
+    var packet = {
+      id: 'ESC-' + Date.now().toString(36).toUpperCase(),
+      at: new Date().toISOString(),
+      by: window.aevusRole || 'operator',
+      why: why,
+      view: location.hash || '#overview',
+      stale: window._staleAssetIds || [],
+      alarms: alarms,
+      assets: assets,
+      trend_history: HIST
+    };
+    var list = escalations();
+    list.push(packet);
+    try { localStorage.setItem('aevus_escalations', JSON.stringify(list)); } catch (e) {}
+    logSituation({ type: 'escalation', at: packet.at, id: packet.id, why: why, role: packet.by });
+    // immediate evidence export for the analyst handoff
+    try {
+      var blob = new Blob([JSON.stringify(packet, null, 2)], { type: 'application/json' });
+      var a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = 'aevus_' + packet.id + '.json';
+      a.click();
+      URL.revokeObjectURL(a.href);
+    } catch (e) {}
+    alert('Escalation ' + packet.id + ' captured — packet downloaded and queued for handover. Verify locally before trusting remote indication on the affected assets.');
+  }
+
+  function escChipHtml() {
+    var n = escalations().length;
+    return '<span class="hphmi-esc-chip" onclick="window.AevusHPHMI.captureAndEscalate()" ' +
+      'title="Capture the current operating picture and escalate — cheap and reversible">⚑ escalate' +
+      (n ? ' · ' + n : '') + '</span>';
+  }
+
+  // ── P3: Asset entity pages (#asset-<ID> — spec §10 S2) ───────────────
+  // Every asset becomes a navigable object: vitals as BandBars, every
+  // unresolved alarm referencing it, watch dispositions, situation-log
+  // and escalation mentions. Monitoring becomes investigation.
+  function renderEntity(assetId) {
+    document.querySelectorAll('section[data-page]').forEach(function (s) { s.style.display = 'none'; });
+    ['hphmi-l2', 'hphmi-sit', 'hphmi-handover'].forEach(function (id) {
+      var el = document.getElementById(id); if (el) el.style.display = 'none';
+    });
+    var host = document.getElementById('hphmi-entity');
+    if (!host) {
+      host = document.createElement('section');
+      host.id = 'hphmi-entity';
+      var anySection = document.querySelector('section[data-page]');
+      (anySection ? anySection.parentElement : document.body).appendChild(host);
+    }
+    host.style.display = 'block';
+
+    var asset = (window._aevusAssets || []).find(function (a) {
+      return (a.id || '').toUpperCase() === assetId.toUpperCase();
+    });
+    var seen = {};
+    var alarms = (window._aevusAlarms || []).filter(function (al) {
+      if ((al.asset_id || '').toUpperCase() !== assetId.toUpperCase() || al.status === 'resolved') return false;
+      var k = al.alarm || al.message || '';
+      if (seen[k]) return false; seen[k] = 1; return true;
+    });
+    var sitMentions = situationLog().filter(function (ev) {
+      return JSON.stringify(ev).toUpperCase().indexOf(assetId.toUpperCase()) >= 0;
+    }).slice(-5).reverse();
+    var escMentions = escalations().filter(function (p) {
+      return JSON.stringify(p.alarms).toUpperCase().indexOf(assetId.toUpperCase()) >= 0 ||
+             (p.stale || []).join(',').toUpperCase().indexOf(assetId.toUpperCase()) >= 0;
+    });
+    var stale = (window._staleAssetIds || []).indexOf(assetId) >= 0;
+
+    var bars = asset ? (asset.vitals || []).map(vitalBandBar).filter(Boolean).join('<div style="height:10px"></div>') : '';
+
+    var html =
+      '<div class="hphmi-sit-head">' +
+        '<div class="hphmi-sit-title">' + assetId + (asset && asset.name ? ' — ' + asset.name : '') + '</div>' +
+        '<span class="hphmi-l2-back" onclick="history.back()">← back</span></div>' +
+      '<div class="hphmi-sit-meta">' +
+        (asset ? ('status ' + (asset.status || '—') + (asset.health != null ? ' · health ' + asset.health : '') +
+          ' · last seen ' + (asset.last_seen ? fmtAge(asset.last_seen) + ' ago' : '—')) : 'no live record — historical references only') +
+        (stale ? ' · <span style="color:#FBBF24;">STALE — values unconfirmed</span>' : '') + '</div>' +
+      '<div class="hphmi-sit-grid">' +
+        '<div class="hphmi-sit-card"><div class="hphmi-sit-card-title">LIVE VITALS</div>' +
+          (bars || '<div class="hphmi-l2-empty">No live vitals.</div>') + '</div>' +
+        '<div class="hphmi-sit-card"><div class="hphmi-sit-card-title">UNRESOLVED ALARMS (' + alarms.length + ')</div>' +
+          (alarms.map(function (al) {
+            return '<div class="hphmi-l2-alarm" data-p="' + al.severity + '" style="cursor:pointer;" onclick="window.location.hash=\'#asset-' + (al.asset_id || '') + '\'">' +
+              '<span class="chip">' + (al.severity === 'critical' ? '■ 1' : al.severity === 'high' ? '▲ 2' : '● 3') + '</span>' +
+              '<span style="color:var(--text-primary);">' + (al.alarm || '') + '</span>' +
+              '<span class="hint">' + (al.value || '') + (al.threshold ? ' · limit ' + al.threshold : '') + '</span></div>';
+          }).join('') || '<div class="hphmi-l2-empty">None.</div>') + '</div>' +
+      '</div>' +
+      '<div class="hphmi-sit-card" style="margin-top:12px;"><div class="hphmi-sit-card-title">EVENT REFERENCES — situations & escalations naming this asset</div>' +
+        (sitMentions.map(function (ev) {
+          return '<div class="hphmi-esc-row"><span class="mono">' + new Date(ev.at).toLocaleString() + '</span> ' +
+            ev.type.toUpperCase() + (ev.note ? ' · "' + ev.note + '"' : '') + (ev.why ? ' · "' + ev.why + '"' : '') + '</div>';
+        }).join('') +
+        escMentions.map(function (p) {
+          return '<div class="hphmi-esc-row"><span class="mono">' + new Date(p.at).toLocaleString() + '</span> ESCALATION ' +
+            p.id + ' · "' + p.why + '"</div>';
+        }).join('') || '<div class="hphmi-l2-empty">No recorded events reference this asset.</div>') + '</div>';
+
+    if (host.__lastHtml !== html) { host.__lastHtml = html; host.innerHTML = html; }
+  }
+
+  function routeEntity() {
+    var m = (location.hash || '').match(/^#asset-([A-Za-z0-9-]+)/);
+    var host = document.getElementById('hphmi-entity');
+    if (!m) { if (host) host.style.display = 'none'; return; }
+    renderEntity(m[1]);
+  }
+  window.addEventListener('hashchange', routeEntity);
+
   // ── L2 unit operating displays (spec §6 — the missing layer) ─────────
   // Hash routes #unit-wellhead / #unit-compress / #unit-tank / #unit-comms.
   // Between the everything-overview and raw tables there was nowhere to
@@ -946,7 +1091,7 @@
     }).filter(Boolean).join('');
 
     var alarmRows = alarms.map(function (al) {
-      return '<div class="hphmi-l2-alarm" data-p="' + al.severity + '">' +
+      return '<div class="hphmi-l2-alarm" data-p="' + al.severity + '" style="cursor:pointer;" onclick="window.location.hash=\'#asset-' + (al.asset_id || '') + '\'">' +
         '<span class="chip">' + (al.severity === 'critical' ? '■ 1' : al.severity === 'high' ? '▲ 2' : '● 3') + '</span>' +
         '<span style="font-family:var(--font-mono);color:var(--text-secondary);">' + (al.asset_id || '') + '</span>' +
         '<span style="color:var(--text-primary);">' + (al.alarm || al.message || '') + '</span>' +
@@ -1010,6 +1155,7 @@
       try { decorateF9(); } catch (e) { /* never break the page */ }
       try { escalateStanding(); } catch (e) { /* never break the page */ }
       try { if (location.hash === '#handover') renderHandover(); } catch (e) { /* never break the page */ }
+      try { routeEntity(); } catch (e) { /* never break the page */ }
     });
   }
 
@@ -1036,5 +1182,5 @@
     start();
   }
 
-  window.AevusHPHMI = { bandBar: bandBar, transformRadials: transformRadials, renderL2: renderL2, toggleLedger: toggleLedger, disposeWatch: disposeWatch, closeSituation: closeSituation, declareAbnormal: declareAbnormal, signHandover: signHandover, BANDS: BANDS };
+  window.AevusHPHMI = { bandBar: bandBar, transformRadials: transformRadials, renderL2: renderL2, toggleLedger: toggleLedger, disposeWatch: disposeWatch, closeSituation: closeSituation, declareAbnormal: declareAbnormal, signHandover: signHandover, captureAndEscalate: captureAndEscalate, renderEntity: renderEntity, BANDS: BANDS };
 })();

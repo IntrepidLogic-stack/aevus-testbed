@@ -4513,12 +4513,12 @@ body.wall-mode .cmd-status { padding:6px 24px 8px; font-size:11px; }
 .impact-tier-safety:hover { background:rgba(59,130,246,0.06); }
 .impact-tier-financial { padding:14px 16px;display:flex;align-items:center;gap:16px; }
 .impact-tier-technical { padding:14px 16px;display:flex;align-items:center;gap:16px; }
-.impact-tier-action { padding:18px 16px;border-left:3px solid #22c55e;background:rgba(138,148,158,0.04);display:flex;align-items:flex-start;gap:10px; }
+.impact-tier-action { padding:18px 16px;border-left:3px solid #8A949E;background:rgba(138,148,158,0.04);display:flex;align-items:flex-start;gap:10px; }
 .impact-label { font-size:9px;font-weight:700;letter-spacing:1px;text-transform:uppercase;min-width:60px; }
 .impact-label-safety { color:#60a5fa;margin-bottom:4px; }
 .impact-label-financial { color:var(--text-muted); }
 .impact-label-technical { color:var(--text-faint); }
-.impact-label-action { color:#22c55e;margin-bottom:2px; }
+.impact-label-action { color:#8A949E;margin-bottom:2px; }
 .impact-body { font-size:12px;color:var(--text-primary);font-weight:500;line-height:1.5; }
 .impact-mono { font-family:var(--font-mono); }
 .impact-chevron { flex-shrink:0;margin-top:4px;transition:transform 0.25s ease; }
@@ -4527,7 +4527,7 @@ body.wall-mode .cmd-status { padding:6px 24px 8px; font-size:11px; }
 .impact-cta-btn:hover { opacity:0.8; }
 .impact-cta-btn-primary { background:rgba(96,165,250,0.1);border-color:rgba(96,165,250,0.3);color:#60a5fa; }
 .impact-cta-btn-secondary { background:rgba(167,139,250,0.1);border-color:rgba(167,139,250,0.3);color:#A78BFA; }
-.impact-cta-btn-action { background:rgba(138,148,158,0.1);border-color:rgba(138,148,158,0.3);color:#22c55e; }
+.impact-cta-btn-action { background:rgba(138,148,158,0.1);border-color:rgba(138,148,158,0.3);color:#8A949E; }
 /* Affordance tooltip */
 .impact-tooltip { position:absolute;top:-28px;left:50%;transform:translateX(-50%);background:var(--bg-elevated);color:var(--text-muted);font-size:9px;padding:3px 8px;border-radius:4px;white-space:nowrap;opacity:0;transition:opacity 0.2s;pointer-events:none;border:1px solid var(--border); }
 .impact-tier-safety:hover .impact-tooltip { opacity:1; }
@@ -6119,6 +6119,7 @@ html { scroll-behavior:smooth; }
 </script>
 <script src="/dashboard/api-client.js?v=136"></script>
 <script src="/dashboard/rad-hover-live.js?v=29"></script>
+<script src="/dashboard/aevus-hphmi.js?v=2"></script>
 <!-- aevus-3dpad-map.js (award overlay) removed 2026-06-03: it threw an ASI TypeError in
      initAevusMap on the native map. The native map (api-client.js) owns window._aevusMapInstance,
      and aevus-killdeer-3d.js attaches the 3D facility directly to it. -->
@@ -6584,7 +6585,7 @@ html { scroll-behavior:smooth; }
       // Score color + status
       var scoreColor, scoreStatus, scoreBg, scoreIcon;
       if (score >= 80) {
-        scoreColor = '#22c55e'; scoreStatus = 'SAFE TO DISPATCH'; scoreBg = 'rgba(138,148,158,0.06)';
+        scoreColor = '#8A949E'; scoreStatus = 'SAFE TO DISPATCH'; scoreBg = 'rgba(138,148,158,0.06)';
         scoreIcon = '<path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>';
       } else if (score >= 50) {
         scoreColor = '#f97316'; scoreStatus = 'DISPATCH WITH CAUTION'; scoreBg = 'rgba(249,115,22,0.06)';
@@ -6604,7 +6605,7 @@ html { scroll-behavior:smooth; }
       // ── Signal bars for each asset ──
       var sigBars = '';
       signals.forEach(function(s) {
-        var barColor = s.qual >= 90 ? '#22c55e' : s.qual >= 80 ? '#f97316' : '#ef4444';
+        var barColor = s.qual >= 90 ? '#8A949E' : s.qual >= 80 ? '#f97316' : '#ef4444';
         var barW = Math.max(8, (s.qual / 100) * 100);
         sigBars += '<div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;">' +
           '<div style="font-family:var(--font-mono);font-size:10px;color:var(--text-muted);min-width:52px;">' + s.id + '</div>' +
@@ -6616,7 +6617,7 @@ html { scroll-behavior:smooth; }
       });
 
       // ── Wind condition indicator ──
-      var windColor = wind > 20 ? '#ef4444' : wind > 15 ? '#f97316' : wind > 10 ? '#0EA5E9' : '#22c55e';
+      var windColor = wind > 20 ? '#ef4444' : wind > 15 ? '#f97316' : wind > 10 ? '#0EA5E9' : '#8A949E';
       var windStatus = wind > 20 ? 'HIGH' : wind > 15 ? 'ELEVATED' : wind > 10 ? 'MODERATE' : 'CALM';
 
       // ── Historical mini-trend (last 6 readings) — simulated from current ──
@@ -6642,7 +6643,7 @@ html { scroll-behavior:smooth; }
       if (wind > 15) factors.push({icon:'\u26A0', text:'Wind ' + wind + ' mph exceeds 15 mph safe limit', color:'#f97316'});
       if (gust > 20) factors.push({icon:'\u26A0', text:'Gust ' + gust + ' mph — risk of signal dropout', color:'#f97316'});
       if (avgSignal < 90) factors.push({icon:'\u26A0', text:'Avg signal ' + avgSignal + '% below 90% threshold', color:'#f97316'});
-      if (wind <= 15 && avgSignal >= 90) factors.push({icon:'\u2713', text:'All conditions within safe operating envelope', color:'#22c55e'});
+      if (wind <= 15 && avgSignal >= 90) factors.push({icon:'\u2713', text:'All conditions within safe operating envelope', color:'#8A949E'});
 
       var factorHTML = '';
       factors.forEach(function(f) {
@@ -6703,7 +6704,7 @@ html { scroll-behavior:smooth; }
             '<div style="font-size:9px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:var(--text-muted);margin-bottom:8px;">SIGNAL QUALITY BY ASSET</div>' +
             sigBars +
             '<div style="display:flex;justify-content:space-between;margin-top:6px;">' +
-              '<div style="font-size:10px;color:var(--text-faint);">Fleet avg: <span style="color:' + (avgSignal >= 90 ? '#22c55e' : '#f97316') + ';font-weight:600;">' + avgSignal + '%</span></div>' +
+              '<div style="font-size:10px;color:var(--text-faint);">Fleet avg: <span style="color:' + (avgSignal >= 90 ? '#8A949E' : '#f97316') + ';font-weight:600;">' + avgSignal + '%</span></div>' +
               '<div style="font-size:10px;color:var(--text-faint);">Threshold: 90%</div>' +
             '</div>' +
           '</div>' +
@@ -6742,7 +6743,7 @@ html { scroll-behavior:smooth; }
       '</div>' +
       // Recommended action
       '<div class="impact-tier impact-tier-action">' +
-        '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#22c55e" stroke-width="1.8" style="flex-shrink:0;margin-top:2px;"><polyline points="20 6 9 17 4 12"/></svg>' +
+        '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#8A949E" stroke-width="1.8" style="flex-shrink:0;margin-top:2px;"><polyline points="20 6 9 17 4 12"/></svg>' +
         '<div style="flex:1;"><div class="impact-label impact-label-action">RECOMMENDED ACTION</div>' +
         '<div class="impact-body">Review RAD-01 antenna mount for wind exposure (e.g. baffle or re-aim) — degradation tracks wind, not hardware</div></div>' +
       '</div>' +

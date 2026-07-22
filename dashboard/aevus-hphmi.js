@@ -51,7 +51,7 @@
     if (document.getElementById('hphmi-styles')) return;
     var el = document.createElement('style');
     el.id = 'hphmi-styles';
-    el.textContent = CSS + '\n' + STRIP_CSS + '\n' + L2_CSS + '\n' + LEDGER_CSS + '\n' + WATCH_CSS;
+    el.textContent = CSS + '\n' + STRIP_CSS + '\n' + L2_CSS + '\n' + LEDGER_CSS + '\n' + WATCH_CSS + '\n' + SIT_CSS;
     document.head.appendChild(el);
   }
 
@@ -464,6 +464,207 @@
     if (host.__lastHtml !== html) { host.__lastHtml = html; host.innerHTML = html; }
   }
 
+  // ── P2: F9 — Declare Abnormal as a state machine (spec §7b) ──────────
+  // Until now window.declareAbnormal was called but never defined: F9 was
+  // theater. ASM intent: declaring abnormal reconfigures the console. The
+  // situation page auto-composes — affected unit, its alarms, comms state,
+  // a response checklist where every step carries an action-expectancy
+  // (Klein: experts evaluate actions by simulating outcomes), and a live
+  // event timeline. Closeout is gated: a note is required, and open
+  // criticals demand an explicit override. Everything logs to the shift-
+  // log seed (aevus_situation_log).
+  var SIT_CSS = [
+    '#hphmi-sit { padding:0 4px; }',
+    '.hphmi-sit-head { display:flex; align-items:center; justify-content:space-between; margin:6px 0 4px; }',
+    '.hphmi-sit-title { font-size:20px; font-weight:700; color:var(--text-primary); font-family:var(--font-heading); }',
+    '.hphmi-sit-meta { font-size:10px; color:var(--text-muted); font-family:var(--font-mono); margin-bottom:14px; }',
+    '.hphmi-sit-grid { display:grid; grid-template-columns:1fr 1fr; gap:12px; }',
+    '@media (max-width:900px){ .hphmi-sit-grid { grid-template-columns:1fr; } }',
+    '.hphmi-sit-card { background:var(--bg-card); border:1px solid var(--border); border-radius:4px; padding:12px 14px; }',
+    '.hphmi-sit-card-title { font-size:10px; letter-spacing:1.2px; color:var(--text-muted); font-weight:600; margin-bottom:8px; }',
+    '.hphmi-check { display:flex; gap:10px; padding:8px 0; border-bottom:1px solid var(--border); align-items:flex-start; }',
+    '.hphmi-check:last-child { border-bottom:none; }',
+    '.hphmi-check input { margin-top:2px; accent-color:#4CC3E8; }',
+    '.hphmi-check .step { font-size:12.5px; color:var(--text-primary); }',
+    '.hphmi-check .expect { font-size:10px; color:var(--text-muted); font-family:var(--font-mono); margin-top:2px; }',
+    '.hphmi-timeline-row { font-size:11px; font-family:var(--font-mono); color:var(--text-secondary); padding:4px 0; }',
+    '.hphmi-timeline-row .t { color:var(--text-faint); margin-right:8px; }',
+    '.hphmi-sit-close { margin-top:14px; display:flex; gap:10px; align-items:center; }',
+    '.hphmi-sit-close button { font-size:11px; font-weight:600; padding:6px 16px; border-radius:2px; border:1px solid var(--border-light); background:transparent; color:var(--text-secondary); cursor:pointer; }',
+    '.hphmi-sit-close button:hover { border-color:var(--accent); color:var(--accent); }',
+    '.hphmi-f9-proposed { outline:1.8px solid #FBBF24 !important; outline-offset:2px; }'
+  ].join('\n');
+
+  // Response procedures with action-expectancies (rationalization seed —
+  // same guidance the alarm hints show, structured as testable steps).
+  var RESPONSES = {
+    'Suction Pressure High': [
+      { step: 'Inspect relief valve and check for leaks', expect: 'Expect: suction pressure trends down within 15 min of correction' },
+      { step: 'Verify recycle valve position locally', expect: 'Expect: valve state confirmed; remote indication matches local' }
+    ],
+    'Voltage Elevated': [
+      { step: 'Check power supply unit and UPS battery', expect: 'Expect: voltage returns below 13.8V within 10 min' }
+    ],
+    'Signal Quality Degraded': [
+      { step: 'Check antenna alignment and cable connections', expect: 'Expect: RSSI recovers ≥5 dB after correction; if wind-correlated, defer to Watch Item' }
+    ]
+  };
+  var DEFAULT_RESPONSE = [
+    { step: 'Verify remote indication against a local reading', expect: 'Expect: remote and local agree within tolerance — if not, treat indication as suspect' }
+  ];
+
+  function situationLog() {
+    try { return JSON.parse(localStorage.getItem('aevus_situation_log') || '[]'); }
+    catch (e) { return []; }
+  }
+  function logSituation(ev) {
+    var log = situationLog();
+    log.push(ev);
+    try { localStorage.setItem('aevus_situation_log', JSON.stringify(log)); } catch (e) {}
+  }
+
+  var activeSituation = null;
+
+  function worstUnresolved() {
+    var alarms = (window._aevusAlarms || []).filter(function (a) { return a.status !== 'resolved'; });
+    var crits = alarms.filter(function (a) { return a.severity === 'critical'; });
+    return (crits[0] || alarms[0]) || null;
+  }
+
+  function areaFor(assetId) {
+    for (var i = 0; i < AREAS.length; i++) if (AREAS[i].match.test(assetId || '')) return AREAS[i];
+    return AREAS[1]; // default: compression
+  }
+
+  function declareAbnormal() {
+    var trigger = worstUnresolved();
+    var area = trigger ? areaFor(trigger.asset_id) : AREAS[1];
+    activeSituation = {
+      declared_at: new Date().toISOString(),
+      area: area.key,
+      trigger: trigger ? (trigger.asset_id + ' ' + (trigger.alarm || '')) : 'manual declaration',
+      role: window.aevusRole || 'operator',
+      events: [{ t: new Date().toISOString(), msg: 'ABNORMAL DECLARED — ' + area.label + (trigger ? ' · trigger: ' + trigger.asset_id + ' ' + (trigger.alarm || '') : '') }]
+    };
+    logSituation({ type: 'declared', at: activeSituation.declared_at, area: area.key, trigger: activeSituation.trigger, role: activeSituation.role });
+    window.location.hash = '#situation';
+    renderSituation();
+  }
+
+  function renderSituation() {
+    if (!activeSituation) { window.location.hash = '#overview'; return; }
+    document.querySelectorAll('section[data-page]').forEach(function (s) { s.style.display = 'none'; });
+    var l2host = document.getElementById('hphmi-l2');
+    if (l2host) l2host.style.display = 'none';
+    var host = document.getElementById('hphmi-sit');
+    if (!host) {
+      host = document.createElement('section');
+      host.id = 'hphmi-sit';
+      var anySection = document.querySelector('section[data-page]');
+      (anySection ? anySection.parentElement : document.body).appendChild(host);
+    }
+    host.style.display = 'block';
+
+    var area = null;
+    for (var i = 0; i < AREAS.length; i++) if (AREAS[i].key === activeSituation.area) area = AREAS[i];
+    var seen = {};
+    var alarms = (window._aevusAlarms || []).filter(function (al) {
+      if (!area.match.test(al.asset_id || '') || al.status === 'resolved') return false;
+      var k = (al.asset_id || '') + '|' + (al.alarm || '');
+      if (seen[k]) return false; seen[k] = 1; return true;
+    });
+    var commsArea = AREAS[3];
+    var commsAlarms = (window._aevusAlarms || []).filter(function (al) {
+      return commsArea.match.test(al.asset_id || '') && al.status !== 'resolved';
+    });
+    var openCrits = alarms.filter(function (a) { return a.severity === 'critical'; }).length;
+
+    var checklist = [];
+    alarms.forEach(function (al) {
+      (RESPONSES[al.alarm] || DEFAULT_RESPONSE).forEach(function (r) {
+        checklist.push({ alarm: al.asset_id + ' ' + al.alarm, step: r.step, expect: r.expect });
+      });
+    });
+    if (!checklist.length) checklist = DEFAULT_RESPONSE.map(function (r) { return { alarm: '', step: r.step, expect: r.expect }; });
+
+    var html =
+      '<div class="hphmi-sit-head">' +
+        '<div class="hphmi-sit-title">⚑ SITUATION — ' + area.label + '</div>' +
+        '<span class="hphmi-l2-back" onclick="window.location.hash=\'#overview\'">← L1 (situation stays active)</span>' +
+      '</div>' +
+      '<div class="hphmi-sit-meta">declared ' + fmtAge(activeSituation.declared_at) + ' ago · by ' + activeSituation.role +
+        ' · trigger: ' + activeSituation.trigger + '</div>' +
+      '<div class="hphmi-sit-grid">' +
+        '<div class="hphmi-sit-card"><div class="hphmi-sit-card-title">UNIT ALARMS (' + alarms.length + ')</div>' +
+          alarms.map(function (al) {
+            return '<div class="hphmi-l2-alarm" data-p="' + al.severity + '">' +
+              '<span class="chip">' + (al.severity === 'critical' ? '■ 1' : al.severity === 'high' ? '▲ 2' : '● 3') + '</span>' +
+              '<span style="font-family:var(--font-mono);color:var(--text-secondary);">' + (al.asset_id || '') + '</span>' +
+              '<span style="color:var(--text-primary);">' + (al.alarm || '') + '</span>' +
+              '<span class="hint">' + (al.value || '') + (al.threshold ? ' · limit ' + al.threshold : '') + '</span></div>';
+          }).join('') + '</div>' +
+        '<div class="hphmi-sit-card"><div class="hphmi-sit-card-title">SERVING COMM PATH</div>' +
+          '<div style="font-size:12px;color:var(--text-secondary);">' +
+          (commsAlarms.length ? commsAlarms.length + ' unresolved comm alarm(s) — view may be degraded; verify locally before trusting remote indication' :
+            'Comm path quiet — remote indication trustworthy') + '</div>' +
+          ((window._staleAssetIds || []).length ? '<div style="font-size:10px;color:#FBBF24;font-family:var(--font-mono);margin-top:6px;">STALE: ' +
+            (window._staleAssetIds || []).join(', ') + '</div>' : '') + '</div>' +
+      '</div>' +
+      '<div class="hphmi-sit-card" style="margin-top:12px;"><div class="hphmi-sit-card-title">RESPONSE CHECKLIST — every step carries its expectancy</div>' +
+        checklist.map(function (c, idx) {
+          return '<div class="hphmi-check"><input type="checkbox" id="sit-chk-' + idx + '">' +
+            '<div><div class="step">' + c.step + (c.alarm ? ' <span style="color:var(--text-faint);font-size:10px;">(' + c.alarm + ')</span>' : '') + '</div>' +
+            '<div class="expect">' + c.expect + '</div></div></div>';
+        }).join('') + '</div>' +
+      '<div class="hphmi-sit-card" style="margin-top:12px;"><div class="hphmi-sit-card-title">EVENT TIMELINE</div>' +
+        activeSituation.events.map(function (ev) {
+          return '<div class="hphmi-timeline-row"><span class="t">' + new Date(ev.t).toLocaleTimeString() + '</span>' + ev.msg + '</div>';
+        }).join('') + '</div>' +
+      '<div class="hphmi-sit-close">' +
+        '<button onclick="window.AevusHPHMI.closeSituation()">Close out situation…</button>' +
+        (openCrits ? '<span style="font-size:10px;color:#FBBF24;font-family:var(--font-mono);">' + openCrits + ' critical still active — closeout will require override</span>' : '') +
+      '</div>';
+
+    if (host.__lastHtml !== html) { host.__lastHtml = html; host.innerHTML = html; }
+  }
+
+  function closeSituation() {
+    if (!activeSituation) return;
+    var area = null;
+    for (var i = 0; i < AREAS.length; i++) if (AREAS[i].key === activeSituation.area) area = AREAS[i];
+    var openCrits = (window._aevusAlarms || []).filter(function (al) {
+      return area.match.test(al.asset_id || '') && al.status !== 'resolved' && al.severity === 'critical';
+    }).length;
+    if (openCrits > 0 && !confirm(openCrits + ' critical alarm(s) still unresolved in ' + area.label +
+      ' — variables are NOT back in band. Override and close anyway?')) return;
+    var note = prompt('Closeout note (required — one line for the shift log):');
+    if (!note) return;
+    logSituation({ type: 'closed', at: new Date().toISOString(), area: activeSituation.area, note: note, override: openCrits > 0, role: window.aevusRole || 'operator' });
+    activeSituation = null;
+    var host = document.getElementById('hphmi-sit');
+    if (host) { host.style.display = 'none'; host.__lastHtml = null; }
+    window.location.hash = '#overview';
+  }
+
+  function decorateF9() {
+    // System-proposed, operator-confirmed (Klein pre-mortem #3): when an
+    // unresolved critical exists and no situation is active, the Declare
+    // button visibly proposes itself — confirming beats confessing.
+    var btns = document.querySelectorAll('button,[role="button"],div[onclick]');
+    for (var i = 0; i < btns.length; i++) {
+      if (/Declare Abnormal/.test(btns[i].textContent || '')) {
+        var propose = !activeSituation && (window._aevusAlarms || []).some(function (a) {
+          return a.severity === 'critical' && a.status !== 'resolved';
+        });
+        btns[i].classList.toggle('hphmi-f9-proposed', propose);
+        btns[i].title = propose ? 'Entry criteria met — system proposes declaring abnormal (F9)' : '';
+        break;
+      }
+    }
+  }
+
+  window.declareAbnormal = declareAbnormal;
+
   // ── L2 unit operating displays (spec §6 — the missing layer) ─────────
   // Hash routes #unit-wellhead / #unit-compress / #unit-tank / #unit-comms.
   // Between the everything-overview and raw tables there was nowhere to
@@ -612,6 +813,8 @@
       try { renderL1Strip(); } catch (e) { /* never break the page */ }
       try { routeL2(); } catch (e) { /* never break the page */ }
       try { renderWatchItem(); } catch (e) { /* never break the page */ }
+      try { if (location.hash === '#situation' && activeSituation) renderSituation(); } catch (e) { /* never break the page */ }
+      try { decorateF9(); } catch (e) { /* never break the page */ }
     });
   }
 
@@ -638,5 +841,5 @@
     start();
   }
 
-  window.AevusHPHMI = { bandBar: bandBar, transformRadials: transformRadials, renderL2: renderL2, toggleLedger: toggleLedger, disposeWatch: disposeWatch, BANDS: BANDS };
+  window.AevusHPHMI = { bandBar: bandBar, transformRadials: transformRadials, renderL2: renderL2, toggleLedger: toggleLedger, disposeWatch: disposeWatch, closeSituation: closeSituation, declareAbnormal: declareAbnormal, BANDS: BANDS };
 })();

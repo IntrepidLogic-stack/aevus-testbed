@@ -553,7 +553,7 @@ app = FastAPI(
     title="Aevus Testbed",
     # Observable marker (/openapi.json). Also confirms the fixed auto-deploy now
     # self-restarts on a normal push (0.1.1 → 0.1.2 with no manual intervention).
-    version="0.1.4",
+    version="0.1.5",
     lifespan=lifespan,
 )
 app.add_middleware(

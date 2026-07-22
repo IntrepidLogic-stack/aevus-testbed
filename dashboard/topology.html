@@ -569,8 +569,21 @@ body {
 
 <script>
 // ── API CONFIG ──
-const API_KEY = '8U7_JghqHK-nmG5bDwUx5w-A9uFg8F7tiVmvR9WJDyY';
+// No hardcoded key — a baked prod API key in this public page defeated the
+// whole auth layer (anyone could read it). Matches dashboard/api-client.js:
+// authenticate via the aevus_session cookie (auto-sent same-origin) + the
+// Cognito aevus_id_token; only send X-API-Key if a runtime key is injected.
+const API_KEY = window.AEVUS_API_KEY || '';
 const API_BASE = '/api/v1';
+
+// Build auth headers the same way the main dashboard does.
+function authHeaders(extra) {
+  const h = extra || {};
+  if (API_KEY) h['X-API-Key'] = API_KEY;
+  const token = localStorage.getItem('aevus_id_token');
+  if (token) h['Authorization'] = 'Bearer ' + token;
+  return h;
+}
 const POLL_INTERVAL = 30000; // 30 seconds
 let lastUpdate = null;
 let wsConnected = false;
@@ -770,7 +783,8 @@ const devices = {
 async function fetchAssets() {
   try {
     const resp = await fetch(`${API_BASE}/assets`, {
-      headers: { 'X-API-Key': API_KEY }
+      headers: authHeaders(),
+      credentials: 'same-origin'
     });
     if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
     const assets = await resp.json();
@@ -899,7 +913,9 @@ function timeAgo(date) {
 // ── WEBSOCKET ──
 function connectWebSocket() {
   const protocol = location.protocol === 'https:' ? 'wss:' : 'ws:';
-  const wsUrl = `${protocol}//${location.host}/api/v1/ws?key=${API_KEY}`;
+  // Session cookie authenticates the WS handshake; only append ?key= if a
+  // runtime key is present (matches dashboard/api-client.js).
+  const wsUrl = `${protocol}//${location.host}/api/v1/ws${API_KEY ? `?key=${API_KEY}` : ''}`;
   console.log(`[Topology] Connecting WebSocket: ${wsUrl}`);
 
   const ws = new WebSocket(wsUrl);

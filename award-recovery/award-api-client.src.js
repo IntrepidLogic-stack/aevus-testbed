@@ -911,7 +911,7 @@ document.addEventListener('click', function(e) {
 
 // ── ALARM POLLING FOR BELL + TAB BADGE ──
 (function() {
-  var API_KEY = '8U7_JghqHK-nmG5bDwUx5w-A9uFg8F7tiVmvR9WJDyY';
+  var API_KEY = '';
   function pollAlarms() {
     var tok = localStorage.getItem('aevus_id_token');
     var headers = {'X-API-Key': API_KEY};

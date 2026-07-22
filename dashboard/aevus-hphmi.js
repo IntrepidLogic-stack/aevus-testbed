@@ -51,7 +51,7 @@
     if (document.getElementById('hphmi-styles')) return;
     var el = document.createElement('style');
     el.id = 'hphmi-styles';
-    el.textContent = CSS;
+    el.textContent = CSS + '\n' + STRIP_CSS;
     document.head.appendChild(el);
   }
 
@@ -159,6 +159,159 @@
     }
   }
 
+  // ── L1 scan strip: area tiles + alarm priority strip (spec §6) ───────
+  // The 3-second scan needs one configural gestalt, not a grid of
+  // abstractions: four tiles in process order, each the worst-of its
+  // member assets, plus shape-coded alarm counts. Every tile is a door.
+  // Data: window._aevusAssets/_aevusAlarms (published by the bundle's
+  // 10s interval — see P1-4 exposure).
+  var AREAS = [
+    { key: 'wellhead',  label: 'WELLHEAD / SEP',  match: /^(WELL|SEP|REF-CWRU)/i, door: '#overview' },
+    { key: 'compress',  label: 'COMPRESSION',      match: /^(CMP|RTU)/i,               door: '#assets' },
+    { key: 'tank',      label: 'TANK / METERING',  match: /^(TNK|MET|EFM|REF-MORRIS)/i, door: '#assets' },
+    { key: 'comms',     label: 'COMMS PATH',       match: /^(RAD|RTR|SW|WAN|EDGE|SHOP)/i, door: '#radio' }
+  ];
+  var PRIO = [
+    { key: 'critical', glyph: '■', color: '#FF4136', n: 1 },
+    { key: 'high',     glyph: '▲', color: '#FF851B', n: 2 },
+    { key: 'warning',  glyph: '●', color: '#FFDC00', n: 3 },
+    { key: 'medium',   glyph: '●', color: '#FFDC00', n: 3 },
+    { key: 'low',      glyph: '◇', color: '#E6E6FA', n: 4 }
+  ];
+
+  var STRIP_CSS = [
+    '#hphmi-l1-strip { display:flex; gap:10px; align-items:stretch; flex-wrap:wrap; margin:10px 0 14px; }',
+    '.hphmi-tile { flex:1; min-width:150px; background:var(--bg-card); border:1px solid var(--border); border-radius:4px; padding:10px 12px; cursor:pointer; display:flex; flex-direction:column; gap:6px; }',
+    '.hphmi-tile:hover { border-color:var(--accent); }',
+    '.hphmi-tile-head { display:flex; align-items:center; justify-content:space-between; gap:8px; }',
+    '.hphmi-tile-label { font-size:9px; letter-spacing:1.2px; color:var(--text-muted); font-weight:600; }',
+    '.hphmi-tile-state { font-family:var(--font-mono); font-size:10px; font-weight:700; color:#8A949E; }',
+    '.hphmi-tile[data-band="warn"] .hphmi-tile-state { color:#FBBF24; }',
+    '.hphmi-tile[data-band="bad"]  .hphmi-tile-state { color:#EF4444; }',
+    '.hphmi-tile[data-band="bad"] { border-left:3px solid #EF4444; }',
+    '.hphmi-tile[data-band="warn"] { border-left:3px solid #FBBF24; }',
+    '.hphmi-tile-sub { font-size:10px; color:var(--text-muted); font-family:var(--font-mono); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }',
+    '.hphmi-alarmstrip { display:flex; align-items:center; gap:8px; padding:0 4px; }',
+    '.hphmi-alarmchip { display:inline-flex; align-items:center; gap:4px; font-family:var(--font-mono); font-size:11px; font-weight:700; padding:2px 8px; border-radius:2px; cursor:pointer; border:1px solid var(--border); color:var(--text-muted); }',
+    '.hphmi-alarmchip[data-active="1"][data-p="1"] { background:#FF4136; color:#14181C; border-color:#FF4136; }',
+    '.hphmi-alarmchip[data-active="1"][data-p="2"] { background:#FF851B; color:#14181C; border-color:#FF851B; }',
+    '.hphmi-alarmchip[data-active="1"][data-p="3"] { background:#FFDC00; color:#14181C; border-color:#FFDC00; }'
+  ].join('\n');
+
+  function worstBand(assets, alarms) {
+    // worst-of: any unresolved critical alarm → bad; health <50 → bad;
+    // unresolved warning/high or health <80 or stale → warn; else normal.
+    var band = 'normal';
+    var stale = window._staleAssetIds || [];
+    for (var i = 0; i < assets.length; i++) {
+      var h = assets[i].health;
+      if (h != null && h < BANDS.warn) return 'bad';
+      if ((h != null && h < BANDS.good) || stale.indexOf(assets[i].id) >= 0) band = 'warn';
+    }
+    for (var j = 0; j < alarms.length; j++) {
+      if (alarms[j].status === 'resolved') continue;
+      if (alarms[j].severity === 'critical') return 'bad';
+      band = 'warn';
+    }
+    return band;
+  }
+
+  function renderL1Strip() {
+    var page = document.querySelector('section[data-page="overview"]');
+    var banner = document.getElementById('situation-banner');
+    if (!page || !banner || !banner.parentElement) return;
+    var assets = window._aevusAssets || [];
+    var alarms = window._aevusAlarms || [];
+    if (!assets.length && !alarms.length) return;
+
+    var host = document.getElementById('hphmi-l1-strip');
+    if (!host) {
+      host = document.createElement('div');
+      host.id = 'hphmi-l1-strip';
+      banner.parentElement.insertBefore(host, banner.nextSibling);
+    }
+
+    var tiles = AREAS.map(function (a) {
+      var members = assets.filter(function (t) { return a.match.test(t.id || ''); });
+      var mAlarms = alarms.filter(function (al) { return a.match.test(al.asset_id || ''); });
+      var band = worstBand(members, mAlarms);
+      var top = mAlarms.filter(function (al) { return al.status !== 'resolved'; })
+        .sort(function (p, q) { return (p.severity === 'critical' ? 0 : 1) - (q.severity === 'critical' ? 0 : 1); })[0];
+      var stale = (window._staleAssetIds || []).filter(function (id) { return a.match.test(id); }).length;
+      var sub = top ? ((top.asset_id || '') + ' · ' + (top.alarm || top.message || '')) :
+                stale ? (stale + ' stale source' + (stale > 1 ? 's' : '')) :
+                (members.length ? members.length + ' assets · quiet' : 'no assets');
+      var state = band === 'bad' ? 'ABN' : band === 'warn' ? 'WATCH' : 'OK';
+      return '<div class="hphmi-tile" data-band="' + band + '" onclick="window.location.hash=\'' + a.door + '\'">' +
+        '<div class="hphmi-tile-head"><span class="hphmi-tile-label">' + a.label + '</span>' +
+        '<span class="hphmi-tile-state">' + state + '</span></div>' +
+        '<div class="hphmi-tile-sub">' + sub + '</div></div>';
+    }).join('');
+
+    var counts = { 1: 0, 2: 0, 3: 0, 4: 0 };
+    alarms.forEach(function (al) {
+      if (al.status === 'resolved') return;
+      var p = PRIO.find(function (pp) { return pp.key === al.severity; });
+      counts[p ? p.n : 4]++;
+    });
+    var strip = '<div class="hphmi-alarmstrip">' + [1, 2, 3].map(function (n) {
+      var g = n === 1 ? '■' : n === 2 ? '▲' : '●';
+      return '<span class="hphmi-alarmchip" data-p="' + n + '" data-active="' + (counts[n] > 0 ? 1 : 0) +
+        '" onclick="window.location.hash=\'#alarms\'">' + g + ' ' + n + ' · ' + counts[n] + '</span>';
+    }).join('') + '</div>';
+
+    // Only touch the DOM on change — this runs inside the observer cycle,
+    // and an unconditional innerHTML write would re-trigger it every frame.
+    var html = tiles + strip;
+    if (host.__lastHtml !== html) {
+      host.__lastHtml = html;
+      host.innerHTML = html;
+    }
+  }
+
+  // ── trend-to-limit sampler (spec Law 6) ──────────────────────────────
+  // Rolling per-asset health history; a sustained downward slope earns a
+  // projection caption on the matching tile: "→ 50 in ~Nm". History
+  // without projection leaves Level-3 SA to the operator's arithmetic.
+  var HIST = {};        // asset id → [{t, v}]
+  var HORIZON = 8;      // samples kept (~80s demo / real cadence varies)
+  function sampleTrends() {
+    var assets = window._aevusAssets || [];
+    var now = Date.now();
+    assets.forEach(function (a) {
+      if (a.health == null) return;
+      var h = (HIST[a.id] = HIST[a.id] || []);
+      h.push({ t: now, v: a.health });
+      if (h.length > HORIZON) h.shift();
+    });
+    // annotate tiles
+    AREAS.forEach(function (area) {
+      var worst = null;
+      Object.keys(HIST).forEach(function (id) {
+        if (!area.match.test(id) || HIST[id].length < 4) return;
+        var h = HIST[id], n = h.length;
+        var slope = (h[n - 1].v - h[0].v) / ((h[n - 1].t - h[0].t) / 60000); // per minute
+        if (slope < -0.05) {
+          var target = h[n - 1].v > BANDS.good ? BANDS.good : BANDS.warn;
+          var mins = Math.round((h[n - 1].v - target) / -slope);
+          if (mins > 0 && mins < 720 && (!worst || mins < worst.mins)) worst = { id: id, mins: mins, target: target };
+        }
+      });
+      if (worst) {
+        var tile = document.querySelector('.hphmi-tile[data-band] .hphmi-tile-label');
+        var tiles = document.querySelectorAll('.hphmi-tile');
+        for (var i = 0; i < tiles.length; i++) {
+          if (tiles[i].textContent.indexOf(area.label) >= 0) {
+            var sub = tiles[i].querySelector('.hphmi-tile-sub');
+            if (sub) sub.textContent = worst.id + ' → ' + worst.target + ' in ~' + worst.mins + 'm';
+            break;
+          }
+        }
+      }
+    });
+  }
+  setInterval(sampleTrends, 10000);
+
   // ── observer: transforms re-apply as the bundle re-renders ───────────
   var scheduled = false;
   function schedule() {
@@ -168,6 +321,7 @@
       scheduled = false;
       try { transformRadials(); } catch (e) { /* never break the page */ }
       try { purgeFinancials(); } catch (e) { /* never break the page */ }
+      try { renderL1Strip(); } catch (e) { /* never break the page */ }
     });
   }
 

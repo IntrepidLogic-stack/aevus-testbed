@@ -1,0 +1,25 @@
+# Aevus — gitleaks (Secret Scan) configuration
+#
+# Extends gitleaks' full DEFAULT ruleset (useDefault = true) so all normal
+# secret detection still runs, and adds ONE allowlist entry: the dashboard
+# API key that was hardcoded in client JS and public in git history (from the
+# initial commit through the 2026-07-22 scrub, PRs #150/#154). That key has
+# since been ROTATED and invalidated on prod — it is a dead credential, so its
+# lingering copies in history are not a live secret. This stops the Secret Scan
+# workflow from failing whenever a PR's commit range happens to include one of
+# those old commits, while STILL catching any new or different secret.
+#
+# If the git history is ever rewritten to purge the string (see
+# 10_IT_Development/AEVUS_API_KEY_HISTORY_SCRUB_RUNBOOK.md), this file can be
+# deleted — nothing else depends on it.
+
+title = "Aevus Secret Scan config"
+
+[extend]
+useDefault = true
+
+[[allowlists]]
+description = "Rotated + dead Aevus dashboard API key (public in history, invalidated on prod 2026-07-22). Not a live secret."
+regexes = [
+  '''8U7_JghqHK-nmG5bDwUx5w-A9uFg8F7tiVmvR9WJDyY''',
+]

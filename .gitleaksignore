@@ -14,3 +14,13 @@ b13abd7acd4029bda0d6e5d42c1adb0b8f989a9a:dashboard/api-client.js:generic-api-key
 06752080eda8219ecf9ac7b092de6e83715de1c2:dashboard/award-client.js:generic-api-key:4
 8b4afbd27e28e4fb6a03e1aa2aeb5c5d82637082:dashboard/award-client.js:generic-api-key:4
 d56daa0e996287ed86d1ec7db7c44431ec982641:dashboard/award-client.js:generic-api-key:4
+# Main-side SHAs (rebase-merge of PR 150 rewrote the branch SHAs above)
+9a9516cd0965e53515d26e277999fc1b6ca3d65b:dashboard/api-client.js:generic-api-key:1
+6ccb0cc41e2c160575af4967173cf5306b2a3511:dashboard/api-client.js:generic-api-key:1
+a2831c739980c3bb5cb2af791b2848ec44a013b6:dashboard/api-client.js:generic-api-key:1
+dcc416ed50f5645d54dd563c30057c8a6a737366:dashboard/api-client.js:generic-api-key:1
+62d0751cfc9f18e65d3a1ec4386da80461734231:dashboard/api-client.js:generic-api-key:1
+d283c33a24c3f4b8c59c133810763de483a5cded:dashboard/api-client.js:generic-api-key:1
+4377b8d882ea9ddcb5737ba0d9572eb89a34e4c6:dashboard/api-client.js:generic-api-key:1
+62d0751cfc9f18e65d3a1ec4386da80461734231:dashboard/award-client.js:generic-api-key:4
+4377b8d882ea9ddcb5737ba0d9572eb89a34e4c6:dashboard/award-client.js:generic-api-key:4

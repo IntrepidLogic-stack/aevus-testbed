@@ -51,7 +51,7 @@
     if (document.getElementById('hphmi-styles')) return;
     var el = document.createElement('style');
     el.id = 'hphmi-styles';
-    el.textContent = CSS + '\n' + STRIP_CSS + '\n' + L2_CSS + '\n' + LEDGER_CSS + '\n' + WATCH_CSS + '\n' + SIT_CSS;
+    el.textContent = CSS + '\n' + STRIP_CSS + '\n' + L2_CSS + '\n' + LEDGER_CSS + '\n' + WATCH_CSS + '\n' + SIT_CSS + '\n' + HANDOFF_CSS;
     document.head.appendChild(el);
   }
 
@@ -665,6 +665,199 @@
 
   window.declareAbnormal = declareAbnormal;
 
+  // ── P2: Standing-alarm escalation (spec §7f) ─────────────────────────
+  // Acked ≠ resolved. Each priority has a designed response time from
+  // rationalization defaults; an unresolved alarm past 2× re-annunciates
+  // (standing chip on L1, aged styling), past 3× earns a supervisor-notify
+  // mark in the log. Ack never permanently silences.
+  var RESPONSE_MIN = { critical: 15, high: 30, warning: 60, medium: 60, low: 240 };
+
+  function standingAlarms() {
+    var now = Date.now(), out = [], seen = {};
+    (window._aevusAlarms || []).forEach(function (a) {
+      if (a.status === 'resolved' || a.shelved) return;
+      var k = (a.asset_id || '') + '|' + (a.alarm || '');
+      if (seen[k]) return; seen[k] = 1;
+      var ageMin = (now - new Date(a.timestamp || now).getTime()) / 60000;
+      var designed = RESPONSE_MIN[a.severity] || 60;
+      if (ageMin > 2 * designed) {
+        out.push({ alarm: a, ageMin: ageMin, designed: designed, supervisor: ageMin > 3 * designed });
+      }
+    });
+    return out.sort(function (p, q) { return q.ageMin - p.ageMin; });
+  }
+
+  var _supervisorNotified = {};
+  function escalateStanding() {
+    var st = standingAlarms();
+    st.forEach(function (s) {
+      var k = (s.alarm.asset_id || '') + '|' + (s.alarm.alarm || '');
+      if (s.supervisor && !_supervisorNotified[k]) {
+        _supervisorNotified[k] = true;
+        logSituation({
+          type: 'supervisor_notify', at: new Date().toISOString(),
+          alarm: k, age_min: Math.round(s.ageMin),
+          designed_min: s.designed,
+          msg: 'Standing ' + s.alarm.severity + ' at 3× designed response time'
+        });
+      }
+    });
+    // ambient standing chip beside the ledger chip
+    var strip = document.querySelector('.hphmi-alarmstrip');
+    if (!strip) return;
+    var chip = document.getElementById('hphmi-standing-chip');
+    if (!st.length) { if (chip) chip.remove(); return; }
+    var oldest = st[0];
+    var label = '⏱ ' + st.length + ' standing · oldest ' + fmtAge(oldest.alarm.timestamp);
+    if (!chip) {
+      chip = document.createElement('span');
+      chip.id = 'hphmi-standing-chip';
+      chip.className = 'hphmi-ledger-chip';
+      chip.style.borderStyle = 'solid';
+      chip.style.color = '#FBBF24';
+      chip.style.borderColor = '#FBBF24';
+      chip.onclick = function () { window.location.hash = '#alarms'; };
+      strip.appendChild(chip);
+    }
+    chip.setAttribute('data-n', st.length);
+    chip.title = 'Unresolved past 2× designed response time — ack never permanently silences';
+    if (chip.textContent !== label) chip.textContent = label;
+  }
+
+  // ── P2: Shift handover artifact (spec §7e — expectancies first) ──────
+  // Klein: the load-bearing content of a handover is expectancies, not
+  // inventories. Order: what to expect next shift (open Watch Items with
+  // per-item re-adoption), then standing alarms, shelved, stale points,
+  // situation history. Dual sign-off persists; un-countersigned handover
+  // is visible state, not a formality.
+  var HANDOFF_CSS = [
+    '#hphmi-handover { padding:0 4px; }',
+    '.hphmi-ho-sec { background:var(--bg-card); border:1px solid var(--border); border-radius:4px; padding:12px 14px; margin-bottom:12px; }',
+    '.hphmi-ho-sec-title { font-size:10px; letter-spacing:1.2px; color:var(--text-muted); font-weight:600; margin-bottom:8px; }',
+    '.hphmi-ho-row { padding:7px 0; border-bottom:1px solid var(--border); font-size:12px; color:var(--text-secondary); }',
+    '.hphmi-ho-row:last-child { border-bottom:none; }',
+    '.hphmi-ho-row .mono { font-family:var(--font-mono); font-size:10px; color:var(--text-muted); }',
+    '.hphmi-ho-sign { display:flex; gap:10px; align-items:center; margin-top:4px; }',
+    '.hphmi-ho-sign button { font-size:11px; font-weight:600; padding:6px 16px; border-radius:2px; border:1px solid var(--border-light); background:transparent; color:var(--text-secondary); cursor:pointer; }',
+    '.hphmi-ho-sign button:hover { border-color:var(--accent); color:var(--accent); }',
+    '.hphmi-ho-signed { font-size:10px; font-family:var(--font-mono); color:#8FBF9F; }'
+  ].join('\n');
+
+  function handoverState() {
+    try { return JSON.parse(localStorage.getItem('aevus_handover_current') || '{}'); }
+    catch (e) { return {}; }
+  }
+  function setHandoverState(s) {
+    try { localStorage.setItem('aevus_handover_current', JSON.stringify(s)); } catch (e) {}
+  }
+
+  function signHandover(which) {
+    var name = prompt(which === 'out' ? 'Outgoing operator — sign handover (name):' : 'Incoming operator — countersign (name):');
+    if (!name) return;
+    var s = handoverState();
+    s[which] = { name: name, at: new Date().toISOString() };
+    if (which === 'in' && s.out) {
+      // archive the completed handover
+      var log = [];
+      try { log = JSON.parse(localStorage.getItem('aevus_handover_log') || '[]'); } catch (e) {}
+      log.push({ out: s.out, in: s.in, archived_at: new Date().toISOString() });
+      try { localStorage.setItem('aevus_handover_log', JSON.stringify(log)); } catch (e) {}
+      setHandoverState({});
+      alert('Handover archived. New shift owns the board.');
+      window.location.hash = '#overview';
+      return;
+    }
+    setHandoverState(s);
+    renderHandover();
+  }
+
+  function renderHandover() {
+    document.querySelectorAll('section[data-page]').forEach(function (s) { s.style.display = 'none'; });
+    ['hphmi-l2', 'hphmi-sit'].forEach(function (id) {
+      var el = document.getElementById(id); if (el) el.style.display = 'none';
+    });
+    var host = document.getElementById('hphmi-handover');
+    if (!host) {
+      host = document.createElement('section');
+      host.id = 'hphmi-handover';
+      var anySection = document.querySelector('section[data-page]');
+      (anySection ? anySection.parentElement : document.body).appendChild(host);
+    }
+    host.style.display = 'block';
+
+    var hyp = currentInsight();
+    var dispositions = watchDispositions();
+    var st = standingAlarms();
+    var shelved = shelvedAlarms();
+    var stale = window._staleAssetIds || [];
+    var sitLog = situationLog().slice(-6).reverse();
+    var signed = handoverState();
+
+    var expectRows = '';
+    if (hyp) {
+      var key = 'wi-' + hyp.slice(0, 40).replace(/\W+/g, '-');
+      var d = dispositions[key];
+      expectRows += '<div class="hphmi-ho-row">' + hyp +
+        '<div class="mono">' + (d ? 'disposed: ' + d.verb.toUpperCase() + (d.reason ? ' — ' + d.reason : '') : 'OPEN — incoming shift must re-adopt or close') + '</div>' +
+        (!d || d.verb === 'watch' || d.verb === 'agree' ?
+          '<div class="hphmi-watch-verbs" style="margin-top:6px;">' +
+          '<button class="hphmi-watch-verb" onclick="window.AevusHPHMI.disposeWatch(\'' + key + '\',\'agree\')">Re-adopt</button>' +
+          '<button class="hphmi-watch-verb" onclick="window.AevusHPHMI.disposeWatch(\'' + key + '\',\'reject\')">Close…</button></div>' : '') +
+        '</div>';
+    }
+    var trendNote = '';
+    Object.keys(HIST).forEach(function (id) {
+      var h = HIST[id];
+      if (h.length >= 4 && h[h.length - 1].v - h[0].v < -0.5) {
+        trendNote += '<div class="hphmi-ho-row">' + id + ' health declining (' + h[0].v + ' → ' + h[h.length - 1].v + ')' +
+          '<div class="mono">expect continued decline unless intervened</div></div>';
+      }
+    });
+
+    var html =
+      '<div class="hphmi-sit-head">' +
+        '<div class="hphmi-sit-title">SHIFT HANDOVER</div>' +
+        '<span class="hphmi-l2-back" onclick="window.location.hash=\'#overview\'">← L1</span></div>' +
+      '<div class="hphmi-sit-meta">compiled ' + new Date().toLocaleTimeString() + ' · expectancies first, inventories after</div>' +
+      '<div class="hphmi-ho-sec"><div class="hphmi-ho-sec-title">WHAT TO EXPECT NEXT SHIFT</div>' +
+        (expectRows || trendNote || '<div class="hphmi-ho-row">No open hypotheses or declining trends — quiet board expected.</div>') +
+        (expectRows && trendNote ? trendNote : '') + '</div>' +
+      '<div class="hphmi-ho-sec"><div class="hphmi-ho-sec-title">STANDING ALARMS (' + st.length + ') — unresolved past 2× designed response</div>' +
+        (st.map(function (s) {
+          return '<div class="hphmi-ho-row">' + (s.alarm.asset_id || '') + ' ' + (s.alarm.alarm || '') +
+            '<div class="mono">standing ' + fmtAge(s.alarm.timestamp) + ' · designed response ' + s.designed + 'm' +
+            (s.supervisor ? ' · SUPERVISOR NOTIFIED (3×)' : '') + '</div></div>';
+        }).join('') || '<div class="hphmi-ho-row">None.</div>') + '</div>' +
+      '<div class="hphmi-ho-sec"><div class="hphmi-ho-sec-title">SHELVED (' + shelved.length + ')</div>' +
+        (shelved.map(function (a) {
+          return '<div class="hphmi-ho-row">' + (a.asset_id || '') + ' ' + (a.alarm || '') +
+            '<div class="mono">shelved ' + fmtAge(a.shelved_at) + ' ago · ' + (a.shelve_reason || 'reason not recorded') + '</div></div>';
+        }).join('') || '<div class="hphmi-ho-row">Nothing shelved.</div>') + '</div>' +
+      '<div class="hphmi-ho-sec"><div class="hphmi-ho-sec-title">STALE / UNVERIFIED POINTS</div>' +
+        (stale.length ? '<div class="hphmi-ho-row">' + stale.join(', ') + '<div class="mono">values from these sources unconfirmed</div></div>' :
+          '<div class="hphmi-ho-row">All points verified.</div>') + '</div>' +
+      '<div class="hphmi-ho-sec"><div class="hphmi-ho-sec-title">SITUATION / ESCALATION LOG (recent)</div>' +
+        (sitLog.map(function (ev) {
+          return '<div class="hphmi-ho-row"><span class="mono">' + new Date(ev.at).toLocaleTimeString() + '</span> ' +
+            ev.type.toUpperCase() + (ev.area ? ' · ' + ev.area : '') + (ev.alarm ? ' · ' + ev.alarm : '') +
+            (ev.note ? ' · "' + ev.note + '"' : '') + (ev.override ? ' · OVERRIDE' : '') + '</div>';
+        }).join('') || '<div class="hphmi-ho-row">No declarations this shift.</div>') + '</div>' +
+      '<div class="hphmi-ho-sec"><div class="hphmi-ho-sec-title">SIGN-OFF — dual acknowledgment</div>' +
+        '<div class="hphmi-ho-sign">' +
+        (signed.out ? '<span class="hphmi-ho-signed">Outgoing: ' + signed.out.name + ' · ' + new Date(signed.out.at).toLocaleTimeString() + '</span>' :
+          '<button onclick="window.AevusHPHMI.signHandover(\'out\')">Outgoing sign…</button>') +
+        (signed.out ? (signed.in ? '' : '<button onclick="window.AevusHPHMI.signHandover(\'in\')">Incoming countersign…</button>') :
+          '<span class="mono" style="font-size:10px;">incoming countersigns after outgoing signs</span>') +
+        '</div></div>';
+
+    if (host.__lastHtml !== html) { host.__lastHtml = html; host.innerHTML = html; }
+  }
+
+  window._shiftHandover = function () {
+    window.location.hash = '#handover';
+    renderHandover();
+  };
+
   // ── L2 unit operating displays (spec §6 — the missing layer) ─────────
   // Hash routes #unit-wellhead / #unit-compress / #unit-tank / #unit-comms.
   // Between the everything-overview and raw tables there was nowhere to
@@ -815,6 +1008,8 @@
       try { renderWatchItem(); } catch (e) { /* never break the page */ }
       try { if (location.hash === '#situation' && activeSituation) renderSituation(); } catch (e) { /* never break the page */ }
       try { decorateF9(); } catch (e) { /* never break the page */ }
+      try { escalateStanding(); } catch (e) { /* never break the page */ }
+      try { if (location.hash === '#handover') renderHandover(); } catch (e) { /* never break the page */ }
     });
   }
 
@@ -841,5 +1036,5 @@
     start();
   }
 
-  window.AevusHPHMI = { bandBar: bandBar, transformRadials: transformRadials, renderL2: renderL2, toggleLedger: toggleLedger, disposeWatch: disposeWatch, closeSituation: closeSituation, declareAbnormal: declareAbnormal, BANDS: BANDS };
+  window.AevusHPHMI = { bandBar: bandBar, transformRadials: transformRadials, renderL2: renderL2, toggleLedger: toggleLedger, disposeWatch: disposeWatch, closeSituation: closeSituation, declareAbnormal: declareAbnormal, signHandover: signHandover, BANDS: BANDS };
 })();

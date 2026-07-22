@@ -46,6 +46,11 @@ param(
     [int]   $UnitId    = 1,
     [string]$AssetId   = 'RTU-01',
     [string]$IngestUrl = 'https://aevus.intrepidlogic.io/api/v1/ingest',
+    # Shared ingest secret (H3): defaults from the AEVUS_INGEST_SECRET env var
+    # (set it machine-wide or in the Scheduled Task definition). When set and
+    # matching the server's INGEST_SECRET, it is sent as X-Ingest-Key. Empty →
+    # no header, which the server accepts until enforcement is flipped on.
+    [string]$IngestSecret = $env:AEVUS_INGEST_SECRET,
     [int]   $IntervalSec = 30,
     [int]   $TimeoutMs   = 2500,
     [switch]$Once
@@ -135,8 +140,10 @@ function Send-Cycle {
     }
 
     $body = @{ asset_id = $AssetId; vitals = $vitals } | ConvertTo-Json -Depth 6
+    $headers = @{}
+    if ($IngestSecret) { $headers['X-Ingest-Key'] = $IngestSecret }
     try {
-        $resp = Invoke-RestMethod -Uri $IngestUrl -Method Post -Body $body -ContentType 'application/json' -TimeoutSec 15
+        $resp = Invoke-RestMethod -Uri $IngestUrl -Method Post -Body $body -ContentType 'application/json' -Headers $headers -TimeoutSec 15
         Write-Log ("ingest OK  vitals_ingested={0}  historian_written={1}" -f $resp.vitals_ingested, $resp.historian_written)
         return $true
     }

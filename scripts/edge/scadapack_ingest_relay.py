@@ -5,6 +5,7 @@ deployed relay-overlay surfaces on the EFM/RTU pearl. READ-ONLY (IL-009/P-008).
 """
 
 import json
+import os
 import sys
 import time
 import urllib.request
@@ -17,6 +18,10 @@ UNIT = 1
 ASSET = "RTU-01"
 INGEST = "https://aevus.intrepidlogic.io/api/v1/ingest"
 INTERVAL = 30
+# Shared ingest secret (H3): when AEVUS_INGEST_SECRET is set (matching the
+# server's INGEST_SECRET), it is sent as X-Ingest-Key. Unset → no header,
+# which the server accepts until enforcement is flipped on.
+INGEST_SECRET = os.environ.get("AEVUS_INGEST_SECRET", "")
 WIN = []
 
 
@@ -61,9 +66,14 @@ def cycle():
             "COMM SUCCESS": {"value": pct, "unit": "%", "status": "bad"},
         }
     body = json.dumps({"asset_id": ASSET, "vitals": vitals}).encode()
-    req = urllib.request.Request(INGEST, data=body, headers={"Content-Type": "application/json"}, method="POST")
+    headers = {"Content-Type": "application/json"}
+    if INGEST_SECRET:
+        headers["X-Ingest-Key"] = INGEST_SECRET
+    # S310: INGEST is a hardcoded https:// constant, not user input — the
+    # custom-scheme audit concern doesn't apply.
+    req = urllib.request.Request(INGEST, data=body, headers=headers, method="POST")  # noqa: S310
     try:
-        with urllib.request.urlopen(req, timeout=15) as resp:
+        with urllib.request.urlopen(req, timeout=15) as resp:  # noqa: S310
             print(
                 "poll",
                 ("OK" if ok else "FAIL"),

@@ -6,15 +6,60 @@ Injects data into the same pipeline as local collectors.
 
 from __future__ import annotations
 
+import secrets
 import time
 from datetime import UTC, datetime
 
 import structlog
-from fastapi import APIRouter
+
+# Request imported at runtime (NOT under TYPE_CHECKING): with
+# `from __future__ import annotations`, FastAPI must resolve the Request
+# annotation at runtime to treat it as the special request param instead of
+# trying to build an OpenAPI schema for it (see src/api/ratelimit.py).
+from fastapi import APIRouter, HTTPException, Request
 from pydantic import BaseModel
+
+from src.config import settings
 
 logger = structlog.get_logger()
 router = APIRouter(prefix="/ingest", tags=["ingest"])
+
+
+def _check_ingest_secret(provided: str | None) -> None:
+    """Three-state shared-secret gate for the relay push path (H3 follow-up).
+
+    /ingest is exempt from the API-key middleware because the shop-PC /
+    edge-Pi relays push here with no credential. That left the endpoint
+    accepting fabricated telemetry from anyone. Fix rolls out in phases so a
+    deploy can never break live ingestion:
+
+      1. OFF (default)   — ingest_secret empty: open, exactly as before.
+      2. MONITOR         — secret set, ingest_secret_enforced=False: requests
+                           missing/mismatching X-Ingest-Key are ACCEPTED but
+                           logged, so you can verify every relay sends the
+                           right header before flipping enforcement.
+      3. ENFORCE         — secret set + enforced=True: bad/missing key → 401.
+
+    Misconfig guard: enforced=True with an empty secret stays OPEN (a typo'd
+    .env must not silently kill real telemetry) but logs loudly at every hit.
+    """
+    secret = settings.ingest_secret
+    if not secret:
+        if settings.ingest_secret_enforced:
+            logger.warning(
+                "ingest_secret_misconfigured",
+                detail="INGEST_SECRET_ENFORCED is on but INGEST_SECRET is empty — staying open",
+            )
+        return
+    if provided and secrets.compare_digest(provided, secret):
+        return
+    if settings.ingest_secret_enforced:
+        raise HTTPException(status_code=401, detail="Invalid or missing ingest key")
+    logger.warning(
+        "ingest_secret_monitor",
+        detail="missing X-Ingest-Key" if not provided else "X-Ingest-Key mismatch",
+    )
+
 
 # In-memory store for latest relay data (accessed by assets API)
 _relay_data: dict[str, dict] = {}
@@ -90,8 +135,9 @@ def _persist_to_historian(asset_id: str, vitals: dict) -> int:
 
 
 @router.post("")
-async def ingest_vitals(payload: IngestPayload):
-    """Accept vitals from a remote relay."""
+async def ingest_vitals(payload: IngestPayload, request: Request):
+    """Accept vitals from a remote relay (X-Ingest-Key gated, see above)."""
+    _check_ingest_secret(request.headers.get("x-ingest-key"))
     asset_id = payload.asset_id
     vitals = payload.vitals
 

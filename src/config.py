@@ -153,6 +153,17 @@ class Settings(BaseSettings):
     threshold_if_errors_warn: float = 100.0
     threshold_if_errors_crit: float = 1000.0
 
+    # ── Ingest shared secret (relay push path) ──
+    # /ingest is exempt from API-key auth (the relays have no credential), so
+    # gate it with a shared X-Ingest-Key header instead. Phased rollout so a
+    # deploy can never break live telemetry (ARCHITECTURE_REVIEW H3):
+    #   1. leave both unset            → open (current behavior)
+    #   2. set INGEST_SECRET on box + relays (AEVUS_INGEST_SECRET env), watch
+    #      logs for ingest_secret_monitor warnings until they stop
+    #   3. set INGEST_SECRET_ENFORCED=1 → bad/missing key rejected 401
+    ingest_secret: str = ""
+    ingest_secret_enforced: bool = False
+
     # ── AI endpoint rate limiting ──
     # The public demo (demo-referer bypass in api/auth.py) reaches the paid
     # Bedrock /ai/* endpoints unauthenticated, so throttle per client IP to cap

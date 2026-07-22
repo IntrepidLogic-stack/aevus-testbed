@@ -551,9 +551,9 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(
     title="Aevus Testbed",
-    # Bumped 2026-07-21 as the observable marker proving the deploy restart fix
-    # (deploy/deploy.sh) actually restarts the service — /openapi.json exposes it.
-    version="0.1.1",
+    # Observable marker (/openapi.json). Also confirms the fixed auto-deploy now
+    # self-restarts on a normal push (0.1.1 → 0.1.2 with no manual intervention).
+    version="0.1.2",
     lifespan=lifespan,
 )
 app.add_middleware(

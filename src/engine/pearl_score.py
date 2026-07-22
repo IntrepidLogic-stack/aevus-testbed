@@ -34,6 +34,8 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Literal
 
+from src.engine.scoring import band
+
 if TYPE_CHECKING:
     from src.models.asset import Asset
 
@@ -66,13 +68,10 @@ def _piecewise(value: float, points: list[tuple[float, float]]) -> float:
 
 
 def _band(score: float | None) -> Status:
-    if score is None:
-        return "offline"
-    if score >= 60:
-        return "good"
-    if score >= 30:
-        return "warn"
-    return "bad"
+    # Delegate to the shared banding utility (engine/scoring.py, H2) so the
+    # good/warn/bad cutoffs live in one place. pearl uses 60/30 (vs health's
+    # 80/50) and keeps its own idle state: None → "offline".
+    return "offline" if score is None else band(score, warn_at=60, crit_at=30)
 
 
 def _vital(asset: Asset, label: str) -> float | None:

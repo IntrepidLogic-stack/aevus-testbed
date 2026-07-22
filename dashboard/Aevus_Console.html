@@ -57,7 +57,7 @@
   --accent-light: #38BDF8;
   --accent-dim: rgba(14, 165, 233, 0.12);
   --accent-glow: rgba(14, 165, 233, 0.18);
-  --status-good: #10D478;
+  --status-good: #8A949E;
   --status-warn: #FBBF24;
   --status-bad: #EF4444;
   --status-offline: #6B7280;
@@ -149,7 +149,7 @@ body {
   display: flex; align-items: center; gap: 6px;
   font-family: var(--font-mono); font-size: 10px; color: var(--status-good); font-weight: 600;
   padding: 4px 12px; border-radius: 20px;
-  background: rgba(16,212,120,0.05); border: 1px solid rgba(16,212,120,0.1);
+  background: rgba(138,148,158,0.05); border: 1px solid rgba(138,148,158,0.1);
   letter-spacing: 1px;
 }
 .topbar-status-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--status-good); animation: pulse-dot 2s ease-in-out infinite; }
@@ -223,7 +223,7 @@ body {
   box-shadow: inset 0 1px 0 rgba(255,255,255,0.03), var(--shadow-card);
 }
 .chassis-label { position: absolute; top: 10px; left: 12px; font-size: 12px; color: var(--text-muted); font-family: var(--font-mono); letter-spacing: 1px; text-transform: uppercase; }
-.chassis-model-label { position: absolute; top: 10px; right: 12px; font-size: 11px; color: rgba(16,212,120,0.5); font-family: var(--font-mono); }
+.chassis-model-label { position: absolute; top: 10px; right: 12px; font-size: 11px; color: rgba(138,148,158,0.5); font-family: var(--font-mono); }
 .chassis-screw { position: absolute; width: 10px; height: 10px; border-radius: 50%; border: 1px solid rgba(255,255,255,0.08); background: rgba(255,255,255,0.03); }
 .chassis-screw.tl { top: 4px; left: 4px; }
 .chassis-screw.tr { top: 4px; right: 4px; }
@@ -241,7 +241,7 @@ body {
 
 /* Individual port in wireframe */
 .wf-port { width: 42px; height: 28px; border-radius: 3px; display: flex; align-items: center; justify-content: center; font-size: 10px; font-weight: 600; font-family: var(--font-mono); border: 1.5px solid var(--border); cursor: default; position: relative; transition: all 0.2s; }
-.wf-port.up { background: rgba(16,212,120,0.15); border-color: rgba(16,212,120,0.4); color: var(--status-good); }
+.wf-port.up { background: rgba(138,148,158,0.15); border-color: rgba(138,148,158,0.4); color: var(--status-good); }
 .wf-port.down { background: rgba(239,68,68,0.12); border-color: rgba(239,68,68,0.35); color: var(--status-bad); }
 .wf-port.unused { background: rgba(255,255,255,0.02); border-color: rgba(255,255,255,0.06); color: rgba(255,255,255,0.15); }
 .wf-port.up::after { content: ''; position: absolute; top: 3px; right: 3px; width: 5px; height: 5px; border-radius: 50%; background: var(--status-good); box-shadow: 0 0 4px var(--status-good); }
@@ -292,7 +292,7 @@ body {
 .cab-device-name { font-size: 16px; font-weight: 600; color: var(--text-primary); }
 .cab-device-model { font-size: 11px; color: var(--text-muted); font-family: var(--font-mono); }
 .cab-device-badge { padding: 3px 10px; border-radius: 12px; font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; }
-.cab-device-badge.online { background: rgba(16,212,120,0.15); color: var(--status-good); }
+.cab-device-badge.online { background: rgba(138,148,158,0.15); color: var(--status-good); }
 .cab-device-badge.offline { background: rgba(239,68,68,0.15); color: var(--status-bad); }
 .cab-device-body {
   font-family: var(--font-body);
@@ -303,13 +303,13 @@ body {
   background-image:
     radial-gradient(ellipse at 20% 50%, rgba(14,165,233,0.06) 0%, transparent 50%),
     radial-gradient(ellipse at 80% 20%, rgba(14,165,233,0.04) 0%, transparent 50%),
-    radial-gradient(ellipse at 50% 100%, rgba(16,212,120,0.03) 0%, transparent 50%);
+    radial-gradient(ellipse at 50% 100%, rgba(138,148,158,0.03) 0%, transparent 50%);
   background-attachment: fixed;
 }
 .cab-ports-title { font-size: 11px; font-weight: 600; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.8px; margin-bottom: 10px; }
 .cab-port-grid { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 16px; }
 .cab-port { min-width: 48px; max-width: 72px; height: 44px; overflow: hidden; border-radius: 6px; display: flex; flex-direction: column; align-items: center; justify-content: center; font-size: 9px; font-weight: 600; font-family: var(--font-mono); border: 1px solid var(--border); transition: all 0.2s; cursor: default; position: relative; }
-.cab-port.up { background: rgba(16,212,120,0.12); border-color: rgba(16,212,120,0.3); color: var(--status-good); }
+.cab-port.up { background: rgba(138,148,158,0.12); border-color: rgba(138,148,158,0.3); color: var(--status-good); }
 .cab-port.down { background: rgba(239,68,68,0.1); border-color: rgba(239,68,68,0.3); color: var(--status-bad); }
 .cab-port.unused { background: var(--bg-app); border-color: var(--border); color: var(--text-muted); opacity: 0.5; }
 .cab-port.notMonitored { background: var(--bg-app); border-color: var(--border); color: var(--text-muted); }
@@ -352,7 +352,7 @@ body {
   margin-bottom: 24px;
   padding: 28px 32px;
   border-radius: var(--card-radius);
-  background: linear-gradient(135deg, rgba(14,165,233,0.15) 0%, rgba(14,165,233,0.1) 50%, rgba(16,212,120,0.05) 100%);
+  background: linear-gradient(135deg, rgba(14,165,233,0.15) 0%, rgba(14,165,233,0.1) 50%, rgba(138,148,158,0.05) 100%);
   border: 1px solid rgba(14,165,233,0.1);
   backdrop-filter: blur(10px);
   -webkit-backdrop-filter: blur(10px);
@@ -409,7 +409,7 @@ body {
 .fc-name { font-size: 13px; font-weight: 600; color: var(--text-primary); }
 .fc-id { font-size: 11px; color: var(--text-muted); font-family: var(--font-mono); margin-top: 2px; }
 .fc-health { font-family: var(--font-mono); font-size: 20px; font-weight: 700; padding: 4px 8px; border-radius: 6px; min-width: 44px; text-align: center; }
-.fc-health.good { color: var(--status-good); background: rgba(16,212,120,0.1); }
+.fc-health.good { color: var(--status-good); background: rgba(138,148,158,0.1); }
 .fc-health.warn { color: var(--status-warn); background: rgba(245,158,11,0.1); }
 .fc-health.bad { color: var(--status-bad); background: rgba(239,68,68,0.1); }
 .fc-health.offline { color: var(--status-offline); background: rgba(107,114,128,0.1); }
@@ -538,7 +538,7 @@ body {
 .data-table tr:hover td { background: rgba(255,255,255,0.02); }
 .data-table .mono { font-family: var(--font-mono); font-size: 11px; }
 .status-pill { display: inline-flex; align-items: center; gap: 5px; font-size: 11px; font-weight: 600; padding: 3px 10px; border-radius: 20px; text-transform: capitalize; }
-.status-pill.good { color: var(--status-good); background: rgba(16,212,120,0.1); }
+.status-pill.good { color: var(--status-good); background: rgba(138,148,158,0.1); }
 .status-pill.warning { color: var(--status-warn); background: rgba(245,158,11,0.1); }
 .status-pill.critical { color: var(--status-bad); background: rgba(239,68,68,0.1); }
 .status-pill.offline { color: var(--status-offline); background: rgba(107,114,128,0.1); }
@@ -548,7 +548,7 @@ body {
 .health-bar-wrap { display: flex; align-items: center; gap: 8px; }
 .health-bar { flex: 1; height: 6px; border-radius: 3px; background: rgba(255,255,255,0.04); overflow: hidden; }
 .health-bar-fill { height: 100%; border-radius: 3px; transition: width 0.5s ease; }
-.health-bar-fill.good { background: linear-gradient(90deg, var(--status-good), #10D478); box-shadow: 0 0 8px rgba(16,212,120,0.3); }
+.health-bar-fill.good { background: linear-gradient(90deg, var(--status-good), #8A949E); box-shadow: 0 0 8px rgba(138,148,158,0.3); }
 .health-bar-fill.warn { background: linear-gradient(90deg, var(--status-warn), #FBBF24); box-shadow: 0 0 8px rgba(245,158,11,0.3); }
 .health-bar-fill.bad { background: linear-gradient(90deg, var(--status-bad), #EF4444); box-shadow: 0 0 8px rgba(239,68,68,0.3); }
 .health-bar-fill.offline { background: var(--status-offline); }
@@ -672,7 +672,7 @@ body {
   background-image:
     radial-gradient(ellipse at 20% 50%, rgba(14,165,233,0.06) 0%, transparent 50%),
     radial-gradient(ellipse at 80% 20%, rgba(14,165,233,0.04) 0%, transparent 50%),
-    radial-gradient(ellipse at 50% 100%, rgba(16,212,120,0.03) 0%, transparent 50%);
+    radial-gradient(ellipse at 50% 100%, rgba(138,148,158,0.03) 0%, transparent 50%);
   background-attachment: fixed;
 }
 .drawer-section { padding: 20px 24px; border-bottom: 1px solid var(--border); }
@@ -802,7 +802,7 @@ body {
 .cmd-log-row { display:flex; align-items:center; gap:10px; padding:8px 0; border-bottom:1px solid var(--border); font-size:11px; }
 .cmd-log-row:last-child { border-bottom:none; }
 .cmd-result { font-family:var(--font-mono); font-size:10px; padding:2px 6px; border-radius:4px; }
-.cmd-result.ok { background:rgba(16,212,120,0.12); color:var(--status-good); }
+.cmd-result.ok { background:rgba(138,148,158,0.12); color:var(--status-good); }
 .cmd-result.fail { background:rgba(239,68,68,0.12); color:var(--status-bad); }
 
 /* ── Solar bar ── */
@@ -847,7 +847,7 @@ body {
     .kpi-label { font-size:9px;font-weight:700;letter-spacing:1px;color:var(--text-muted);text-transform:uppercase;margin-bottom:4px; }
     .kpi-value { font-family:var(--font-mono);font-size:24px;font-weight:700;color:var(--text-primary); }
     .kpi-delta { font-size:10px;margin-top:2px; }
-    .kpi-delta.up { color:#10D478; }
+    .kpi-delta.up { color:#8A949E; }
     .kpi-delta.down { color:#EF4444; }
     .kpi-delta.neutral { color:var(--text-muted); }
 
@@ -858,7 +858,7 @@ body {
     .ics-table tbody tr:hover { background:rgba(14,165,233,0.06); }
     .ics-table tbody td { padding:10px 12px;color:var(--text-secondary); }
     .ics-table .status-dot { display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:6px; }
-    .ics-table .status-dot.good { background:#10D478; }
+    .ics-table .status-dot.good { background:#8A949E; }
     .ics-table .status-dot.warning { background:#FBBF24; }
     .ics-table .status-dot.critical { background:#EF4444; }
     .ics-table .status-dot.offline { background:#6B7280; }
@@ -2084,14 +2084,14 @@ body[data-role="operator"] .exec-summary { display: none; }
 .role-badge[data-role="operator"] { background: rgba(14,165,233,0.15); color: #0EA5E9; }
 .role-badge[data-role="supervisor"] { background: rgba(167,139,250,0.15); color: #A78BFA; }
 .role-badge[data-role="compliance"] { background: rgba(251,191,36,0.15); color: #FBBF24; }
-.role-badge[data-role="executive"] { background: rgba(34,197,94,0.15); color: #22C55E; }
+.role-badge[data-role="executive"] { background: rgba(138,148,158,0.15); color: #8A949E; }
 
 /* Account panel redesign */
 .sidebar-footer { padding: 0 !important; border-top: 1px solid var(--border-glass); }
 .account-panel { padding: 12px 16px; }
 .account-panel .account-header { display: flex; align-items: center; gap: 10px; margin-bottom: 8px; }
 .account-panel .account-avatar { width: 36px; height: 36px; border-radius: 50%; background: linear-gradient(135deg, var(--accent), #A78BFA); display: flex; align-items: center; justify-content: center; font-size: 13px; font-weight: 700; color: white; flex-shrink: 0; position: relative; }
-.account-panel .account-avatar::after { content: ''; position: absolute; bottom: 1px; right: 1px; width: 8px; height: 8px; border-radius: 50%; background: #22C55E; border: 2px solid var(--bg-card); }
+.account-panel .account-avatar::after { content: ''; position: absolute; bottom: 1px; right: 1px; width: 8px; height: 8px; border-radius: 50%; background: #8A949E; border: 2px solid var(--bg-card); }
 .account-panel .account-name { font-size: 12px; font-weight: 600; color: var(--text-primary); }
 .account-panel .account-role-text { font-size: 10px; color: var(--text-muted); }
 .account-panel .account-actions { display: flex; gap: 8px; align-items: center; margin-top: 8px; padding-top: 8px; border-top: 1px solid rgba(148,163,184,0.06); }
@@ -2288,7 +2288,7 @@ body.wall-mode .solar-grid { grid-auto-rows: 1fr; }
 }
 .ricker-live-tag {
   font-size: 8px; padding: 2px 6px; border-radius: 3px;
-  background: rgba(16,212,120,0.18); color: #10D478;
+  background: rgba(138,148,158,0.18); color: #8A949E;
   font-weight: 700; letter-spacing: 0.5px;
 }
 .ricker-strip-mount { padding: 14px 16px; background: rgba(11,16,32,0.55); border: 1px solid rgba(148,163,184,0.10); border-radius: 12px; }
@@ -2306,7 +2306,7 @@ body.wall-mode .solar-grid { grid-auto-rows: 1fr; }
   background: #6B7280;
 }
 .ricker-pearl:hover { transform: scale(1.12); box-shadow: 0 0 0 4px rgba(6,182,212,0.18); z-index: 2; }
-.ricker-pearl[data-status="good"]    { background: #10D478; }
+.ricker-pearl[data-status="good"]    { background: #8A949E; }
 .ricker-pearl[data-status="warn"]    { background: #FBBF24; color: #1a1f2e; }
 .ricker-pearl[data-status="bad"]     { background: #EF4444; }
 .ricker-pearl[data-status="offline"] { background: #6B7280; color: #cbd5e1; }
@@ -2339,7 +2339,7 @@ body.wall-mode .solar-grid { grid-auto-rows: 1fr; }
 
 /* Connector line between pearls — color = worst-of-two endpoints */
 .ricker-connector { height: 2px; flex: 1; min-width: 24px; background: rgba(148,163,184,0.25); margin: 0 -4px; align-self: center; position: relative; top: -8px; }
-.ricker-connector[data-worst="good"]    { background: #10D478; }
+.ricker-connector[data-worst="good"]    { background: #8A949E; }
 .ricker-connector[data-worst="warn"]    { background: #FBBF24; }
 .ricker-connector[data-worst="bad"]     { background: #EF4444; }
 .ricker-connector[data-worst="offline"] { background: rgba(107,114,128,0.4); }
@@ -2369,7 +2369,7 @@ body.wall-mode .solar-grid { grid-auto-rows: 1fr; }
   background: rgba(148,163,184,0.04); border: 1px solid rgba(148,163,184,0.12);
   transition: border-color 0.3s, background 0.3s;
 }
-.ricker-tower[data-header="good"] { border-color: rgba(16,212,120,0.35); background: rgba(16,212,120,0.04); }
+.ricker-tower[data-header="good"] { border-color: rgba(138,148,158,0.35); background: rgba(138,148,158,0.04); }
 .ricker-tower[data-header="warn"] { border-color: rgba(251,191,36,0.40); background: rgba(251,191,36,0.04); }
 .ricker-tower[data-header="bad"]  { border-color: rgba(239,68,68,0.45);  background: rgba(239,68,68,0.05); }
 /* Simulated peer towers get dashed border + SIM badge + slight desaturation */
@@ -2393,7 +2393,7 @@ body.wall-mode .solar-grid { grid-auto-rows: 1fr; }
   font-size: 9px; padding: 2px 8px; border-radius: 10px;
   font-weight: 700; letter-spacing: 0.6px;
 }
-.ricker-tower-roll[data-status="good"] { background: rgba(16,212,120,0.18); color: #10D478; }
+.ricker-tower-roll[data-status="good"] { background: rgba(138,148,158,0.18); color: #8A949E; }
 .ricker-tower-roll[data-status="warn"] { background: rgba(251,191,36,0.18); color: #FBBF24; }
 .ricker-tower-roll[data-status="bad"]  { background: rgba(239,68,68,0.22);  color: #EF4444; }
 
@@ -2410,7 +2410,7 @@ body.wall-mode .solar-grid { grid-auto-rows: 1fr; }
   display: inline-flex; align-items: center; justify-content: center;
   font-size: 9px; font-weight: 800; color: #fff;
 }
-.ricker-legend-dot[data-status="good"]    { background: #10D478; }
+.ricker-legend-dot[data-status="good"]    { background: #8A949E; }
 .ricker-legend-dot[data-status="warn"]    { background: #FBBF24; color: #1a1f2e; }
 .ricker-legend-dot[data-status="bad"]     { background: #EF4444; }
 .ricker-legend-dot[data-status="offline"] { background: #6B7280; }
@@ -2602,7 +2602,7 @@ body.wall-mode #stale-data-banner { left: 0 !important; top: 0 !important; }
 
 
 /* ── Wave 2: AI Prediction Hero ── */
-.ai-hero { background: linear-gradient(135deg, rgba(14,165,233,0.08), rgba(16,212,120,0.04)); border: 1px solid rgba(14,165,233,0.2); border-radius: 12px; padding: 20px; margin-top: 12px; position: relative; overflow: hidden; }
+.ai-hero { background: linear-gradient(135deg, rgba(14,165,233,0.08), rgba(138,148,158,0.04)); border: 1px solid rgba(14,165,233,0.2); border-radius: 12px; padding: 20px; margin-top: 12px; position: relative; overflow: hidden; }
 .ai-hero-title { font-size: 10px; font-weight: 700; color: var(--accent); letter-spacing: 1.2px; text-transform: uppercase; margin-bottom: 12px; display: flex; align-items: center; gap: 8px; }
 .ai-hero-pulse { width: 8px; height: 8px; border-radius: 50%; background: var(--accent); animation: aiPulse 2s ease-in-out infinite; }
 @keyframes aiPulse { 0%,100% { opacity: 0.5; box-shadow: 0 0 0 0 rgba(14,165,233,0.4); } 50% { opacity: 1; box-shadow: 0 0 0 8px rgba(14,165,233,0); } }
@@ -2612,7 +2612,7 @@ body.wall-mode #stale-data-banner { left: 0 !important; top: 0 !important; }
 .ai-conf-bar { flex: 1; height: 6px; background: rgba(255,255,255,0.06); border-radius: 3px; overflow: hidden; }
 .ai-conf-fill { height: 100%; border-radius: 3px; transition: width 1s ease-out; }
 .ai-conf-label { font-size: 11px; font-family: var(--font-mono); color: var(--text-muted); min-width: 40px; }
-.ai-hero-safe { border-color: rgba(16,212,120,0.2); background: linear-gradient(135deg, rgba(16,212,120,0.06), rgba(14,165,233,0.03)); }
+.ai-hero-safe { border-color: rgba(138,148,158,0.2); background: linear-gradient(135deg, rgba(138,148,158,0.06), rgba(14,165,233,0.03)); }
 .ai-hero-warn { border-color: rgba(251,191,36,0.3); background: linear-gradient(135deg, rgba(251,191,36,0.08), rgba(239,68,68,0.03)); }
 .ai-hero-action { margin-top: 12px; padding: 8px 12px; background: rgba(14,165,233,0.1); border: 1px solid rgba(14,165,233,0.2); border-radius: 8px; font-size: 11px; color: var(--accent); cursor: pointer; display: inline-block; }
 
@@ -2621,7 +2621,7 @@ body.wall-mode #stale-data-banner { left: 0 !important; top: 0 !important; }
 .fp-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
 .fp-tag { font-size: 11px; font-weight: 700; color: var(--accent); font-family: var(--font-mono); }
 .fp-mode { font-size: 9px; padding: 2px 6px; border-radius: 4px; font-weight: 600; }
-.fp-mode-auto { background: rgba(16,212,120,0.12); color: #10D478; }
+.fp-mode-auto { background: rgba(138,148,158,0.12); color: #8A949E; }
 .fp-mode-manual { background: rgba(251,191,36,0.12); color: #FBBF24; }
 .fp-body { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; }
 .fp-field { text-align: center; }
@@ -2650,7 +2650,7 @@ body.wall-mode #stale-data-banner { left: 0 !important; top: 0 !important; }
 .site-stat-val { font-size: 18px; font-weight: 700; color: var(--text-primary); font-family: var(--font-mono); }
 .site-stat-label { font-size: 9px; color: var(--text-faint); letter-spacing: 0.5px; }
 .site-status-dot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; margin-right: 6px; }
-.site-status-dot.online { background: #10D478; }
+.site-status-dot.online { background: #8A949E; }
 .site-status-dot.offline { background: #4A5168; }
 
 /* ── Wave 2: Cross-Variable Correlation ── */
@@ -2844,7 +2844,7 @@ body.wall-mode #stale-data-banner { left: 0 !important; top: 0 !important; }
   display: flex; align-items: center; gap: 4px;
 }
 .time-since-abnormal .tsa-dot {
-  width: 6px; height: 6px; border-radius: 50%; background: #10D478;
+  width: 6px; height: 6px; border-radius: 50%; background: #8A949E;
 }
 .time-since-abnormal.has-abnormal .tsa-dot { background: #EF4444; }
 
@@ -2929,7 +2929,7 @@ body.wall-mode #stale-data-banner { left: 0 !important; top: 0 !important; }
   animation: trafficPulse 2s infinite;
 }
 @keyframes trafficPulse { 0%,100%{opacity:0.3;} 50%{opacity:1;} }
-.traffic-low { background: #10D478; }
+.traffic-low { background: #8A949E; }
 .traffic-med { background: #FBBF24; }
 .traffic-high { background: #EF4444; }
 
@@ -3235,7 +3235,7 @@ body.light-theme .theme-switch .ts-sun { stroke:#F59E0B; }
 .change-type-config { background: rgba(96,165,250,0.12); color: #60A5FA; }
 .change-type-firmware { background: rgba(167,139,250,0.12); color: #A78BFA; }
 .change-type-setpoint { background: rgba(251,191,36,0.12); color: #FBBF24; }
-.change-type-network { background: rgba(16,212,120,0.12); color: #10D478; }
+.change-type-network { background: rgba(138,148,158,0.12); color: #8A949E; }
 
 
 /* ── Performance: GPU Acceleration Hints ── */
@@ -3272,7 +3272,7 @@ body.light-theme .theme-switch .ts-sun { stroke:#F59E0B; }
   border: 1px solid rgba(148,163,184,0.15); background: rgba(148,163,184,0.06);
   color: var(--text-muted); transition: all 0.15s;
 }
-.fp-sp-btn.confirm { background: rgba(16,212,120,0.12); border-color: rgba(16,212,120,0.3); color: #10D478; }
+.fp-sp-btn.confirm { background: rgba(138,148,158,0.12); border-color: rgba(138,148,158,0.3); color: #8A949E; }
 .fp-sp-btn.cancel { background: rgba(239,68,68,0.08); border-color: rgba(239,68,68,0.2); color: #EF4444; }
 
 /* ── Stretch: Analog Bar EU Labels ── */
@@ -3298,7 +3298,7 @@ body.light-theme .theme-switch .ts-sun { stroke:#F59E0B; }
   padding: 2px 7px; border-radius: 4px; font-size: 9px; font-weight: 600;
   font-family: var(--font-mono);
 }
-.conduit-risk-low { background: rgba(16,212,120,0.08); color: #10D478; }
+.conduit-risk-low { background: rgba(138,148,158,0.08); color: #8A949E; }
 .conduit-risk-med { background: rgba(251,191,36,0.08); color: #FBBF24; }
 .conduit-risk-high { background: rgba(239,68,68,0.08); color: #EF4444; }
 .conduit-card {
@@ -3573,10 +3573,10 @@ body.map-active .main > div:first-child { display: none !important; }
   font-size:11px;font-family:var(--font-mono);font-weight:600;margin-left:12px;
 }
 .alarm-rate-badge.exceed { background:rgba(239,68,68,0.1);color:#EF4444;border:1px solid rgba(239,68,68,0.2); }
-.alarm-rate-badge.normal { background:rgba(16,212,120,0.08);color:#10D478;border:1px solid rgba(16,212,120,0.15); }
+.alarm-rate-badge.normal { background:rgba(138,148,158,0.08);color:#8A949E;border:1px solid rgba(138,148,158,0.15); }
 
 /* ── Overview Audit: Staleness coloring ── */
-.stale-fresh { color: #10D478; }
+.stale-fresh { color: #8A949E; }
 .stale-aging { color: #FBBF24; }
 .stale-old { color: #EF4444; }
 
@@ -3758,21 +3758,21 @@ body.map-active .main > div:first-child { display: none !important; }
     .ov-kpi-card .kpi-label { font-size:10px; text-transform:uppercase; letter-spacing:0.8px; color:var(--text-muted); margin-bottom:4px; }
     .ov-kpi-card .kpi-value { font-size:28px; font-weight:700; color:var(--text-primary); font-family:var(--font-mono); line-height:1.1; }
     .ov-kpi-card .kpi-delta { font-size:11px; font-weight:600; margin-top:4px; }
-    .ov-kpi-card .kpi-delta.up { color:#10D478; }
+    .ov-kpi-card .kpi-delta.up { color:#8A949E; }
     .ov-kpi-card .kpi-delta.down { color:#EF4444; }
     .ov-kpi-card .kpi-delta.flat { color:var(--text-muted); }
     /* WCAG AAA: Safety-critical text enhanced contrast */
 
     /* Color-blind accessibility: secondary shape encoding */
     .status-shape { display:inline-block; width:10px; height:10px; margin-right:4px; vertical-align:middle; }
-    .status-shape-good::before { content:'✓'; color:#10D478; font-size:10px; font-weight:700; }
+    .status-shape-good::before { content:'✓'; color:#8A949E; font-size:10px; font-weight:700; }
     .status-shape-warn::before { content:'△'; color:#FBBF24; font-size:10px; font-weight:700; }
     .status-shape-crit::before { content:'◼'; color:#EF4444; font-size:8px; font-weight:700; }
     .status-shape-offline::before { content:'—'; color:#64748B; font-size:10px; font-weight:700; }
     /* Situation banner shapes */
     .sit-status::before { margin-right:6px; font-size:12px; }
     .abnormal .sit-status::before { content:'⬥ '; color:#EF4444; }
-    .normal .sit-status::before { content:'✓ '; color:#10D478; }
+    .normal .sit-status::before { content:'✓ '; color:#8A949E; }
 
     .safety-critical { color: #EF4444 !important; } /* 5.5:1 on #0F172A */
     .safety-warning { color: #FCD34D !important; } /* 11:1 on #0F172A */
@@ -3781,7 +3781,7 @@ body.map-active .main > div:first-child { display: none !important; }
     .alarm-text-warning { color: #FDE68A; font-weight: 600; } /* 12.5:1 */
 
     .ov-kpi-card .kpi-spark { position:absolute; bottom:0; left:0; right:0; height:32px; opacity:0.4; }
-    .ov-sustain-card { border-color: rgba(16,212,120,0.15); background: linear-gradient(135deg, rgba(16,212,120,0.04), var(--bg-card)); }
+    .ov-sustain-card { border-color: rgba(138,148,158,0.15); background: linear-gradient(135deg, rgba(138,148,158,0.04), var(--bg-card)); }
     
     /* Progressive disclosure — collapsible panels */
     .panel-collapse { cursor:pointer; user-select:none; }
@@ -3889,10 +3889,10 @@ body.map-active .main > div:first-child { display: none !important; }
     .ov-asset-tile .at-spark { width:60px; height:16px; }
 
     .ov-situation { display:flex; align-items:center; gap:12px; padding:10px 16px; border-radius:10px; margin-bottom:12px; font-size:11px; font-family:var(--font-body); }
-    .ov-situation.normal { background:rgba(16,212,120,0.06); border:1px solid rgba(16,212,120,0.15); }
+    .ov-situation.normal { background:rgba(138,148,158,0.06); border:1px solid rgba(138,148,158,0.15); }
     .ov-situation.abnormal { background:rgba(239,68,68,0.08); border:1px solid rgba(239,68,68,0.25); animation:situationPulse 2s ease-in-out infinite; }
     .ov-situation .sit-status { font-family:var(--font-mono); font-weight:600; letter-spacing:1.5px; text-transform:uppercase; font-size:11px; }
-    .ov-situation.normal .sit-status { color:#10D478; }
+    .ov-situation.normal .sit-status { color:#8A949E; }
     .ov-situation.abnormal .sit-status { color:#EF4444; }
     .ov-situation .sit-meta { color:rgba(148,163,184,0.5); font-size:10px; font-family:var(--font-mono); font-weight:400; display:flex; gap:16px; margin-left:auto; letter-spacing:0.3px; }
 
@@ -3988,14 +3988,14 @@ body.map-active .main > div:first-child { display: none !important; }
 /* Stable hero tile heights — subtitle text varies in length (e.g. 'check
    radio power + antenna' vs 'sub-10ms edge response') and was pushing
    neighboring tiles taller on data arrival. */
-.rf-hero-tile[data-status="good"] { background:rgba(16,212,120,0.06); border-color:rgba(16,212,120,0.25); }
+.rf-hero-tile[data-status="good"] { background:rgba(138,148,158,0.06); border-color:rgba(138,148,158,0.25); }
 .rf-hero-tile[data-status="warn"] { background:rgba(251,191,36,0.06); border-color:rgba(251,191,36,0.30); }
 .rf-hero-tile[data-status="bad"]  { background:rgba(239,68,68,0.08);  border-color:rgba(239,68,68,0.35);  animation:rfHeroPulse 2s ease-in-out infinite; }
 @keyframes rfHeroPulse { 0%,100% { box-shadow:0 0 0 rgba(239,68,68,0); } 50% { box-shadow:0 0 12px rgba(239,68,68,0.25); } }
 .rf-hero-label { font-size:9px; font-weight:700; letter-spacing:1.2px; text-transform:uppercase; color:var(--text-muted); display:flex; align-items:center; gap:6px; }
 .rf-hero-tag { font-size:7px; padding:1px 5px; border-radius:3px; background:rgba(155,112,246,0.15); color:#9B70F6; font-weight:700; letter-spacing:0.5px; }
 .rf-hero-value { font-size:30px; font-weight:800; font-family:'JetBrains Mono',monospace; color:#E2E8F0; line-height:1.1; margin-top:4px; }
-.rf-hero-tile[data-status="good"] .rf-hero-value { color:#10D478; }
+.rf-hero-tile[data-status="good"] .rf-hero-value { color:#8A949E; }
 .rf-hero-tile[data-status="warn"] .rf-hero-value { color:#FBBF24; }
 .rf-hero-tile[data-status="bad"]  .rf-hero-value { color:#EF4444; }
 .rf-hero-unit  { font-size:14px; font-weight:600; color:var(--text-muted); margin-left:4px; }
@@ -4009,14 +4009,14 @@ body.wall-mode .rf-hero-label { font-size:11px; }
 .rf-detail-grid { display:grid; grid-template-columns:repeat(2,1fr); gap:10px; margin:14px 0 10px; }
 @media (max-width:900px) { .rf-detail-grid { grid-template-columns:1fr; } }
 .rf-detail-card { padding:12px 14px; border-radius:10px; background:rgba(148,163,184,0.04); border:1px solid rgba(148,163,184,0.10); transition:background 0.3s,border 0.3s; min-height:280px; }
-.rf-detail-card[data-status="good"] { background:rgba(16,212,120,0.05); border-color:rgba(16,212,120,0.22); }
+.rf-detail-card[data-status="good"] { background:rgba(138,148,158,0.05); border-color:rgba(138,148,158,0.22); }
 .rf-detail-card[data-status="warn"] { background:rgba(251,191,36,0.05); border-color:rgba(251,191,36,0.28); }
 .rf-detail-card[data-status="bad"]  { background:rgba(239,68,68,0.06); border-color:rgba(239,68,68,0.32); }
 .rf-detail-head { display:flex; flex-direction:column; gap:4px; padding-bottom:8px; border-bottom:1px solid rgba(148,163,184,0.10); margin-bottom:10px; }
 .rf-detail-id { display:flex; align-items:center; gap:8px; flex-wrap:wrap; }
 .rf-detail-asset { font-family:'JetBrains Mono',monospace; font-size:18px; font-weight:800; color:#E2E8F0; letter-spacing:1px; }
 .rf-detail-pill { font-size:9px; font-weight:700; letter-spacing:1px; padding:2px 8px; border-radius:10px; background:rgba(148,163,184,0.10); color:#7B8499; text-transform:uppercase; }
-.rf-detail-card[data-status="good"] .rf-detail-pill { background:rgba(16,212,120,0.18); color:#10D478; }
+.rf-detail-card[data-status="good"] .rf-detail-pill { background:rgba(138,148,158,0.18); color:#8A949E; }
 .rf-detail-card[data-status="warn"] .rf-detail-pill { background:rgba(251,191,36,0.18); color:#FBBF24; }
 .rf-detail-card[data-status="bad"]  .rf-detail-pill { background:rgba(239,68,68,0.22); color:#EF4444; }
 .rf-detail-chatter { font-size:9px; font-weight:800; letter-spacing:0.5px; padding:2px 8px; border-radius:10px; background:rgba(239,68,68,0.22); color:#EF4444; animation:rfHeroPulse 1.5s ease-in-out infinite; }
@@ -4032,17 +4032,17 @@ body.wall-mode .rf-hero-label { font-size:11px; }
 .rf-vit { background:rgba(11,16,32,0.45); border:1px solid rgba(148,163,184,0.08); border-radius:6px; padding:6px 8px; display:flex; flex-direction:column; gap:2px; }
 .rf-vit-k { font-size:8px; font-weight:700; letter-spacing:0.8px; color:var(--text-muted); }
 .rf-vit-v { font-family:'JetBrains Mono',monospace; font-size:13px; font-weight:700; color:#E2E8F0; }
-.rf-vit-v[data-status="good"] { color:#10D478; }
+.rf-vit-v[data-status="good"] { color:#8A949E; }
 .rf-vit-v[data-status="warn"] { color:#FBBF24; }
 .rf-vit-v[data-status="bad"]  { color:#EF4444; }
 .rf-detail-errs { display:grid; grid-template-columns:repeat(3,1fr); gap:6px; margin-bottom:6px; }
 .rf-err { background:rgba(11,16,32,0.45); border:1px solid rgba(148,163,184,0.08); border-radius:6px; padding:5px 8px; display:flex; justify-content:space-between; align-items:center; }
 .rf-err-k { font-size:9px; font-weight:700; letter-spacing:0.6px; color:var(--text-muted); }
-.rf-err-v { font-family:'JetBrains Mono',monospace; font-size:13px; font-weight:700; color:#10D478; }
+.rf-err-v { font-family:'JetBrains Mono',monospace; font-size:13px; font-weight:700; color:#8A949E; }
 .rf-err-v[data-warn="1"] { color:#FBBF24; }
 .rf-err-v[data-bad="1"]  { color:#EF4444; }
 .rf-detail-alarms { display:flex; flex-direction:column; gap:4px; height:56px; overflow-y:auto; }
-.rf-alarm-empty { font-size:10px; color:#10D478; padding:4px 0; }
+.rf-alarm-empty { font-size:10px; color:#8A949E; padding:4px 0; }
 .rf-alarm-row { display:flex; gap:8px; align-items:flex-start; font-size:10px; padding:3px 6px; background:rgba(11,16,32,0.45); border-radius:4px; }
 .rf-alarm-sev { font-weight:800; letter-spacing:0.6px; min-width:54px; }
 .rf-alarm-sev[data-sev="critical"] { color:#EF4444; }
@@ -4056,12 +4056,12 @@ body.wall-mode .rf-hero-label { font-size:11px; }
 .net-kpi-row { display:grid; grid-template-columns:repeat(4,1fr); gap:10px; margin-bottom:14px; }
 @media (max-width:760px) { .net-kpi-row { grid-template-columns:repeat(2,1fr); } }
 .net-kpi { padding:14px 18px; border-radius:10px; background:rgba(148,163,184,0.04); border:1px solid rgba(148,163,184,0.10); transition:background 0.3s,border 0.3s; }
-.net-kpi[data-status="good"] { background:rgba(16,212,120,0.05); border-color:rgba(16,212,120,0.20); }
+.net-kpi[data-status="good"] { background:rgba(138,148,158,0.05); border-color:rgba(138,148,158,0.20); }
 .net-kpi[data-status="warn"] { background:rgba(251,191,36,0.05); border-color:rgba(251,191,36,0.25); }
 .net-kpi[data-status="bad"]  { background:rgba(239,68,68,0.07);  border-color:rgba(239,68,68,0.30); }
 .net-kpi-label { font-size:9px; font-weight:700; letter-spacing:1.2px; text-transform:uppercase; color:var(--text-muted); }
 .net-kpi-value { font-size:26px; font-weight:800; font-family:'JetBrains Mono',monospace; color:#E2E8F0; line-height:1.1; margin-top:4px; }
-.net-kpi[data-status="good"] .net-kpi-value { color:#10D478; }
+.net-kpi[data-status="good"] .net-kpi-value { color:#8A949E; }
 .net-kpi[data-status="warn"] .net-kpi-value { color:#FBBF24; }
 .net-kpi[data-status="bad"]  .net-kpi-value { color:#EF4444; }
 .net-kpi-sub { font-size:9px; color:var(--text-faint); margin-top:6px; }
@@ -4073,7 +4073,7 @@ body.wall-mode .rf-hero-label { font-size:11px; }
 .net-device-name { font-size:14px; font-weight:700; color:#E2E8F0; }
 .net-device-meta { font-size:10px; color:var(--text-muted); margin-top:2px; }
 .net-device-pill { font-size:10px; font-weight:700; padding:4px 10px; border-radius:12px; letter-spacing:0.5px; }
-.net-device-pill[data-status="good"] { background:rgba(16,212,120,0.15); color:#10D478; }
+.net-device-pill[data-status="good"] { background:rgba(138,148,158,0.15); color:#8A949E; }
 .net-device-pill[data-status="warn"] { background:rgba(251,191,36,0.15); color:#FBBF24; }
 .net-device-pill[data-status="bad"]  { background:rgba(239,68,68,0.15);  color:#EF4444; }
 
@@ -4093,14 +4093,14 @@ body.wall-mode .rf-hero-label { font-size:11px; }
 @media (max-width:600px) { .net-port-grid-24 { grid-template-columns:repeat(6,1fr); } }
 .net-port { padding:8px 4px; border-radius:5px; text-align:center; cursor:pointer; transition:transform 0.15s, box-shadow 0.15s; border:1px solid transparent; position:relative; }
 .net-port:hover { transform:translateY(-1px); box-shadow:0 2px 8px rgba(0,0,0,0.3); }
-.net-port[data-state="up"]   { background:rgba(16,212,120,0.10); border-color:rgba(16,212,120,0.30); }
+.net-port[data-state="up"]   { background:rgba(138,148,158,0.10); border-color:rgba(138,148,158,0.30); }
 .net-port[data-state="down"] { background:rgba(148,163,184,0.06); border-color:rgba(148,163,184,0.12); opacity:0.55; }
 .net-port[data-state="err"]  { background:rgba(239,68,68,0.10); border-color:rgba(239,68,68,0.40); animation:netPortPulse 2s ease-in-out infinite; }
 @keyframes netPortPulse { 0%,100% { box-shadow:0 0 0 rgba(239,68,68,0); } 50% { box-shadow:0 0 6px rgba(239,68,68,0.4); } }
 .net-port-label { font-size:9px; font-weight:700; font-family:monospace; color:#E2E8F0; }
 .net-port[data-state="down"] .net-port-label { color:var(--text-faint); }
 .net-port-rate { font-size:8px; color:var(--text-muted); margin-top:2px; font-family:monospace; }
-.net-port[data-state="up"] .net-port-rate { color:#10D478; }
+.net-port[data-state="up"] .net-port-rate { color:#8A949E; }
 .net-port[data-state="err"] .net-port-rate { color:#EF4444; }
 
 /* ── Network Diagnostic Console (Task #163) ──────────────────────────
@@ -4111,7 +4111,7 @@ body.wall-mode .rf-hero-label { font-size:11px; }
 .net-diag-header { display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:14px; }
 .net-diag-title { font-size:14px; font-weight:700; color:#E2E8F0; }
 .net-diag-subtitle { font-size:10px; color:var(--text-muted); margin-top:2px; }
-.net-diag-status { font-size:10px; font-weight:700; padding:4px 10px; border-radius:12px; letter-spacing:0.5px; background:rgba(16,212,120,0.10); color:#10D478; display:flex; align-items:center; gap:6px; }
+.net-diag-status { font-size:10px; font-weight:700; padding:4px 10px; border-radius:12px; letter-spacing:0.5px; background:rgba(138,148,158,0.10); color:#8A949E; display:flex; align-items:center; gap:6px; }
 .net-diag-status[data-state="busy"] { background:rgba(251,191,36,0.10); color:#FBBF24; }
 .net-diag-status[data-state="error"] { background:rgba(239,68,68,0.10); color:#EF4444; }
 .net-diag-status-dot { width:6px; height:6px; border-radius:50%; background:currentColor; }
@@ -4146,7 +4146,7 @@ body.wall-mode .rf-hero-label { font-size:11px; }
 .net-diag-clear-btn:hover { color:#E2E8F0; border-color:rgba(148,163,184,0.35); }
 .net-diag-output { flex:1; margin:0; padding:12px 14px; font-family:'JetBrains Mono','SF Mono',Consolas,monospace; font-size:11px; line-height:1.55; color:#E2E8F0; overflow-y:auto; overflow-x:auto; white-space:pre; }
 .net-diag-out-dim { color:#7B8499; }
-.net-diag-out-good { color:#10D478; }
+.net-diag-out-good { color:#8A949E; }
 .net-diag-out-warn { color:#FBBF24; }
 .net-diag-out-bad { color:#EF4444; }
 .net-diag-out-hdr { color:#00D4FF; font-weight:700; }
@@ -4221,7 +4221,7 @@ body.wall-mode .rf-hero-label { font-size:11px; }
 .rf-diag-result { display:none; padding:0 16px 12px; animation:fadeSlide 0.25s ease; }
 .rf-diag-result.open { display:block; }
 .rf-diag-output { background:rgba(15,23,42,0.6); border:1px solid rgba(148,163,184,0.08); border-radius:8px; padding:12px 16px; font-family:var(--font-mono); font-size:11px; color:#E2E8F0; line-height:1.8; max-height:200px; overflow-y:auto; }
-.rf-diag-output .pass { color:#10D478; }
+.rf-diag-output .pass { color:#8A949E; }
 .rf-diag-output .warn { color:#FBBF24; }
 .rf-diag-output .fail { color:#EF4444; }
 .rf-diag-output .dim { color:#7B8499; }
@@ -4403,10 +4403,10 @@ body.wall-mode .cmd-status { padding:6px 24px 8px; font-size:11px; }
       .mobile-l1 { display:block; }
       .mobile-l1-hide { display:none !important; }
       .ml1-status-pill { display:flex; align-items:center; gap:8px; padding:10px 14px; border-radius:10px; margin-bottom:10px; }
-      .ml1-status-pill.normal { background:rgba(16,212,120,0.08); border:1px solid rgba(16,212,120,0.15); }
+      .ml1-status-pill.normal { background:rgba(138,148,158,0.08); border:1px solid rgba(138,148,158,0.15); }
       .ml1-status-pill.abnormal { background:rgba(239,68,68,0.08); border:1px solid rgba(239,68,68,0.2); }
       .ml1-status-pill .pill-label { font-size:13px; font-weight:700; letter-spacing:0.5px; }
-      .ml1-status-pill.normal .pill-label { color:#10D478; }
+      .ml1-status-pill.normal .pill-label { color:#8A949E; }
       .ml1-status-pill.abnormal .pill-label { color:#EF4444; }
       .ml1-status-pill .pill-meta { margin-left:auto; font-size:10px; color:var(--text-muted); }
 
@@ -4513,7 +4513,7 @@ body.wall-mode .cmd-status { padding:6px 24px 8px; font-size:11px; }
 .impact-tier-safety:hover { background:rgba(59,130,246,0.06); }
 .impact-tier-financial { padding:14px 16px;display:flex;align-items:center;gap:16px; }
 .impact-tier-technical { padding:14px 16px;display:flex;align-items:center;gap:16px; }
-.impact-tier-action { padding:18px 16px;border-left:3px solid #22c55e;background:rgba(34,197,94,0.04);display:flex;align-items:flex-start;gap:10px; }
+.impact-tier-action { padding:18px 16px;border-left:3px solid #22c55e;background:rgba(138,148,158,0.04);display:flex;align-items:flex-start;gap:10px; }
 .impact-label { font-size:9px;font-weight:700;letter-spacing:1px;text-transform:uppercase;min-width:60px; }
 .impact-label-safety { color:#60a5fa;margin-bottom:4px; }
 .impact-label-financial { color:var(--text-muted); }
@@ -4527,7 +4527,7 @@ body.wall-mode .cmd-status { padding:6px 24px 8px; font-size:11px; }
 .impact-cta-btn:hover { opacity:0.8; }
 .impact-cta-btn-primary { background:rgba(96,165,250,0.1);border-color:rgba(96,165,250,0.3);color:#60a5fa; }
 .impact-cta-btn-secondary { background:rgba(167,139,250,0.1);border-color:rgba(167,139,250,0.3);color:#A78BFA; }
-.impact-cta-btn-action { background:rgba(34,197,94,0.1);border-color:rgba(34,197,94,0.3);color:#22c55e; }
+.impact-cta-btn-action { background:rgba(138,148,158,0.1);border-color:rgba(138,148,158,0.3);color:#22c55e; }
 /* Affordance tooltip */
 .impact-tooltip { position:absolute;top:-28px;left:50%;transform:translateX(-50%);background:var(--bg-elevated);color:var(--text-muted);font-size:9px;padding:3px 8px;border-radius:4px;white-space:nowrap;opacity:0;transition:opacity 0.2s;pointer-events:none;border:1px solid var(--border); }
 .impact-tier-safety:hover .impact-tooltip { opacity:1; }
@@ -4586,7 +4586,7 @@ tbody tr:hover { background:rgba(14,165,233,0.03); }
 .skeleton { background:linear-gradient(90deg,var(--bg-card) 25%,rgba(148,163,184,0.08) 50%,var(--bg-card) 75%);background-size:200% 100%;animation:shimmer 1.5s ease-in-out infinite;border-radius:6px; }
 
 /* Status dot pulse */
-@keyframes status-pulse { 0%,100%{box-shadow:0 0 0 0 rgba(34,197,94,0.4);} 50%{box-shadow:0 0 0 4px rgba(34,197,94,0);} }
+@keyframes status-pulse { 0%,100%{box-shadow:0 0 0 0 rgba(138,148,158,0.4);} 50%{box-shadow:0 0 0 4px rgba(138,148,158,0);} }
 .status-online { animation:status-pulse 2s ease-in-out infinite; }
 
 /* Tooltip fade */
@@ -4618,6 +4618,29 @@ html { scroll-behavior:smooth; }
 /* Activity feed item stagger */
 @keyframes feed-in { 0%{opacity:0;transform:translateY(8px);} 100%{opacity:1;transform:translateY(0);} }
 .feed-item-animate { animation:feed-in 0.2s ease-out backwards; }
+
+/* ══════════════════════════════════════════════════════════════════
+   P0 HPHMI RESTYLE OVERRIDES (2026-07-22) — Aevus HMI Restyle Spec v1.0
+   Law 1: Normal is quiet. Motion and glow are reserved for abnormal,
+   degrading, or stale states. Normal-state animation trains the eye
+   to ignore motion — destroying its value when it matters.
+   Abnormal animations intentionally kept: pulse-warn, standingPulse,
+   abnBannerPulse, abnormalPulseMap, healthFlash, stalePulse,
+   rickerPearlPulse (already gated to bad+dwelled).
+   ══════════════════════════════════════════════════════════════════ */
+
+/* Normal-state motion kill-switch. Attribute selectors also neutralize
+   JS-injected inline animations (topology flowPulse, map wxPulse) —
+   stylesheet !important beats inline styles for animation. */
+.topbar-status-dot, .live-dot, .ai-hero-pulse, .traffic-dot,
+.pipe-flow, .iso-flow-particle, .iso-flow-reverse,
+[style*="flowPulse"], [style*="wxPulse"] {
+  animation: none !important;
+}
+
+/* No glow on normal ("good") indicators — glow is salience, salience is
+   for abnormal. Warn/bad glows retained. */
+.health-bar-fill.good { box-shadow: none; background: var(--status-good); }
 
 </style>
 <link rel="stylesheet" href="/dashboard/leaflet.min.css"/>
@@ -4793,7 +4816,7 @@ html { scroll-behavior:smooth; }
             <div class="role-opt-desc">Audit trails, standards, safety documentation</div>
           </div>
           <div class="role-option" data-role="executive" onclick="window._setRole('executive')">
-            <div class="role-opt-name"><span class="role-opt-icon"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#22C55E" stroke-width="1.8"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg></span>Executive</div>
+            <div class="role-opt-name"><span class="role-opt-icon"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#8A949E" stroke-width="1.8"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg></span>Executive</div>
             <div class="role-opt-desc">KPI dashboards, financial impact, strategic view</div>
           </div>
         </div>
@@ -4821,7 +4844,7 @@ html { scroll-behavior:smooth; }
     <span class="modeled-banner-icon" aria-hidden="true">
       <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="10"/><path d="M12 8v4"/><path d="M12 16h.01"/></svg>
     </span>
-    <span class="modeled-banner-text">Modeled digital twin — simulated demo data — not for construction</span>
+    <span class="modeled-banner-text">Demonstration twin — simulated field data — model class: illustrative</span>
     <button type="button" class="modeled-banner-dismiss" aria-label="Dismiss disclosure for this session">×</button>
   </div>
 
@@ -5055,7 +5078,7 @@ html { scroll-behavior:smooth; }
     <span class="modeled-banner-icon" aria-hidden="true">
       <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="10"/><path d="M12 8v4"/><path d="M12 16h.01"/></svg>
     </span>
-    <span class="modeled-banner-text">Modeled digital twin — simulated demo data — not for construction</span>
+    <span class="modeled-banner-text">Demonstration twin — simulated field data — model class: illustrative</span>
     <button type="button" class="modeled-banner-dismiss" aria-label="Dismiss disclosure for this session">×</button>
   </div>
   <div id="map-container" style="width:100%;position:relative;">
@@ -5130,7 +5153,7 @@ html { scroll-behavior:smooth; }
           <text x="60" y="22" text-anchor="middle" fill="#7B8499" font-size="9" font-weight="600" letter-spacing="1">SCADA HOST</text>
           <text x="60" y="40" text-anchor="middle" fill="#00D4FF" font-size="12" font-weight="700" font-family="monospace">EDGE-01</text>
           <text x="60" y="56" text-anchor="middle" fill="#7B8499" font-size="8">Aevus Pi</text>
-          <circle cx="105" cy="14" r="4" fill="#10D478" class="rf-led-pulse"/>
+          <circle cx="105" cy="14" r="4" fill="#8A949E" class="rf-led-pulse"/>
         </g>
 
         <!-- Ethernet: SCADA → RAD-01 -->
@@ -5172,7 +5195,7 @@ html { scroll-behavior:smooth; }
           <text x="65" y="14" fill="#7B8499" font-size="7" font-weight="600" letter-spacing="0.5">QUALITY</text>
           <text x="120" y="14" fill="#7B8499" font-size="7" font-weight="600" letter-spacing="0.5">TX PWR</text>
           <text x="12" y="32" id="rf-r1-rssi" fill="#00D4FF" font-size="15" font-weight="700" font-family="monospace">—</text>
-          <text x="65" y="32" id="rf-r1-qual" fill="#10D478" font-size="15" font-weight="700" font-family="monospace">—</text>
+          <text x="65" y="32" id="rf-r1-qual" fill="#8A949E" font-size="15" font-weight="700" font-family="monospace">—</text>
           <text x="120" y="32" id="rf-r1-txpwr" fill="#E2E8F0" font-size="15" font-weight="700" font-family="monospace">—</text>
           <text x="12" y="43" fill="#7B8499" font-size="7">dBm</text>
           <text x="65" y="43" fill="#7B8499" font-size="7">%</text>
@@ -5186,7 +5209,7 @@ html { scroll-behavior:smooth; }
           <rect x="0" y="0" width="160" height="28" rx="4" fill="rgba(14,165,233,0.03)" stroke="rgba(14,165,233,0.08)" stroke-width="0.5"/>
           <text x="4" y="10" fill="#7B8499" font-size="6" letter-spacing="0.5">24H RSSI</text>
           <polyline id="rf-r1-sparkline" points="" class="rf-spark-line" stroke="#00D4FF"/>
-          <text x="100" y="10" id="rf-r1-trend" fill="#10D478" font-size="7" font-weight="600">● Stable</text>
+          <text x="100" y="10" id="rf-r1-trend" fill="#8A949E" font-size="7" font-weight="600">● Stable</text>
         </g>
         <!-- RAD-01 Phase 2 secondary callout (Task #160): FW/ROLE/STATE row +
              per-direction error split (RF engineer perspective from design v2). -->
@@ -5197,14 +5220,14 @@ html { scroll-behavior:smooth; }
           <text x="115" y="9" fill="#7B8499" font-size="6" font-weight="600" letter-spacing="0.5">STATE</text>
           <text x="6" y="20" id="rf-r1-fw" fill="#E2E8F0" font-size="8" font-weight="600" font-family="monospace">—</text>
           <text x="60" y="20" id="rf-r1-role" fill="#9B70F6" font-size="8" font-weight="700" font-family="monospace">—</text>
-          <text x="115" y="20" id="rf-r1-state" fill="#10D478" font-size="8" font-weight="700" font-family="monospace">—</text>
+          <text x="115" y="20" id="rf-r1-state" fill="#8A949E" font-size="8" font-weight="700" font-family="monospace">—</text>
           <line x1="6" y1="26" x2="154" y2="26" stroke="rgba(148,163,184,0.10)" stroke-width="0.5"/>
           <text x="6" y="35" fill="#7B8499" font-size="6" font-weight="600" letter-spacing="0.5">TX ERR</text>
           <text x="60" y="35" fill="#7B8499" font-size="6" font-weight="600" letter-spacing="0.5">RX ERR</text>
           <text x="115" y="35" fill="#7B8499" font-size="6" font-weight="600" letter-spacing="0.5">DROP</text>
-          <text x="6" y="46" id="rf-r1-txerr" fill="#10D478" font-size="9" font-weight="700" font-family="monospace">—</text>
-          <text x="60" y="46" id="rf-r1-rxerr" fill="#10D478" font-size="9" font-weight="700" font-family="monospace">—</text>
-          <text x="115" y="46" id="rf-r1-drop" fill="#10D478" font-size="9" font-weight="700" font-family="monospace">—</text>
+          <text x="6" y="46" id="rf-r1-txerr" fill="#8A949E" font-size="9" font-weight="700" font-family="monospace">—</text>
+          <text x="60" y="46" id="rf-r1-rxerr" fill="#8A949E" font-size="9" font-weight="700" font-family="monospace">—</text>
+          <text x="115" y="46" id="rf-r1-drop" fill="#8A949E" font-size="9" font-weight="700" font-family="monospace">—</text>
         </g>
 
         <!-- === RF WAVE ZONE === -->
@@ -5240,7 +5263,7 @@ html { scroll-behavior:smooth; }
         <!-- LINK QUALITY BAR — visual indicator between towers -->
         <g transform="translate(460,165)" id="rf-link-quality-bar">
           <rect x="0" y="0" width="280" height="6" rx="3" fill="rgba(148,163,184,0.08)" stroke="rgba(148,163,184,0.06)" stroke-width="0.5"/>
-          <rect x="0" y="0" width="280" height="6" rx="3" fill="#10D478" opacity="0.6" id="rf-quality-fill"/>
+          <rect x="0" y="0" width="280" height="6" rx="3" fill="#8A949E" opacity="0.6" id="rf-quality-fill"/>
           <text x="140" y="-4" text-anchor="middle" fill="#7B8499" font-size="7" font-weight="600" letter-spacing="1" id="rf-quality-label">LINK QUALITY: EXCELLENT</text>
         </g>
 
@@ -5252,9 +5275,9 @@ html { scroll-behavior:smooth; }
           <text x="119" y="14" text-anchor="middle" fill="#7B8499" font-size="7" font-weight="600" letter-spacing="0.5">LATENCY</text>
           <text x="166" y="14" text-anchor="middle" fill="#7B8499" font-size="7" font-weight="600" letter-spacing="0.5">UPTIME</text>
           <text x="25" y="34" text-anchor="middle" id="rf-total-pkts" fill="#E2E8F0" font-size="13" font-weight="700" font-family="monospace">—</text>
-          <text x="72" y="34" text-anchor="middle" id="rf-total-err" fill="#10D478" font-size="13" font-weight="700" font-family="monospace">0</text>
-          <text x="119" y="34" text-anchor="middle" id="rf-latency" fill="#10D478" font-size="13" font-weight="700" font-family="monospace">—</text>
-          <text x="166" y="34" text-anchor="middle" id="rf-uptime" fill="#10D478" font-size="13" font-weight="700" font-family="monospace">—</text>
+          <text x="72" y="34" text-anchor="middle" id="rf-total-err" fill="#8A949E" font-size="13" font-weight="700" font-family="monospace">0</text>
+          <text x="119" y="34" text-anchor="middle" id="rf-latency" fill="#8A949E" font-size="13" font-weight="700" font-family="monospace">—</text>
+          <text x="166" y="34" text-anchor="middle" id="rf-uptime" fill="#8A949E" font-size="13" font-weight="700" font-family="monospace">—</text>
         </g>
 
         <!-- === RAD-02 TOWER === -->
@@ -5284,7 +5307,7 @@ html { scroll-behavior:smooth; }
           <text x="65" y="14" fill="#7B8499" font-size="7" font-weight="600" letter-spacing="0.5">QUALITY</text>
           <text x="120" y="14" fill="#7B8499" font-size="7" font-weight="600" letter-spacing="0.5">TX PWR</text>
           <text x="12" y="32" id="rf-r2-rssi" fill="#9B70F6" font-size="15" font-weight="700" font-family="monospace">—</text>
-          <text x="65" y="32" id="rf-r2-qual" fill="#10D478" font-size="15" font-weight="700" font-family="monospace">—</text>
+          <text x="65" y="32" id="rf-r2-qual" fill="#8A949E" font-size="15" font-weight="700" font-family="monospace">—</text>
           <text x="120" y="32" id="rf-r2-txpwr" fill="#E2E8F0" font-size="15" font-weight="700" font-family="monospace">—</text>
           <text x="12" y="43" fill="#7B8499" font-size="7">dBm</text>
           <text x="65" y="43" fill="#7B8499" font-size="7">%</text>
@@ -5298,7 +5321,7 @@ html { scroll-behavior:smooth; }
           <rect x="0" y="0" width="160" height="28" rx="4" fill="rgba(109,91,208,0.03)" stroke="rgba(109,91,208,0.08)" stroke-width="0.5"/>
           <text x="4" y="10" fill="#7B8499" font-size="6" letter-spacing="0.5">24H RSSI</text>
           <polyline id="rf-r2-sparkline" points="" class="rf-spark-line" stroke="#9B70F6"/>
-          <text x="100" y="10" id="rf-r2-trend" fill="#10D478" font-size="7" font-weight="600">● Stable</text>
+          <text x="100" y="10" id="rf-r2-trend" fill="#8A949E" font-size="7" font-weight="600">● Stable</text>
         </g>
         <!-- RAD-02 Phase 2 secondary callout (Task #160) -->
         <g id="rf-r2-secondary" transform="translate(790,355)">
@@ -5308,14 +5331,14 @@ html { scroll-behavior:smooth; }
           <text x="115" y="9" fill="#7B8499" font-size="6" font-weight="600" letter-spacing="0.5">STATE</text>
           <text x="6" y="20" id="rf-r2-fw" fill="#E2E8F0" font-size="8" font-weight="600" font-family="monospace">—</text>
           <text x="60" y="20" id="rf-r2-role" fill="#9B70F6" font-size="8" font-weight="700" font-family="monospace">—</text>
-          <text x="115" y="20" id="rf-r2-state" fill="#10D478" font-size="8" font-weight="700" font-family="monospace">—</text>
+          <text x="115" y="20" id="rf-r2-state" fill="#8A949E" font-size="8" font-weight="700" font-family="monospace">—</text>
           <line x1="6" y1="26" x2="154" y2="26" stroke="rgba(148,163,184,0.10)" stroke-width="0.5"/>
           <text x="6" y="35" fill="#7B8499" font-size="6" font-weight="600" letter-spacing="0.5">TX ERR</text>
           <text x="60" y="35" fill="#7B8499" font-size="6" font-weight="600" letter-spacing="0.5">RX ERR</text>
           <text x="115" y="35" fill="#7B8499" font-size="6" font-weight="600" letter-spacing="0.5">DROP</text>
-          <text x="6" y="46" id="rf-r2-txerr" fill="#10D478" font-size="9" font-weight="700" font-family="monospace">—</text>
-          <text x="60" y="46" id="rf-r2-rxerr" fill="#10D478" font-size="9" font-weight="700" font-family="monospace">—</text>
-          <text x="115" y="46" id="rf-r2-drop" fill="#10D478" font-size="9" font-weight="700" font-family="monospace">—</text>
+          <text x="6" y="46" id="rf-r2-txerr" fill="#8A949E" font-size="9" font-weight="700" font-family="monospace">—</text>
+          <text x="60" y="46" id="rf-r2-rxerr" fill="#8A949E" font-size="9" font-weight="700" font-family="monospace">—</text>
+          <text x="115" y="46" id="rf-r2-drop" fill="#8A949E" font-size="9" font-weight="700" font-family="monospace">—</text>
         </g>
 
         <!-- === RIGHT: FIELD DEVICES (stacked — RTU-01 + EFM-01) ===
@@ -5344,7 +5367,7 @@ html { scroll-behavior:smooth; }
           <text x="60" y="22" text-anchor="middle" fill="#7B8499" font-size="9" font-weight="600" letter-spacing="1">FIELD RTU</text>
           <text x="60" y="40" text-anchor="middle" fill="#9B70F6" font-size="12" font-weight="700" font-family="monospace">RTU-01</text>
           <text x="60" y="56" text-anchor="middle" fill="#7B8499" font-size="8">SCADAPack 470</text>
-          <circle cx="105" cy="14" r="4" fill="#10D478" class="rf-led-pulse"/>
+          <circle cx="105" cy="14" r="4" fill="#8A949E" class="rf-led-pulse"/>
         </g>
 
         <!-- EFM-01 TotalFlow XFC — FIELD EFM (bottom) -->
@@ -5354,7 +5377,7 @@ html { scroll-behavior:smooth; }
           <text x="60" y="22" text-anchor="middle" fill="#7B8499" font-size="9" font-weight="600" letter-spacing="1">FIELD EFM</text>
           <text x="60" y="40" text-anchor="middle" fill="#9B70F6" font-size="12" font-weight="700" font-family="monospace">EFM-01</text>
           <text x="60" y="56" text-anchor="middle" fill="#7B8499" font-size="8">TotalFlow XFC</text>
-          <circle cx="105" cy="14" r="4" fill="#10D478" class="rf-led-pulse"/>
+          <circle cx="105" cy="14" r="4" fill="#8A949E" class="rf-led-pulse"/>
         </g>
 
       </svg>
@@ -5493,7 +5516,7 @@ html { scroll-behavior:smooth; }
           </div>
           <div class="rf-trend-chart"><canvas id="rf-trend-quality"></canvas></div>
           <div class="rf-trend-legend">
-            <span><span class="dot" style="background:#10D478;"></span> RAD-01</span>
+            <span><span class="dot" style="background:#8A949E;"></span> RAD-01</span>
             <span><span class="dot" style="background:#FBBF24;"></span> RAD-02</span>
             <span><span class="dot" style="background:rgba(239,68,68,0.4);"></span> Min acceptable (70%)</span>
           </div>
@@ -5521,7 +5544,7 @@ html { scroll-behavior:smooth; }
           <div class="rf-trend-legend">
             <span><span class="dot" style="background:#EF4444;"></span> RAD-01 Temp</span>
             <span><span class="dot" style="background:#9B70F6;"></span> RAD-02 Temp</span>
-            <span><span class="dot" style="background:#10D478;"></span> RAD-01 Volts</span>
+            <span><span class="dot" style="background:#8A949E;"></span> RAD-01 Volts</span>
           </div>
         </div>
       </div>
@@ -5768,10 +5791,10 @@ html { scroll-behavior:smooth; }
 
 <section class="page-section" data-page="operations">
   <div class="page-header"><div class="page-title">Operations</div><div class="page-subtitle">Operator commands, weather intelligence, and IL9000 cross-domain intelligence</div></div>
-  <div id="ops-safety-banner" style="background:linear-gradient(135deg,rgba(16,212,120,0.06),rgba(14,165,233,0.04));border:1px solid rgba(16,212,120,0.15);border-radius:12px;padding:16px 20px;margin-bottom:16px;display:flex;align-items:center;gap:16px;">
-    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#10D478" stroke-width="1.8"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+  <div id="ops-safety-banner" style="background:linear-gradient(135deg,rgba(138,148,158,0.06),rgba(14,165,233,0.04));border:1px solid rgba(138,148,158,0.15);border-radius:12px;padding:16px 20px;margin-bottom:16px;display:flex;align-items:center;gap:16px;">
+    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#8A949E" stroke-width="1.8"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
     <div style="flex:1;"><div style="font-size:13px;font-weight:600;color:#F1F5F9;">Worker Safety First</div><div style="font-size:11px;color:#94A3B8;margin-top:2px;">IL9000 monitoring surfaces developing threshold trends early, so operators can act before conditions become hazardous.</div></div>
-    <div style="text-align:right;"><div style="font-size:20px;font-weight:700;color:#10D478;font-family:var(--font-mono);">0</div><div style="font-size:9px;color:var(--text-muted);text-transform:uppercase;">Safety Incidents</div></div>
+    <div style="text-align:right;"><div style="font-size:20px;font-weight:700;color:#8A949E;font-family:var(--font-mono);">0</div><div style="font-size:9px;color:var(--text-muted);text-transform:uppercase;">Safety Incidents</div></div>
   </div>
   <div id="ops-weather-detail" style="margin-bottom:24px;"></div>
   <div class="two-col" style="margin-bottom:24px;">
@@ -5839,7 +5862,7 @@ html { scroll-behavior:smooth; }
   <div id="settings-content"></div>
 </section>
 
-<div class="footer">Aevus Platform · <span style="color:var(--accent);font-weight:600;letter-spacing:0.5px;">Predict. Prevent. Perform.</span> · Intrepid Logic LLC · SDVOSB · <span style="display:inline-flex;align-items:center;gap:3px;"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#10D478" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="8 12 11 15 16 9"/></svg><span style="color:#10D478;">WCAG 2.1 AA</span></span></div>
+<div class="footer">Aevus Platform · <span style="color:var(--accent);font-weight:600;letter-spacing:0.5px;">Predict. Prevent. Perform.</span> · Intrepid Logic LLC · SDVOSB · <span style="display:inline-flex;align-items:center;gap:3px;"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#8A949E" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="8 12 11 15 16 9"/></svg><span style="color:#8A949E;">WCAG 2.1 AA</span></span></div>
 
 <div class="drawer-overlay" id="drawer-overlay"></div>
 <div class="asset-drawer" id="asset-drawer">
@@ -5862,7 +5885,7 @@ html { scroll-behavior:smooth; }
         <span class="modeled-banner-icon" aria-hidden="true">
           <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="10"/><path d="M12 8v4"/><path d="M12 16h.01"/></svg>
         </span>
-        <span class="modeled-banner-text">Modeled digital twin — simulated demo data — not for construction</span>
+        <span class="modeled-banner-text">Demonstration twin — simulated field data — model class: illustrative</span>
         <button type="button" class="modeled-banner-dismiss" aria-label="Dismiss disclosure for this session">×</button>
       </div>
 
@@ -5874,12 +5897,12 @@ html { scroll-behavior:smooth; }
         <div style="padding:20px;background:var(--bg-card);border:1px solid var(--accent);border-radius:var(--card-radius);cursor:pointer;" onclick="location.hash='overview'">
           <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
             <div style="font-size:14px;font-weight:700;color:var(--text-primary);">Killdeer Field</div>
-            <span style="padding:2px 8px;border-radius:4px;font-size:9px;font-weight:600;background:rgba(16,212,120,0.12);color:#10D478;">ACTIVE</span>
+            <span style="padding:2px 8px;border-radius:4px;font-size:9px;font-weight:600;background:rgba(138,148,158,0.12);color:#8A949E;">ACTIVE</span>
           </div>
           <div style="font-size:11px;color:var(--text-muted);margin-bottom:8px;">Dunn County, ND &bull; Midstream Gas Gathering</div>
           <div style="display:flex;gap:16px;font-size:11px;font-family:var(--font-mono);">
             <div><span style="color:var(--text-faint);">Assets:</span> <span style="color:var(--text-primary);font-weight:600;">7</span></div>
-            <div><span style="color:var(--text-faint);">Health:</span> <span style="color:#10D478;font-weight:600;">89</span></div>
+            <div><span style="color:var(--text-faint);">Health:</span> <span style="color:#8A949E;font-weight:600;">89</span></div>
             <div><span style="color:var(--text-faint);">Alerts:</span> <span style="color:#EF4444;font-weight:600;">50</span></div>
           </div>
           <div style="margin-top:10px;height:3px;border-radius:2px;background:rgba(14,165,233,0.15);"><div style="height:100%;width:89%;border-radius:2px;background:var(--accent);"></div></div>
@@ -5934,7 +5957,7 @@ html { scroll-behavior:smooth; }
         </div>
         <div style="padding:16px;background:var(--bg-card);border:1px solid var(--border);border-radius:var(--card-radius);">
           <div style="font-size:9px;color:var(--text-faint);text-transform:uppercase;letter-spacing:0.5px;">Enterprise Uptime</div>
-          <div style="font-size:24px;font-weight:700;color:#10D478;font-family:var(--font-mono);">100%</div>
+          <div style="font-size:24px;font-weight:700;color:#8A949E;font-family:var(--font-mono);">100%</div>
           <div style="font-size:10px;color:var(--text-muted);">7 of 7 online</div>
         </div>
         <div style="padding:16px;background:var(--bg-card);border:1px solid var(--border);border-radius:var(--card-radius);">
@@ -6046,7 +6069,7 @@ html { scroll-behavior:smooth; }
     }, true);  // capture phase — fires before the default error handler
   })();
 </script>
-<script src="/dashboard/api-client.js?v=132"></script>
+<script src="/dashboard/api-client.js?v=133"></script>
 <script src="/dashboard/rad-hover-live.js?v=28"></script>
 <!-- aevus-3dpad-map.js (award overlay) removed 2026-06-03: it threw an ASI TypeError in
      initAevusMap on the native map. The native map (api-client.js) owns window._aevusMapInstance,
@@ -6174,7 +6197,7 @@ html { scroll-behavior:smooth; }
     var sysEvents = '<div class="notif-system-events">' +
       '<div style="padding:6px 14px;font-size:9px;font-weight:600;color:var(--text-faint);letter-spacing:0.5px;border-top:1px solid rgba(148,163,184,0.08);">SYSTEM EVENTS</div>' +
       '<div class="notif-item"><div style="display:flex;gap:8px;align-items:center;">' +
-      '<span style="width:8px;height:8px;border-radius:50%;background:#10D478;flex-shrink:0;"></span>' +
+      '<span style="width:8px;height:8px;border-radius:50%;background:#8A949E;flex-shrink:0;"></span>' +
       '<div><div style="font-size:11px;color:var(--text-primary);">All assets polling normally</div>' +
       '<div style="font-size:10px;color:var(--text-faint);font-family:var(--font-mono);">2m ago</div></div></div></div>' +
       '<div class="notif-item"><div style="display:flex;gap:8px;align-items:center;">' +
@@ -6182,7 +6205,7 @@ html { scroll-behavior:smooth; }
       '<div><div style="font-size:11px;color:var(--text-primary);">Shift change — Day shift active</div>' +
       '<div style="font-size:10px;color:var(--text-faint);font-family:var(--font-mono);">5m ago</div></div></div></div>' +
       '<div class="notif-item"><div style="display:flex;gap:8px;align-items:center;">' +
-      '<span style="width:8px;height:8px;border-radius:50%;background:#10D478;flex-shrink:0;"></span>' +
+      '<span style="width:8px;height:8px;border-radius:50%;background:#8A949E;flex-shrink:0;"></span>' +
       '<div><div style="font-size:11px;color:var(--text-primary);">Weather data refreshed</div>' +
       '<div style="font-size:10px;color:var(--text-faint);font-family:var(--font-mono);">8m ago</div></div></div></div>' +
       '</div>';
@@ -6234,8 +6257,8 @@ html { scroll-behavior:smooth; }
     if (preds.length === 0 || preds.every(function(p){ return (p.risk_score||0) < 10; })) {
       // All safe — show confidence
       heroHtml = '<div class="ai-hero ai-hero-safe">' +
-        '<div class="ai-hero-title"><span class="ai-hero-pulse" style="background:#10D478;"></span> IL9000 ENGINE <span style="font-size:8px;padding:2px 6px;background:rgba(14,165,233,0.1);border:1px solid rgba(14,165,233,0.15);border-radius:4px;color:#0EA5E9;font-weight:600;vertical-align:middle;margin-left:6px;">READ-ONLY MONITORING</span></div>' +
-        '<div class="ai-hero-status" style="color:#10D478;">All Assets Within Safe Envelope</div>' +
+        '<div class="ai-hero-title"><span class="ai-hero-pulse" style="background:#8A949E;"></span> IL9000 ENGINE <span style="font-size:8px;padding:2px 6px;background:rgba(14,165,233,0.1);border:1px solid rgba(14,165,233,0.15);border-radius:4px;color:#0EA5E9;font-weight:600;vertical-align:middle;margin-left:6px;">READ-ONLY MONITORING</span></div>' +
+        '<div class="ai-hero-status" style="color:#8A949E;">All Assets Within Safe Envelope</div>' +
         '<div class="ai-hero-detail">Continuous monitoring of ' + (window.liveAssets ? window.liveAssets.length : 0) + ' assets across ' + (window.liveAssets ? window.liveAssets.reduce(function(sum,a){return sum + (a.vitals?a.vitals.length:0)},0) : 0) + ' live data points. No threshold deviations or developing trends detected.</div>' +
         '<div style="margin-top:12px;border-top:1px solid var(--border);padding-top:10px;">' +
           '<div onclick="var b=this.nextElementSibling;b.style.display=b.style.display===\x27none\x27?\x27block\x27:\x27none\x27;this.querySelector(\x27span\x27).textContent=b.style.display===\x27none\x27?\x27\u25BE\x27:\x27\u25B4\x27" style="font-size:10px;color:var(--accent);cursor:pointer;font-weight:600;">How does this work? <span>\u25BE</span></div>' +
@@ -6254,7 +6277,7 @@ html { scroll-behavior:smooth; }
       // Has predictions — show hero alert
       var top = preds.reduce(function(a,b){ return (a.risk_score||0) > (b.risk_score||0) ? a : b; });
       var riskPct = Math.min(100, top.risk_score || 0);
-      var riskColor = riskPct >= 60 ? '#EF4444' : riskPct >= 30 ? '#FBBF24' : '#10D478';
+      var riskColor = riskPct >= 60 ? '#EF4444' : riskPct >= 30 ? '#FBBF24' : '#8A949E';
       heroHtml = '<div class="ai-hero ai-hero-warn">' +
         '<div class="ai-hero-title"><span class="ai-hero-pulse" style="background:' + riskColor + ';"></span> IL9000 ENGINE — ELEVATED RISK</div>' +
         '<div class="ai-hero-status" style="color:' + riskColor + ';">' + (top.asset_name||top.asset_id) + ' — Risk Score ' + top.risk_score + '</div>' +
@@ -6334,7 +6357,7 @@ html { scroll-behavior:smooth; }
     var pv = firstAnalogVal;
     var pct = Math.min(100, Math.max(0, (pv / (sp * 1.3)) * 100));
     var spPct = Math.min(100, Math.max(0, (sp / (sp * 1.3)) * 100));
-    var barColor = Math.abs(pv - sp) < sp * 0.1 ? '#10D478' : Math.abs(pv - sp) < sp * 0.2 ? '#FBBF24' : '#EF4444';
+    var barColor = Math.abs(pv - sp) < sp * 0.1 ? '#8A949E' : Math.abs(pv - sp) < sp * 0.2 ? '#FBBF24' : '#EF4444';
     var hasAlarm = Math.abs(pv - sp) > sp * 0.15;
 
     var fp = document.createElement('div');
@@ -6428,7 +6451,7 @@ html { scroll-behavior:smooth; }
           '<div class="site-loc">Killdeer, ND — Dunn County · Bakken Formation</div>' +
           '<div class="site-stats">' +
             '<div><div class="site-stat-val">7</div><div class="site-stat-label">Assets</div></div>' +
-            '<div><div class="site-stat-val" style="color:#10D478;">89</div><div class="site-stat-label">Health</div></div>' +
+            '<div><div class="site-stat-val" style="color:#8A949E;">89</div><div class="site-stat-label">Health</div></div>' +
             '<div><div class="site-stat-val">47</div><div class="site-stat-label">BOPD</div></div>' +
           '</div>' +
         '</div>' +
@@ -6513,7 +6536,7 @@ html { scroll-behavior:smooth; }
       // Score color + status
       var scoreColor, scoreStatus, scoreBg, scoreIcon;
       if (score >= 80) {
-        scoreColor = '#22c55e'; scoreStatus = 'SAFE TO DISPATCH'; scoreBg = 'rgba(34,197,94,0.06)';
+        scoreColor = '#22c55e'; scoreStatus = 'SAFE TO DISPATCH'; scoreBg = 'rgba(138,148,158,0.06)';
         scoreIcon = '<path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>';
       } else if (score >= 50) {
         scoreColor = '#f97316'; scoreStatus = 'DISPATCH WITH CAUTION'; scoreBg = 'rgba(249,115,22,0.06)';
@@ -6840,7 +6863,7 @@ html { scroll-behavior:smooth; }
 
       var ackBtn = document.createElement('button');
       ackBtn.textContent = 'ACK';
-      ackBtn.style.cssText = 'padding:3px 8px;border-radius:4px;font-size:9px;font-weight:600;background:rgba(16,212,120,0.12);color:#10D478;border:1px solid rgba(16,212,120,0.2);cursor:pointer;';
+      ackBtn.style.cssText = 'padding:3px 8px;border-radius:4px;font-size:9px;font-weight:600;background:rgba(138,148,158,0.12);color:#8A949E;border:1px solid rgba(138,148,158,0.2);cursor:pointer;';
       ackBtn.onclick = function(e) { e.stopPropagation(); window.ackAlarmWithComment(alarmDesc); };
 
       var shelveBtn = document.createElement('button');
@@ -6932,9 +6955,9 @@ html { scroll-behavior:smooth; }
         '<div style="font-size:10px;font-weight:600;color:var(--text-faint);letter-spacing:0.8px;text-transform:uppercase;margin-bottom:10px;">Contents</div>' +
         '<div style="font-size:12px;color:var(--text-muted);line-height:1.8;">' +
         getReportContents(type) + '</div></div>' +
-        '<div style="background:rgba(16,212,120,0.06);border:1px solid rgba(16,212,120,0.15);border-radius:10px;padding:12px 16px;display:flex;align-items:center;gap:10px;margin-bottom:16px;">' +
-        '<span style="color:#10D478;font-size:14px;"><svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg></span>' +
-        '<span style="font-size:12px;color:#10D478;font-weight:500;">Report ready for download</span></div>' +
+        '<div style="background:rgba(138,148,158,0.06);border:1px solid rgba(138,148,158,0.15);border-radius:10px;padding:12px 16px;display:flex;align-items:center;gap:10px;margin-bottom:16px;">' +
+        '<span style="color:#8A949E;font-size:14px;"><svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg></span>' +
+        '<span style="font-size:12px;color:#8A949E;font-weight:500;">Report ready for download</span></div>' +
         '<div style="display:flex;gap:10px;justify-content:flex-end;">' +
         '<button onclick="var el=this;while(el.parentElement&&el.parentElement!==document.body)el=el.parentElement;el.remove()" class="shelve-btn shelve-btn-cancel">Close</button>' +
         '<button class="shelve-btn shelve-btn-confirm" id="pdf-dl-btn">Download PDF</button></div>';
@@ -7214,13 +7237,13 @@ html { scroll-behavior:smooth; }
     // Seed with initial entries
     var feed = document.getElementById('change-feed');
     var events = [
-      {time:'now', color:'#10D478', text:'RAD-02 poll completed — 5498 RX packets'},
+      {time:'now', color:'#8A949E', text:'RAD-02 poll completed — 5498 RX packets'},
       {time:'12s', color:'#60A5FA', text:'Weather data refreshed — 74\u00b0F Clear'},
       {time:'30s', color:'#EF4444', text:'TRAP received from RAD-02 — RF link event'},
-      {time:'1m', color:'#10D478', text:'RTU-01 Modbus read — all registers normal'},
+      {time:'1m', color:'#8A949E', text:'RTU-01 Modbus read — all registers normal'},
       {time:'2m', color:'#FBBF24', text:'Alarm rationalization cycle complete'},
       {time:'3m', color:'#60A5FA', text:'Shift handover summary generated'},
-      {time:'5m', color:'#10D478', text:'Health scores recalculated — fleet avg 89'},
+      {time:'5m', color:'#8A949E', text:'Health scores recalculated — fleet avg 89'},
       {time:'8m', color:'#A78BFA', text:'Alarm storm check — no flooding detected'},
     ];
     feed.innerHTML = events.map(function(e) {
@@ -7232,11 +7255,11 @@ html { scroll-behavior:smooth; }
     // Add new entries periodically
     setInterval(function() {
       var liveEvents = [
-        {color:'#10D478', text:'Poll cycle completed — 7 assets responding'},
+        {color:'#8A949E', text:'Poll cycle completed — 7 assets responding'},
         {color:'#60A5FA', text:'Data latency: ' + (Math.floor(Math.random()*80)+20) + 'ms'},
-        {color:'#10D478', text:'EFM-01 DNP3 read — flow rate ' + (3.2+Math.random()*0.8).toFixed(1) + ' MCFD'},
+        {color:'#8A949E', text:'EFM-01 DNP3 read — flow rate ' + (3.2+Math.random()*0.8).toFixed(1) + ' MCFD'},
         {color:'#FBBF24', text:'Compressor speed variance: ' + (Math.random()*2).toFixed(1) + '% from setpoint'},
-        {color:'#10D478', text:'RTR-01 SNMP walk — interface stats updated'},
+        {color:'#8A949E', text:'RTR-01 SNMP walk — interface stats updated'},
         {color:'#A78BFA', text:'Trend scan cycle — no anomalies'},
       ];
       var evt = liveEvents[Math.floor(Math.random()*liveEvents.length)];
@@ -7414,13 +7437,13 @@ html { scroll-behavior:smooth; }
     cyberSection.appendChild(wrap);
 
     var events = [
-      {time:'now', sev:'#10D478', msg:'Firewall rule check passed — Zone 3 conduit'},
+      {time:'now', sev:'#8A949E', msg:'Firewall rule check passed — Zone 3 conduit'},
       {time:'8s', sev:'#60A5FA', msg:'Certificate expiry check — 47 days remaining'},
-      {time:'22s', sev:'#10D478', msg:'IDS signature update — 2,847 rules active'},
+      {time:'22s', sev:'#8A949E', msg:'IDS signature update — 2,847 rules active'},
       {time:'45s', sev:'#FBBF24', msg:'Port scan detected — source 10.0.3.47 (blocked)'},
-      {time:'1m', sev:'#10D478', msg:'VPN tunnel heartbeat — all 3 tunnels up'},
+      {time:'1m', sev:'#8A949E', msg:'VPN tunnel heartbeat — all 3 tunnels up'},
       {time:'2m', sev:'#EF4444', msg:'Failed auth attempt — HMI-03 (3rd in 10min)'},
-      {time:'3m', sev:'#10D478', msg:'Patch compliance scan — 94% coverage'},
+      {time:'3m', sev:'#8A949E', msg:'Patch compliance scan — 94% coverage'},
       {time:'5m', sev:'#60A5FA', msg:'Backup verification — last successful 2h ago'},
     ];
     var feed = document.getElementById('sec-event-feed');
@@ -7432,11 +7455,11 @@ html { scroll-behavior:smooth; }
 
     setInterval(function() {
       var live = [
-        {sev:'#10D478', msg:'Zone boundary check — no violations'},
+        {sev:'#8A949E', msg:'Zone boundary check — no violations'},
         {sev:'#60A5FA', msg:'SNMP community string audit — compliant'},
-        {sev:'#10D478', msg:'Modbus/TCP session monitor — ' + (Math.floor(Math.random()*12)+3) + ' active'},
+        {sev:'#8A949E', msg:'Modbus/TCP session monitor — ' + (Math.floor(Math.random()*12)+3) + ' active'},
         {sev:'#FBBF24', msg:'Unusual DNP3 function code — FC ' + (Math.floor(Math.random()*5)+128)},
-        {sev:'#10D478', msg:'Whitelisted IP check — all connections verified'},
+        {sev:'#8A949E', msg:'Whitelisted IP check — all connections verified'},
         {sev:'#A78BFA', msg:'Threat intel feed update — 0 new IOCs matched'},
       ];
       var evt = live[Math.floor(Math.random()*live.length)];
@@ -7614,7 +7637,7 @@ html { scroll-behavior:smooth; }
 
     var result = calcCognitiveLoad();
     var f = result.composite;
-    var c = f < 40 ? '#10D478' : f < 70 ? '#FBBF24' : '#EF4444';
+    var c = f < 40 ? '#8A949E' : f < 70 ? '#FBBF24' : '#EF4444';
 
     el.innerHTML = '<span class="fatigue-label">Cognitive Load</span>' +
       '<div class="fatigue-bar"><div class="fatigue-fill" style="width:' + f + '%;background:' + c + '"></div></div>' +
@@ -7649,7 +7672,7 @@ html { scroll-behavior:smooth; }
       panel.id = 'cog-load-detail';
       panel.style.cssText = 'position:fixed;top:52px;right:16px;z-index:9999;background:var(--bg-card,#0F172A);border:1px solid rgba(148,163,184,0.15);border-radius:12px;padding:16px 20px;width:300px;box-shadow:0 8px 32px rgba(0,0,0,0.5);font-family:Manrope,sans-serif;';
 
-      var statusColor = res.composite < 40 ? '#10D478' : res.composite < 60 ? '#FBBF24' : res.composite < 80 ? '#FBBF24' : '#EF4444';
+      var statusColor = res.composite < 40 ? '#8A949E' : res.composite < 60 ? '#FBBF24' : res.composite < 80 ? '#FBBF24' : '#EF4444';
       var statusText = res.composite < 40 ? 'Normal' : res.composite < 60 ? 'Elevated' : res.composite < 80 ? 'High' : 'Critical';
 
       var html = '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">' +
@@ -7658,7 +7681,7 @@ html { scroll-behavior:smooth; }
         '<div style="font-size:10px;color:' + statusColor + ';margin-bottom:12px;padding:4px 8px;background:' + statusColor + '18;border-radius:6px;text-align:center;font-weight:600;">' + statusText.toUpperCase() + '</div>';
 
       res.drivers.forEach(function(d) {
-        var dc = d.score < 40 ? '#10D478' : d.score < 70 ? '#FBBF24' : '#EF4444';
+        var dc = d.score < 40 ? '#8A949E' : d.score < 70 ? '#FBBF24' : '#EF4444';
         html += '<div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;">' +
           '<div style="width:80px;font-size:10px;color:#94A3B8;">' + d.name + '</div>' +
           '<div style="flex:1;height:6px;background:rgba(255,255,255,0.06);border-radius:3px;overflow:hidden;">' +
@@ -7671,7 +7694,7 @@ html { scroll-behavior:smooth; }
       if (res.composite >= 80) html += '<strong style="color:#EF4444;">⟐ Recommend immediate shift rotation.</strong> Operator has been under sustained high load. Error probability elevated per operator performance research.';
       else if (res.composite >= 60) html += '<strong style="color:#FBBF24;">⟐ Consider backup operator.</strong> Cognitive load is elevated. ASM guidelines recommend a break or second pair of eyes during sustained alarm events.';
       else if (res.composite >= 40) html += '<strong style="color:#FBBF24;">⟐ Monitor situation.</strong> Load is manageable but trending up. Ensure break schedule is on track.';
-      else html += '<strong style="color:#10D478;">⟐ Operator performing well.</strong> Cognitive load within normal parameters. Current alarm rate and shift duration are sustainable.';
+      else html += '<strong style="color:#8A949E;">⟐ Operator performing well.</strong> Cognitive load within normal parameters. Current alarm rate and shift duration are sustainable.';
       html += '</div>';
 
       html += '<div style="margin-top:8px;font-size:9px;color:#4A5568;text-align:center;">Based on operator performance research</div>';
@@ -7694,7 +7717,7 @@ html { scroll-behavior:smooth; }
     setInterval(function() {
       var res = calcCognitiveLoad();
       var f = res.composite;
-      var c = f < 40 ? '#10D478' : f < 70 ? '#FBBF24' : '#EF4444';
+      var c = f < 40 ? '#8A949E' : f < 70 ? '#FBBF24' : '#EF4444';
       var fill = el.querySelector('.fatigue-fill');
       var lbl = el.querySelectorAll('.fatigue-label');
       if (fill) { fill.style.width = f + '%'; fill.style.background = c; }
@@ -7945,7 +7968,7 @@ html { scroll-behavior:smooth; }
             if (!isNaN(newVal)) {
               el.textContent = newVal + (unit ? ' ' + unit : '');
               // Show brief confirmation
-              el.style.color = '#10D478';
+              el.style.color = '#8A949E';
               setTimeout(function() { el.style.color = ''; }, 1500);
             } else {
               el.innerHTML = origHTML;
@@ -8015,7 +8038,7 @@ html { scroll-behavior:smooth; }
     }
     if (loadTime <= 0) loadTime = Math.floor(Math.random() * 400) + 800; // fallback estimate
 
-    var color = loadTime < 1500 ? '#10D478' : loadTime < 3000 ? '#FBBF24' : '#EF4444';
+    var color = loadTime < 1500 ? '#8A949E' : loadTime < 3000 ? '#FBBF24' : '#EF4444';
     var badge = document.createElement('div');
     badge.id = 'load-time-badge';
     badge.className = 'load-time-badge';
@@ -8029,7 +8052,7 @@ html { scroll-behavior:smooth; }
       lastNav = Date.now();
       setTimeout(function() {
         var renderTime = Date.now() - lastNav;
-        badge.querySelector('.lt-dot').style.background = renderTime < 300 ? '#10D478' : renderTime < 800 ? '#FBBF24' : '#EF4444';
+        badge.querySelector('.lt-dot').style.background = renderTime < 300 ? '#8A949E' : renderTime < 800 ? '#FBBF24' : '#EF4444';
         badge.childNodes[1].textContent = ' ' + (renderTime / 1000).toFixed(1) + 's';
       }, 100);
     });

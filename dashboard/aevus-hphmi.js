@@ -51,7 +51,7 @@
     if (document.getElementById('hphmi-styles')) return;
     var el = document.createElement('style');
     el.id = 'hphmi-styles';
-    el.textContent = CSS + '\n' + STRIP_CSS + '\n' + L2_CSS;
+    el.textContent = CSS + '\n' + STRIP_CSS + '\n' + L2_CSS + '\n' + LEDGER_CSS + '\n' + WATCH_CSS;
     document.head.appendChild(el);
   }
 
@@ -258,7 +258,7 @@
       var g = n === 1 ? '■' : n === 2 ? '▲' : '●';
       return '<span class="hphmi-alarmchip" data-p="' + n + '" data-active="' + (counts[n] > 0 ? 1 : 0) +
         '" onclick="window.location.hash=\'#alarms\'">' + g + ' ' + n + ' · ' + counts[n] + '</span>';
-    }).join('') + '</div>';
+    }).join('') + ledgerChipHtml() + '</div>';
 
     // Only touch the DOM on change — this runs inside the observer cycle,
     // and an unconditional innerHTML write would re-trigger it every frame.
@@ -311,6 +311,158 @@
     });
   }
   setInterval(sampleTrends, 10000);
+
+  // ── P2: Suppression Ledger (Woods D1 — the invisible hand made visible)
+  // The operator's hardest model is "what is the system hiding and why."
+  // Shelved alarms get an ambient chip on L1 — never only a tab. Tap
+  // opens the ledger with reason + age per item. Release scheduling lands
+  // with the engine work; until then the ledger is honest about that too.
+  var LEDGER_CSS = [
+    '.hphmi-ledger-chip { display:inline-flex; align-items:center; gap:5px; font-family:var(--font-mono); font-size:11px; font-weight:700; padding:2px 8px; border-radius:2px; cursor:pointer; border:1px dashed #5A646E; color:var(--text-muted); }',
+    '.hphmi-ledger-chip[data-n="0"] { display:none; }',
+    '.hphmi-ledger-panel { position:fixed; right:16px; top:64px; z-index:300; width:340px; background:var(--bg-card); border:1px solid var(--border-light); border-radius:4px; padding:14px 16px; box-shadow:0 8px 32px rgba(0,0,0,0.4); }',
+    '.hphmi-ledger-title { font-size:10px; letter-spacing:1.2px; color:var(--text-muted); font-weight:600; margin-bottom:10px; display:flex; justify-content:space-between; }',
+    '.hphmi-ledger-row { padding:8px 0; border-bottom:1px solid var(--border); font-size:12px; }',
+    '.hphmi-ledger-row:last-child { border-bottom:none; }',
+    '.hphmi-ledger-row .why { color:var(--text-muted); font-size:10px; font-family:var(--font-mono); margin-top:3px; }'
+  ].join('\n');
+
+  function shelvedAlarms() {
+    var seen = {};
+    return (window._aevusAlarms || []).filter(function (a) {
+      if (!a.shelved || a.status === 'resolved') return false;
+      var k = (a.asset_id || '') + '|' + (a.alarm || a.message || '');
+      if (seen[k]) return false;
+      seen[k] = 1;
+      return true;
+    });
+  }
+
+  function fmtAge(iso) {
+    if (!iso) return '';
+    var m = Math.round((Date.now() - new Date(iso).getTime()) / 60000);
+    return m < 60 ? m + 'm' : (m / 60).toFixed(1) + 'h';
+  }
+
+  function ledgerChipHtml() {
+    var s = shelvedAlarms();
+    return '<span class="hphmi-ledger-chip" data-n="' + s.length + '" ' +
+      'onclick="window.AevusHPHMI.toggleLedger()">⊘ ' + s.length +
+      ' shelved</span>';
+  }
+
+  function toggleLedger() {
+    var p = document.getElementById('hphmi-ledger-panel');
+    if (p) { p.remove(); return; }
+    var s = shelvedAlarms();
+    p = document.createElement('div');
+    p.id = 'hphmi-ledger-panel';
+    p.className = 'hphmi-ledger-panel';
+    p.innerHTML = '<div class="hphmi-ledger-title"><span>SUPPRESSION LEDGER</span>' +
+      '<span style="cursor:pointer;" onclick="this.closest(\'.hphmi-ledger-panel\').remove()">✕</span></div>' +
+      (s.length ? s.map(function (a) {
+        return '<div class="hphmi-ledger-row">' +
+          '<span style="font-family:var(--font-mono);color:var(--text-secondary);">' + (a.asset_id || '') + '</span> ' +
+          '<span style="color:var(--text-primary);">' + (a.alarm || a.message || '') + '</span>' +
+          '<div class="why">shelved ' + fmtAge(a.shelved_at) + ' ago · ' +
+          (a.shelve_reason || 'reason not recorded') + ' · no auto-release scheduled</div></div>';
+      }).join('') : '<div class="hphmi-ledger-row">Nothing shelved.</div>') +
+      '<div class="why" style="margin-top:8px;color:var(--text-faint);font-size:9px;">Shelved alarms remain in the Active count. Staged release + expiry timers land with the alarm-engine phase.</div>';
+    document.body.appendChild(p);
+  }
+
+  // ── P2: Watch Item — hypotheses held as falsifiable predictions ──────
+  // Klein: experts hold a hypothesis as a prediction that can fail.
+  // The IL9000 insight (bundle-rendered prose) becomes a card with an
+  // expectancy, a disconfirming cue, and the expert verb set. Dispositions
+  // persist locally — the audit seed the S3 scoreboard will read.
+  var WATCH_CSS = [
+    '.hphmi-watch { background:var(--bg-card); border:1px solid var(--border); border-left:3px solid #5A646E; border-radius:4px; padding:10px 14px; margin-top:10px; }',
+    '.hphmi-watch-tag { font-size:9px; letter-spacing:1.2px; color:var(--text-muted); font-weight:700; }',
+    '.hphmi-watch-hyp { font-size:12.5px; color:var(--text-primary); margin:4px 0; }',
+    '.hphmi-watch-exp { font-size:11px; color:var(--text-secondary); font-family:var(--font-mono); }',
+    '.hphmi-watch-cue { font-size:10px; color:var(--text-muted); font-family:var(--font-mono); margin-top:2px; }',
+    '.hphmi-watch-verbs { display:flex; gap:8px; margin-top:8px; }',
+    '.hphmi-watch-verb { font-size:10px; font-weight:600; padding:3px 10px; border-radius:2px; border:1px solid var(--border-light); color:var(--text-secondary); cursor:pointer; background:transparent; }',
+    '.hphmi-watch-verb:hover { border-color:var(--accent); color:var(--accent); }',
+    '.hphmi-watch[data-disposed="1"] { opacity:0.55; }',
+    '.hphmi-watch-disposed { font-size:10px; color:var(--text-muted); font-family:var(--font-mono); margin-top:6px; }'
+  ].join('\n');
+
+  function watchDispositions() {
+    try { return JSON.parse(localStorage.getItem('aevus_watch_dispositions') || '{}'); }
+    catch (e) { return {}; }
+  }
+
+  function disposeWatch(key, verb) {
+    var reason = null;
+    if (verb === 'reject') {
+      reason = prompt('Reject hypothesis — reason (feeds rationalization telemetry):');
+      if (!reason) return;
+    }
+    var d = watchDispositions();
+    d[key] = { verb: verb, reason: reason, at: new Date().toISOString(), role: window.aevusRole || 'operator' };
+    try { localStorage.setItem('aevus_watch_dispositions', JSON.stringify(d)); } catch (e) {}
+    renderWatchItem();
+    if (verb === 'investigate') window.location.hash = '#unit-compress';
+  }
+
+  function currentInsight() {
+    // The bundle renders the IL9000 insight beside the banner; read it as
+    // the hypothesis text. (P3 replaces this with a structured feed.)
+    var el = document.querySelector('#situation-banner ~ * [class*="il9000"], .ov-situation ~ *');
+    // A hypothesis is a prediction with a magnitude: require a trend/
+    // prediction verb AND a number-with-unit. Explainer prose ("watches
+    // weather, RF...") has the verbs but not the measurement. The insight
+    // may be split across child spans, so test containers (≤3 children)
+    // and take the smallest match.
+    var best = null;
+    var all = document.querySelectorAll('div,span');
+    for (var i = 0; i < all.length; i++) {
+      var t = (all[i].textContent || '').trim();
+      if (all[i].children.length <= 5 &&
+          /trending|predicted|project/i.test(t) &&
+          /[+-]?\d+(\.\d+)?\s*(°F|°C|psi|dB|%|\/hr|mph)/i.test(t) &&
+          t.length > 40 && t.length < 220 &&
+          (!best || t.length < best.length)) { best = t; }
+    }
+    return best;
+  }
+
+  function renderWatchItem() {
+    var strip = document.getElementById('hphmi-l1-strip');
+    if (!strip) return;
+    var hyp = currentInsight();
+    var host = document.getElementById('hphmi-watch');
+    if (!hyp) { if (host) host.remove(); return; }
+    var key = 'wi-' + hyp.slice(0, 40).replace(/\W+/g, '-');
+    var disposed = watchDispositions()[key];
+
+    if (!host) {
+      host = document.createElement('div');
+      host.id = 'hphmi-watch';
+      strip.parentElement.insertBefore(host, strip.nextSibling);
+    }
+    var expMatch = hyp.match(/in\s*~?\s*(\d+\s*h)/i);
+    var exp = expMatch ? 'Expect: alarm within ' + expMatch[1] + ' if trend holds.' :
+      'Expect: condition progresses if attribution is correct.';
+    var html = '<div class="hphmi-watch"' + (disposed ? ' data-disposed="1"' : '') + '>' +
+      '<span class="hphmi-watch-tag">WATCH ITEM · IL9000 HYPOTHESIS</span>' +
+      '<div class="hphmi-watch-hyp">' + hyp + '</div>' +
+      '<div class="hphmi-watch-exp">' + exp + '</div>' +
+      '<div class="hphmi-watch-cue">Disconfirming cue: trend rate flattens or reverses before the window closes.</div>' +
+      (disposed ?
+        '<div class="hphmi-watch-disposed">Disposed: ' + disposed.verb.toUpperCase() +
+        (disposed.reason ? ' — ' + disposed.reason : '') + ' · ' + fmtAge(disposed.at) + ' ago</div>' :
+        '<div class="hphmi-watch-verbs">' +
+        '<button class="hphmi-watch-verb" onclick="window.AevusHPHMI.disposeWatch(\'' + key + '\',\'agree\')">Agree</button>' +
+        '<button class="hphmi-watch-verb" onclick="window.AevusHPHMI.disposeWatch(\'' + key + '\',\'watch\')">Watch</button>' +
+        '<button class="hphmi-watch-verb" onclick="window.AevusHPHMI.disposeWatch(\'' + key + '\',\'investigate\')">Investigate →</button>' +
+        '<button class="hphmi-watch-verb" onclick="window.AevusHPHMI.disposeWatch(\'' + key + '\',\'reject\')">Reject…</button>' +
+        '</div>') +
+      '</div>';
+    if (host.__lastHtml !== html) { host.__lastHtml = html; host.innerHTML = html; }
+  }
 
   // ── L2 unit operating displays (spec §6 — the missing layer) ─────────
   // Hash routes #unit-wellhead / #unit-compress / #unit-tank / #unit-comms.
@@ -459,6 +611,7 @@
       try { purgeFinancials(); } catch (e) { /* never break the page */ }
       try { renderL1Strip(); } catch (e) { /* never break the page */ }
       try { routeL2(); } catch (e) { /* never break the page */ }
+      try { renderWatchItem(); } catch (e) { /* never break the page */ }
     });
   }
 
@@ -485,5 +638,5 @@
     start();
   }
 
-  window.AevusHPHMI = { bandBar: bandBar, transformRadials: transformRadials, renderL2: renderL2, BANDS: BANDS };
+  window.AevusHPHMI = { bandBar: bandBar, transformRadials: transformRadials, renderL2: renderL2, toggleLedger: toggleLedger, disposeWatch: disposeWatch, BANDS: BANDS };
 })();

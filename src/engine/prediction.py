@@ -20,6 +20,7 @@ from typing import TYPE_CHECKING
 
 import structlog
 
+from src.engine.thresholds import monitored_metric as _m
 from src.models.prediction import Prediction
 from src.util import run_blocking
 
@@ -29,27 +30,30 @@ if TYPE_CHECKING:
 
 logger = structlog.get_logger()
 
-# Metrics to analyze per device type
+# Metrics to analyze per device type. Shared, config-backed limits come from the
+# single threshold registry (engine/thresholds.py, H2) via _m(...) so they can't
+# drift from the normalizer's thresholds; the prediction-only metrics
+# (error_packets count, battery_solar composite) stay explicit here.
 MONITORED_METRICS: dict[str, list[dict]] = {
     "radio": [
-        {"metric": "rssi", "direction": "lower_bad", "warn": -80, "crit": -90, "unit": "dBm"},
-        {"metric": "snr", "direction": "lower_bad", "warn": 15, "crit": 10, "unit": "dB"},
-        {"metric": "temperature", "direction": "upper_bad", "warn": 60, "crit": 75, "unit": "°C"},
+        _m("rssi"),
+        _m("snr"),
+        _m("temperature"),
         {"metric": "error_packets", "direction": "upper_bad", "warn": 500, "crit": 2000, "unit": "count"},
     ],
     "rtu": [
-        {"metric": "suction_pressure", "direction": "upper_bad", "warn": 800, "crit": 900, "unit": "PSI"},
-        {"metric": "discharge_pressure", "direction": "upper_bad", "warn": 1200, "crit": 1400, "unit": "PSI"},
-        {"metric": "battery_voltage", "direction": "lower_bad", "warn": 12.0, "crit": 11.5, "unit": "VDC"},
-        {"metric": "vibration", "direction": "upper_bad", "warn": 4.5, "crit": 7.1, "unit": "mm/s"},
+        _m("suction_pressure"),
+        _m("discharge_pressure"),
+        _m("battery_voltage"),
+        _m("vibration"),
         {"metric": "battery_solar", "direction": "custom", "warn": 0, "crit": 0, "unit": "composite"},
     ],
     "router": [
-        {"metric": "cpu_load", "direction": "upper_bad", "warn": 70, "crit": 90, "unit": "%"},
-        {"metric": "if_in_errors", "direction": "upper_bad", "warn": 100, "crit": 1000, "unit": "count"},
+        _m("cpu_load"),
+        _m("if_in_errors"),
     ],
     "switch": [
-        {"metric": "cpu_load", "direction": "upper_bad", "warn": 70, "crit": 90, "unit": "%"},
+        _m("cpu_load"),
     ],
 }
 

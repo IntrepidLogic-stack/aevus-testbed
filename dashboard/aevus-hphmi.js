@@ -51,7 +51,7 @@
     if (document.getElementById('hphmi-styles')) return;
     var el = document.createElement('style');
     el.id = 'hphmi-styles';
-    el.textContent = CSS + '\n' + STRIP_CSS;
+    el.textContent = CSS + '\n' + STRIP_CSS + '\n' + L2_CSS;
     document.head.appendChild(el);
   }
 
@@ -166,10 +166,10 @@
   // Data: window._aevusAssets/_aevusAlarms (published by the bundle's
   // 10s interval — see P1-4 exposure).
   var AREAS = [
-    { key: 'wellhead',  label: 'WELLHEAD / SEP',  match: /^(WELL|SEP|REF-CWRU)/i, door: '#overview' },
-    { key: 'compress',  label: 'COMPRESSION',      match: /^(CMP|RTU)/i,               door: '#assets' },
-    { key: 'tank',      label: 'TANK / METERING',  match: /^(TNK|MET|EFM|REF-MORRIS)/i, door: '#assets' },
-    { key: 'comms',     label: 'COMMS PATH',       match: /^(RAD|RTR|SW|WAN|EDGE|SHOP)/i, door: '#radio' }
+    { key: 'wellhead',  label: 'WELLHEAD / SEP',  match: /^(WELL|SEP|REF-CWRU)/i, door: '#unit-wellhead' },
+    { key: 'compress',  label: 'COMPRESSION',      match: /^(CMP|RTU)/i,               door: '#unit-compress' },
+    { key: 'tank',      label: 'TANK / METERING',  match: /^(TNK|MET|EFM|REF-MORRIS)/i, door: '#unit-tank' },
+    { key: 'comms',     label: 'COMMS PATH',       match: /^(RAD|RTR|SW|WAN|EDGE|SHOP)/i, door: '#unit-comms' }
   ];
   var PRIO = [
     { key: 'critical', glyph: '■', color: '#FF4136', n: 1 },
@@ -312,23 +312,171 @@
   }
   setInterval(sampleTrends, 10000);
 
+  // ── L2 unit operating displays (spec §6 — the missing layer) ─────────
+  // Hash routes #unit-wellhead / #unit-compress / #unit-tank / #unit-comms.
+  // Between the everything-overview and raw tables there was nowhere to
+  // work an upset; these pages are where operators live during one.
+  // Content: unit-scoped alarms (AlarmRow-lite), member-asset BandBars
+  // from live vitals when present, and the serving path fragment. The
+  // area tiles' doors land here.
+  var L2_CSS = [
+    '#hphmi-l2 { padding:0 4px; }',
+    '.hphmi-l2-head { display:flex; align-items:center; justify-content:space-between; margin:6px 0 14px; }',
+    '.hphmi-l2-title { font-size:20px; font-weight:700; color:var(--text-primary); font-family:var(--font-heading); letter-spacing:0.5px; }',
+    '.hphmi-l2-back { font-size:11px; color:var(--accent); cursor:pointer; font-family:var(--font-mono); }',
+    '.hphmi-l2-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(220px,1fr)); gap:12px; margin-bottom:16px; }',
+    '.hphmi-l2-card { background:var(--bg-card); border:1px solid var(--border); border-radius:4px; padding:12px 14px; }',
+    '.hphmi-l2-card-title { font-size:10px; letter-spacing:1.2px; color:var(--text-muted); font-weight:600; margin-bottom:8px; }',
+    '.hphmi-l2-alarms { margin-top:4px; }',
+    '.hphmi-l2-alarm { display:flex; align-items:center; gap:10px; padding:8px 10px; border-bottom:1px solid var(--border); font-size:12px; }',
+    '.hphmi-l2-alarm:last-child { border-bottom:none; }',
+    '.hphmi-l2-alarm .chip { font-family:var(--font-mono); font-size:10px; font-weight:700; padding:1px 7px; border-radius:2px; }',
+    '.hphmi-l2-alarm[data-p="critical"] .chip { background:#FF4136; color:#14181C; }',
+    '.hphmi-l2-alarm[data-p="high"] .chip { background:#FF851B; color:#14181C; }',
+    '.hphmi-l2-alarm[data-p="warning"] .chip, .hphmi-l2-alarm[data-p="medium"] .chip { background:#FFDC00; color:#14181C; }',
+    '.hphmi-l2-alarm .hint { color:var(--text-muted); font-size:10px; }',
+    '.hphmi-l2-empty { color:var(--text-muted); font-size:12px; padding:14px 4px; font-family:var(--font-mono); }'
+  ].join('\n');
+
+  function vitalBandBar(v) {
+    // A vital renders as a BandBar when numeric; band edges derive from
+    // its status: good → centered band around current; warn/bad shift the
+    // pointer out-of-band. Real limits come with the backend's threshold
+    // registry — until then bands are status-faithful, not fabricated
+    // numbers presented as engineering limits (Law 4: no invented basis).
+    var raw = parseFloat(v.raw_value != null ? v.raw_value : v.value);
+    if (isNaN(raw)) return '';
+    var span = Math.max(Math.abs(raw) * 0.5, 1);
+    var lo = raw - span, hi = raw + span;
+    var bandLo, bandHi;
+    if (v.status === 'warn') { bandLo = lo + span * 1.3; bandHi = hi; }
+    else if (v.status === 'bad') { bandLo = lo + span * 1.7; bandHi = hi; }
+    else { bandLo = lo + span * 0.4; bandHi = hi - span * 0.4; }
+    return bandBar({
+      value: raw, min: lo, max: hi, bandLo: bandLo, bandHi: bandHi,
+      label: (v.label || '').toUpperCase(), unit: v.unit || '',
+      caption: v.status === 'warn' || v.status === 'bad' ? 'outside normal band' : ''
+    });
+  }
+
+  function renderL2(areaKey) {
+    var area = null;
+    for (var i = 0; i < AREAS.length; i++) if (AREAS[i].key === areaKey) area = AREAS[i];
+    if (!area) return;
+    injectStyles();
+    var main = document.querySelector('.main-content') || document.body;
+
+    // hide the app's own page sections while an L2 page is up
+    document.querySelectorAll('section[data-page]').forEach(function (s) { s.style.display = 'none'; });
+    var host = document.getElementById('hphmi-l2');
+    if (!host) {
+      host = document.createElement('section');
+      host.id = 'hphmi-l2';
+      var anySection = document.querySelector('section[data-page]');
+      (anySection ? anySection.parentElement : main).appendChild(host);
+    }
+    host.style.display = 'block';
+
+    var seen = {};
+    var alarms = (window._aevusAlarms || []).filter(function (al) {
+      if (!area.match.test(al.asset_id || '') || al.status === 'resolved') return false;
+      // one row per (asset, alarm): the demo accumulator re-emits
+      // instances; the display shows the condition, not the emissions.
+      var k = (al.asset_id || '') + '|' + (al.alarm || al.message || '');
+      if (seen[k]) return false;
+      seen[k] = 1;
+      return true;
+    }).sort(function (p, q) {
+      var rank = { critical: 0, high: 1, warning: 2, medium: 2, low: 3 };
+      return (rank[p.severity] || 4) - (rank[q.severity] || 4);
+    });
+    var assets = (window._aevusAssets || []).filter(function (t) { return area.match.test(t.id || ''); });
+
+    var vitalCards = assets.map(function (a) {
+      var bars = (a.vitals || []).map(vitalBandBar).filter(Boolean).slice(0, 4).join('<div style="height:10px"></div>');
+      if (!bars) return '';
+      return '<div class="hphmi-l2-card"><div class="hphmi-l2-card-title">' + a.id +
+        ' · ' + (a.name || '') + (a.health != null ? ' · ' + a.health : '') + '</div>' + bars + '</div>';
+    }).filter(Boolean).join('');
+
+    var alarmRows = alarms.map(function (al) {
+      return '<div class="hphmi-l2-alarm" data-p="' + al.severity + '">' +
+        '<span class="chip">' + (al.severity === 'critical' ? '■ 1' : al.severity === 'high' ? '▲ 2' : '● 3') + '</span>' +
+        '<span style="font-family:var(--font-mono);color:var(--text-secondary);">' + (al.asset_id || '') + '</span>' +
+        '<span style="color:var(--text-primary);">' + (al.alarm || al.message || '') + '</span>' +
+        '<span class="hint">' + (al.value || '') + (al.threshold ? ' · limit ' + al.threshold : '') + '</span>' +
+        '</div>';
+    }).join('');
+
+    var html =
+      '<div class="hphmi-l2-head">' +
+        '<div class="hphmi-l2-title">' + area.label + ' — Unit Display</div>' +
+        '<span class="hphmi-l2-back" onclick="window.location.hash=\'#overview\'">← L1 Overview</span>' +
+      '</div>' +
+      (vitalCards ? '<div class="hphmi-l2-grid">' + vitalCards + '</div>' :
+        '<div class="hphmi-l2-empty">No live vitals for this unit — connect the testbed backend for full band indicators.</div>') +
+      '<div class="hphmi-l2-card"><div class="hphmi-l2-card-title">UNIT ALARMS (' + alarms.length + ')</div>' +
+        '<div class="hphmi-l2-alarms">' + (alarmRows || '<div class="hphmi-l2-empty">No unresolved alarms in this unit.</div>') + '</div></div>';
+    // Change-guarded (observer-cycle safe), and re-rendered from schedule()
+    // so a deep link that lands before the 10s data publish fills in.
+    if (host.__lastHtml !== html) {
+      host.__lastHtml = html;
+      host.innerHTML = html;
+    }
+  }
+
+  function routeL2() {
+    var m = (location.hash || '').match(/^#unit-([a-z]+)/);
+    var host = document.getElementById('hphmi-l2');
+    if (!m) {
+      if (host && host.style.display !== 'none') {
+        host.style.display = 'none';
+        // restore whichever app section the hash points at
+        var page = (location.hash || '#overview').replace('#', '') || 'overview';
+        document.querySelectorAll('section[data-page]').forEach(function (s) {
+          s.style.display = s.getAttribute('data-page') === page ? '' : s.style.display;
+        });
+      }
+      return;
+    }
+    renderL2(m[1]);
+  }
+  window.addEventListener('hashchange', routeL2);
+
   // ── observer: transforms re-apply as the bundle re-renders ───────────
   var scheduled = false;
   function schedule() {
     if (scheduled) return;
     scheduled = true;
-    requestAnimationFrame(function () {
+    // rAF never fires in a hidden tab — a backgrounded console would stop
+    // updating (and re-open stale). Fall back to a timeout when hidden.
+    var defer = document.hidden
+      ? function (fn) { setTimeout(fn, 50); }
+      : requestAnimationFrame.bind(window);
+    defer(function () {
       scheduled = false;
       try { transformRadials(); } catch (e) { /* never break the page */ }
       try { purgeFinancials(); } catch (e) { /* never break the page */ }
       try { renderL1Strip(); } catch (e) { /* never break the page */ }
+      try { routeL2(); } catch (e) { /* never break the page */ }
     });
   }
 
   function start() {
     injectStyles();
     schedule();
+    routeL2();  // honor a #unit-* deep link on load
     new MutationObserver(schedule).observe(document.body, { childList: true, subtree: true });
+    // Heartbeat: a quiet page produces no mutations, but the bundle
+    // publishes state every 10s — re-run transforms on the same cadence
+    // so deep-linked L2 pages fill in when data lands. All renderers are
+    // change-guarded, so idle ticks are free. routeL2 runs directly (not
+    // through the rAF defer) so a backgrounded or paused-render tab still
+    // refreshes the unit page.
+    setInterval(function () {
+      schedule();
+      try { routeL2(); } catch (e) { /* never break the page */ }
+    }, 3000);
   }
 
   if (document.readyState === 'loading') {
@@ -337,5 +485,5 @@
     start();
   }
 
-  window.AevusHPHMI = { bandBar: bandBar, transformRadials: transformRadials, BANDS: BANDS };
+  window.AevusHPHMI = { bandBar: bandBar, transformRadials: transformRadials, renderL2: renderL2, BANDS: BANDS };
 })();

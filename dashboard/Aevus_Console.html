@@ -4642,6 +4642,17 @@ html { scroll-behavior:smooth; }
    for abnormal. Warn/bad glows retained. */
 .health-bar-fill.good { box-shadow: none; background: var(--status-good); }
 
+/* P0-7 — stale at point of use (Law 5: absence of measurement is absence
+   of ink). Elements stamped data-stale="1" mute in place: values from a
+   source with no successful poll in 3× its interval must not render with
+   the same confidence as fresh data. */
+[data-stale="1"] {
+  opacity: 0.6;
+  filter: saturate(0.35);
+  outline: 1px dashed rgba(148,163,184,0.55);
+  outline-offset: -1px;
+}
+
 </style>
 <link rel="stylesheet" href="/dashboard/leaflet.min.css"/>
 <script src="/dashboard/leaflet.min.js"></script>
@@ -6069,8 +6080,8 @@ html { scroll-behavior:smooth; }
     }, true);  // capture phase — fires before the default error handler
   })();
 </script>
-<script src="/dashboard/api-client.js?v=133"></script>
-<script src="/dashboard/rad-hover-live.js?v=28"></script>
+<script src="/dashboard/api-client.js?v=134"></script>
+<script src="/dashboard/rad-hover-live.js?v=29"></script>
 <!-- aevus-3dpad-map.js (award overlay) removed 2026-06-03: it threw an ASI TypeError in
      initAevusMap on the native map. The native map (api-client.js) owns window._aevusMapInstance,
      and aevus-killdeer-3d.js attaches the 3D facility directly to it. -->

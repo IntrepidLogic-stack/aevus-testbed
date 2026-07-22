@@ -6,11 +6,10 @@ Uses CISCO-PROCESS-MIB and CISCO-MEMORY-POOL-MIB for platform-specific
 telemetry beyond what standard MIB-II provides.
 """
 
-import asyncio
 import contextlib
-import subprocess
 
 from src.collectors.base import BaseCollector
+from src.collectors.snmp_cli import SNMPCliMixin
 from src.models.telemetry import RawTelemetry
 
 # Cisco-specific OIDs
@@ -44,7 +43,7 @@ SYSTEM_OIDS = {
 }
 
 
-class SNMPSwitchCollector(BaseCollector):
+class SNMPSwitchCollector(SNMPCliMixin, BaseCollector):
     """Collects telemetry from a Cisco Catalyst 2960 via SNMP v2c.
 
     Uses Cisco-specific MIBs (CISCO-PROCESS-MIB, CISCO-MEMORY-POOL-MIB)
@@ -143,21 +142,17 @@ class SNMPSwitchCollector(BaseCollector):
 
         # System uptime
         uptime_raw = await self._snmp_get(SYSTEM_OIDS["sys_uptime"])
-        if uptime_raw is not None:
-            try:
-                ticks = float(uptime_raw.split("(")[1].split(")")[0]) if "(" in uptime_raw else float(uptime_raw)
-                hours = ticks / 360000.0
-                readings.append(
-                    self._make_reading(
-                        metric="uptime",
-                        value=round(hours, 2),
-                        unit="hrs",
-                        source="snmp",
-                        oid=SYSTEM_OIDS["sys_uptime"],
-                    )
+        hours = self._snmp_timeticks_to_hours(uptime_raw)
+        if hours is not None:
+            readings.append(
+                self._make_reading(
+                    metric="uptime",
+                    value=round(hours, 2),
+                    unit="hrs",
+                    source="snmp",
+                    oid=SYSTEM_OIDS["sys_uptime"],
                 )
-            except (ValueError, IndexError):
-                pass
+            )
 
         # Interface stats
         if_readings = await self._poll_interfaces()
@@ -168,7 +163,7 @@ class SNMPSwitchCollector(BaseCollector):
     async def _poll_interfaces(self) -> list[RawTelemetry]:
         """Walk interface table for traffic, error counters, and link status."""
         readings: list[RawTelemetry] = []
-        if_walk = await asyncio.to_thread(self._snmp_walk_sync, INTERFACE_OIDS["if_descr"])
+        if_walk = await self._snmp_walk(INTERFACE_OIDS["if_descr"])
 
         for if_oid, if_name in if_walk.items():
             if_index = if_oid.split(".")[-1]
@@ -209,42 +204,5 @@ class SNMPSwitchCollector(BaseCollector):
 
         return readings
 
-    async def _snmp_get(self, oid: str) -> str | None:
-        """Get a single OID value."""
-        return await asyncio.to_thread(self._snmp_get_sync, oid)
-
-    def _snmp_get_sync(self, oid: str) -> str | None:
-        """Synchronous SNMP GET via CLI."""
-        try:
-            result = subprocess.run(
-                ["snmpget", "-v2c", "-c", self.community, "-t", "5", "-r", "1", "-Oqv", self.host, oid],
-                capture_output=True,
-                text=True,
-                timeout=10,
-            )
-            if result.returncode != 0 or not result.stdout.strip():
-                return None
-            raw = result.stdout.strip()
-            if ": " in raw:
-                raw = raw.split(": ", 1)[1]
-            return raw.strip('"')
-        except (subprocess.TimeoutExpired, FileNotFoundError):
-            return None
-
-    def _snmp_walk_sync(self, base_oid: str = "") -> dict[str, str]:
-        """Synchronous SNMP walk."""
-        cmd = ["snmpwalk", "-v2c", "-c", self.community, "-t", "10", self.host]
-        if base_oid:
-            cmd.append(base_oid)
-        try:
-            result = subprocess.run(cmd, capture_output=True, text=True, timeout=30)
-            if result.returncode != 0 or not result.stdout.strip():
-                return {}
-            oids: dict[str, str] = {}
-            for line in result.stdout.strip().split("\n"):
-                if "=" in line:
-                    parts = line.split("=", 1)
-                    oids[parts[0].strip()] = parts[1].strip() if len(parts) > 1 else ""
-            return oids
-        except (subprocess.TimeoutExpired, FileNotFoundError):
-            return {}
+    # SNMP CLI transport (_snmp_get / _snmp_get_sync / _snmp_walk_sync) is
+    # provided by SNMPCliMixin.

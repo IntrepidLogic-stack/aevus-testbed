@@ -298,13 +298,6 @@ body {
   font-family: var(--font-body);
   background: var(--bg-primary);
   color: var(--text-primary);
-  min-height: 100vh;
-  overflow-x: hidden;
-  background-image:
-    radial-gradient(ellipse at 20% 50%, rgba(14,165,233,0.06) 0%, transparent 50%),
-    radial-gradient(ellipse at 80% 20%, rgba(14,165,233,0.04) 0%, transparent 50%),
-    radial-gradient(ellipse at 50% 100%, rgba(138,148,158,0.03) 0%, transparent 50%);
-  background-attachment: fixed;
 }
 .cab-ports-title { font-size: 11px; font-weight: 600; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.8px; margin-bottom: 10px; }
 .cab-port-grid { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 16px; }
@@ -667,13 +660,6 @@ body {
   font-family: var(--font-body);
   background: var(--bg-primary);
   color: var(--text-primary);
-  min-height: 100vh;
-  overflow-x: hidden;
-  background-image:
-    radial-gradient(ellipse at 20% 50%, rgba(14,165,233,0.06) 0%, transparent 50%),
-    radial-gradient(ellipse at 80% 20%, rgba(14,165,233,0.04) 0%, transparent 50%),
-    radial-gradient(ellipse at 50% 100%, rgba(138,148,158,0.03) 0%, transparent 50%);
-  background-attachment: fixed;
 }
 .drawer-section { padding: 20px 24px; border-bottom: 1px solid var(--border); }
 .drawer-section:last-child { border-bottom: none; }
@@ -1084,11 +1070,6 @@ body {
     box-shadow: 8px 0 32px rgba(0,0,0,0.4);
   }
 
-  .main-area {
-    margin-left: 0 !important;
-    width: 100% !important;
-  }
-
   .topbar {
     left: 0 !important;
     width: 100% !important;
@@ -1274,9 +1255,6 @@ body {
   }
   .sidebar .topbar-logo span {
     display: none !important;
-  }
-  .main-area {
-    margin-left: 64px !important;
   }
   .topbar {
     left: 64px !important;
@@ -1865,7 +1843,7 @@ body[data-page="solar"] #solar-alerts-wrapper { display: none !important; }
 /* #6 Touch interactions */
 .touch-manipulation { touch-action: manipulation; }
 @media (pointer: coarse) {
-  .main-area, .page-section, .asset-drawer, .sidebar { touch-action: manipulation; }
+  .main, .page-section, .asset-drawer, .sidebar { touch-action: manipulation; }
   /* Tap feedback */
   button:active, .btn:active, .filter-btn:active, .tab-btn:active, .nav-item:active,
   .fc-card:active, .kpi-card:active {
@@ -3024,7 +3002,6 @@ body.light-theme .alarm-summary-strip {
   border-color: #E2E8F0 !important;
 }
 /* Light theme — Main content area */
-body.light-theme .main-area { background: #F8FAFC !important; }
 body.light-theme .main { background: #F8FAFC !important; }
 /* Light theme — Cards and panels */
 body.light-theme .prefs-panel { background: #FFFFFF !important; border-color: #E2E8F0 !important; box-shadow: 0 8px 32px rgba(0,0,0,0.12) !important; }

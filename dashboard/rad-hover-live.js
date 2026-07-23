@@ -1343,6 +1343,16 @@
       p.className = 'ricker-pearl' + (pearl.score == null && pearl.status === 'offline' ? ' ricker-pearl-empty' : '');
       p.setAttribute('data-status', pearl.status || 'offline');
       p.setAttribute('data-glyph', PEARL_GLYPH[pearl.status] || '·');
+      // P3 contract #3 — comm-path integrity, distinct from health. A
+      // suspect integrity (protocol_deviation / config_change / new_talker)
+      // draws a violet dotted ring even on a health-good pearl: "up but not
+      // itself" is the earliest attack cue. 'expected'/'unknown' render no
+      // ring. Absent field (older API) is treated as 'unknown'.
+      var integ = pearl.integrity || 'unknown';
+      if (integ !== 'expected' && integ !== 'unknown') {
+        p.setAttribute('data-integrity', 'suspect');
+        p.setAttribute('data-integrity-kind', integ);
+      }
       p.textContent = pearl.score != null ? pearl.score : '—';
 
       // Dwell tracking — only pulse after 60s+ in bad
@@ -1364,6 +1374,9 @@
           '<div class="tt-row"><span>Asset</span><span>' + (pearl.asset_label || pearl.asset_id || '—') + '</span></div>' +
           '<div class="tt-row"><span>Score</span><span style="font-family:monospace;">' + (pearl.score != null ? pearl.score + ' / 100' : '—') + '</span></div>' +
           '<div class="tt-row"><span>Status</span><span style="text-transform:uppercase;">' + (pearl.status || 'offline') + '</span></div>' +
+          (integ && integ !== 'expected' && integ !== 'unknown'
+            ? '<div class="tt-row"><span>Integrity</span><span style="color:#B48EAD;text-transform:uppercase;">' + integ.replace(/_/g, ' ') + '</span></div>'
+            : '') +
           '<div class="tt-row"><span>Last update</span><span>' + rickerFreshness(pearl.last_update) + '</span></div>' +
           (pearl.simulated ? '<div class="tt-foot" style="color:#9B70F6;">⚠ Simulated peer tower — illustrative only</div>' :
            pearl.drill_url ? '<div class="tt-foot">Click to drill →</div>' : '');

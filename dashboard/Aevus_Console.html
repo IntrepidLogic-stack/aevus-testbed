@@ -2292,6 +2292,16 @@ body.wall-mode .solar-grid { grid-auto-rows: 1fr; }
 .ricker-pearl[data-status="warn"]    { background: #FBBF24; color: #1a1f2e; }
 .ricker-pearl[data-status="bad"]     { background: #EF4444; }
 .ricker-pearl[data-status="offline"] { background: #6B7280; color: #cbd5e1; }
+/* P3 contract #3 — comm-path integrity ring, distinct from health fill.
+   Violet dotted ring on a suspect pearl (protocol_deviation / config_change /
+   new_talker) — visible even on a health-good pearl. 'up but not itself' is
+   the earliest attack cue. Violet #B48EAD is the integrity-suspect token,
+   deliberately outside the alarm palette. */
+.ricker-pearl[data-integrity="suspect"] {
+  box-shadow: 0 0 0 2px #0B1020, 0 0 0 4px #B48EAD;
+  outline: 1px dotted #B48EAD;
+  outline-offset: 3px;
+}
 /* WCAG AA glyph badge — small inset icon for colorblind users */
 .ricker-pearl::after {
   content: attr(data-glyph);
@@ -6110,7 +6120,7 @@ html { scroll-behavior:smooth; }
 })();
 </script>
 <script src="/dashboard/api-client.js?v=143"></script>
-<script src="/dashboard/rad-hover-live.js?v=29"></script>
+<script src="/dashboard/rad-hover-live.js?v=30"></script>
 <script src="/dashboard/aevus-hphmi.js?v=18"></script>
 <!-- aevus-3dpad-map.js (award overlay) removed 2026-06-03: it threw an ASI TypeError in
      initAevusMap on the native map. The native map (api-client.js) owns window._aevusMapInstance,

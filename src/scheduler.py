@@ -105,6 +105,23 @@ class PollScheduler:
         self._collectors[asset_id] = collector
         self.log.info("collector_registered", asset_id=asset_id, type=type(collector).__name__)
 
+    def poll_evidence(self, asset_id: str) -> dict | None:
+        """Live poll-cycle stats for one asset (P3 contract #2), or None.
+
+        Exposes the counters BaseCollector.safe_poll already tracks — the
+        telemetry heartbeat that staleness judgments should cite.
+        """
+        c = self._collectors.get(asset_id)
+        if c is None:
+            return None
+        return {
+            "interval_s": c.poll_interval,
+            "success_pct": (round(100.0 * c.poll_success_count / c.poll_count, 1) if c.poll_count else None),
+            "consecutive_misses": c.consecutive_failures,
+            "last_good": c.last_poll,
+            "samples": c.poll_count,
+        }
+
     async def start(self) -> None:
         """Start polling loops for all registered collectors."""
         for asset_id, collector in self._collectors.items():

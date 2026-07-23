@@ -132,6 +132,13 @@ class Settings(BaseSettings):
     threshold_rssi_crit: float = -90.0
     threshold_snr_warn: float = 15.0
     threshold_snr_crit: float = 10.0
+    # Fade margin = RSSI − receiver sensitivity: the engineering-honest radio
+    # metric (P3_BACKEND_API_CONTRACT #1). Sensitivity is the JR900 spec at
+    # the configured over-air rate; band edges are physical design floors
+    # (≥30 dB comfortable, <20 dB below the classic rural design minimum).
+    radio_sensitivity_dbm: float = -108.0
+    threshold_fade_margin_warn: float = 30.0
+    threshold_fade_margin_crit: float = 20.0
     threshold_radio_temp_warn: float = 60.0
     threshold_radio_temp_crit: float = 75.0
     threshold_error_rate_warn: float = 1.0

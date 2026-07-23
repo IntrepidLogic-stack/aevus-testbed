@@ -39,6 +39,16 @@ THRESHOLD_MAP: dict[str, dict] = {
         "label": "SNR",
         "fmt": "{:.1f}",
     },
+    "fade_margin": {
+        # Derived from rssi in normalize_batch (P3 contract #1): RSSI minus
+        # receiver sensitivity. Percentages answer no question a radio tech
+        # asks; margin in dB is self-denominating.
+        "direction": "lower_bad",
+        "warn": settings.threshold_fade_margin_warn,  # 30
+        "crit": settings.threshold_fade_margin_crit,  # 20
+        "label": "FADE MARGIN",
+        "fmt": "{:.1f}",
+    },
     "tx_power": {
         "direction": "info",
         "label": "TX POWER",
@@ -575,12 +585,43 @@ def normalize_reading(reading: RawTelemetry) -> VitalSign:
     )
 
 
+def derive_fade_margin(readings: list[RawTelemetry]) -> RawTelemetry | None:
+    """Derive a fade-margin reading from a batch containing an rssi reading.
+
+    Fade margin = RSSI − receiver sensitivity (settings.radio_sensitivity_dbm).
+    Returns None when the batch carries no rssi. (P3 contract #1 — the
+    engineering-honest radio metric; a percentage without a denominator is
+    decoration wearing a numeral.)
+    """
+    rssi = next((r for r in readings if r.metric == "rssi"), None)
+    if rssi is None:
+        return None
+    return rssi.model_copy(
+        update={
+            "metric": "fade_margin",
+            "value": rssi.value - settings.radio_sensitivity_dbm,
+            "unit": "dB",
+            "oid": None,
+        }
+    )
+
+
 def normalize_batch(readings: list[RawTelemetry]) -> list[VitalSign]:
-    """Normalize a batch of raw readings into VitalSigns."""
+    """Normalize a batch of raw readings into VitalSigns.
+
+    Radio batches (any batch containing an rssi reading) gain a derived
+    FADE MARGIN vital — see derive_fade_margin().
+    """
     vitals = []
     for r in readings:
         try:
             vitals.append(normalize_reading(r))
         except Exception as e:
             logger.warning("normalize_failed", metric=r.metric, error=str(e))
+    try:
+        fade = derive_fade_margin(readings)
+        if fade is not None:
+            vitals.append(normalize_reading(fade))
+    except Exception as e:
+        logger.warning("fade_margin_derivation_failed", error=str(e))
     return vitals

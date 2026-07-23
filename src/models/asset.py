@@ -19,6 +19,21 @@ class AssetEvent(BaseModel):
     message: str
 
 
+class PollEvidence(BaseModel):
+    """Live poll-cycle evidence for an asset (P3 contract #2).
+
+    The poll cycle is the telemetry heartbeat: staleness derived from poll
+    evidence names its cause (path vs device vs host) where a wall-clock
+    timeout can only assert absence.
+    """
+
+    interval_s: int
+    success_pct: float | None = None  # lifetime success ratio; None before first poll
+    consecutive_misses: int = 0
+    last_good: datetime | None = None  # last successful poll
+    samples: int = 0  # total poll attempts
+
+
 class Asset(BaseModel):
     """A monitored asset in the Aevus fleet."""
 
@@ -40,3 +55,6 @@ class Asset(BaseModel):
     longitude: float | None = None
     vitals: list[VitalSign] = []
     events: list[AssetEvent] = []
+    # Live poll-cycle evidence, overlaid at serve time from the running
+    # collector (never persisted — it describes the process, not the asset).
+    poll: PollEvidence | None = None

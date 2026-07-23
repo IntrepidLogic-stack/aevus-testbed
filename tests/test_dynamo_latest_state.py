@@ -41,7 +41,7 @@ class TestItemsToLatest:
             {"metric": "voltage", "value": 13.3, "unit": "V", "source": "snmp"},
         ]
         latest = _reader()._items_to_latest("RAD-01", items)
-        assert len(latest.vitals) == 2
+        assert len(latest.vitals) == 3  # rssi + snr + derived FADE MARGIN (P3 contract #1)
         # normalize_batch should produce labelled vitals carrying the source
         assert all(v.source == "snmp" for v in latest.vitals)
         assert latest.state == {}
@@ -66,7 +66,7 @@ class TestItemsToLatest:
             {"metric": "", "value": 1},  # empty metric → skipped
         ]
         latest = _reader()._items_to_latest("RAD-01", items)
-        assert len(latest.vitals) == 1  # only rssi; broken + empty skipped
+        assert len(latest.vitals) == 2  # rssi + derived FADE MARGIN; broken + empty skipped
         assert latest.state == {"firmware": "v1"}
 
 

@@ -53,6 +53,22 @@ def _apply_read_source(assets: list[Asset]) -> list[Asset]:
     return assets
 
 
+def _apply_poll_evidence(assets: list[Asset]) -> list[Asset]:
+    """Overlay live poll-cycle evidence from the running collectors
+    (P3 contract #2). Serve-time only, never persisted, never raises."""
+    try:
+        from src.main import app_state
+        from src.models.asset import PollEvidence
+
+        for a in assets:
+            stats = app_state.scheduler.poll_evidence(a.id)
+            if stats is not None:
+                a.poll = PollEvidence(**stats)
+    except Exception as e:  # noqa: BLE001 — evidence overlay must never 500
+        log.warning("poll_evidence_apply_failed", error=str(e))
+    return assets
+
+
 @router.get("", response_model=list[Asset])
 async def list_assets(
     type: str | None = Query(None, description="Filter by asset type"),
@@ -95,7 +111,7 @@ async def list_assets(
         opcua = [a for a in opcua if a.type == type]
     if status:
         opcua = [a for a in opcua if a.status == status]
-    return result + refs + procs + opcua
+    return _apply_poll_evidence(result + refs + procs + opcua)
 
 
 @router.get("/{asset_id}", response_model=Asset)
@@ -123,7 +139,7 @@ async def get_asset(asset_id: str) -> Asset:
         raise HTTPException(status_code=404, detail=f"Asset {asset_id} not found")
     from src.api.relay_overlay import apply_relay_overlay
 
-    return apply_relay_overlay(_apply_read_source([asset]))[0]
+    return _apply_poll_evidence(apply_relay_overlay(_apply_read_source([asset])))[0]
 
 
 from pydantic import BaseModel as PydanticBaseModel

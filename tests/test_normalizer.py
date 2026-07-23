@@ -190,10 +190,12 @@ class TestNormalizeBatch:
             _make_reading("temperature", 35.0, "°C"),
         ]
         vitals = normalize_batch(readings)
-        assert len(vitals) == 3
+        # 3 inputs + derived FADE MARGIN (appended because the batch has rssi)
+        assert len(vitals) == 4
         assert vitals[0].label == "RSSI"
         assert vitals[1].label == "SNR"
         assert vitals[2].label == "TEMPERATURE"
+        assert vitals[3].label == "FADE MARGIN"
 
     def test_batch_skips_bad_readings(self):
         """Batch should not crash on malformed readings."""
@@ -202,4 +204,40 @@ class TestNormalizeBatch:
             _make_reading("snr", 20.0, "dB"),
         ]
         vitals = normalize_batch(readings)
-        assert len(vitals) == 2
+        # 2 inputs + derived FADE MARGIN from the rssi reading
+        assert len(vitals) == 3
+
+
+# ── fade margin derivation (P3 contract #1) ──
+
+
+class TestFadeMargin:
+    """Fade margin = RSSI − receiver sensitivity: the engineering-honest
+    radio metric. -71 dBm on a -108 dBm-sensitivity JR900 is ~37 dB of
+    margin — an excellent path that must never render as a warning."""
+
+    def test_derived_from_rssi_batch(self):
+        vitals = normalize_batch([_make_reading("rssi", -71.0, "dBm")])
+        fade = next(v for v in vitals if v.label == "FADE MARGIN")
+        assert fade.raw_value == 37.0  # -71 − (-108)
+        assert fade.unit == "dB"
+        assert fade.status == "good"  # ≥30 dB
+
+    def test_warn_band(self):
+        """25 dB margin: below the 30 dB comfortable floor, above 20 crit."""
+        vitals = normalize_batch([_make_reading("rssi", -83.0, "dBm")])
+        fade = next(v for v in vitals if v.label == "FADE MARGIN")
+        assert fade.raw_value == 25.0
+        assert fade.status == "warn"
+
+    def test_crit_band(self):
+        """12 dB margin: below the 20 dB rural design minimum."""
+        vitals = normalize_batch([_make_reading("rssi", -96.0, "dBm")])
+        fade = next(v for v in vitals if v.label == "FADE MARGIN")
+        assert fade.raw_value == 12.0
+        assert fade.status == "bad"
+
+    def test_no_rssi_no_fade(self):
+        """Non-radio batches gain nothing."""
+        vitals = normalize_batch([_make_reading("suction_pressure", 245.0, "PSI")])
+        assert all(v.label != "FADE MARGIN" for v in vitals)

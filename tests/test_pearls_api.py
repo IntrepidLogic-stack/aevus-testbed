@@ -32,6 +32,7 @@ ALLOWED_PEARL_KEYS = {
     "last_update",
     "drill_url",
     "simulated",  # only on sim pearls
+    "integrity",  # P3 contract #3 — comm-path integrity, distinct from health
 }
 
 # Substrings that, if found in a JSON value, indicate a raw-input leak.

@@ -1289,8 +1289,12 @@ body {
     display: flex !important;
   }
 
-  /* Add bottom padding so content doesn't hide behind bottom nav */
-  .main-area {
+  /* Add bottom padding so content doesn't hide behind bottom nav.
+     The content wrapper is <main class="main"> — the legacy `.main-area`
+     selector matched no element, so this clearance was silently dead and
+     the last ~80px of every mobile page sat hidden behind the fixed nav
+     ("can't scroll to the bottom"). Target both to be safe. */
+  .main-area, .main {
     padding-bottom: calc(64px + env(safe-area-inset-bottom, 0px) + 16px) !important;
   }
 
@@ -1393,7 +1397,7 @@ body {
   }
 
   /* Reduce main area padding */
-  .main-area {
+  .main-area, .main {
     padding-bottom: calc(48px + 8px) !important;
   }
 }
@@ -1656,7 +1660,7 @@ body.wall-mode .mobile-bottom-nav {
     padding-bottom: env(safe-area-inset-bottom) !important;
   }
   @media (max-width: 768px) {
-    .main-area {
+    .main-area, .main {
       padding-bottom: calc(64px + env(safe-area-inset-bottom) + 16px) !important;
     }
   }

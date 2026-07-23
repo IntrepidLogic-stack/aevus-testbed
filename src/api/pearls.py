@@ -139,10 +139,22 @@ def _pearl_for(pearl_id: str, label: str, asset: Any | None) -> dict:
             "asset_id": None,
             "score": None,
             "status": "offline",
+            "integrity": "unknown",
             "last_update": None,
             "drill_url": "",
         }
     score, status = score_asset(asset)
+    # P3 contract #3 — comm-path integrity, distinct from health. Observe on
+    # each build (learns the baseline), then verdict. Never raises: an
+    # integrity failure must not blank a pearl the operator needs.
+    try:
+        from src.engine.integrity_baseline import get_baseline
+
+        baseline = get_baseline()
+        baseline.observe(asset)
+        integrity = baseline.detect(asset)
+    except Exception:  # noqa: BLE001 — integrity is additive, never load-bearing
+        integrity = "unknown"
     return {
         "pearl_id": pearl_id,
         "label": label,
@@ -150,6 +162,7 @@ def _pearl_for(pearl_id: str, label: str, asset: Any | None) -> dict:
         "asset_label": asset.name,
         "score": score,
         "status": status,
+        "integrity": integrity,
         "last_update": _last_update_iso(asset),
         "drill_url": _drill_for(asset.id, asset.type),
     }
@@ -179,6 +192,9 @@ def _sim_pearl(pearl_id: str, label: str, score: int | None, status_override: st
         "last_update": datetime.now(UTC).isoformat(),
         "drill_url": "",
         "simulated": True,
+        # Simulated peers carry no real comm baseline — never assert integrity
+        # for a device we aren't actually watching.
+        "integrity": "unknown",
     }
 
 

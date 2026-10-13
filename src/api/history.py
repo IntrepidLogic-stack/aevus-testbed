@@ -133,8 +133,8 @@ async def history_rollup(
     loc: dict = {}
     try:
         for a in app_state.db.list_assets():
-            loc[a.id] = (getattr(a, "location", None) or "Unspecified")
-    except Exception:
+            loc[a.id] = getattr(a, "location", None) or "Unspecified"
+    except Exception:  # noqa: S110
         pass
 
     # Fade margin = RSSI - receiver sensitivity (same transform as the per-link lane).

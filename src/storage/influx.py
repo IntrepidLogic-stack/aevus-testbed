@@ -6,7 +6,7 @@ Writes raw telemetry to InfluxDB 2.x and queries time-series data.
 from __future__ import annotations
 
 import re
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import TYPE_CHECKING
 
 import structlog
@@ -26,7 +26,7 @@ logger = structlog.get_logger()
 # while making quote/backslash/newline injection impossible.
 _FLUX_IDENT_RE = re.compile(r"[A-Za-z0-9_.:\-]{1,128}")
 
-_UTC = timezone.utc
+_UTC = UTC
 
 
 def _parse_iso_dt(s):
@@ -293,9 +293,7 @@ class InfluxStorage:
                     t = record.get_time()
                     if v is None or aid is None or metric is None or t is None:
                         continue
-                    out.setdefault(aid, {}).setdefault(metric, []).append(
-                        {"t": int(t.timestamp() * 1000), "v": v}
-                    )
+                    out.setdefault(aid, {}).setdefault(metric, []).append({"t": int(t.timestamp() * 1000), "v": v})
             return out
         except Exception as e:
             self.log.error("influx_links_query_failed", error=str(e))

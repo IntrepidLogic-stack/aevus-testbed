@@ -24,18 +24,13 @@ logger = structlog.get_logger()
 
 CT = ZoneInfo("America/Chicago")
 
-_DOWN = ("bad", "critical", "offline")   # degraded or hard-down
-_NOCOMMS = ("unknown",)                  # not reporting — surface, never treat as OK
+_DOWN = ("bad", "critical", "offline")  # degraded or hard-down
+_NOCOMMS = ("unknown",)  # not reporting — surface, never treat as OK
 _WATCH = ("warn", "warning")
 
 
 def _esc(s: object) -> str:
-    return (
-        str("" if s is None else s)
-        .replace("&", "&amp;")
-        .replace("<", "&lt;")
-        .replace(">", "&gt;")
-    )
+    return str("" if s is None else s).replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
 
 
 def _status_color(status: str | None) -> str:
@@ -52,9 +47,11 @@ def _status_color(status: str | None) -> str:
 
 
 def _recipients(explicit: list[str] | None) -> list[str]:
-    raw_list = explicit if explicit else [
-        r.strip() for r in (getattr(settings, "digest_recipients", "") or "").split(",") if r.strip()
-    ]
+    raw_list = (
+        explicit
+        if explicit
+        else [r.strip() for r in (getattr(settings, "digest_recipients", "") or "").split(",") if r.strip()]
+    )
     # Allowlist to the org domain unless digest_allow_external is explicitly enabled.
     # Defends against an open-relay / data-exfil path even if a caller supplies recipients.
     if getattr(settings, "digest_allow_external", False):
@@ -149,6 +146,7 @@ def build_fleet_digest(db) -> tuple[str, str, str]:
         if a.status in _WATCH or a.id in open_by_asset:
             return 3
         return 9
+
     attn = sorted(
         [a for a in assets if a.status in (_DOWN + _NOCOMMS + _WATCH) or a.id in open_by_asset],
         key=_rank,
@@ -256,11 +254,14 @@ def build_fleet_digest(db) -> tuple[str, str, str]:
         )
         sla_section = (
             '<div style="font-family:' + font + ';font-size:13px;font-weight:800;color:#0F1629;margin:22px 0 8px;">'
-            'SLA &amp; Compliance '
+            "SLA &amp; Compliance "
             '<span style="font-weight:600;color:#64748B;font-size:11px;">last 30 days</span></div>'
             + sla_kpis
-            + '<div style="font-family:' + font + ';font-size:11px;color:#94A3B8;line-height:1.5;margin-top:6px;">'
-            + _esc(sla_caption) + "</div>"
+            + '<div style="font-family:'
+            + font
+            + ';font-size:11px;color:#94A3B8;line-height:1.5;margin-top:6px;">'
+            + _esc(sla_caption)
+            + "</div>"
         )
 
     site_body = ""
@@ -286,7 +287,9 @@ def build_fleet_digest(db) -> tuple[str, str, str]:
         attn_body = ""
         for a in attn:
             c = _status_color(a.status)
-            reason = _top_alert_msg(open_by_asset, a.id) or ("loss of contact" if a.status in _NOCOMMS else "status " + (a.status or "?"))
+            reason = _top_alert_msg(open_by_asset, a.id) or (
+                "loss of contact" if a.status in _NOCOMMS else "status " + (a.status or "?")
+            )
             hv = a.health if isinstance(a.health, (int, float)) else "n/a"
             attn_body += (
                 f'<tr><td style="padding:6px 10px;border-bottom:1px solid #EEF2F7;font-weight:600;">{_esc(a.name)} '
@@ -297,26 +300,31 @@ def build_fleet_digest(db) -> tuple[str, str, str]:
                 f'<td style="padding:6px 10px;border-bottom:1px solid #EEF2F7;color:#475569;">{_esc(reason)}</td></tr>'
             )
         attn_section = (
-            '<div style="font-family:' + font + ';font-size:13px;font-weight:800;color:#0F1629;margin:22px 0 8px;">Needs attention</div>'
-            '<table role="presentation" cellspacing="0" cellpadding="0" width="100%" style="border:1px solid #E2E8F0;border-radius:8px;border-collapse:separate;overflow:hidden;font-family:' + font + ';font-size:12.5px;color:#0F1629;">'
+            '<div style="font-family:'
+            + font
+            + ';font-size:13px;font-weight:800;color:#0F1629;margin:22px 0 8px;">Needs attention</div>'
+            '<table role="presentation" cellspacing="0" cellpadding="0" width="100%" style="border:1px solid #E2E8F0;border-radius:8px;border-collapse:separate;overflow:hidden;font-family:'
+            + font
+            + ';font-size:12.5px;color:#0F1629;">'
             '<tr style="background:#F1F5F9;"><td style="padding:7px 10px;font-size:10px;letter-spacing:.06em;text-transform:uppercase;color:#64748B;">Asset</td>'
             '<td style="padding:7px 10px;font-size:10px;letter-spacing:.06em;text-transform:uppercase;color:#64748B;">Site</td>'
             '<td style="padding:7px 10px;font-size:10px;letter-spacing:.06em;text-transform:uppercase;color:#64748B;">Status</td>'
             '<td align="center" style="padding:7px 10px;font-size:10px;letter-spacing:.06em;text-transform:uppercase;color:#64748B;">Health</td>'
             '<td style="padding:7px 10px;font-size:10px;letter-spacing:.06em;text-transform:uppercase;color:#64748B;">Reason</td></tr>'
-            + attn_body + "</table>"
+            + attn_body
+            + "</table>"
         )
     else:
         attn_section = (
             '<div style="font-family:' + font + ';font-size:13px;color:#1E8E4E;font-weight:700;margin:22px 0 8px;">'
-            'All assets nominal; no open alerts.</div>'
+            "All assets nominal; no open alerts.</div>"
         )
 
     alert_section = ""
     if open_alerts:
         rows = ""
         for a in open_alerts[:12]:
-            sev = (a.severity or "info")
+            sev = a.severity or "info"
             sc = "#C0392B" if sev == "critical" else ("#B7791F" if sev == "warning" else "#0E7490")
             det = ""
             if a.detected_at:
@@ -328,11 +336,21 @@ def build_fleet_digest(db) -> tuple[str, str, str]:
                 f'<td style="padding:6px 10px;border-bottom:1px solid #EEF2F7;color:#475569;">{_esc(a.message or "")}</td>'
                 f'<td style="padding:6px 10px;border-bottom:1px solid #EEF2F7;font-family:{mono};font-size:11px;color:#94A3B8;white-space:nowrap;">{det}</td></tr>'
             )
-        more = f'<div style="font-size:11px;color:#94A3B8;margin-top:6px;">plus {len(open_alerts) - 12} more open</div>' if len(open_alerts) > 12 else ""
+        more = (
+            f'<div style="font-size:11px;color:#94A3B8;margin-top:6px;">plus {len(open_alerts) - 12} more open</div>'
+            if len(open_alerts) > 12
+            else ""
+        )
         alert_section = (
-            '<div style="font-family:' + font + ';font-size:13px;font-weight:800;color:#0F1629;margin:22px 0 8px;">Open alerts</div>'
-            '<table role="presentation" cellspacing="0" cellpadding="0" width="100%" style="border:1px solid #E2E8F0;border-radius:8px;border-collapse:separate;overflow:hidden;font-family:' + font + ';font-size:12.5px;color:#0F1629;">'
-            + rows + "</table>" + more
+            '<div style="font-family:'
+            + font
+            + ';font-size:13px;font-weight:800;color:#0F1629;margin:22px 0 8px;">Open alerts</div>'
+            '<table role="presentation" cellspacing="0" cellpadding="0" width="100%" style="border:1px solid #E2E8F0;border-radius:8px;border-collapse:separate;overflow:hidden;font-family:'
+            + font
+            + ';font-size:12.5px;color:#0F1629;">'
+            + rows
+            + "</table>"
+            + more
         )
 
     html = f"""<!doctype html><html><body style="margin:0;padding:0;background:#EEF2F7;">
@@ -385,13 +403,19 @@ def build_fleet_digest(db) -> tuple[str, str, str]:
     tlines += ["", "By location:"]
     for m in site_rows:
         st = "DEGRADED" if m["down"] else ("NO-COMMS" if m["nocomms"] else ("WATCH" if m["watch"] else "OK"))
-        tlines.append(f"  - {m['site']}: {m['total']} assets, {m['down']} down, {m['nocomms']} no-comms, {m['watch']} watch [{st}]")
+        tlines.append(
+            f"  - {m['site']}: {m['total']} assets, {m['down']} down, {m['nocomms']} no-comms, {m['watch']} watch [{st}]"
+        )
     if attn:
         tlines += ["", "Needs attention:"]
         for a in attn:
-            reason = _top_alert_msg(open_by_asset, a.id) or ("loss of contact" if a.status in _NOCOMMS else "status " + (a.status or "?"))
+            reason = _top_alert_msg(open_by_asset, a.id) or (
+                "loss of contact" if a.status in _NOCOMMS else "status " + (a.status or "?")
+            )
             hv = a.health if isinstance(a.health, (int, float)) else "n/a"
-            tlines.append(f"  - {a.name} ({a.id}) @ {a.location or 'n/a'}: {(a.status or '?').upper()} health {hv} :: {reason}")
+            tlines.append(
+                f"  - {a.name} ({a.id}) @ {a.location or 'n/a'}: {(a.status or '?').upper()} health {hv} :: {reason}"
+            )
     if open_alerts:
         tlines += ["", "Open alerts:"]
         for a in open_alerts[:12]:
@@ -428,7 +452,12 @@ def send_fleet_digest(db, recipients: list[str] | None = None) -> dict:
             },
         )
         logger.info("fleet_digest_sent", recipient_count=len(recips), subject=subject)
-        return {"status": "sent", "recipient_count": len(recips), "subject": subject, "generated_at": datetime.now(UTC).isoformat()}
+        return {
+            "status": "sent",
+            "recipient_count": len(recips),
+            "subject": subject,
+            "generated_at": datetime.now(UTC).isoformat(),
+        }
     except Exception as e:  # noqa: BLE001
         logger.warning("fleet_digest_failed", error_type=type(e).__name__)
         return {"status": "error", "error": "send failed; see server logs"}

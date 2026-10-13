@@ -55,7 +55,7 @@ values are not used for any uptime percentage).
 from __future__ import annotations
 
 from collections import defaultdict
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 
 from fastapi import APIRouter, Query
 
@@ -64,14 +64,14 @@ from src.api.incidents import list_incidents
 
 router = APIRouter(prefix="/sla", tags=["sla"])
 
-UTC = timezone.utc
+UTC = UTC
 _MIN_MS = 60_000.0
 _HOUR_MS = 3_600_000.0
 
 # Incident kind -> which SLA objective its downtime debits. Kinds come from
 # incidents.py _kind_for(): vibration / rain / obstruct / interf / loss / flap / live.
-AVAIL_KINDS = {"loss", "flap"}          # reachability: comms loss + link flap/frame-error
-FADE_KINDS = {"rain", "obstruct"}       # path fade-margin: rain-fade + path obstruction
+AVAIL_KINDS = {"loss", "flap"}  # reachability: comms loss + link flap/frame-error
+FADE_KINDS = {"rain", "obstruct"}  # path fade-margin: rain-fade + path obstruction
 LINK_KINDS = AVAIL_KINDS | FADE_KINDS | {"interf"}  # link-affecting, for MTBF failure count
 
 
@@ -148,7 +148,7 @@ async def sla_summary(
     try:
         for a in app_state.db.list_assets():
             loc[a.id] = getattr(a, "location", None) or "Unspecified"
-    except Exception:
+    except Exception:  # noqa: S110
         pass
 
     # --- Incidents: reuse incidents.py's clustering in-process (no self-HTTP) ---
@@ -203,9 +203,7 @@ async def sla_summary(
         rf = sum(rf_vals) / len(rf_vals) if rf_vals else None
         n_inc = len(incs)
         n_fail = sum(1 for i in incs if i.get("kind") in LINK_KINDS)
-        mtbf_hours = (
-            (period_hours * len(asset_ids) / n_fail) if n_fail > 0 and asset_ids else None
-        )
+        mtbf_hours = (period_hours * len(asset_ids) / n_fail) if n_fail > 0 and asset_ids else None
         closed = _closed_durations_ms(incs)
         mttr_minutes = (sum(closed) / len(closed) / _MIN_MS) if closed else None
         return {

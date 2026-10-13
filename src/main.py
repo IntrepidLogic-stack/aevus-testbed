@@ -46,7 +46,6 @@ from src.api.diagnostics import router as diagnostics_router  # noqa: E402
 from src.api.health import router as health_router  # noqa: E402
 from src.api.history import router as history_router  # noqa: E402
 from src.api.incidents import router as incidents_router  # noqa: E402
-from src.api.sla import router as sla_router  # noqa: E402
 from src.api.ingest import router as ingest_router  # noqa: E402
 from src.api.integrations import router as integrations_router  # noqa: E402
 from src.api.notes import journal_router  # noqa: E402
@@ -55,6 +54,7 @@ from src.api.pearls import router as pearls_router  # noqa: E402
 from src.api.ping_diag import router as ping_diag_router  # noqa: E402
 from src.api.predictions import router as predictions_router  # noqa: E402
 from src.api.reports import router as reports_router  # noqa: E402
+from src.api.sla import router as sla_router  # noqa: E402
 from src.api.twin import router as twin_router  # noqa: E402
 from src.api.weather import router as weather_router  # noqa: E402
 from src.api.ws import router as ws_router  # noqa: E402
@@ -522,9 +522,12 @@ async def _fleet_digest_loop() -> None:
     if not settings.digest_enabled:
         return
     import asyncio as _a
-    from datetime import datetime as _dt, timedelta as _td
-    from zoneinfo import ZoneInfo as _Z
+    from datetime import datetime as _dt
+    from datetime import timedelta as _td
+    from zoneinfo import ZoneInfo as _Z  # noqa: N814
+
     from src.engine.digest import send_fleet_digest as _send
+
     ct = _Z("America/Chicago")
     while True:
         now = _dt.now(ct)
@@ -668,7 +671,11 @@ _LOGIN_HTML = _read_cached(DASHBOARD_DIR / "login.html")
 async def login_page():
     """Serve the login page (cached at import)."""
     if _LOGIN_HTML is not None:
-        return Response(content=_LOGIN_HTML, media_type="text/html", headers={"Cache-Control": "no-store, must-revalidate", "Pragma": "no-cache"})
+        return Response(
+            content=_LOGIN_HTML,
+            media_type="text/html",
+            headers={"Cache-Control": "no-store, must-revalidate", "Pragma": "no-cache"},
+        )
     return {"detail": "Login page not found"}
 
 

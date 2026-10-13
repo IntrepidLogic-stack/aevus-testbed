@@ -55,7 +55,12 @@ class TestSlaAPI:
     def test_sla_custom_targets_and_window(self, client):
         resp = client.get(
             "/api/v1/sla",
-            params={"avail_target": 99.0, "rf_target": 95.0, "from": "2026-09-01T00:00:00Z", "to": "2026-10-01T00:00:00Z"},
+            params={
+                "avail_target": 99.0,
+                "rf_target": 95.0,
+                "from": "2026-09-01T00:00:00Z",
+                "to": "2026-10-01T00:00:00Z",
+            },
         )
         assert resp.status_code == 200
         data = resp.json()

@@ -18,13 +18,13 @@ Contract (consumed by Aevus_Comms_Console.html incident source):
 
 from __future__ import annotations
 
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 
 from fastapi import APIRouter, Query
 
 router = APIRouter(prefix="/incidents", tags=["incidents"])
 
-UTC = timezone.utc
+UTC = UTC
 # Gap (seconds) between an alarm and the running episode beyond which a NEW incident starts.
 # Recurring bursts (e.g. RTU vibration every ~2 min) stay one incident; a quiet hour splits them.
 _GAP_S = 45 * 60
@@ -53,9 +53,16 @@ _MECH = [
     ("chattering", "Chattering alarm (flapping)"),
 ]
 _KIND = [
-    ("vibration", "vibration"), ("fade", "rain"), ("rssi", "obstruct"), ("snr", "interf"),
-    ("reach", "loss"), ("offline", "loss"), ("no response", "loss"), ("error", "flap"),
-    ("packet", "flap"), ("chattering", "flap"),
+    ("vibration", "vibration"),
+    ("fade", "rain"),
+    ("rssi", "obstruct"),
+    ("snr", "interf"),
+    ("reach", "loss"),
+    ("offline", "loss"),
+    ("no response", "loss"),
+    ("error", "flap"),
+    ("packet", "flap"),
+    ("chattering", "flap"),
 ]
 
 
@@ -104,8 +111,8 @@ async def list_incidents(
     loc = {}
     try:
         for a in app_state.db.list_assets():
-            loc[a.id] = (getattr(a, "location", None) or "Unspecified")
-    except Exception:
+            loc[a.id] = getattr(a, "location", None) or "Unspecified"
+    except Exception:  # noqa: S110
         pass
 
     raw = app_state.db.list_alerts(limit=2000)
@@ -128,10 +135,10 @@ async def list_incidents(
             open_flag = c["_open"]
             end_dt = None if open_flag else c["_end"]
             return {
-                "id": "LINC-" + aid + "-" + str(int(c["start"].timestamp())),
-                "asset_id": aid,
+                "id": "LINC-" + aid + "-" + str(int(c["start"].timestamp())),  # noqa: B023
+                "asset_id": aid,  # noqa: B023
                 "asset_name": c["name"],
-                "site": loc.get(aid, "Unspecified"),
+                "site": loc.get(aid, "Unspecified"),  # noqa: B023
                 "severity": c["sev"],
                 "kind": _kind_for(c["msg"]),
                 "mechanism": _mech_for(c["msg"]),
@@ -146,14 +153,28 @@ async def list_incidents(
             a_open = (a.status != "resolved") or (a.resolved_at is None)
             a_end = a.resolved_at or now
             if cur is None:
-                cur = {"start": a.detected_at, "_end": a_end, "_open": a_open, "sev": a.severity,
-                       "name": a.asset_name, "msg": a.message, "n": 1}
+                cur = {
+                    "start": a.detected_at,
+                    "_end": a_end,
+                    "_open": a_open,
+                    "sev": a.severity,
+                    "name": a.asset_name,
+                    "msg": a.message,
+                    "n": 1,
+                }
                 continue
-            gap_ref = cur["_end"] if not cur["_open"] else a.detected_at   # open episode never "gaps"
+            gap_ref = cur["_end"] if not cur["_open"] else a.detected_at  # open episode never "gaps"
             if (a.detected_at - gap_ref).total_seconds() > _GAP_S:
                 incidents.append(finalize(cur))
-                cur = {"start": a.detected_at, "_end": a_end, "_open": a_open, "sev": a.severity,
-                       "name": a.asset_name, "msg": a.message, "n": 1}
+                cur = {
+                    "start": a.detected_at,
+                    "_end": a_end,
+                    "_open": a_open,
+                    "sev": a.severity,
+                    "name": a.asset_name,
+                    "msg": a.message,
+                    "n": 1,
+                }
             else:
                 cur["n"] += 1
                 if a_end > cur["_end"]:
@@ -162,7 +183,7 @@ async def list_incidents(
                     cur["_open"] = True
                 if _SEV_RANK.get(a.severity, 9) < _SEV_RANK.get(cur["sev"], 9):
                     cur["sev"] = a.severity
-                    cur["msg"] = a.message   # keep the message from the worst alarm
+                    cur["msg"] = a.message  # keep the message from the worst alarm
         if cur is not None:
             incidents.append(finalize(cur))
 

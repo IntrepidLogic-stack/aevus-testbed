@@ -44,6 +44,9 @@ from src.api.csv_io import router as csv_io_router  # noqa: E402
 from src.api.deploy import router as deploy_router  # noqa: E402
 from src.api.diagnostics import router as diagnostics_router  # noqa: E402
 from src.api.health import router as health_router  # noqa: E402
+from src.api.history import router as history_router  # noqa: E402
+from src.api.incidents import router as incidents_router  # noqa: E402
+from src.api.sla import router as sla_router  # noqa: E402
 from src.api.ingest import router as ingest_router  # noqa: E402
 from src.api.integrations import router as integrations_router  # noqa: E402
 from src.api.notes import journal_router  # noqa: E402
@@ -511,6 +514,31 @@ def _register_opcua_collector() -> None:
         logger.warning("opcua_collector_failed", error=str(e))
 
 
+async def _fleet_digest_loop() -> None:
+    """Send the fleet-health email digest daily at the configured CT hour.
+
+    Read-only (IL-9000). No-op unless settings.digest_enabled is true and
+    recipients are configured. Mirrors the other lifespan background loops."""
+    if not settings.digest_enabled:
+        return
+    import asyncio as _a
+    from datetime import datetime as _dt, timedelta as _td
+    from zoneinfo import ZoneInfo as _Z
+    from src.engine.digest import send_fleet_digest as _send
+    ct = _Z("America/Chicago")
+    while True:
+        now = _dt.now(ct)
+        target = now.replace(hour=settings.digest_hour_ct, minute=settings.digest_minute, second=0, microsecond=0)
+        if target <= now:
+            target += _td(days=1)
+        await _a.sleep(max(1.0, (target - now).total_seconds()))
+        try:
+            result = await _a.to_thread(_send, app_state.db)
+            logger.info("fleet_digest_tick", result=result)
+        except Exception as e:  # noqa: BLE001
+            logger.warning("fleet_digest_loop_error", error=str(e))
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     _seed_lab_assets()
@@ -524,6 +552,7 @@ async def lifespan(app: FastAPI):
     weather_task = asyncio.create_task(_weather_loop())
     mqtt_health_task = asyncio.create_task(_mqtt_health_publish_loop())
     warning_digest_task = asyncio.create_task(_warning_digest_loop())
+    fleet_digest_task = asyncio.create_task(_fleet_digest_loop())
     # Start the SNMP trap listener if enabled. Failures (e.g. port-in-use on a
     # second instance, or no privileged-port capability) are logged but do NOT
     # crash startup — the rest of the service is still useful without traps.
@@ -546,6 +575,7 @@ async def lifespan(app: FastAPI):
     weather_task.cancel()
     mqtt_health_task.cancel()
     warning_digest_task.cancel()
+    fleet_digest_task.cancel()
     await app_state.scheduler.stop()
 
 
@@ -582,6 +612,9 @@ for r in (
     deploy_router,
     diagnostics_router,
     health_router,
+    history_router,
+    incidents_router,
+    sla_router,
     ingest_router,
     integrations_router,
     journal_router,
@@ -635,7 +668,7 @@ _LOGIN_HTML = _read_cached(DASHBOARD_DIR / "login.html")
 async def login_page():
     """Serve the login page (cached at import)."""
     if _LOGIN_HTML is not None:
-        return Response(content=_LOGIN_HTML, media_type="text/html")
+        return Response(content=_LOGIN_HTML, media_type="text/html", headers={"Cache-Control": "no-store, must-revalidate", "Pragma": "no-cache"})
     return {"detail": "Login page not found"}
 
 

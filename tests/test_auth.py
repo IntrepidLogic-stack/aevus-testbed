@@ -103,13 +103,15 @@ class TestAuthHardening:
         resp = unauthed_client.post("/api/v1/journal", json={})
         assert resp.status_code == 401
 
-    def test_demo_referer_still_allows_read(self, unauthed_client):
-        """The public ?demo=true dashboard's GET reads still work via Referer."""
+    def test_demo_referer_no_longer_bypasses_live_reads(self, unauthed_client):
+        """A spoofable ?demo=true Referer must NOT grant unauthenticated reads of
+        live data. The old GET bypass was an unauthenticated live-data leak; only
+        the public /ai/* demo endpoints may pass on a demo Referer now."""
         resp = unauthed_client.get(
             "/api/v1/assets",
             headers={"referer": "https://aevus.intrepidlogic.io/dashboard/Aevus_Console.html?demo=true"},
         )
-        assert resp.status_code == 200
+        assert resp.status_code == 401
 
     def test_demo_header_no_longer_bypasses(self, unauthed_client):
         """The spoofable `x-aevus-demo: true` header must NOT bypass auth."""

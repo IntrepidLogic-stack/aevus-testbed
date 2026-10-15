@@ -199,11 +199,12 @@ class TestAdminHandlersRunForAdmin:
 
 class TestDemoModeCannotReachAdmin:
     def test_spoofed_demo_referer_cannot_read_users_or_requests(self, client, cognito):
-        # The middleware lets any GET with a "demo=true" Referer through (a soft
-        # demo gate). Admin data must not be readable that way.
+        # The demo Referer no longer bypasses auth for live or admin data: an
+        # unauthenticated request is rejected at the middleware (401) before it
+        # reaches the admin routes. Admin data must not be readable this way.
         for path in ("/api/v1/users", "/api/v1/access-requests"):
             resp = client.get(path, headers={"Referer": "https://aevus.example/console?demo=true"})
-            assert resp.status_code == 403, path
+            assert resp.status_code == 401, path
         assert cognito.method_calls == []
 
 

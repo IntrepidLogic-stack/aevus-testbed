@@ -5,22 +5,27 @@ Supports:
   2. ?key= query param (WebSocket connections)
   3. aevus_session cookie (dashboard browser sessions)
   4. Authorization: Bearer <jwt> (AWS Cognito JWT)
+
+Authentication (the middleware) is separate from authorization. The middleware
+only answers "is this caller known?"; it admits any session cookie, any pool
+user's bearer, and the shared master X-API-Key. Routes that mutate users or read
+the access-request queue additionally depend on `require_admin`, which demands a
+verified Cognito bearer whose `cognito:groups` contains "Admin". The shared
+master key and non-admin users are rejected with 403 there.
 """
 
 from __future__ import annotations
 
 import hashlib
 import secrets
-from typing import TYPE_CHECKING
+from typing import Any
 
 import structlog
+from fastapi import HTTPException, Request  # noqa: TCH002 (FastAPI resolves `request: Request` at runtime)
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.responses import JSONResponse
 
 from src.config import settings
-
-if TYPE_CHECKING:
-    from fastapi import Request
 
 logger = structlog.get_logger()
 
@@ -28,6 +33,9 @@ logger = structlog.get_logger()
 COGNITO_POOL_ID = "us-east-1_CVFBcLJV3"
 COGNITO_REGION = "us-east-1"
 COGNITO_ISSUER = f"https://cognito-idp.{COGNITO_REGION}.amazonaws.com/{COGNITO_POOL_ID}"
+# Cognito group that may use admin/user-management routes (pool groups are
+# Admin / Operator / Viewer).
+ADMIN_GROUP = "Admin"
 
 # Fail-open visibility: when api_key is empty the middleware lets ALL /api/
 # traffic through unauthenticated (dev mode). That's fine locally but a
@@ -55,8 +63,12 @@ SESSION_TOKEN = _make_session_token()
 _jwk_client = None
 
 
-def _validate_cognito_jwt(token: str) -> bool:
-    """Validate a Cognito JWT against the pool's signing keys (cached client)."""
+def _decode_cognito_jwt(token: str) -> dict[str, Any] | None:
+    """Verify a Cognito JWT against the pool's signing keys (cached client).
+
+    Returns the verified claims, or None if the token is missing, malformed,
+    expired, wrongly signed, or from another issuer. Never raises.
+    """
     global _jwk_client
     try:
         import jwt
@@ -67,16 +79,51 @@ def _validate_cognito_jwt(token: str) -> bool:
             _jwk_client = PyJWKClient(f"{COGNITO_ISSUER}/.well-known/jwks.json")
         signing_key = _jwk_client.get_signing_key_from_jwt(token)
 
-        jwt.decode(
+        claims = jwt.decode(
             token,
             signing_key.key,
             algorithms=["RS256"],
             issuer=COGNITO_ISSUER,
             options={"verify_aud": False},  # Cognito ID tokens use 'aud', access tokens use 'client_id'
         )
-        return True
+        return claims
     except Exception:
-        return False
+        return None
+
+
+def _validate_cognito_jwt(token: str) -> bool:
+    """Validate a Cognito JWT against the pool's signing keys (cached client)."""
+    return _decode_cognito_jwt(token) is not None
+
+
+def require_admin(request: Request) -> dict[str, Any]:
+    """FastAPI dependency: allow only a verified Cognito bearer in the Admin group.
+
+    Verifies the bearer itself rather than trusting the middleware, because the
+    middleware also admits the shared master X-API-Key, session cookies, demo
+    referers and every non-admin pool user. All of those get 403 here. The
+    shared master key is deliberately NOT an admin credential: it carries no
+    identity, so user-management actions would be unattributable.
+
+    Returns the verified claims so handlers can attribute the action.
+    """
+    auth_header = request.headers.get("authorization", "")
+    claims: dict[str, Any] | None = None
+    if auth_header.startswith("Bearer "):
+        claims = _decode_cognito_jwt(auth_header[7:])
+
+    groups = claims.get("cognito:groups", []) if claims else []
+    if isinstance(groups, str):  # defensive: tolerate a single-string claim
+        groups = [groups]
+    if claims is None or ADMIN_GROUP not in groups:
+        logger.warning(
+            "admin_access_denied",
+            path=request.url.path,
+            method=request.method,
+            reason="no_valid_bearer" if claims is None else "not_in_admin_group",
+        )
+        raise HTTPException(status_code=403, detail="Admin role required")
+    return claims
 
 
 class APIKeyMiddleware(BaseHTTPMiddleware):

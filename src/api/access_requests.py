@@ -10,12 +10,20 @@ from datetime import UTC, datetime
 from pathlib import Path
 
 import structlog
-from fastapi import APIRouter
+from fastapi import APIRouter, Depends
 from pydantic import BaseModel
+
+from src.api.auth import require_admin
 
 logger = structlog.get_logger()
 
 router = APIRouter(tags=["access-requests"])
+
+# AUTHORIZATION: every route below except the public POST /access-requests
+# (the sign-up form) carries `dependencies=[Depends(require_admin)]`. The global
+# APIKeyMiddleware only authenticates; it admits the shared master key and any
+# pool user, so the admin check must live on each route. tests/test_admin_gate.py
+# enforces this for every non-public route in this module.
 
 DATA_FILE = Path("/home/ubuntu/aevus-testbed/data/access_requests.json")
 
@@ -262,12 +270,12 @@ async def submit_access_request(req: AccessRequest):
     return {"status": "ok", "id": data["id"]}
 
 
-@router.get("/access-requests")
+@router.get("/access-requests", dependencies=[Depends(require_admin)])
 async def list_access_requests():
     return _load()
 
 
-@router.put("/access-requests/{req_id}")
+@router.put("/access-requests/{req_id}", dependencies=[Depends(require_admin)])
 async def update_access_request(req_id: str, decision: AccessDecision):
     reqs = _load()
     target = None
@@ -325,7 +333,7 @@ async def update_access_request(req_id: str, decision: AccessDecision):
 # ── User Management (Cognito) ─────────────────────────────
 
 
-@router.get("/users")
+@router.get("/users", dependencies=[Depends(require_admin)])
 async def list_users():
     """List all Cognito users with their groups."""
     import boto3
@@ -353,7 +361,7 @@ async def list_users():
     return users
 
 
-@router.put("/users/{username}/role")
+@router.put("/users/{username}/role", dependencies=[Depends(require_admin)])
 async def change_user_role(username: str, body: dict):
     """Change a user's group (role)."""
     import boto3
@@ -373,7 +381,7 @@ async def change_user_role(username: str, body: dict):
     return {"status": "ok", "role": new_role}
 
 
-@router.put("/users/{username}/toggle")
+@router.put("/users/{username}/toggle", dependencies=[Depends(require_admin)])
 async def toggle_user(username: str):
     """Enable or disable a user."""
     import boto3
@@ -392,7 +400,7 @@ async def toggle_user(username: str):
         return {"status": "ok", "enabled": True}
 
 
-@router.delete("/users/{username}")
+@router.delete("/users/{username}", dependencies=[Depends(require_admin)])
 async def delete_user(username: str):
     """Permanently delete a Cognito user."""
     import boto3
@@ -404,7 +412,7 @@ async def delete_user(username: str):
     return {"status": "ok"}
 
 
-@router.post("/users/{username}/reset-password")
+@router.post("/users/{username}/reset-password", dependencies=[Depends(require_admin)])
 async def reset_user_password(username: str):
     """Force a password reset — sends new temp password via email."""
     import boto3
@@ -416,7 +424,7 @@ async def reset_user_password(username: str):
     return {"status": "ok"}
 
 
-@router.post("/users/{username}/mfa")
+@router.post("/users/{username}/mfa", dependencies=[Depends(require_admin)])
 async def enable_mfa(username: str):
     """Enable TOTP MFA for a user."""
     import boto3

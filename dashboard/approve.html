@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<meta name="robots" content="noindex,nofollow">
+<meta name="referrer" content="no-referrer">
+<title>Aevus - Approve Demo Access</title>
+<style>
+  :root { --bg:#070B16; --card:#0F172A; --line:rgba(148,163,184,0.16); --text:#F1F5F9; --muted:#94A3B8; --accent:#06B6D4; --bad:#F87171; --ok:#34D399; }
+  * { box-sizing:border-box; }
+  body { margin:0; min-height:100vh; display:flex; align-items:center; justify-content:center; padding:16px;
+         background:var(--bg); color:var(--text); font-family:'Segoe UI',Roboto,Helvetica,Arial,sans-serif; }
+  .card { width:100%; max-width:440px; background:var(--card); border:1px solid var(--line); border-radius:16px; padding:28px 24px; }
+  .brand { font-size:20px; font-weight:700; letter-spacing:3px; color:var(--accent); margin-bottom:16px; }
+  h1 { font-size:16px; margin:0 0 8px; }
+  p { font-size:13px; line-height:1.6; color:var(--muted); margin:0 0 16px; }
+  button, a.btn { display:inline-block; width:100%; padding:12px 16px; border:0; border-radius:8px; background:var(--accent);
+         color:#070B16; font-size:13px; font-weight:700; letter-spacing:0.5px; text-align:center; text-decoration:none; cursor:pointer; }
+  button:disabled { opacity:.5; cursor:default; }
+  #msg { margin-top:16px; font-size:13px; line-height:1.5; }
+  .bad { color:var(--bad); } .ok { color:var(--ok); }
+</style>
+</head>
+<body>
+<main class="card">
+  <div class="brand">AEVUS</div>
+  <h1>Approve demo access</h1>
+  <p>This grants the requester a synthetic-only demo account (no live data, no operator access). The link works once and expires. You must be signed in as an Aevus admin.</p>
+  <button id="go" type="button" disabled>Approve</button>
+  <div id="msg" role="status" aria-live="polite"></div>
+</main>
+<script>
+(function () {
+  var btn = document.getElementById('go');
+  var msg = document.getElementById('msg');
+  function say(text, cls) { msg.textContent = text; msg.className = cls || ''; }
+
+  // Token travels in the URL fragment, so it is never sent to a server or logged.
+  var m = /(?:^#|&)t=([^&]+)/.exec(location.hash);
+  var token = m ? decodeURIComponent(m[1]) : '';
+  if (token && window.history && history.replaceState) { history.replaceState(null, '', location.pathname); }
+
+  var bearer = '';
+  try { bearer = localStorage.getItem('aevus_access_token') || ''; } catch (e) { bearer = ''; }
+
+  if (!token) { say('This link is missing its approval token.', 'bad'); return; }
+  if (!bearer) {
+    msg.className = '';
+    msg.textContent = 'Sign in as an admin first, then open the email link again. ';
+    var a = document.createElement('a'); a.href = '/login'; a.textContent = 'Go to sign in'; a.className = 'btn'; a.style.marginTop = '12px';
+    msg.appendChild(a);
+    return;
+  }
+  btn.disabled = false;
+  btn.addEventListener('click', function () {
+    btn.disabled = true; say('Approving...');
+    fetch('/api/v1/demo-access/approve', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + bearer },
+      body: JSON.stringify({ token: token })
+    }).then(function (r) {
+      return r.json().catch(function () { return {}; }).then(function (j) { return { ok: r.ok, status: r.status, body: j }; });
+    }).then(function (res) {
+      if (res.ok) { say('Approved. The requester has been emailed sign-in instructions.', 'ok'); return; }
+      var why = res.status === 403 ? 'Admin role required.' : (res.body && res.body.detail) || ('Error ' + res.status);
+      say(why, 'bad'); btn.disabled = res.status === 409 || res.status === 410;
+    }).catch(function () { say('Network error. Try again.', 'bad'); btn.disabled = false; });
+  });
+})();
+</script>
+</body>
+</html>

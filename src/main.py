@@ -33,6 +33,7 @@ from fastapi.staticfiles import StaticFiles  # noqa: E402
 from starlette.responses import Response  # noqa: E402
 
 # API routers — these are the only ones verified to exist (CI: tests/test_imports.py)
+from src.api.access_requests import ensure_data_dir  # noqa: E402
 from src.api.access_requests import router as access_requests_router  # noqa: E402
 from src.api.ai import router as ai_router  # noqa: E402
 from src.api.alerts import router as alerts_router  # noqa: E402
@@ -41,6 +42,7 @@ from src.api.auth import APIKeyMiddleware  # noqa: E402
 from src.api.commands import router as commands_router  # noqa: E402
 from src.api.correlations import router as correlations_router  # noqa: E402
 from src.api.csv_io import router as csv_io_router  # noqa: E402
+from src.api.demo_access import router as demo_access_router  # noqa: E402
 from src.api.deploy import router as deploy_router  # noqa: E402
 from src.api.diagnostics import router as diagnostics_router  # noqa: E402
 from src.api.health import router as health_router  # noqa: E402
@@ -543,6 +545,7 @@ async def _fleet_digest_loop() -> None:
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    ensure_data_dir()  # access-request store lives outside the git tree; migrate once
     _seed_lab_assets()
     _seed_opcua_asset()
     _register_simulators()
@@ -611,6 +614,7 @@ for r in (
     commands_router,
     correlations_router,
     csv_io_router,
+    demo_access_router,
     deploy_router,
     diagnostics_router,
     health_router,

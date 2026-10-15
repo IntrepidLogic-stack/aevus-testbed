@@ -36,6 +36,15 @@ COGNITO_ISSUER = f"https://cognito-idp.{COGNITO_REGION}.amazonaws.com/{COGNITO_P
 # Cognito group that may use admin/user-management routes (pool groups are
 # Admin / Operator / Viewer).
 ADMIN_GROUP = "Admin"
+# Door 1 least-privilege group: synthetic demo data ONLY. A token carrying it is
+# denied every API route except DEMO_ALLOWED_PATHS (see APIKeyMiddleware). The
+# console's synthetic dataset is client-side, so "no live data" is enforced here
+# by refusing the live API outright. Deny wins over any other group on the token.
+DEMO_GROUP = "DemoViewer"
+# Unauthenticated POSTs: the sign-up form and the one-time-code request. Both are
+# rate limited in-app; the code route answers identically for unknown addresses.
+PUBLIC_POST_PATHS = frozenset({"/api/v1/access-requests", "/api/v1/demo-access/code"})
+DEMO_ALLOWED_PATHS = frozenset({"/api/v1/health/ping", "/api/v1/demo-access/session"})
 
 # Fail-open visibility: when api_key is empty the middleware lets ALL /api/
 # traffic through unauthenticated (dev mode). That's fine locally but a
@@ -96,6 +105,23 @@ def _validate_cognito_jwt(token: str) -> bool:
     return _decode_cognito_jwt(token) is not None
 
 
+def token_groups(claims: dict[str, Any] | None) -> list[str]:
+    """Normalized ``cognito:groups`` list from verified claims (tolerates a bare string)."""
+    groups = claims.get("cognito:groups", []) if claims else []
+    return [groups] if isinstance(groups, str) else list(groups)
+
+
+def is_demo_identity(claims: dict[str, Any] | None) -> bool:
+    """True if the verified token carries the synthetic-only DemoViewer group."""
+    return DEMO_GROUP in token_groups(claims)
+
+
+def bearer_claims(request: Request) -> dict[str, Any] | None:
+    """Verified Cognito claims from the Authorization header, or None."""
+    auth_header = request.headers.get("authorization", "")
+    return _decode_cognito_jwt(auth_header[7:]) if auth_header.startswith("Bearer ") else None
+
+
 def require_admin(request: Request) -> dict[str, Any]:
     """FastAPI dependency: allow only a verified Cognito bearer in the Admin group.
 
@@ -149,7 +175,7 @@ class APIKeyMiddleware(BaseHTTPMiddleware):
         # through the demo/auth branches below; their writes now require auth.
 
         # Allow unauthenticated access request submissions (POST only)
-        if path == "/api/v1/access-requests" and request.method == "POST":
+        if request.method == "POST" and path in PUBLIC_POST_PATHS:
             return await call_next(request)
 
         # Skip if no API key configured (dev mode)
@@ -175,8 +201,17 @@ class APIKeyMiddleware(BaseHTTPMiddleware):
         # 2. Check Cognito Bearer token
         auth_header = request.headers.get("authorization", "")
         if auth_header.startswith("Bearer "):
-            token = auth_header[7:]
-            if _validate_cognito_jwt(token):
+            claims = _decode_cognito_jwt(auth_header[7:])
+            if claims is not None:
+                if is_demo_identity(claims) and path not in DEMO_ALLOWED_PATHS:
+                    # Synthetic-only identity: never reaches the live registry,
+                    # telemetry, alerts, or any other data route, whatever other
+                    # credential or query/header it sends alongside.
+                    logger.warning("demo_identity_denied_live_route", path=path, method=request.method)
+                    return JSONResponse(
+                        status_code=403,
+                        content={"detail": "Demo accounts are limited to the synthetic demo data source"},
+                    )
                 return await call_next(request)
 
         # 3. Check API key (header or query param for WebSocket)

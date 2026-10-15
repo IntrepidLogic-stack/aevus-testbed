@@ -179,6 +179,50 @@ class Settings(BaseSettings):
     ai_rate_limit_requests: int = 20
     ai_rate_limit_window_seconds: int = 60
 
+    # ── Access requests / Door 1 demo access ──
+    # Durable data directory for runtime state that must survive deploys. It lives
+    # OUTSIDE the git working tree because deploy.sh does `git reset --hard`, which
+    # reverts any tracked file under the repo (it wiped a real access request on
+    # 2026-10-14). Override with AEVUS_DATA_DIR.
+    aevus_data_dir: str = "/home/ubuntu/aevus-data"
+    # Master switch for the Door 1 flow (flow="demo" on POST /access-requests, the
+    # signed approve link, and the passwordless code endpoint). OFF by default so
+    # merging the code provisions nothing until Cognito is configured and Dave
+    # flips it. Even when ON the only group ever granted is DemoViewer.
+    demo_access_enabled: bool = False
+    # Cognito app client used for the passwordless USER_AUTH flow (EMAIL_OTP /
+    # SMS_OTP). Public client id, not a secret. Recommend a dedicated client.
+    demo_cognito_client_id: str = ""
+    # SMS one-time codes need a phone number marked verified in Cognito; we only
+    # have the number the prospect typed, so SMS stays OFF until security signs off.
+    demo_sms_otp_enabled: bool = False
+    # HMAC key for the signed one-time approve link (>= 32 chars). Empty means the
+    # free-mail approve flow fails closed (no link is issued, no token verifies).
+    access_approve_signing_key: str = ""
+    access_approve_ttl_seconds: int = 86400
+    # Comma-separated recipients of the access-request notification. Falls back to
+    # the historical single recipient so existing behavior is unchanged.
+    access_notify_to: str = "woody@intrepidlogic.io"
+    # In-app abuse controls for the public POST /access-requests (0 = off). The
+    # edge (WAF rate rules + bot control) is a separate devops task; these are the
+    # backstop. Per-IP uses the Nth-from-right X-Forwarded-For hop (the entry our
+    # own proxy appended), never the client-controlled first hop.
+    access_rl_ip_limit: int = 10
+    access_rl_email_limit: int = 3
+    access_rl_window_seconds: int = 3600
+    access_trusted_proxy_hops: int = 1
+    # Auto-provision cap per business domain per 24h; excess goes to pending_review.
+    demo_domain_daily_cap: int = 10
+    # HubSpot private-app token (outbound event push). Empty means the push is a
+    # no-op (dev/test). Never commit; set in .env / Secrets Manager.
+    hubspot_private_app_token: str = ""
+    hubspot_pipeline_id: str = "2622266105"
+    # "Identify", first stage of Aevus Comms - Commercial (stage ids 4438755006-12 are
+    # that pipeline's Identify..Closed Lost; confirm 006 maps to pipeline 2622266105).
+    hubspot_dealstage_id: str = "4438755006"
+    hubspot_owner_id: str = "166564401"  # Norman
+    hubspot_timeout_seconds: float = 5.0
+
     # ── IL-9000 Safety Interlock ──
     il_9000_enforced: bool = True  # NEVER set to False
 

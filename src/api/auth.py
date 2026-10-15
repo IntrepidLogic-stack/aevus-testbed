@@ -156,16 +156,15 @@ class APIKeyMiddleware(BaseHTTPMiddleware):
         if not settings.api_key:
             return await call_next(request)
 
-        # Demo mode: allow read-only browsing (+ the AI features the public demo
-        # showcases) for sessions served from the ?demo=true dashboard. Keyed on
-        # the Referer only — the previous `x-aevus-demo: true` header was a
-        # second, trivially client-spoofable auth-bypass vector that nothing
-        # legitimate uses (the dashboard authenticates with X-API-Key). Referer
-        # is still client-settable, so this is a soft gate, not a security
-        # boundary; the paid /ai/ POSTs it permits should be rate-limited
-        # (follow-up, ARCHITECTURE_REVIEW H3).
+        # Public AI demo only. The ?demo=true dashboard showcases Bedrock AI via
+        # public POSTs to /api/v1/ai/; those, and only those, pass on a demo
+        # Referer. The Referer is client-settable and is NOT a security boundary,
+        # so it must never gate live data. The previous `request.method == "GET"`
+        # clause let an anonymous caller read the live registry, telemetry, and
+        # alerts just by spoofing this header; it is removed. Live data is
+        # reachable only via the session cookie or a Cognito Bearer below.
         referer = request.headers.get("referer", "")
-        if "demo=true" in referer and (request.method == "GET" or path.startswith("/api/v1/ai/")):
+        if "demo=true" in referer and path.startswith("/api/v1/ai/"):
             return await call_next(request)
 
         # 1. Check session cookie

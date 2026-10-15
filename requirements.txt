@@ -69,6 +69,7 @@ pydantic==2.13.4
 pydantic-settings==2.14.2
 pydantic_core==2.46.4
 Pygments==2.20.0
+PyJWT==2.15.1
 pymodbus==3.14.0
 pyOpenSSL==26.4.0
 pysnmp==7.1.27

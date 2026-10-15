@@ -57,7 +57,6 @@ MODULES = [
     "src.api.ingest",
     "src.api.integrations",
     "src.api.notes",
-    "src.api.ping_diag",
     "src.api.predictions",
     "src.api.reports",
     "src.api.weather",

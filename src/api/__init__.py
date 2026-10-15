@@ -14,7 +14,6 @@ from src.api.ingest import router as ingest_router
 from src.api.integrations import router as integrations_router
 from src.api.notes import journal_router
 from src.api.notes import router as notes_router
-from src.api.ping_diag import router as ping_diag_router
 from src.api.predictions import router as predictions_router
 from src.api.reports import router as reports_router
 from src.api.weather import router as weather_router
@@ -36,7 +35,6 @@ __all__ = [
     "ws_router",
     "notes_router",
     "journal_router",
-    "ping_diag_router",
     "csv_io_router",
     "access_requests_router",
     "ai_router",

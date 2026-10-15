@@ -47,6 +47,11 @@ dependencies = [
     "python-multipart>=0.0.9",
     "slowapi>=0.1.9",
     "asyncua>=2.0",
+    # src/api/auth.py imports jwt / PyJWKClient to verify Cognito bearer tokens
+    # (RS256). It was only present transitively on the hand-built box; a clean
+    # install lacked it and bearer auth failed closed. The [crypto] extra pulls
+    # cryptography, which RS256 verification requires.
+    "PyJWT[crypto]>=2.8.0",
 ]
 
 [project.optional-dependencies]

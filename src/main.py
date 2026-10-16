@@ -23,14 +23,16 @@ from src.secrets_loader import inject_secrets  # noqa: E402
 inject_secrets()
 
 import asyncio  # noqa: E402
+import posixpath  # noqa: E402
+import re  # noqa: E402
 from contextlib import asynccontextmanager  # noqa: E402
 from pathlib import Path  # noqa: E402
 
 import structlog  # noqa: E402
-from fastapi import FastAPI  # noqa: E402
+from fastapi import FastAPI, Request  # noqa: E402
 from fastapi.middleware.cors import CORSMiddleware  # noqa: E402
 from fastapi.staticfiles import StaticFiles  # noqa: E402
-from starlette.responses import Response  # noqa: E402
+from starlette.responses import RedirectResponse, Response  # noqa: E402
 
 # API routers — these are the only ones verified to exist (CI: tests/test_imports.py)
 from src.api.access_requests import ensure_data_dir  # noqa: E402
@@ -639,6 +641,32 @@ for r in (
 DASHBOARD_DIR = Path(__file__).resolve().parent.parent / "dashboard"
 STAGING_DIR = DASHBOARD_DIR.parent / "dashboard-staging"
 
+# The old broad console is PARKED (recover from git tag retired/old-dashboard).
+# Aevus Comms (/comms/) is the single public front door. The retired pages are
+# deleted from the tree, but this guard is the real exposure control: the static
+# mounts below serve EVERY file on disk, including untracked on-box leftovers such
+# as Aevus_Console.html.bak-* that `git reset --hard` never removes. Any retired
+# page name (or any .bak copy) under /dashboard or /staging is a 404, whatever else
+# is or is not on disk. /staging stays mounted only so staging-first Comms deploys
+# (/staging/comms/) and the staging login keep working.
+_RETIRED_SURFACE_RE = re.compile(
+    r"aevus_console\.html|award-map\.html|topology\.html|twin-showcase\.html|loader-(?:preview|record)\.html|\.bak",
+    re.IGNORECASE,
+)
+_COMMS_FRONT_DOOR = "/comms/Aevus_Comms_Console.html"
+
+
+@app.middleware("http")
+async def retired_surface_guard(request: Request, call_next):
+    """404 any retired old-console page (or .bak copy) under /dashboard or /staging."""
+    raw = request.url.path
+    # Normalize first so //, /./ and /../ tricks cannot dodge the name match.
+    path = posixpath.normpath(raw) if raw.startswith("/") else raw
+    if path.startswith(("/dashboard/", "/staging/")) and _RETIRED_SURFACE_RE.search(path):
+        return Response(status_code=404, content="Not found", media_type="text/plain")
+    return await call_next(request)
+
+
 if STAGING_DIR.exists():
     app.mount("/staging", StaticFiles(directory=str(STAGING_DIR), html=True), name="staging")
 
@@ -649,8 +677,8 @@ if DASHBOARD_DIR.exists():
 def _read_cached(path: Path) -> str | None:
     """Read a static page ONCE at import and serve it from memory thereafter.
 
-    The root/login handlers previously `.read_text()` the ~8k-line console on
-    every request — a synchronous disk read on the hot path. The deploy always
+    The login handler previously `.read_text()` the page on every request,
+    a synchronous disk read on the hot path. The deploy always
     restarts the process (deploy/deploy.sh), so a cache read at import can never
     go stale relative to the deployed file. Returns None if the file is absent
     (preserves the prior `.exists()` JSON fallback).
@@ -661,7 +689,6 @@ def _read_cached(path: Path) -> str | None:
         return None
 
 
-_INDEX_HTML = _read_cached(DASHBOARD_DIR / "Aevus_Console.html")
 _LOGIN_HTML = _read_cached(DASHBOARD_DIR / "login.html")
 
 
@@ -678,8 +705,11 @@ async def login_page():
 
 
 @app.get("/")
-async def root():
-    """Serve the Aevus Console dashboard (cached); fall back to a JSON health blob."""
-    if _INDEX_HTML is not None:
-        return Response(content=_INDEX_HTML, media_type="text/html")
-    return {"service": "aevus-testbed", "version": "0.1.0", "status": "ok"}
+async def root(request: Request):
+    """Send the bare host to the Comms console (the single public front door).
+
+    The Comms console redirects itself to /login when there is no Cognito session,
+    and ?demo=true / ?sim=1 (kept on the redirect) run its synthetic-only mode.
+    """
+    target = _COMMS_FRONT_DOOR + (f"?{request.url.query}" if request.url.query else "")
+    return RedirectResponse(url=target, status_code=302, headers={"Cache-Control": "no-store"})

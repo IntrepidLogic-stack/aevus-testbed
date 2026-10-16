@@ -1,8 +1,8 @@
 {
-  "name": "Aevus SCADA Console",
-  "short_name": "Aevus",
-  "description": "AI-Enhanced SCADA Intelligence Platform",
-  "start_url": "/dashboard/Aevus_Console.html",
+  "name": "Aevus Comms",
+  "short_name": "Aevus Comms",
+  "description": "Read-only RF and comms-health console",
+  "start_url": "/comms/Aevus_Comms_Console.html",
   "display": "standalone",
   "background_color": "#070B16",
   "theme_color": "#06B6D4",
@@ -14,7 +14,7 @@
   ],
   "screenshots": [],
   "shortcuts": [
-    {"name": "Alarms", "url": "/dashboard/Aevus_Console.html#alarms", "description": "View active alarms"},
-    {"name": "Health", "url": "/dashboard/Aevus_Console.html#health", "description": "Fleet health scores"}
+    {"name": "Alarms", "url": "/comms/Aevus_Comms_Console.html#/alarms", "description": "View active alarms"},
+    {"name": "Fleet Overview", "url": "/comms/Aevus_Comms_Console.html#/overview", "description": "Fleet comms health"}
   ]
 }

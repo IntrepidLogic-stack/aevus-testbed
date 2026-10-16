@@ -56,6 +56,10 @@ router = APIRouter(tags=["access-requests"])
 
 # Admin page the notification email links to (the real approval UI).
 ADMIN_PAGE_URL = "https://aevus.intrepidlogic.io/dashboard/admin.html"
+# Public "Explore Demo" link in requester emails: the Comms console on its client-side
+# SYNTHETIC dataset (?demo=true forces it; no /api/v1 call is made). The retired broad
+# console is no longer served.
+DEMO_CONSOLE_URL = "https://aevus.intrepidlogic.io/comms/Aevus_Comms_Console.html?demo=true"
 # Page that reads the signed token from the URL fragment and POSTs it, with the
 # admin's Cognito bearer, to /api/v1/demo-access/approve. A bare GET never approves.
 APPROVE_PAGE_URL = "https://aevus.intrepidlogic.io/dashboard/approve.html"
@@ -529,7 +533,7 @@ async def submit_access_request(req: AccessRequest, request: Request, background
                 "An administrator will review your request shortly. In the meantime, explore the demo."
             ),
             button="Explore Demo",
-            url="https://aevus.intrepidlogic.io/dashboard/Aevus_Console.html?demo=true",
+            url=DEMO_CONSOLE_URL,
         )
         return {"status": "ok", "id": saved["id"]}
 
@@ -598,7 +602,7 @@ async def submit_access_request(req: AccessRequest, request: Request, background
         subject="Aevus Demo Request Received",
         body="Thanks for your interest in Aevus. We are reviewing your request and will follow up shortly.",
         button="Explore Demo",
-        url="https://aevus.intrepidlogic.io/dashboard/Aevus_Console.html?demo=true",
+        url=DEMO_CONSOLE_URL,
     )
     return {"status": "pending_review", "id": saved["id"]}
 

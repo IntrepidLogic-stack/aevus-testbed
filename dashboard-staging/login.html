@@ -4,9 +4,10 @@
 <meta charset="UTF-8">
 <link rel="icon" type="image/svg+xml" href="/dashboard/favicon.svg">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Aevus — Sign In</title>
+<title>Aevus | Sign In</title>
 <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700&display=swap" rel="stylesheet">
-<script src="https://cdn.jsdelivr.net/npm/amazon-cognito-identity-js@6/dist/amazon-cognito-identity.min.js"></script>
+<!-- Cognito SDK served same-origin (was cdn.jsdelivr.net, an external CDN outage/503 broke login, and 'self' CSP would block it anyway). Local copy lives next to this file. -->
+<script src="/dashboard/amazon-cognito-identity.min.js"></script>
 <style>
 :root {
   --bg-primary: #070B16;
@@ -80,6 +81,15 @@ body {
 @keyframes spin { to { transform: rotate(360deg); } }
 .new-pw-section { display: none; }
 .footer { text-align: center; margin-top: 24px; font-size: 11px; color: var(--text-muted); }
+.panel-intro { font-size: 12px; color: var(--text-secondary); line-height: 1.55; margin-bottom: 16px; }
+.fine { font-size: 11px; color: var(--text-secondary); line-height: 1.5; margin-top: 12px; text-align: center; }
+.alt-row { text-align: center; margin-top: 16px; font-size: 12px; }
+.alt-row a, .link-btn { color: var(--accent); text-decoration: none; }
+.alt-row a:hover, .link-btn:hover { text-decoration: underline; }
+.link-btn { background: none; border: none; cursor: pointer; font-family: inherit; font-size: 12px; padding: 6px 4px; }
+.link-btn:disabled { opacity: 0.5; cursor: not-allowed; text-decoration: none; }
+.link-row { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 4px 12px; margin-top: 14px; }
+.code-input { font-family: monospace; font-size: 20px; letter-spacing: 6px; text-align: center; }
 .divider { display: flex; align-items: center; gap: 12px; margin: 16px 0; font-size: 11px; color: var(--text-muted); }
 .divider::before, .divider::after { content: ''; flex: 1; height: 1px; background: var(--border); }
 
@@ -107,8 +117,10 @@ body {
 <body>
 <div class="login-card">
   <div class="logo">
-    <svg viewBox="0 0 28 28" width="40" height="40" fill="none" style="margin-bottom:8px;">
-      <path d="M14 2L3 26h5l2.2-5.5h7.6L20 26h5L14 2zm0 8l3.2 8.5h-6.4L14 10z" fill="#06B6D4"/>
+    <!-- Canonical Aevus mark, single source: /dashboard/brand/aevus-icon.svg (docs/BRAND_LOGO_LOCKIN.md) -->
+    <svg viewBox="190 140 590 440" width="54" height="40" style="margin-bottom:8px;" role="img" aria-label="Aevus">
+      <path fill="#06b6d4" d="M487.44,154.66c10.46-4.08,24.78-1.69,36.06-2.31,4.74-.26,12.18-.14,16.76.47,3.7.48,7.31,1.49,10.72,2.99,5.33,2.39,9.97,6.09,13.49,10.74,3.82,4.97,12.72,23.25,15.96,29.94,4.54,9.37,11.98,22.39,15.89,31.45,3.46,6.57,6.9,13.35,10.19,20.02,22.69,45.91,46.99,91.36,69.13,137.52l-54.16.03c-47.07.05-40.06,1.97-61.26-40.55l-24.62-49.05c-5.47-10.93-11.17-22.96-16.98-33.55l-99.6,199.06-24,48.21c-4.73,9.53-15.11,33.59-21.58,40.09-3.73,3.73-7.79,5.98-12.96,7.08-9.93,2.12-22.72.89-32.91.89l-55.33-.04c6.92-15.9,18.4-37.39,26.3-53.26l53.2-106.42,81.39-160.83c10.86-21.02,21.74-42.03,32.68-63.01,4.66-8.94,11.7-16.59,21.66-19.47Z"/>
+      <path fill="#6366f1" d="M511.32,414.05c47.71-1.69,93.76.15,140.41-.7,25.11-1.16,40.33,1.6,51.03,26.81,19.12,38.52,39.61,76.78,58.21,114.48,1.64,5.09-5.72,2.33-9.89,3.04-18.94.02-35.99-.06-51.35.2-8.83.11-19.09.79-27.19-2.97-15.85-8.98-18.9-25.07-30.04-43.89-4.65-6.71-11.13-28.17-17.11-28.89-54.24-.39-110.5.43-164.82,0-4.63-.17-4.18-1.93-2.04-5.83,14.56-21.76,22.41-58.69,52.78-62.25Z"/>
     </svg><br>
     <div class="logo-text">AEVUS</div>
     <div class="logo-sub">SCADA Intelligence Platform</div>
@@ -141,16 +153,18 @@ body {
       <div id="new-pw-section" class="new-pw-section">
         <div class="form-group">
           <label class="form-label">New Password (required on first login)</label>
-          <input type="password" id="new-password" class="form-input" placeholder="Choose a new password" autocomplete="new-password">
+          <div style="position:relative;"><input type="password" id="new-password" class="form-input" placeholder="At least 14 characters" autocomplete="new-password" minlength="14" style="padding-right:40px;">
+          <button type="button" onclick="togglePwVis('new-password','pw-eye-new')" style="position:absolute;right:10px;top:50%;transform:translateY(-50%);background:none;border:none;cursor:pointer;color:var(--text-muted);padding:4px;" tabindex="-1" aria-label="Toggle password visibility">
+            <svg id="pw-eye-new" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" width="18" height="18"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+          </button></div>
+          <div style="font-size:11px;color:var(--text-secondary);opacity:.8;margin-top:6px;line-height:1.5">At least 14 characters, with an uppercase and lowercase letter, a number, and a symbol.</div>
         </div>
       </div>
       <button type="submit" id="btn-login" class="btn-primary">Sign In</button>
     </form>
-    <div class="divider">or</div>
-    <button class="btn-demo" onclick="enterDemo()">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" width="14" height="14" style="vertical-align:middle;margin-right:6px;"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
-      Explore Demo
-    </button>
+    <div class="alt-row">
+      <a href="#code" id="code-signin-link" onclick="showCodeSignIn();return false;">Demo access? Email me a sign-in code</a>
+    </div>
   </div>
 
   <!-- FORGOT PASSWORD TAB (hidden by default) -->
@@ -183,11 +197,17 @@ body {
       </div>
       <div class="form-group">
         <label class="form-label">New Password</label>
-        <input type="password" id="reset-new-pw" class="form-input" placeholder="Minimum 8 characters" required autocomplete="new-password" minlength="8">
+        <div style="position:relative;"><input type="password" id="reset-new-pw" class="form-input" placeholder="At least 14 characters" required autocomplete="new-password" minlength="14" style="padding-right:40px;">
+        <button type="button" onclick="togglePwVis('reset-new-pw','pw-eye-reset')" style="position:absolute;right:10px;top:50%;transform:translateY(-50%);background:none;border:none;cursor:pointer;color:var(--text-muted);padding:4px;" tabindex="-1" aria-label="Toggle password visibility">
+          <svg id="pw-eye-reset" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" width="18" height="18"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+        </button></div>
       </div>
       <div class="form-group">
         <label class="form-label">Confirm Password</label>
-        <input type="password" id="reset-confirm-pw" class="form-input" placeholder="Confirm new password" required autocomplete="new-password" minlength="8">
+        <div style="position:relative;"><input type="password" id="reset-confirm-pw" class="form-input" placeholder="Confirm new password" required autocomplete="new-password" minlength="14" style="padding-right:40px;">
+        <button type="button" onclick="togglePwVis('reset-confirm-pw','pw-eye-confirm')" style="position:absolute;right:10px;top:50%;transform:translateY(-50%);background:none;border:none;cursor:pointer;color:var(--text-muted);padding:4px;" tabindex="-1" aria-label="Toggle password visibility">
+          <svg id="pw-eye-confirm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" width="18" height="18"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+        </button></div>
       </div>
       <button type="submit" id="btn-reset" class="btn-primary">Reset Password</button>
     </form>
@@ -196,43 +216,77 @@ body {
     </div>
   </div>
 
-  <!-- REQUEST ACCESS TAB -->
+  <!-- REQUEST ACCESS TAB (Door 1: gated demo on synthetic data) -->
   <div id="tab-request" class="tab-panel">
-    <div id="request-success" class="success-msg">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="32" height="32"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
-      <strong>Access Request Submitted</strong><br>
-      An administrator will review your request and provision your account. You will receive an email with login credentials once approved.
+    <div id="request-view-form">
+      <p class="panel-intro">Request access to the Aevus Comms demo. It runs on synthetic data and is read-only. Business email addresses receive a sign-in code right away.</p>
+      <div id="request-error" class="error-msg" role="alert"></div>
+      <form id="request-form">
+        <div class="form-group">
+          <label class="form-label" for="req-name">Full Name</label>
+          <input type="text" id="req-name" name="name" class="form-input" placeholder="Jane Smith" required maxlength="100" autocomplete="name">
+        </div>
+        <div class="form-group">
+          <label class="form-label" for="req-email">Work Email</label>
+          <input type="email" id="req-email" name="email" class="form-input" placeholder="you@company.com" required maxlength="254" autocomplete="email">
+        </div>
+        <div class="form-group">
+          <label class="form-label" for="req-company">Company</label>
+          <input type="text" id="req-company" name="company" class="form-input" placeholder="Acme Midstream" required maxlength="120" autocomplete="organization">
+        </div>
+        <div class="form-group">
+          <label class="form-label" for="req-role">Role</label>
+          <input type="text" id="req-role" name="role" class="form-input" placeholder="SCADA Manager" required maxlength="80" autocomplete="organization-title">
+        </div>
+        <div class="form-group">
+          <label class="form-label" for="req-phone">Phone</label>
+          <input type="tel" id="req-phone" name="phone" class="form-input" placeholder="+1 (555) 123-4567" required maxlength="32" autocomplete="tel">
+        </div>
+        <button type="submit" id="btn-request" class="btn-primary">Request demo access</button>
+      </form>
+      <p class="fine">We use these details only to set up your demo access.</p>
     </div>
-    <form id="request-form">
-      <div class="form-group">
-        <label class="form-label">Full Name</label>
-        <input type="text" id="req-name" class="form-input" placeholder="Jane Smith" required>
+    <div id="request-view-pending" class="success-msg" role="status">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" width="32" height="32" aria-hidden="true"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+      <strong>Request received</strong><br>
+      Thanks, we will review your request and email you access shortly.
+    </div>
+    <div id="request-view-received" class="success-msg" role="status">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" width="32" height="32" aria-hidden="true"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+      <strong>Request received</strong><br>
+      Thanks, we will follow up by email shortly.
+    </div>
+    <div id="request-done-links" class="alt-row" style="display:none;"><a href="#" onclick="demoBackToSignIn();return false;">Back to Sign In</a></div>
+  </div>
+
+  <!-- EMAIL CODE TAB (passwordless demo sign-in) -->
+  <div id="tab-code" class="tab-panel">
+    <div id="code-error" class="error-msg" role="alert"></div>
+    <div id="code-step-email">
+      <p class="panel-intro">Already have demo access? Enter your email and we will send you a sign-in code. There is no password for the demo.</p>
+      <form id="code-email-form">
+        <div class="form-group">
+          <label class="form-label" for="code-email-input">Email</label>
+          <input type="email" id="code-email-input" name="email" class="form-input" placeholder="you@company.com" required maxlength="254" autocomplete="email">
+        </div>
+        <button type="submit" id="btn-code-send" class="btn-primary">Email me a code</button>
+      </form>
+    </div>
+    <div id="code-step-enter" style="display:none;">
+      <p class="panel-intro" id="code-sent-note" aria-live="polite"></p>
+      <form id="code-form">
+        <div class="form-group">
+          <label class="form-label" for="code-input">Sign-in code</label>
+          <input type="text" id="code-input" name="code" class="form-input code-input" placeholder="Enter code" required inputmode="numeric" autocomplete="one-time-code" maxlength="10" pattern="[0-9 ]{4,12}">
+        </div>
+        <button type="submit" id="btn-code-verify" class="btn-primary">Open the demo</button>
+      </form>
+      <div class="link-row">
+        <button type="button" class="link-btn" id="code-resend">Send a new code</button>
+        <button type="button" class="link-btn" id="code-change">Use a different email</button>
       </div>
-      <div class="form-group">
-        <label class="form-label">Email</label>
-        <input type="email" id="req-email" class="form-input" placeholder="you@company.com" required>
-      </div>
-      <div class="form-group">
-        <label class="form-label">Company / Organization</label>
-        <input type="text" id="req-company" class="form-input" placeholder="Acme Oil & Gas">
-      </div>
-      <div class="form-group">
-        <label class="form-label">Phone Number</label>
-        <input type="tel" id="req-phone" class="form-input" placeholder="+1 (555) 123-4567">
-      </div>
-      <div class="form-group">
-        <label class="form-label">Requested Role</label>
-        <select id="req-role" class="form-select">
-          <option value="viewer">Viewer — Read-only dashboard access</option>
-          <option value="operator">Operator — Acknowledge alarms, manage operations</option>
-        </select>
-      </div>
-      <div class="form-group">
-        <label class="form-label">Reason for Access</label>
-        <input type="text" id="req-reason" class="form-input" placeholder="Evaluating Aevus for our field operations">
-      </div>
-      <button type="submit" class="btn-primary">Submit Request</button>
-    </form>
+    </div>
+    <div class="alt-row"><a href="#" onclick="demoBackToSignIn();return false;">Back to Sign In</a></div>
   </div>
 
   <div class="footer">Intrepid Logic LLC · SDVOSB</div>
@@ -240,9 +294,10 @@ body {
 
 <script>
 // Password visibility toggle
-window.togglePwVis = function() {
-  var inp = document.getElementById('password');
-  var eye = document.getElementById('pw-eye');
+window.togglePwVis = function(inputId, eyeId) {
+  var inp = document.getElementById(inputId || 'password');
+  var eye = document.getElementById(eyeId || 'pw-eye');
+  if (!inp || !eye) return;
   if (inp.type === 'password') {
     inp.type = 'text';
     eye.innerHTML = '<path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/>';
@@ -259,61 +314,201 @@ window.switchTab = function(tab) {
   });
   document.getElementById('tab-signin').classList.toggle('active', tab==='signin');
   document.getElementById('tab-request').classList.toggle('active', tab==='request');
+  // Door 1: the email-code panel and the forgot-password panel are not tabs, so clear them when a tab is chosen.
+  document.getElementById('tab-code').classList.remove('active');
+  var fp = document.getElementById('tab-forgot');
+  if (fp) { fp.classList.remove('active'); fp.style.display = 'none'; }
+  if (tab==='request' && location.hash !== '#request') { try { history.replaceState(null, '', '#request'); } catch (e) {} }
+  else if (tab==='signin' && (location.hash === '#request' || location.hash === '#code')) { try { history.replaceState(null, '', location.pathname + location.search); } catch (e) {} }
 };
 
-// Demo mode
-window.enterDemo = function() {
-  localStorage.setItem('aevus_demo', 'true');
-  localStorage.removeItem('aevus_id_token');
-  localStorage.removeItem('aevus_access_token');
-  localStorage.removeItem('aevus_user_email');
-  window.location.href = '/dashboard/Aevus_Console.html?demo=true';
-};
+// ---------------------------------------------------------------------------
+// Door 1: gated demo access. Request form -> (business email) emailed sign-in code -> synthetic console.
+// Public, read-only, client-side. The server provisions a synthetic-only DemoViewer identity and the code
+// session; this page only submits the form and answers the code challenge. It never writes to any
+// telemetry or device route. The demo uses its OWN public app client (not the dashboard client above).
+// ---------------------------------------------------------------------------
+(function () {
+  var DEMO_CLIENT_ID = 'pvet5qu2b0l1iertv3eemcatu';
+  var COGNITO_URL = 'https://cognito-idp.us-east-1.amazonaws.com/';
+  var SUPPORT = 'support@intrepidlogic.io';
+  var state = { email: '', session: '', from: 'request' };
+  function $(id) { return document.getElementById(id); }
 
-// Request Access form — POST to API for admin review
-document.getElementById('request-form').addEventListener('submit', function(e) {
-  e.preventDefault();
-  var btn = document.querySelector('#request-form button[type="submit"]');
-  var origText = btn.textContent;
-  btn.disabled = true;
-  btn.textContent = 'Submitting...';
-
-  var data = {
-    name: document.getElementById('req-name').value,
-    email: document.getElementById('req-email').value,
-    company: document.getElementById('req-company').value,
-    phone: document.getElementById('req-phone').value || '',
-    role: document.getElementById('req-role').value,
-    reason: document.getElementById('req-reason').value || '',
-    timestamp: new Date().toISOString(),
-    status: 'pending'
-  };
-
-  fetch('/api/v1/access-requests', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(data)
-  }).then(function(r) {
-    if (!r.ok) throw new Error('Server error');
-    return r.json();
-  }).then(function() {
-    document.getElementById('request-form').style.display = 'none';
-    document.getElementById('request-success').style.display = 'block';
-  }).catch(function(err) {
-    console.error('Request submit error:', err);
-    btn.disabled = false;
-    btn.textContent = origText;
-    var errDiv = document.getElementById('request-error');
-    if (!errDiv) {
-      errDiv = document.createElement('div');
-      errDiv.id = 'request-error';
-      errDiv.className = 'error-msg';
-      document.getElementById('request-form').prepend(errDiv);
+  function showErr(id, msg) { var e = $(id); e.textContent = msg; e.style.display = 'block'; }
+  function hideErr(id) { var e = $(id); e.textContent = ''; e.style.display = 'none'; }
+  function busy(btn, on, label) {
+    if (on) { btn.dataset.label = btn.textContent; btn.disabled = true; btn.innerHTML = '<span class="spinner"></span>' + label; }
+    else { btn.disabled = false; btn.textContent = btn.dataset.label || btn.textContent; }
+  }
+  function consoleUrl() {
+    return location.pathname.indexOf('/staging/') === 0 ? '/staging/comms/Aevus_Comms_Console.html' : '/comms/Aevus_Comms_Console.html';
+  }
+  function postJSON(path, body) {
+    return fetch(path, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) })
+      .then(function (r) {
+        return r.json().then(function (j) { return { ok: r.ok, status: r.status, body: j || {} }; },
+                             function () { return { ok: r.ok, status: r.status, body: {} }; });
+      });
+  }
+  function netErr() { return 'Could not reach the server. Check your connection and try again.'; }
+  function httpErr(res) {
+    var d = res.body && res.body.detail;
+    if (res.status === 429) return 'Too many requests. Please wait a few minutes and try again, or email ' + SUPPORT + '.';
+    if (res.status === 422) {
+      if (typeof d === 'string') return d + '.';
+      return 'Please check your details. Name, email, company, role, and phone are all required.';
     }
-    errDiv.textContent = 'Failed to submit request. Please try again or contact support@intrepidlogic.io';
-    errDiv.style.display = 'block';
+    return 'We could not complete that right now. Please try again shortly, or email ' + SUPPORT + '.';
+  }
+
+  // ----- panel plumbing -----
+  function activate(panelId, tabIdx) {
+    ['tab-signin', 'tab-request', 'tab-code', 'tab-forgot'].forEach(function (id) {
+      var p = $(id); if (!p) return; p.classList.remove('active'); if (id === 'tab-forgot') p.style.display = 'none';
+    });
+    $(panelId).classList.add('active');
+    document.querySelectorAll('.tab-btn').forEach(function (b, i) { b.classList.toggle('active', i === tabIdx); });
+  }
+  function requestView(which) {
+    ['form', 'pending', 'received'].forEach(function (v) { $('request-view-' + v).style.display = (v === which) ? 'block' : 'none'; });
+    $('request-done-links').style.display = (which === 'form') ? 'none' : 'block';
+  }
+  function codeStep(which) {
+    $('code-step-email').style.display = (which === 'email') ? 'block' : 'none';
+    $('code-step-enter').style.display = (which === 'enter') ? 'block' : 'none';
+  }
+  window.demoBackToSignIn = function () { hideErr('code-error'); activate('tab-signin', 0); try { history.replaceState(null, '', location.pathname + location.search); } catch (e) {} };
+  window.showCodeSignIn = function () {
+    hideErr('code-error'); codeStep('email'); state.from = 'signin';
+    var typed = ($('email').value || '').trim(); if (typed && !$('code-email-input').value) $('code-email-input').value = typed;
+    activate('tab-code', 0); $('code-email-input').focus();
+    try { history.replaceState(null, '', '#code'); } catch (e) {}
+  };
+  function openCodeEntry(email, session, from, note) {
+    state.email = email; state.session = session; state.from = from;
+    hideErr('code-error'); $('code-input').value = '';
+    $('code-sent-note').textContent = note;
+    codeStep('enter');
+    activate('tab-code', from === 'request' ? 1 : 0);
+    $('code-input').focus();
+  }
+  function sentNote(email) {
+    return 'If ' + email + ' is eligible for demo access, we just emailed it a sign-in code. Enter the code below. It can take a minute to arrive, and it may land in spam.';
+  }
+
+  // ----- 1) Request form -----
+  $('request-form').addEventListener('submit', function (e) {
+    e.preventDefault();
+    hideErr('request-error');
+    var btn = $('btn-request');
+    var email = $('req-email').value.trim().toLowerCase();
+    var body = {
+      flow: 'demo',
+      name: $('req-name').value.trim(),
+      email: email,
+      company: $('req-company').value.trim(),
+      role: $('req-role').value.trim(),
+      phone: $('req-phone').value.trim()
+    };
+    busy(btn, true, 'Submitting...');
+    postJSON('/api/v1/access-requests', body).then(function (res) {
+      busy(btn, false);
+      if (!res.ok) { showErr('request-error', httpErr(res)); return; }
+      var st = res.body.status;
+      if (st === 'code_sent' && res.body.session) {
+        openCodeEntry(email, res.body.session, 'request', 'We emailed a sign-in code to ' + email + '. Enter it below to open the demo. It can take a minute to arrive, and it may land in spam.');
+      } else if (st === 'pending_review') {
+        requestView('pending');
+      } else {
+        // 'received' (an existing account, a capped domain, or a provisioning hiccup): neutral, nothing is revealed.
+        requestView('received');
+      }
+    }, function () { busy(btn, false); showErr('request-error', netErr()); });
   });
-});
+
+  // ----- 2) Returning / approved demo user: email me a code -----
+  function sendCode(email, btn, onDone) {
+    hideErr('code-error');
+    busy(btn, true, 'Sending...');
+    postJSON('/api/v1/demo-access/code', { email: email, delivery: 'email' }).then(function (res) {
+      busy(btn, false);
+      if (!res.ok || !res.body.session) { showErr('code-error', httpErr(res)); return; }
+      onDone(res.body.session);
+    }, function () { busy(btn, false); showErr('code-error', netErr()); });
+  }
+  $('code-email-form').addEventListener('submit', function (e) {
+    e.preventDefault();
+    var email = $('code-email-input').value.trim().toLowerCase();
+    sendCode(email, $('btn-code-send'), function (session) { openCodeEntry(email, session, 'signin', sentNote(email)); });
+  });
+  $('code-resend').addEventListener('click', function () {
+    var b = $('code-resend');
+    sendCode(state.email, b, function (session) {
+      state.session = session; $('code-input').value = ''; $('code-input').focus();
+      $('code-sent-note').textContent = 'A new code was sent to ' + state.email + ' if it is eligible. Use the newest code.';
+    });
+  });
+  $('code-change').addEventListener('click', function () {
+    hideErr('code-error');
+    if (state.from === 'request') { requestView('form'); activate('tab-request', 1); $('req-email').focus(); }
+    else { codeStep('email'); activate('tab-code', 0); $('code-email-input').focus(); }
+  });
+
+  // ----- 3) Answer the EMAIL_OTP challenge (Cognito RespondToAuthChallenge, demo app client) -----
+  function respondToChallenge(code) {
+    return fetch(COGNITO_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-amz-json-1.1', 'X-Amz-Target': 'AWSCognitoIdentityProviderService.RespondToAuthChallenge' },
+      body: JSON.stringify({ ClientId: DEMO_CLIENT_ID, ChallengeName: 'EMAIL_OTP', Session: state.session,
+                             ChallengeResponses: { USERNAME: state.email, EMAIL_OTP_CODE: code } })
+    }).then(function (r) {
+      return r.json().then(function (j) { return { ok: r.ok, body: j || {} }; }, function () { return { ok: r.ok, body: {} }; });
+    });
+  }
+  function codeErr(type, msg) {
+    if (/CodeMismatch/i.test(type)) return 'That code is not right. Check it and try again, or send a new code.';
+    if (/ExpiredCode/i.test(type)) return 'That code has expired. Send a new code.';
+    if (/TooManyRequests|LimitExceeded/i.test(type) || /attempts exceeded/i.test(msg || '')) return 'Too many attempts. Please wait a minute, then send a new code.';
+    if (/NotAuthorized/i.test(type)) return 'That code did not work, or it has expired. Check the code, or send a new code.';
+    if (/UserNotFound|InvalidParameter/i.test(type)) return 'We could not sign you in with that email. Request demo access first, or email ' + SUPPORT + '.';
+    return 'We could not verify that code. Send a new code and try again.';
+  }
+  $('code-form').addEventListener('submit', function (e) {
+    e.preventDefault();
+    hideErr('code-error');
+    var code = $('code-input').value.replace(/\s+/g, '');
+    if (!/^[0-9]{4,10}$/.test(code)) { showErr('code-error', 'Enter the code from your email.'); return; }
+    if (!state.session) { showErr('code-error', 'Send a new code to continue.'); return; }
+    var btn = $('btn-code-verify');
+    busy(btn, true, 'Verifying...');
+    respondToChallenge(code).then(function (res) {
+      var auth = res.ok && res.body.AuthenticationResult;
+      if (auth && auth.IdToken && auth.AccessToken) {
+        try {
+          localStorage.setItem('aevus_id_token', auth.IdToken);
+          localStorage.setItem('aevus_access_token', auth.AccessToken);
+          localStorage.setItem('aevus_user_email', state.email);
+          localStorage.removeItem('aevus_demo');
+        } catch (err) { busy(btn, false); showErr('code-error', 'This browser blocked local storage, which sign-in needs. Allow site data and try again.'); return; }
+        state.session = '';
+        window.location.href = consoleUrl();   // a DemoViewer lands on the synthetic console; the console forces synthetic itself
+        return;
+      }
+      busy(btn, false);
+      if (res.body && res.body.Session) state.session = res.body.Session;   // Cognito may hand back a fresh session for a retry
+      showErr('code-error', res.ok ? 'We could not finish sign-in. Send a new code and try again.' : codeErr(res.body.__type || '', res.body.message));
+    }, function () { busy(btn, false); showErr('code-error', netErr()); });
+  });
+
+  // ----- deep links: /login#request opens the request form, /login#code opens the code panel -----
+  function routeHash() {
+    if (location.hash === '#request') { requestView('form'); activate('tab-request', 1); }
+    else if (location.hash === '#code') { window.showCodeSignIn(); }
+  }
+  window.addEventListener('hashchange', routeHash);
+  routeHash();
+})();
 
 // Cognito Sign In
 (function() {
@@ -329,12 +524,14 @@ document.getElementById('request-form').addEventListener('submit', function(e) {
       if (session && session.isValid()) {
         localStorage.setItem('aevus_id_token', session.getIdToken().getJwtToken());
         localStorage.setItem('aevus_access_token', session.getAccessToken().getJwtToken());
-        // getUsername() returns UUID in some configs — store email instead
+        // getUsername() returns UUID in some configs, store email instead
         var idPayload = JSON.parse(atob(session.getIdToken().getJwtToken().split('.')[1]));
         localStorage.setItem('aevus_user_email', idPayload.email || currentUser.getUsername());
         localStorage.removeItem('aevus_demo');
         var returnUrl = new URLSearchParams(window.location.search).get('return');
-              window.location.href = returnUrl || '/dashboard/Aevus_Console.html';
+              // Comms Intelligence is the only served app; ignore any legacy return that points at the retired console.
+              if (returnUrl && /Aevus_Console|\/dashboard\/?$/.test(returnUrl)) returnUrl = null;
+              window.location.href = returnUrl || (location.pathname.indexOf('/staging/') === 0 ? '/staging/comms/Aevus_Comms_Console.html' : '/comms/Aevus_Comms_Console.html');
       }
     });
   }
@@ -369,18 +566,38 @@ document.getElementById('request-form').addEventListener('submit', function(e) {
         localStorage.setItem('aevus_user_email', email);
         localStorage.removeItem('aevus_demo');
         var returnUrl = new URLSearchParams(window.location.search).get('return');
-              window.location.href = returnUrl || '/dashboard/Aevus_Console.html';
+              // Comms Intelligence is the only served app; ignore any legacy return that points at the retired console.
+              if (returnUrl && /Aevus_Console|\/dashboard\/?$/.test(returnUrl)) returnUrl = null;
+              window.location.href = returnUrl || (location.pathname.indexOf('/staging/') === 0 ? '/staging/comms/Aevus_Comms_Console.html' : '/comms/Aevus_Comms_Console.html');
       },
       onFailure: function(err) {
         btnLogin.disabled = false;
         btnLogin.textContent = 'Sign In';
         if (err.code === 'NotAuthorizedException') {
+          // Cognito's own temporary rate limit after many tries on the account.
+          if (/attempts exceeded/i.test(err.message || '')) {
+            showError('Too many attempts on this account. Please wait a minute, then try again or use Forgot password.');
+            return;
+          }
           var attempts = parseInt(sessionStorage.getItem('login_attempts') || '0') + 1;
           sessionStorage.setItem('login_attempts', String(attempts));
           if (attempts >= 5) {
-            showError('Too many failed attempts. Account may be locked. Contact administrator at support@intrepidlogic.io');
+            // Soft cooldown: a short countdown that auto recovers, not a hard session lock.
+            var wait = 30;
             btnLogin.disabled = true;
-            btnLogin.textContent = 'Account Locked';
+            (function tick() {
+              if (wait <= 0) {
+                sessionStorage.setItem('login_attempts', '0');
+                btnLogin.disabled = false;
+                btnLogin.textContent = 'Sign In';
+                errorEl.style.display = 'none';
+                return;
+              }
+              btnLogin.textContent = 'Wait ' + wait + 's';
+              showError('Too many attempts. You can try again in ' + wait + ' seconds, or use Forgot password to reset.');
+              wait = wait - 1;
+              setTimeout(tick, 1000);
+            })();
             return;
           }
           showError('Incorrect email or password (' + (5 - attempts) + ' attempts remaining)');
@@ -397,7 +614,9 @@ document.getElementById('request-form').addEventListener('submit', function(e) {
         form.onsubmit = function(e2) {
           e2.preventDefault();
           var newPw = document.getElementById('new-password').value;
-          if (!newPw || newPw.length < 8) { showError('New password must be at least 8 characters'); return; }
+          // Match the Cognito pool policy: 14+ chars with upper, lower, number, and symbol.
+          var pwOk = newPw && newPw.length >= 14 && /[A-Z]/.test(newPw) && /[a-z]/.test(newPw) && /[0-9]/.test(newPw) && /[^A-Za-z0-9]/.test(newPw);
+          if (!pwOk) { showError('Password must be at least 14 characters and include an uppercase letter, a lowercase letter, a number, and a symbol.'); return; }
           btnLogin.disabled = true;
           btnLogin.innerHTML = '<span class="spinner"></span>Setting password...';
           delete userAttributes.email_verified;
@@ -414,12 +633,20 @@ document.getElementById('request-form').addEventListener('submit', function(e) {
               localStorage.setItem('aevus_user_email', email);
               localStorage.removeItem('aevus_demo');
               var returnUrl = new URLSearchParams(window.location.search).get('return');
-              window.location.href = returnUrl || '/dashboard/Aevus_Console.html';
+              // Comms Intelligence is the only served app; ignore any legacy return that points at the retired console.
+              if (returnUrl && /Aevus_Console|\/dashboard\/?$/.test(returnUrl)) returnUrl = null;
+              window.location.href = returnUrl || (location.pathname.indexOf('/staging/') === 0 ? '/staging/comms/Aevus_Comms_Console.html' : '/comms/Aevus_Comms_Console.html');
             },
             onFailure: function(err) {
               btnLogin.disabled = false;
               btnLogin.textContent = 'Set New Password';
-              showError(err.message || 'Failed to set password');
+              if (err && (err.code === 'NotAuthorizedException' || /session is expired|Invalid session/i.test(err.message || ''))) {
+                showError('Your sign-in session timed out. Sign in again with your temporary password, then set your new password within a couple of minutes.');
+              } else if (err && err.code === 'InvalidPasswordException') {
+                showError('That password does not meet the requirements: at least 14 characters, with an uppercase and lowercase letter, a number, and a symbol.');
+              } else {
+                showError((err && err.message) || 'Failed to set password');
+              }
             }
           });
         };
@@ -510,7 +737,8 @@ window.backToSignIn = function() {
     errEl.style.display = 'none';
 
     if (!code || code.length !== 6) { errEl.textContent = 'Enter the 6-digit code from your email'; errEl.style.display = 'block'; return; }
-    if (!newPw || newPw.length < 8) { errEl.textContent = 'Password must be at least 8 characters'; errEl.style.display = 'block'; return; }
+    var pwOk = newPw && newPw.length >= 14 && /[A-Z]/.test(newPw) && /[a-z]/.test(newPw) && /[0-9]/.test(newPw) && /[^A-Za-z0-9]/.test(newPw);
+    if (!pwOk) { errEl.textContent = 'Password must be at least 14 characters and include an uppercase letter, a lowercase letter, a number, and a symbol.'; errEl.style.display = 'block'; return; }
     if (newPw !== confirmPw) { errEl.textContent = 'Passwords do not match'; errEl.style.display = 'block'; return; }
 
     btn.disabled = true;
@@ -530,7 +758,7 @@ window.backToSignIn = function() {
         } else if (err.code === 'ExpiredCodeException') {
           errEl.textContent = 'Code expired. Go back and request a new one.';
         } else if (err.code === 'InvalidPasswordException') {
-          errEl.textContent = 'Password does not meet requirements. Use 8+ characters with uppercase, lowercase, and numbers.';
+          errEl.textContent = 'Password does not meet requirements: at least 14 characters, with an uppercase and lowercase letter, a number, and a symbol.';
         } else {
           errEl.textContent = err.message || 'Failed to reset password. Try again.';
         }

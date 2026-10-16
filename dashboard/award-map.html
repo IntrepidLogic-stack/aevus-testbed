@@ -789,11 +789,6 @@ body {
 .cmd-btn { display:flex; align-items:center; gap:8px; width:100%; padding:10px 14px; border-radius:10px; border:1px solid var(--border-light); background:var(--bg-card); color:var(--text-secondary); cursor:pointer; font-size:12px; font-family:var(--font-body); transition:all 0.2s; margin-bottom:6px; }
 .cmd-btn:hover { background:var(--bg-card-hover); color:var(--text-primary); border-color:rgba(14,165,233,0.2); }
 .cmd-btn svg { width:16px; height:16px; flex-shrink:0; }
-.cmd-log-row { display:flex; align-items:center; gap:10px; padding:8px 0; border-bottom:1px solid var(--border); font-size:11px; }
-.cmd-log-row:last-child { border-bottom:none; }
-.cmd-result { font-family:var(--font-mono); font-size:10px; padding:2px 6px; border-radius:4px; }
-.cmd-result.ok { background:rgba(16,212,120,0.12); color:var(--status-good); }
-.cmd-result.fail { background:rgba(239,68,68,0.12); color:var(--status-bad); }
 
 /* ── Solar bar ── */
 .solar-bar { height:8px; border-radius:4px; background:rgba(255,255,255,0.04); overflow:hidden; margin-top:4px; }
@@ -2942,28 +2937,6 @@ body.light-theme .theme-switch .ts-sun { stroke:#F59E0B; }
 }
 
 
-/* ── Stretch: Faceplate Inline SP Edit ── */
-.fp-sp-editable {
-  cursor: pointer; border-bottom: 1px dashed rgba(14,165,233,0.3);
-  transition: all 0.15s;
-}
-.fp-sp-editable:hover { border-bottom-color: var(--accent); color: var(--accent); }
-.fp-sp-input {
-  width: 60px; background: var(--bg-input); border: 1px solid var(--accent);
-  border-radius: 3px; color: var(--text-primary); font-family: var(--font-mono);
-  font-size: 11px; padding: 2px 4px; outline: none;
-}
-.fp-sp-confirm {
-  display: inline-flex; gap: 2px; margin-left: 4px;
-}
-.fp-sp-btn {
-  padding: 2px 6px; border-radius: 3px; font-size: 9px; cursor: pointer;
-  border: 1px solid rgba(148,163,184,0.15); background: rgba(148,163,184,0.06);
-  color: var(--text-muted); transition: all 0.15s;
-}
-.fp-sp-btn.confirm { background: rgba(16,212,120,0.12); border-color: rgba(16,212,120,0.3); color: #10D478; }
-.fp-sp-btn.cancel { background: rgba(239,68,68,0.08); border-color: rgba(239,68,68,0.2); color: #EF4444; }
-
 /* ── Stretch: Analog Bar EU Labels ── */
 .analog-eu-labels {
   display: flex; justify-content: space-between; font-size: 8px;
@@ -4766,17 +4739,13 @@ html { scroll-behavior:smooth; }
 </section>
 
 <section class="page-section" data-page="operations">
-  <div class="page-header"><div class="page-title">Operations</div><div class="page-subtitle">Operator commands, weather intelligence, and IL9000 cross-domain intelligence</div></div>
+  <div class="page-header"><div class="page-title">Operations</div><div class="page-subtitle">Weather intelligence and IL9000 cross-domain intelligence</div></div>
   <div id="ops-safety-banner" style="background:linear-gradient(135deg,rgba(16,212,120,0.06),rgba(14,165,233,0.04));border:1px solid rgba(16,212,120,0.15);border-radius:12px;padding:16px 20px;margin-bottom:16px;display:flex;align-items:center;gap:16px;">
     <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#10D478" stroke-width="1.8"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
     <div style="flex:1;"><div style="font-size:13px;font-weight:600;color:#F1F5F9;">Worker Safety First</div><div style="font-size:11px;color:#94A3B8;margin-top:2px;">IL9000 monitoring reduces unplanned shutdowns by predicting failures before they create hazardous conditions.</div></div>
     <div style="text-align:right;"><div style="font-size:20px;font-weight:700;color:#10D478;font-family:var(--font-mono);">0</div><div style="font-size:9px;color:var(--text-muted);text-transform:uppercase;">Safety Incidents</div></div>
   </div>
   <div id="ops-weather-detail" style="margin-bottom:24px;"></div>
-  <div class="two-col" style="margin-bottom:24px;">
-    <div class="panel-box"><div class="panel-title">Operator Commands</div><div id="ops-command-panel"></div></div>
-    <div class="panel-box"><div class="panel-title">Command Audit Log</div><div id="ops-command-log"></div></div>
-  </div>
   <div class="section-title">IL9000 Pattern Detection</div>
   <div id="ops-correlations-detail"></div>
 </section>
@@ -6716,61 +6685,6 @@ html { scroll-behavior:smooth; }
 <!-- ── Stretch Items Script ── -->
 <script>
 (function(){
-
-  // ─── 1. Faceplate Inline SP Editing ───
-  function enableFaceplateEdit() {
-    document.querySelectorAll('.faceplate-sp, [class*="faceplate"] [class*="sp"]').forEach(function(el) {
-      if (el.getAttribute('data-sp-edit')) return;
-      el.setAttribute('data-sp-edit', 'true');
-      el.classList.add('fp-sp-editable');
-      el.title = 'Click to edit setpoint';
-      el.addEventListener('click', function(e) {
-        e.stopPropagation();
-        var currentVal = el.textContent.replace(/[^0-9.]/g, '');
-        var unit = el.textContent.replace(/[0-9.]/g, '').trim();
-        var input = document.createElement('input');
-        input.className = 'fp-sp-input';
-        input.type = 'number';
-        input.value = currentVal;
-        input.step = '0.1';
-        var btns = document.createElement('span');
-        btns.className = 'fp-sp-confirm';
-        btns.innerHTML = '<span class="fp-sp-btn confirm" data-action="ok">SET</span><span class="fp-sp-btn cancel" data-action="no">X</span>';
-        var origHTML = el.innerHTML;
-        el.innerHTML = '';
-        el.appendChild(input);
-        el.appendChild(btns);
-        input.focus();
-        input.select();
-
-        function finish(apply) {
-          if (apply) {
-            var newVal = parseFloat(input.value);
-            if (!isNaN(newVal)) {
-              el.textContent = newVal + (unit ? ' ' + unit : '');
-              // Show brief confirmation
-              el.style.color = '#10D478';
-              setTimeout(function() { el.style.color = ''; }, 1500);
-            } else {
-              el.innerHTML = origHTML;
-            }
-          } else {
-            el.innerHTML = origHTML;
-          }
-        }
-        btns.addEventListener('click', function(ev) {
-          var action = ev.target.getAttribute('data-action');
-          if (action === 'ok') finish(true);
-          else finish(false);
-        });
-        input.addEventListener('keydown', function(ev) {
-          if (ev.key === 'Enter') finish(true);
-          if (ev.key === 'Escape') finish(false);
-        });
-      });
-    });
-  }
-  setInterval(enableFaceplateEdit, 5000);
 
   // ─── 2. Analog Bar EU Labels ───
   function addEULabels() {

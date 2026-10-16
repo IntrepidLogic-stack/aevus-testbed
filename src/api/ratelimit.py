@@ -40,29 +40,50 @@ class SlidingWindowRateLimiter:
     Uses a monotonic clock so it is immune to wall-clock adjustments.
     """
 
-    def __init__(self) -> None:
+    # Sweep fully-expired keys once the table grows past this, so a flood of
+    # one-shot keys (e.g. random email addresses) cannot grow memory without bound.
+    _SWEEP_THRESHOLD = 5000
+
+    def __init__(
+        self,
+        limit_attr: str = "ai_rate_limit_requests",
+        window_attr: str = "ai_rate_limit_window_seconds",
+        detail: str = "AI request rate limit exceeded, slow down and retry shortly.",
+        log_event: str = "ai_rate_limited",
+    ) -> None:
         self._hits: dict[str, deque[float]] = defaultdict(deque)
         self._lock = threading.Lock()
+        self._limit_attr = limit_attr
+        self._window_attr = window_attr
+        self._detail = detail
+        self._log_event = log_event
+
+    def _sweep(self, cutoff: float) -> None:
+        """Drop keys whose newest hit is outside the window. Caller holds the lock."""
+        for k in [k for k, dq in self._hits.items() if not dq or dq[-1] <= cutoff]:
+            del self._hits[k]
 
     def check(self, key: str) -> None:
         """Record a hit for `key`; raise HTTPException(429) if over the limit."""
-        limit = settings.ai_rate_limit_requests
-        window = settings.ai_rate_limit_window_seconds
+        limit = getattr(settings, self._limit_attr)
+        window = getattr(settings, self._window_attr)
         if limit <= 0 or window <= 0:  # disabled (dev/test)
             return
 
         now = time.monotonic()
         cutoff = now - window
         with self._lock:
+            if len(self._hits) > self._SWEEP_THRESHOLD:
+                self._sweep(cutoff)
             dq = self._hits[key]
             while dq and dq[0] <= cutoff:
                 dq.popleft()
             if len(dq) >= limit:
                 retry_after = int(dq[0] + window - now) + 1
-                logger.warning("ai_rate_limited", client=key, limit=limit, window=window)
+                logger.warning(self._log_event, client=key, limit=limit, window=window)
                 raise HTTPException(
                     status_code=429,
-                    detail="AI request rate limit exceeded — slow down and retry shortly.",
+                    detail=self._detail,
                     headers={"Retry-After": str(max(1, retry_after))},
                 )
             dq.append(now)

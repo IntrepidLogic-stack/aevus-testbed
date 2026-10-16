@@ -1,6 +1,7 @@
 """Tests for IL-9000 Safety Interlock — Patentable Invention P-008."""
 
 import pathlib
+import re
 
 import pytest
 
@@ -78,13 +79,29 @@ class TestReadOnlyInterlock:
         write lives in the gated bench fixture under tools/, outside src/.
         """
         src = pathlib.Path(__file__).resolve().parent.parent / "src"
-        write_calls = (".write_register(", ".write_registers(", ".write_coil(", ".write_coils(")
+        # Modbus field writes, SNMP SET, and DNP3 control (select/operate/CROB).
+        # Matched as call/identifier tokens (not bare "operate") so prose such as
+        # "operate" in a docstring is not a false positive.
+        write_patterns = (
+            r"\.write_registers?\(",
+            r"\.write_coils?\(",
+            r"\bsetCmd\b",
+            r"\bsnmpset\b",
+            r"\bsnmp_set\b",
+            r"\bDirectOperate\b",
+            r"\bDIRECT_OPERATE\b",
+            r"\bSelectBeforeOperate\b",
+            r"\bCROB\b",
+            r"\bgroup12\b",
+            r"\.operate\(",
+        )
+        compiled = [re.compile(p, re.IGNORECASE) for p in write_patterns]
         offenders = []
         for py in src.rglob("*.py"):
             text = py.read_text()
-            for call in write_calls:
-                if call in text:
-                    offenders.append(f"{py.relative_to(src.parent)}{call}")
+            for rx in compiled:
+                if rx.search(text):
+                    offenders.append(f"{py.relative_to(src.parent)} matches {rx.pattern}")
         assert not offenders, (
             "IL-009 read-only violation — field-write call(s) found in src/:\n  "
             + "\n  ".join(offenders)

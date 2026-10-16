@@ -24,7 +24,7 @@ def test_openapi_schema_builds():
     assert schema["paths"], "no paths in the OpenAPI schema"
     schemas = schema["components"]["schemas"]
     # the models that previously broke the build must be present + resolvable
-    for model in ("ShelveResponse", "CommandRequest"):
+    for model in ("ShelveResponse",):
         assert model in schemas, f"{model} missing from OpenAPI schema (TYPE_CHECKING-only import?)"
 
 

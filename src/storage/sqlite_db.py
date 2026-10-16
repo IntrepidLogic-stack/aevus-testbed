@@ -152,8 +152,7 @@ class SQLiteDB:
         """Open (or reopen) the database connection."""
         self._conn = sqlite3.connect(self._path, check_same_thread=False)
         self._conn.row_factory = sqlite3.Row
-        # WAL lets readers and a writer (and Commander's separate connection to
-        # the same file) coexist without "database is locked"; busy_timeout
+        # WAL lets readers and a writer coexist without "database is locked"; busy_timeout
         # makes a contended writer wait instead of erroring; synchronous=NORMAL
         # is the WAL-safe, faster durability setting. (M4)
         self._conn.execute("PRAGMA journal_mode=WAL")

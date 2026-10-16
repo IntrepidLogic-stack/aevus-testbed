@@ -39,7 +39,6 @@ from src.api.ai import router as ai_router  # noqa: E402
 from src.api.alerts import router as alerts_router  # noqa: E402
 from src.api.assets import router as assets_router  # noqa: E402
 from src.api.auth import APIKeyMiddleware  # noqa: E402
-from src.api.commands import router as commands_router  # noqa: E402
 from src.api.correlations import router as correlations_router  # noqa: E402
 from src.api.csv_io import router as csv_io_router  # noqa: E402
 from src.api.demo_access import router as demo_access_router  # noqa: E402
@@ -67,7 +66,6 @@ from src.collectors.snmp_router import SNMPNetworkCollector  # noqa: E402
 from src.collectors.snmp_trap_receiver import SNMPTrapReceiver  # noqa: E402
 from src.config import settings  # noqa: E402
 from src.engine.alert_engine import AlertEngine  # noqa: E402
-from src.engine.commander import Commander  # noqa: E402
 from src.engine.correlator import CorrelationEngine  # noqa: E402
 from src.engine.notifier import NotificationEngine  # noqa: E402
 from src.engine.weather import WeatherEngine  # noqa: E402
@@ -178,12 +176,11 @@ class AppState:
         # here so app_state.weather_engine always exists; lifespan starts the
         # refresh loop. Without this the weather router 500s on attribute access.
         self.weather_engine = WeatherEngine()
-        # Referenced by API routers (health/correlations/commands) — must exist
+        # Referenced by API routers (health/correlations) — must exist
         # on app_state or those endpoints 500. A single 500 among the dashboard's
         # Promise.all() refresh batch halts the whole live re-render loop, so a
         # missing attribute here silently freezes every page's live updates.
         self.correlator = CorrelationEngine()
-        self.commander = Commander()
         self.ws_clients = 0
         # SNMP trap receiver — async UDP listener for unsolicited device events
         # (linkUp/linkDown, coldStart, vendor traps). Gated on snmp_trap_enabled
@@ -611,7 +608,6 @@ for r in (
     ai_router,
     alerts_router,
     assets_router,
-    commands_router,
     correlations_router,
     csv_io_router,
     demo_access_router,

@@ -1,0 +1,127 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Aevus Access Admin</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex,nofollow">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap">
+<style>
+  :root{--bg:#0B1020;--card:#141C31;--card2:#1B2540;--line:#273253;--ink:#E8EDF6;--soft:#AEB9CE;--muted:#8A949E;
+    --accent:#38BDF8;--accent2:#0EA5E9;--good:#10D478;--warn:#FBBF24;--bad:#F87171;
+    --mono:'JetBrains Mono',ui-monospace,monospace;--sans:'Manrope',system-ui,sans-serif;}
+  *{box-sizing:border-box} body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--sans);font-size:15px;line-height:1.5;}
+  .top{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:16px 22px;border-bottom:1px solid var(--line);position:sticky;top:0;background:#0B1120;z-index:5;}
+  .logo{font-family:var(--mono);font-weight:700;letter-spacing:.14em;font-size:15px;}
+  .logo .c{color:var(--accent);} .top .who{font-family:var(--mono);font-size:12px;color:var(--muted);}
+  .wrap{max-width:1000px;margin:0 auto;padding:26px 22px 80px;}
+  h1{font-size:24px;font-weight:800;letter-spacing:-.01em;margin:0 0 4px;}
+  .sub{color:var(--muted);font-size:13.5px;margin:0 0 22px;}
+  .bar{display:flex;gap:10px;align-items:center;margin-bottom:16px;flex-wrap:wrap;}
+  .seg{display:inline-flex;border:1px solid var(--line);border-radius:8px;overflow:hidden;}
+  .seg button{background:transparent;border:0;color:var(--soft);font-family:var(--mono);font-size:12px;font-weight:600;padding:7px 14px;cursor:pointer;}
+  .seg button.on{background:var(--accent2);color:#06121f;}
+  .ghost{margin-left:auto;background:transparent;border:1px solid var(--line);color:var(--soft);border-radius:8px;padding:7px 13px;font-family:var(--mono);font-size:12px;cursor:pointer;}
+  .ghost:hover{border-color:var(--accent);color:var(--ink);}
+  .req{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:16px 18px;margin-bottom:12px;}
+  .req .r1{display:flex;align-items:baseline;gap:10px;flex-wrap:wrap;}
+  .req .nm{font-weight:700;font-size:16px;} .req .em{font-family:var(--mono);font-size:12.5px;color:var(--accent);}
+  .req .meta{display:flex;flex-wrap:wrap;gap:6px 18px;margin:8px 0 6px;font-family:var(--mono);font-size:11.5px;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;}
+  .req .meta b{color:var(--soft);font-weight:600;}
+  .req .reason{color:var(--soft);font-size:13.5px;margin:6px 0 0;}
+  .req .acts{display:flex;gap:10px;margin-top:14px;}
+  .btn{border:0;border-radius:8px;padding:9px 18px;font-weight:700;font-size:13px;cursor:pointer;font-family:var(--sans);}
+  .btn.ap{background:var(--good);color:#04130b;} .btn.dn{background:transparent;color:var(--bad);border:1px solid var(--bad);}
+  .btn:disabled{opacity:.5;cursor:default;}
+  .pill{font-family:var(--mono);font-size:10px;font-weight:700;letter-spacing:.07em;text-transform:uppercase;padding:2px 9px;border-radius:5px;border:1px solid currentColor;}
+  .pill.pending{color:var(--warn);} .pill.approved{color:var(--good);} .pill.denied{color:var(--muted);}
+  .empty{color:var(--muted);text-align:center;padding:60px 0;font-size:14px;}
+  .toast{position:fixed;bottom:22px;left:50%;transform:translateX(-50%);background:var(--card2);border:1px solid var(--line);
+    border-radius:9px;padding:11px 18px;font-size:13px;box-shadow:0 10px 40px rgba(0,0,0,.5);display:none;z-index:20;}
+  .toast.err{border-color:var(--bad);} .toast.ok{border-color:var(--good);}
+  a{color:var(--accent);}
+</style>
+</head>
+<body>
+<div class="top">
+  <div class="logo">AEVUS<span class="c"> ACCESS</span></div>
+  <div class="who" id="who"></div>
+</div>
+<div class="wrap">
+  <h1>Access Requests</h1>
+  <p class="sub">Review people requesting access to Aevus Comms. Approving creates their account and emails a temporary password; they set a new one on first sign-in.</p>
+  <div class="bar">
+    <div class="seg">
+      <button id="tab-pending" class="on" onclick="setTab('pending')">Pending</button>
+      <button id="tab-approved" onclick="setTab('approved')">Approved</button>
+      <button id="tab-denied" onclick="setTab('denied')">Denied</button>
+    </div>
+    <button class="ghost" onclick="load()">↻ Refresh</button>
+    <button class="ghost" onclick="signOut()">Sign out</button>
+  </div>
+  <div id="list"></div>
+</div>
+<div class="toast" id="toast"></div>
+<script>
+var API='/api/v1', TAB='pending', ALL=[];
+function token(){ try{ return localStorage.getItem('aevus_id_token')||localStorage.getItem('aevus_access_token'); }catch(e){ return null; } }
+function email(){ try{ var t=token(); if(!t)return ''; var p=JSON.parse(atob(t.split('.')[1])); return p.email||p['cognito:username']||''; }catch(e){ return ''; } }
+function gotoLogin(){ location.href='/dashboard/login.html?return='+encodeURIComponent(location.pathname); }
+function headers(){ return {'Authorization':'Bearer '+token(),'Content-Type':'application/json'}; }
+function toast(msg,kind){ var t=document.getElementById('toast'); t.textContent=msg; t.className='toast '+(kind||''); t.style.display='block'; setTimeout(function(){t.style.display='none';},3200); }
+function esc(s){ return (''+(s==null?'':s)).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+function setTab(t){ TAB=t; ['pending','approved','denied'].forEach(function(x){ document.getElementById('tab-'+x).classList.toggle('on',x===t); }); render(); }
+function signOut(){ try{ localStorage.removeItem('aevus_id_token'); localStorage.removeItem('aevus_access_token'); }catch(e){} gotoLogin(); }
+
+function load(){
+  if(!token()){ gotoLogin(); return; }
+  fetch(API+'/access-requests',{headers:headers()}).then(function(r){
+    if(r.status===401||r.status===403){ gotoLogin(); throw new Error('unauthorized'); }
+    if(!r.ok) throw new Error('HTTP '+r.status); return r.json();
+  }).then(function(d){ ALL=Array.isArray(d)?d:[]; render(); }).catch(function(e){ if(e.message!=='unauthorized') toast('Could not load requests: '+e.message,'err'); });
+}
+
+function render(){
+  var rows=ALL.filter(function(r){ return (r.status||'pending')===TAB; })
+    .sort(function(a,b){ return (b.timestamp||'').localeCompare(a.timestamp||''); });
+  var el=document.getElementById('list');
+  if(!rows.length){ el.innerHTML='<div class="empty">No '+TAB+' requests.</div>'; return; }
+  el.innerHTML=rows.map(function(r){
+    var when = r.timestamp? new Date(r.timestamp).toLocaleString() : '—';
+    var acts = TAB==='pending'
+      ? '<div class="acts"><button class="btn ap" onclick="decide(\''+r.id+'\',\'approved\',true,this)">Approve &amp; create account</button>'
+        +'<button class="btn dn" onclick="decide(\''+r.id+'\',\'denied\',false,this)">Deny</button></div>'
+      : (r.cognito_error? '<div class="reason" style="color:var(--bad)">Account creation error: '+esc(r.cognito_error)+'</div>'
+        : (r.status==='approved' && r.cognito_created? '<div class="reason" style="color:var(--good)">Account created — invite emailed.</div>':''));
+    return '<div class="req"><div class="r1"><span class="nm">'+esc(r.name||'—')+'</span>'
+      +'<span class="em">'+esc(r.email||'—')+'</span>'
+      +'<span class="pill '+(r.status||'pending')+'" style="margin-left:auto">'+(r.status||'pending')+'</span></div>'
+      +'<div class="meta"><span><b>Company</b> '+esc(r.company||'—')+'</span><span><b>Role</b> '+esc(r.role||'viewer')+'</span>'
+      +(r.phone?'<span><b>Phone</b> '+esc(r.phone)+'</span>':'')+'<span><b>Requested</b> '+esc(when)+'</span>'
+      +(r.decided_by?'<span><b>Decided by</b> '+esc(r.decided_by)+'</span>':'')+'</div>'
+      +(r.reason?'<p class="reason">'+esc(r.reason)+'</p>':'')+acts+'</div>';
+  }).join('');
+}
+
+function decide(id,status,create,btn){
+  if(status==='approved' && !confirm('Approve this request and create a Cognito account? They will be emailed a temporary password.')) return;
+  if(status==='denied' && !confirm('Deny this request?')) return;
+  if(btn){ btn.disabled=true; btn.textContent=status==='approved'?'Creating…':'Denying…'; }
+  fetch(API+'/access-requests/'+id,{method:'PUT',headers:headers(),
+    body:JSON.stringify({status:status,cognito_create:!!create,decided_by:email()||'admin'})})
+    .then(function(r){ if(r.status===401||r.status===403){ gotoLogin(); throw new Error('unauthorized'); } if(!r.ok) throw new Error('HTTP '+r.status); return r.json(); })
+    .then(function(res){ if(res && res.status==='error') throw new Error(res.message||'error');
+      toast(status==='approved'?'Approved — invite emailed':'Request denied','ok'); load(); })
+    .catch(function(e){ if(e.message!=='unauthorized'){ toast('Failed: '+e.message,'err'); if(btn){btn.disabled=false; btn.textContent=status==='approved'?'Approve & create account':'Deny';} } });
+}
+
+// boot
+(function(){
+  if(!token()){ gotoLogin(); return; }
+  document.getElementById('who').textContent=email()||'signed in';
+  load();
+})();
+</script>
+</body>
+</html>

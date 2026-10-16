@@ -17,7 +17,7 @@
 - **Time-series DB:** InfluxDB 2.x (bucket: `aevus_telemetry`, org: `intrepid-logic`)
 - **Relational DB:** SQLite for asset registry, alert log, config (upgrade to PostgreSQL later)
 - **Real-time push:** WebSocket via FastAPI (dashboard connects on load, receives push updates)
-- **Dashboard:** Single-file HTML (exists at `dashboard/Aevus_Console.html`) — modify its JS to fetch from the API instead of hardcoded arrays
+- **Dashboard:** the old broad console is PARKED (git tag `retired/old-dashboard`). Aevus Comms is the single front door at `/comms/` (deployed out of band); `/` redirects there and `dashboard/login.html` lands on it.
 - **Task scheduling:** APScheduler (polling loops at configurable intervals per equipment type)
 - **ML/prediction:** scikit-learn for initial anomaly detection; upgrade path to PyTorch
 - **Config:** `.env` file via python-dotenv; all secrets in `.env`, never committed
@@ -85,7 +85,7 @@ aevus-testbed/
 │       └── ws.py                ← WebSocket real-time push
 │
 ├── dashboard/
-│   └── Aevus_Console.html       ← Dashboard (served at /, session cookie auth)
+│   └── login.html               ← Sign-in page (lands on /comms/); old console parked, see tag retired/old-dashboard
 │
 ├── tests/
 │   ├── test_api.py

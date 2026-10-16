@@ -109,7 +109,7 @@ class TestAuthHardening:
         the public /ai/* demo endpoints may pass on a demo Referer now."""
         resp = unauthed_client.get(
             "/api/v1/assets",
-            headers={"referer": "https://aevus.intrepidlogic.io/dashboard/Aevus_Console.html?demo=true"},
+            headers={"referer": "https://aevus.intrepidlogic.io/comms/Aevus_Comms_Console.html?demo=true"},
         )
         assert resp.status_code == 401
 
@@ -124,6 +124,6 @@ class TestAuthHardening:
         resp = unauthed_client.post(
             "/api/v1/notes",
             json={},
-            headers={"referer": "https://aevus.intrepidlogic.io/dashboard/Aevus_Console.html?demo=true"},
+            headers={"referer": "https://aevus.intrepidlogic.io/comms/Aevus_Comms_Console.html?demo=true"},
         )
         assert resp.status_code == 401

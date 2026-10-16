@@ -29,14 +29,16 @@ def auth_client():
 
 
 class TestDashboard:
-    def test_root_serves_dashboard(self, client):
-        resp = client.get("/")
-        assert resp.status_code == 200
+    def test_root_redirects_to_comms(self, client):
+        """The old console is parked: the bare host sends visitors to the Comms console."""
+        resp = client.get("/", follow_redirects=False)
+        assert resp.status_code == 302
+        assert resp.headers["location"] == "/comms/Aevus_Comms_Console.html"
 
     def test_root_no_api_key_needed(self, auth_client):
-        """Dashboard should not require API key."""
-        resp = auth_client.get("/")
-        assert resp.status_code == 200
+        """The front-door redirect should not require API key."""
+        resp = auth_client.get("/", follow_redirects=False)
+        assert resp.status_code == 302
 
 
 class TestAssetsAPI:
@@ -97,5 +99,5 @@ class TestAPIKeyAuth:
         assert resp.status_code == 200
 
     def test_dashboard_bypasses_auth(self, auth_client):
-        resp = auth_client.get("/")
-        assert resp.status_code == 200
+        resp = auth_client.get("/", follow_redirects=False)
+        assert resp.status_code == 302

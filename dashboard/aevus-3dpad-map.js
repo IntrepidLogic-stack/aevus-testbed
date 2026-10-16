@@ -5,7 +5,8 @@
  * onto the CURRENT feature-rich platform, WITHOUT touching the minified build.
  * It takes over the #map page (rad-hover-live.js pattern) and feeds live data
  * via shims that poll /api/v1/assets + /api/v1/alerts.
- * Source: award-recovery/award-api-client.src.js lines 10915-14077 (verbatim).
+ * Source: award build api-client source, lines 10915-14077 (verbatim). The
+ * archival award-recovery/ tree was removed 2026-10-16; see git history.
  * ==========================================================================*/
 ;(function () {
   "use strict";

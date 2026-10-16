@@ -4,7 +4,6 @@ from src.api.access_requests import router as access_requests_router
 from src.api.ai import router as ai_router
 from src.api.alerts import router as alerts_router
 from src.api.assets import router as assets_router
-from src.api.commands import router as commands_router
 from src.api.correlations import router as correlations_router
 from src.api.csv_io import router as csv_io_router
 from src.api.deploy import router as deploy_router
@@ -22,7 +21,6 @@ from src.api.ws import router as ws_router
 __all__ = [
     "assets_router",
     "alerts_router",
-    "commands_router",
     "correlations_router",
     "ingest_router",
     "health_router",

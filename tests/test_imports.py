@@ -48,7 +48,6 @@ MODULES = [
     "src.api.ai",
     "src.api.alerts",
     "src.api.assets",
-    "src.api.commands",
     "src.api.correlations",
     "src.api.csv_io",
     "src.api.deploy",

@@ -86,7 +86,7 @@ regex==2026.7.19
 rich==15.0.0
 ruamel.yaml==0.19.1
 ruff==0.15.22
-s3transfer==0.19.1
+s3transfer==0.19.2
 safety==3.8.1
 safety-schemas==0.0.16
 scikit-learn==1.9.0

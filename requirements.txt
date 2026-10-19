@@ -88,7 +88,7 @@ ruamel.yaml==0.19.1
 ruff==0.15.22
 s3transfer==0.19.1
 safety==3.8.1
-safety-schemas==0.0.16
+safety-schemas==0.0.21
 scikit-learn==1.9.0
 scipy==1.18.0
 shellingham==1.5.4

@@ -28,6 +28,34 @@ _FLUX_IDENT_RE = re.compile(r"[A-Za-z0-9_.:\-]{1,128}")
 
 _UTC = UTC
 
+# Provenance (product-integrity guard). The scheduler falls back to the
+# SimulatorCollector when a real collector returns nothing, and the optional
+# reference-replay collector injects canned dataset frames; both are written to
+# the same bucket tagged ``source`` = "simulator" / "reference". Neither is a
+# measurement from a field device, so measured-history queries MUST exclude them.
+# Denylist (not allowlist) on purpose: real sources are open-ended ("snmp",
+# "modbus", "dnp3", "opcua", "relay", ...) and a new real protocol must not
+# silently vanish from history. Untagged points carry no synthetic marker and
+# are treated as measured (Flux ``!=`` matches series that lack the tag).
+NON_MEASURED_SOURCES: tuple[str, ...] = ("simulator", "reference")
+
+PROVENANCE_MEASURED = "measured"
+PROVENANCE_SIMULATED = "simulated"
+
+
+def _provenance_filter(provenance: str = PROVENANCE_MEASURED) -> str:
+    """Flux filter stage selecting measured (default) or simulated/reference points.
+
+    Placed immediately after ``range()`` and BEFORE ``aggregateWindow`` so a
+    bucket mean can never blend real and non-real samples. Constants only, no
+    caller-supplied text reaches the query (no injection seam).
+    """
+    if provenance == PROVENANCE_SIMULATED:
+        pred = " or ".join(f'r["source"] == "{x}"' for x in NON_MEASURED_SOURCES)
+    else:  # anything unrecognised fails safe to measured-only
+        pred = " and ".join(f'r["source"] != "{x}"' for x in NON_MEASURED_SOURCES)
+    return f"|> filter(fn: (r) => {pred})"
+
 
 def _parse_iso_dt(s):
     """Parse an ISO-8601 string to an aware UTC datetime, or None."""
@@ -111,13 +139,14 @@ class InfluxStorage:
         logger.warning("influx_ident_rejected", field=what, value=repr(value)[:80])
         return None
 
-    def query_latest(self, asset_id: str) -> list[dict]:
-        """Get the latest reading for each metric of an asset."""
+    def query_latest(self, asset_id: str, provenance: str = PROVENANCE_MEASURED) -> list[dict]:
+        """Get the latest reading for each metric of an asset (measured points only by default)."""
         if self._safe_ident(asset_id, "asset_id") is None:
             return []
         query = f'''
         from(bucket: "{self._bucket}")
           |> range(start: -1h)
+          {_provenance_filter(provenance)}
           |> filter(fn: (r) => r["asset_id"] == "{asset_id}")
           |> last()
         '''
@@ -139,8 +168,19 @@ class InfluxStorage:
             self.log.error("influx_query_failed", error=str(e))
             return []
 
-    def query_trend(self, asset_id: str, metric: str, hours: int = 24) -> list[dict]:
-        """Get time-series trend for a specific metric."""
+    def query_trend(
+        self,
+        asset_id: str,
+        metric: str,
+        hours: int = 24,
+        provenance: str = PROVENANCE_MEASURED,
+    ) -> list[dict]:
+        """Get time-series trend for a specific metric.
+
+        ``provenance`` = "measured" (default) excludes simulator/reference points;
+        "simulated" returns ONLY those, for callers that must show clearly-labeled
+        synthetic data (the legacy ?demo=true dashboard). The two are never mixed.
+        """
         if self._safe_ident(asset_id, "asset_id") is None or self._safe_ident(metric, "metric") is None:
             return []
         try:
@@ -150,6 +190,7 @@ class InfluxStorage:
         query = f'''
         from(bucket: "{self._bucket}")
           |> range(start: -{hours}h)
+          {_provenance_filter(provenance)}
           |> filter(fn: (r) => r["asset_id"] == "{asset_id}")
           |> filter(fn: (r) => r["metric"] == "{metric}")
           |> aggregateWindow(every: 5m, fn: mean, createEmpty: false)
@@ -190,10 +231,11 @@ class InfluxStorage:
         return ms if ms > 0 else None
 
     def retained_since(self) -> str | None:
-        """Earliest retained telemetry date (YYYY-MM-DD), or None if the bucket is empty."""
+        """Earliest retained MEASURED telemetry date (YYYY-MM-DD), or None if there is none."""
         query = f'''
         from(bucket: "{self._bucket}")
           |> range(start: -90d)
+          {_provenance_filter()}
           |> group()
           |> min(column: "_time")
           |> limit(n: 1)
@@ -217,7 +259,8 @@ class InfluxStorage:
             return 3600
 
     def query_rssi_matrix(self, from_iso: str, to_iso: str, step: int) -> list[dict]:
-        """RSSI for every RF asset over [from,to], bucketed to `step` seconds.
+        """MEASURED RSSI for every RF asset over [from,to], bucketed to `step` seconds.
+        Simulator/reference points are excluded (see NON_MEASURED_SOURCES).
 
         Returns a flat list [{"asset_id": str, "t": epoch_ms, "v": rssi_dbm}].
         No asset filter (every asset reporting RSSI is included), so no
@@ -231,6 +274,7 @@ class InfluxStorage:
         query = f'''
         from(bucket: "{self._bucket}")
           |> range(start: {start_s}, stop: {stop_s})
+          {_provenance_filter()}
           |> filter(fn: (r) => r["metric"] == "rssi")
           |> aggregateWindow(every: {every}s, fn: mean, createEmpty: false)
         '''
@@ -258,7 +302,8 @@ class InfluxStorage:
         to_iso: str,
         step: int,
     ) -> dict:
-        """Per-link per-metric bucketed series for the named assets + metrics.
+        """Per-link per-metric bucketed MEASURED series for the named assets + metrics.
+        Simulator/reference points are excluded (see NON_MEASURED_SOURCES).
 
         Returns {asset_id: {metric: [{"t": epoch_ms, "v": num}]}}. asset_id and
         metric lists are expanded into OR-chained equality predicates (contains()
@@ -278,6 +323,7 @@ class InfluxStorage:
         query = f'''
         from(bucket: "{self._bucket}")
           |> range(start: {start_s}, stop: {stop_s})
+          {_provenance_filter()}
           |> filter(fn: (r) => {aid_pred})
           |> filter(fn: (r) => {met_pred})
           |> aggregateWindow(every: {every}s, fn: mean, createEmpty: false)

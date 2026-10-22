@@ -8,13 +8,20 @@ retained as raw series (throughput, percent-good polls, packet-error rate) are
 omitted; the console renders those lanes as honest "no retained history" rather
 than showing a fabricated number. IL-9000: query-only, never writes or controls.
 
+Honesty: this is MEASURED history only. Points the scheduler's simulator fallback
+or the reference-replay collector wrote (``source`` = simulator / reference) are
+excluded in the Flux query itself (see ``src.storage.influx.NON_MEASURED_SOURCES``),
+and every response carries ``"provenance": "measured"``. A link with only
+simulated/reference data therefore returns no series (honest no-history lane).
+
 Contract (matches aevus_comms_prototype/Aevus_Comms_Console.html, historyFor):
   GET /history/links?ids=a,b&metrics=margin,snr,rssi&from=ISO&to=ISO&step=3600
-      -> {"series": {asset_id: {hk: [{"t": epoch_ms, "v": num}]}}, "retained_since": "YYYY-MM-DD"}
+      -> {"series": {asset_id: {hk: [{"t": epoch_ms, "v": num}]}}, "retained_since": "YYYY-MM-DD",
+         "provenance": "measured"}
   GET /history/rollup?scope=enterprise|site&from=ISO&to=ISO
       -> {"groups": [{"key","label","links":[ids],
                       "avail":[{t,v}], "marginMean":[{t,v}], "marginWorst":[{t,v}]}],
-          "retained_since": "YYYY-MM-DD"}
+          "retained_since": "YYYY-MM-DD", "provenance": "measured"}
 """
 
 from __future__ import annotations
@@ -34,6 +41,9 @@ router = APIRouter(prefix="/history", tags=["history"])
 _SUPPORTED_HK = {"margin", "snr", "rssi"}
 
 _DAY_MS = 86400000
+
+# Served-source marker echoed on every response (the queries exclude simulator/reference).
+PROVENANCE = "measured"
 
 
 def _sensitivity_dbm() -> float:
@@ -79,7 +89,7 @@ async def history_links(
     if not requested:
         hks = {"margin", "snr", "rssi"}
     if not hks:
-        return {"series": {}, "retained_since": app_state.influx.retained_since()}
+        return {"series": {}, "retained_since": app_state.influx.retained_since(), "provenance": PROVENANCE}
 
     # RSSI backs both the rssi lane and the derived margin lane; fetch it once.
     influx_metrics = []
@@ -103,7 +113,7 @@ async def history_links(
         if out:
             series[aid] = out
 
-    return {"series": series, "retained_since": app_state.influx.retained_since()}
+    return {"series": series, "retained_since": app_state.influx.retained_since(), "provenance": PROVENANCE}
 
 
 @router.get("/rollup")
@@ -122,12 +132,12 @@ async def history_rollup(
 
     span = app_state.influx.span_ms(from_, to)
     if span is None or span <= 0:
-        return {"groups": [], "retained_since": app_state.influx.retained_since()}
+        return {"groups": [], "retained_since": app_state.influx.retained_since(), "provenance": PROVENANCE}
     step = _rollup_step(span)
 
     matrix = app_state.influx.query_rssi_matrix(from_, to, step)  # [{asset_id,t,v=rssi}]
     if not matrix:
-        return {"groups": [], "retained_since": app_state.influx.retained_since()}
+        return {"groups": [], "retained_since": app_state.influx.retained_since(), "provenance": PROVENANCE}
 
     # asset_id -> location, for site grouping
     loc: dict = {}
@@ -177,4 +187,4 @@ async def history_rollup(
         )
 
     out_groups.sort(key=lambda g: g["label"])
-    return {"groups": out_groups, "retained_since": app_state.influx.retained_since()}
+    return {"groups": out_groups, "retained_since": app_state.influx.retained_since(), "provenance": PROVENANCE}

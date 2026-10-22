@@ -64,8 +64,15 @@ async def health_trend(
     asset_id: str | None = Query(None),
     metric: str = Query("cpu_load"),
     hours: int = Query(24, ge=1, le=720),
+    provenance: str = Query("measured", pattern="^(measured|simulated)$"),
 ) -> list[dict]:
-    """Time-series trend data for a specific metric."""
+    """Time-series trend data for a specific metric.
+
+    ``provenance=measured`` (default) returns only points from real devices.
+    ``provenance=simulated`` returns only simulator/reference points, each
+    labeled ``"simulated": true`` so the demo dashboard can show them honestly.
+    The two sets are never mixed in one response.
+    """
     from src.main import app_state
 
     if asset_id is None:
@@ -73,13 +80,19 @@ async def health_trend(
         assets = app_state.db.list_assets()
         all_points: list[dict] = []
         for asset in assets:
-            points = app_state.influx.query_trend(asset.id, metric, hours)
+            points = app_state.influx.query_trend(asset.id, metric, hours, provenance)
             for p in points:
                 p["asset_id"] = asset.id
+                if provenance == "simulated":
+                    p["simulated"] = True
             all_points.extend(points)
         all_points.sort(key=lambda p: p.get("time", ""))
         return all_points
-    return app_state.influx.query_trend(asset_id, metric, hours)
+    points = app_state.influx.query_trend(asset_id, metric, hours, provenance)
+    if provenance == "simulated":
+        for p in points:
+            p["simulated"] = True
+    return points
 
 
 @router.get("/ping")

@@ -3,6 +3,10 @@ Description=Aevus SCADAPack 470 Modbus->ingest relay (Task #134/#198)
 After=network-online.target
 
 [Service]
+# Holds AEVUS_INGEST_SECRET=<value> (chmod 600). Required: prod /ingest rejects
+# pushes without the matching X-Ingest-Key. Leading "-" = tolerate a missing file
+# (the relay then logs a warning and the server answers 401 until it is created).
+EnvironmentFile=-%h/.config/aevus/relay.env
 ExecStart=/home/admin/aevus-testbed/.venv/bin/python /home/admin/scadapack_ingest_relay.py
 Restart=always
 RestartSec=15

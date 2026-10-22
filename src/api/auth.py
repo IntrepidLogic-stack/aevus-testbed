@@ -167,10 +167,11 @@ class APIKeyMiddleware(BaseHTTPMiddleware):
             "/api/v1/ingest",
         ):
             return await call_next(request)
-        # NOTE: /ingest stays exempt — it's the shop-PC relay's HTTP push path
-        # and has no key today; hardening it needs a shared ingest secret sent
-        # by the relay (follow-up, ARCHITECTURE_REVIEW H3). /notes and /journal
-        # were previously exempt too, which let ANYONE POST operator notes / the
+        # NOTE: /ingest stays exempt from the API-key check because the edge relays
+        # have no API key, but it is NOT unauthenticated: the handler enforces the
+        # shared X-Ingest-Key secret (src/api/ingest.py::_check_ingest_secret), which
+        # is REQUIRED and always enforced in production. /notes and /journal were
+        # previously exempt too, which let ANYONE POST operator notes / the
         # "immutable" journal with no auth. Removed: their GET reads still flow
         # through the demo/auth branches below; their writes now require auth.
 

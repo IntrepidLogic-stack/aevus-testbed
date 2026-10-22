@@ -552,6 +552,11 @@ async def lifespan(app: FastAPI):
     _register_modbus_collectors()
     _register_opcua_collector()
     _register_mqtt_publisher()
+    if settings.is_production and not settings.ingest_secret:
+        logger.error(
+            "ingest_secret_unset_in_production",
+            detail="INGEST_SECRET unset: /ingest will reject all pushes (401) until set",
+        )
     await app_state.scheduler.start()
     weather_task = asyncio.create_task(_weather_loop())
     mqtt_health_task = asyncio.create_task(_mqtt_health_publish_loop())

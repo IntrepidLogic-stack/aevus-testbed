@@ -18,9 +18,10 @@ UNIT = 1
 ASSET = "RTU-01"
 INGEST = "https://aevus.intrepidlogic.io/api/v1/ingest"
 INTERVAL = 30
-# Shared ingest secret (H3): when AEVUS_INGEST_SECRET is set (matching the
-# server's INGEST_SECRET), it is sent as X-Ingest-Key. Unset → no header,
-# which the server accepts until enforcement is flipped on.
+# Shared ingest secret: AEVUS_INGEST_SECRET (matching the server's INGEST_SECRET)
+# is sent as X-Ingest-Key. REQUIRED against production: prod /ingest rejects
+# (401) any push without the correct key. Supplied to the service via the
+# systemd EnvironmentFile (see scadapack-relay.service); never hardcode it here.
 INGEST_SECRET = os.environ.get("AEVUS_INGEST_SECRET", "")
 WIN = []
 
@@ -92,6 +93,11 @@ def cycle():
 
 
 if __name__ == "__main__":
+    if not INGEST_SECRET:
+        print(
+            "WARNING: AEVUS_INGEST_SECRET is not set; production /ingest will "
+            "reject every push with 401. Set it in ~/.config/aevus/relay.env."
+        )
     if "--once" in sys.argv:
         cycle()
         sys.exit(0)

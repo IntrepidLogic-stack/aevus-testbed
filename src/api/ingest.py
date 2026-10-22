@@ -26,32 +26,45 @@ router = APIRouter(prefix="/ingest", tags=["ingest"])
 
 
 def _check_ingest_secret(provided: str | None) -> None:
-    """Three-state shared-secret gate for the relay push path (H3 follow-up).
+    """Shared-secret gate for the relay push path.
 
     /ingest is exempt from the API-key middleware because the shop-PC /
-    edge-Pi relays push here with no credential. That left the endpoint
-    accepting fabricated telemetry from anyone. Fix rolls out in phases so a
-    deploy can never break live ingestion:
+    edge-Pi relays push here with no API key. Without its own gate the endpoint
+    accepted fabricated telemetry from anyone. Behavior by environment:
 
-      1. OFF (default)   — ingest_secret empty: open, exactly as before.
-      2. MONITOR         — secret set, ingest_secret_enforced=False: requests
-                           missing/mismatching X-Ingest-Key are ACCEPTED but
-                           logged, so you can verify every relay sends the
-                           right header before flipping enforcement.
-      3. ENFORCE         — secret set + enforced=True: bad/missing key → 401.
+    PRODUCTION (settings.is_production) - fail closed, no phased modes:
+      * INGEST_SECRET unset  -> 401 (logged as ingest_secret_unset_in_production)
+      * header missing/wrong -> 401
+      * header correct       -> accepted
+      The INGEST_SECRET_ENFORCED flag is ignored in production (always on).
 
-    Misconfig guard: enforced=True with an empty secret stays OPEN (a typo'd
-    .env must not silently kill real telemetry) but logs loudly at every hit.
+    NON-PRODUCTION (dev/test/staging) - phased rollout, unchanged:
+      1. OFF (default)   - ingest_secret empty: open.
+      2. MONITOR         - secret set, enforced=False: bad/missing key is
+                           accepted but logged.
+      3. ENFORCE         - secret set + enforced=True: bad/missing key -> 401.
+      enforced=True with an empty secret stays open (logged loudly).
     """
     secret = settings.ingest_secret
+    if settings.is_production:
+        if not secret:
+            logger.error(
+                "ingest_secret_unset_in_production",
+                detail="INGEST_SECRET is required in production; rejecting /ingest",
+            )
+            raise HTTPException(status_code=401, detail="Invalid or missing ingest key")
+        if provided and secrets.compare_digest(provided.encode(), secret.encode()):
+            return
+        raise HTTPException(status_code=401, detail="Invalid or missing ingest key")
+
     if not secret:
         if settings.ingest_secret_enforced:
             logger.warning(
                 "ingest_secret_misconfigured",
-                detail="INGEST_SECRET_ENFORCED is on but INGEST_SECRET is empty — staying open",
+                detail="INGEST_SECRET_ENFORCED is on but INGEST_SECRET is empty - staying open",
             )
         return
-    if provided and secrets.compare_digest(provided, secret):
+    if provided and secrets.compare_digest(provided.encode(), secret.encode()):
         return
     if settings.ingest_secret_enforced:
         raise HTTPException(status_code=401, detail="Invalid or missing ingest key")

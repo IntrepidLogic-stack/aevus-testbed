@@ -46,10 +46,10 @@ param(
     [int]   $UnitId    = 1,
     [string]$AssetId   = 'RTU-01',
     [string]$IngestUrl = 'https://aevus.intrepidlogic.io/api/v1/ingest',
-    # Shared ingest secret (H3): defaults from the AEVUS_INGEST_SECRET env var
-    # (set it machine-wide or in the Scheduled Task definition). When set and
-    # matching the server's INGEST_SECRET, it is sent as X-Ingest-Key. Empty →
-    # no header, which the server accepts until enforcement is flipped on.
+    # Shared ingest secret: defaults from the AEVUS_INGEST_SECRET env var
+    # (set it machine-wide or in the Scheduled Task definition). It is sent as
+    # X-Ingest-Key and is REQUIRED against production: the server rejects (401)
+    # any push without the key matching its INGEST_SECRET.
     [string]$IngestSecret = $env:AEVUS_INGEST_SECRET,
     [int]   $IntervalSec = 30,
     [int]   $TimeoutMs   = 2500,
@@ -153,6 +153,9 @@ function Send-Cycle {
     }
 }
 
+if (-not $IngestSecret) {
+    Write-Log "WARNING: AEVUS_INGEST_SECRET not set; production /ingest will reject every push (401)."
+}
 Write-Log ("=== Aevus SCADAPack relay starting === asset={0} target={1}:{2} src={3} -> {4}" -f $AssetId, $ScadaIp, $Port, $SourceIp, $IngestUrl)
 
 if ($Once) {

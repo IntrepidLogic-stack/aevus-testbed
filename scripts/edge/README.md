@@ -27,13 +27,19 @@ standalone process — it does NOT touch `aevus.service`.
 # 1) copy the script
 scp scripts/edge/scadapack_ingest_relay.py admin@<pi>:/home/admin/
 
-# 2) install the user-systemd unit
+# 2) create the ingest-secret file (REQUIRED: prod /ingest returns 401 without it).
+#    Value = the server's INGEST_SECRET. Type it directly; do not paste it into
+#    chat/tickets/shell history you share.
+mkdir -p ~/.config/aevus && chmod 700 ~/.config/aevus
+umask 077 && read -rs -p "INGEST_SECRET: " S && echo && printf 'AEVUS_INGEST_SECRET=%s\n' "$S" > ~/.config/aevus/relay.env && unset S
+
+# 3) install the user-systemd unit
 mkdir -p ~/.config/systemd/user
 cp scripts/edge/scadapack-relay.service ~/.config/systemd/user/
 systemctl --user daemon-reload
 systemctl --user enable --now scadapack-relay.service
 
-# 3) verify
+# 4) verify
 systemctl --user is-active scadapack-relay.service   # -> active
 tail -f /home/admin/scadapack_relay.log              # poll OK ... ingest 200
 ```

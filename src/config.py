@@ -3,6 +3,7 @@ Aevus Testbed — Configuration
 Loads all settings from .env via pydantic-settings.
 """
 
+from pydantic import AliasChoices, Field
 from pydantic_settings import BaseSettings
 
 
@@ -168,8 +169,23 @@ class Settings(BaseSettings):
     #   2. set INGEST_SECRET on box + relays (AEVUS_INGEST_SECRET env), watch
     #      logs for ingest_secret_monitor warnings until they stop
     #   3. set INGEST_SECRET_ENFORCED=1 → bad/missing key rejected 401
+    #
+    # PRODUCTION HARDENING (2026-10-21): in production the gate is ALWAYS enforced
+    # and the secret is REQUIRED. An unset INGEST_SECRET in prod no longer means
+    # "open": /ingest fails closed (401) until the secret is configured. The phased
+    # OFF/MONITOR states above remain for dev/test/staging only.
     ingest_secret: str = ""
     ingest_secret_enforced: bool = False
+
+    # Deployment environment. Set ENV=production (or ENVIRONMENT/AEVUS_ENV) on the
+    # prod box. If unset, a configured API_KEY is treated as production (prod always
+    # has one; dev mode is defined as "no API key" in api/auth.py), so a forgotten
+    # ENV var cannot silently leave /ingest open. ENV=development|dev|test|local
+    # explicitly opts a box out of the production gate.
+    environment: str = Field(
+        default="",
+        validation_alias=AliasChoices("ENV", "ENVIRONMENT", "AEVUS_ENV"),
+    )
 
     # ── AI endpoint rate limiting ──
     # The public demo (demo-referer bypass in api/auth.py) reaches the paid
@@ -261,6 +277,21 @@ class Settings(BaseSettings):
     site_latitude: float = 29.3905
     site_longitude: float = -95.8375
     weather_poll_interval: int = 900
+
+    @property
+    def is_production(self) -> bool:
+        """True when this process should apply production-grade (fail-closed) gates.
+
+        Explicit ENV wins: production/prod => True; development/dev/test/local/
+        staging-style opt-outs => False. When ENV is unset, a configured API_KEY
+        implies production (prod always sets it; dev mode == no API key).
+        """
+        env = (self.environment or "").strip().lower()
+        if env in {"production", "prod"}:
+            return True
+        if env in {"development", "dev", "test", "testing", "local", "ci"}:
+            return False
+        return bool(self.api_key)
 
 
 # Singleton

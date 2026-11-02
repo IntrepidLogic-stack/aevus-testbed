@@ -26,7 +26,7 @@ annotated-types==0.7.0
 anyio==4.14.2
 APScheduler==3.11.3
 asyncua==2.0.1
-Authlib==1.7.2
+Authlib==1.9.1
 bandit==1.9.4
 boto3==1.43.52
 botocore==1.43.52

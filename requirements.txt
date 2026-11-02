@@ -57,7 +57,7 @@ MarkupSafe==3.0.3
 marshmallow==4.3.0
 mdurl==0.1.2
 narwhals==2.24.0
-nltk==3.10.3
+nltk==3.10.4
 numpy==2.5.1
 packaging==26.2
 paho-mqtt==2.1.0
